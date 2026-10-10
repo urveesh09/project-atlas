@@ -1,0 +1,313 @@
+{
+  "$id": "https://atlas.invalid/schemas/layout-artifact.schema.json",
+  "title": "ATLAS layout-artifact (atlas.layout/1.0.0)",
+  "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "layoutVersion": {
+      "type": "string",
+      "const": "atlas.layout/1.0.0"
+    },
+    "layoutId": {
+      "type": "string",
+      "pattern": "^layout_[0-9a-f]{64}$"
+    },
+    "unitsPerCell": {
+      "type": "number",
+      "const": 100
+    },
+    "root": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": -2147483647,
+          "maximum": 2147483647
+        },
+        "z": {
+          "type": "integer",
+          "minimum": -2147483647,
+          "maximum": 2147483647
+        },
+        "width": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 2147483647
+        },
+        "depth": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "x",
+        "z",
+        "width",
+        "depth"
+      ],
+      "additionalProperties": false
+    },
+    "districts": {
+      "maxItems": 40000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^dist_[0-9a-f]{64}$"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^dist_[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rect": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "integer",
+                "minimum": -2147483647,
+                "maximum": 2147483647
+              },
+              "z": {
+                "type": "integer",
+                "minimum": -2147483647,
+                "maximum": 2147483647
+              },
+              "width": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647
+              },
+              "depth": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647
+              }
+            },
+            "required": [
+              "x",
+              "z",
+              "width",
+              "depth"
+            ],
+            "additionalProperties": false
+          },
+          "anchorPath": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": ""
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "rect",
+          "anchorPath"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "plots": {
+      "maxItems": 20000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "lineageId": {
+            "type": "string",
+            "pattern": "^lin_[0-9a-f]{64}$"
+          },
+          "districtId": {
+            "type": "string",
+            "pattern": "^dist_[0-9a-f]{64}$"
+          },
+          "rect": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "integer",
+                "minimum": -2147483647,
+                "maximum": 2147483647
+              },
+              "z": {
+                "type": "integer",
+                "minimum": -2147483647,
+                "maximum": 2147483647
+              },
+              "width": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647
+              },
+              "depth": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647
+              }
+            },
+            "required": [
+              "x",
+              "z",
+              "width",
+              "depth"
+            ],
+            "additionalProperties": false
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          }
+        },
+        "required": [
+          "lineageId",
+          "districtId",
+          "rect",
+          "seed"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "externalAnchors": {
+      "maxItems": 10000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "canonicalName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "x": {
+            "type": "integer",
+            "minimum": -2147483647,
+            "maximum": 2147483647
+          },
+          "z": {
+            "type": "integer",
+            "minimum": -2147483647,
+            "maximum": 2147483647
+          }
+        },
+        "required": [
+          "canonicalName",
+          "x",
+          "z"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "frameState": {
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "snapshotId": {
+            "type": "string",
+            "pattern": "^snap_[0-9a-f]{64}$"
+          },
+          "containers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "graphNodeId": {
+                  "type": "string",
+                  "pattern": "^node_[0-9a-f]{64}$"
+                },
+                "layoutDistrictId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^dist_[0-9a-f]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "graphNodeId",
+                "layoutDistrictId"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "nodeId": {
+                  "type": "string",
+                  "pattern": "^node_[0-9a-f]{64}$"
+                },
+                "lineageId": {
+                  "type": "string",
+                  "pattern": "^lin_[0-9a-f]{64}$"
+                },
+                "currentParentId": {
+                  "type": "string",
+                  "pattern": "^node_[0-9a-f]{64}$"
+                },
+                "height": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 14
+                },
+                "present": {
+                  "type": "boolean",
+                  "const": true
+                }
+              },
+              "required": [
+                "nodeId",
+                "lineageId",
+                "currentParentId",
+                "height",
+                "present"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "snapshotId",
+          "containers",
+          "files"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "layoutVersion",
+    "layoutId",
+    "unitsPerCell",
+    "root",
+    "districts",
+    "plots",
+    "externalAnchors",
+    "frameState"
+  ],
+  "additionalProperties": false
+}

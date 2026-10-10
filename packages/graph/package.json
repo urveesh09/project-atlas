@@ -1,0 +1,23 @@
+{
+  "name": "@atlas/graph",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "Graph aggregation, adjacency, SCCs and bounded queries shared by CLI and viewer.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@atlas/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@atlas/test-fixtures": "workspace:*"
+  }
+}

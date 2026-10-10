@@ -1,0 +1,23 @@
+{
+  "name": "@atlas/layout",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "Deterministic integer city layout: hierarchical square-shelf packing and seeded styling.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@atlas/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@atlas/test-fixtures": "workspace:*"
+  }
+}

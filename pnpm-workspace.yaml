@@ -1,0 +1,7 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 10 blocks dependency lifecycle scripts by default. ATLAS never needs them;
+# keep this list empty unless an ADR justifies an exception.
+onlyBuiltDependencies: []

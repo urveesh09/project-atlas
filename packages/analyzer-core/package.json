@@ -1,0 +1,29 @@
+{
+  "name": "@atlas/analyzer-core",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "Analysis pipeline: enumeration, coverage, parsing orchestration and deterministic merge.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@atlas/schema": "workspace:*",
+    "@atlas/ingest": "workspace:*",
+    "@atlas/analyzer-ts": "workspace:*",
+    "@atlas/graph": "workspace:*",
+    "@atlas/history": "workspace:*",
+    "@atlas/layout": "workspace:*",
+    "@atlas/artifact": "workspace:*"
+  },
+  "devDependencies": {
+    "@atlas/test-fixtures": "workspace:*"
+  }
+}

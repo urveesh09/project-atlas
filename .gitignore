@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+.vite/
+apps/web/dist/
+test-results/
+playwright-report/
+# Generated fixture repositories and analysis output live outside the source tree.
+.atlas-tmp/
+atlas-output/

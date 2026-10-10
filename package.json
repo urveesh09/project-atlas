@@ -1,0 +1,32 @@
+{
+  "name": "project-atlas",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "ATLAS — explore a TS/JS repository as an explainable miniature city.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=24.15.0 <25",
+    "pnpm": "10.34.6"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "clean": "tsc -b tsconfig.build.json --clean",
+    "typecheck": "tsc -b tsconfig.build.json && tsc -p tsconfig.test.json && pnpm --filter @atlas/web typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:deps": "node scripts/check-dependency-direction.mjs",
+    "contracts:generate": "node scripts/generate-contracts.mjs",
+    "contracts:check": "node scripts/generate-contracts.mjs --check",
+    "fixtures:demo": "node packages/test-fixtures/scripts/build-demo-repo.mjs",
+    "spike:render": "pnpm --filter @atlas/web build && node apps/web/scripts/render-spike.mjs",
+    "verify": "pnpm typecheck && pnpm check:deps && pnpm contracts:check && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "6.0.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

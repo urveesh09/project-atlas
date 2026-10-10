@@ -1,0 +1,26 @@
+{
+  "name": "@atlas/cli",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "The atlas command: doctor, analyze, inspect, verify and serve.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@atlas/schema": "workspace:*",
+    "@atlas/ingest": "workspace:*",
+    "@atlas/analyzer-core": "workspace:*",
+    "@atlas/artifact": "workspace:*"
+  },
+  "devDependencies": {
+    "@atlas/test-fixtures": "workspace:*"
+  }
+}

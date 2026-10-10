@@ -1,0 +1,24 @@
+{
+  "name": "@atlas/analyzer-ts",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "TS/JS language adapter: syntax facts, declarations, imports and virtual-filesystem module resolution.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@atlas/schema": "workspace:*",
+    "typescript": "6.0.3"
+  },
+  "devDependencies": {
+    "@atlas/test-fixtures": "workspace:*"
+  }
+}

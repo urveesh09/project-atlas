@@ -1,0 +1,17 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/schema" },
+    { "path": "packages/ingest" },
+    { "path": "packages/analyzer-ts" },
+    { "path": "packages/graph" },
+    { "path": "packages/history" },
+    { "path": "packages/layout" },
+    { "path": "packages/artifact" },
+    { "path": "packages/analyzer-core" },
+    { "path": "packages/cli" },
+    { "path": "packages/test-fixtures" },
+    { "path": "apps/api" },
+    { "path": "apps/worker" }
+  ]
+}

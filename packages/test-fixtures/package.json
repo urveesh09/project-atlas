@@ -1,0 +1,16 @@
+{
+  "name": "@atlas/test-fixtures",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "Authored fixture repositories, demo history builder and adversarial inputs (data only).",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "dependencies": { "@atlas/schema": "workspace:*" }
+}

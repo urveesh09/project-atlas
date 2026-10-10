@@ -1,0 +1,888 @@
+{
+  "$id": "https://atlas.invalid/schemas/artifact-manifest.schema.json",
+  "title": "ATLAS artifact-manifest (atlas.artifact/1.0.0)",
+  "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "artifactVersion": {
+      "type": "string",
+      "const": "atlas.artifact/1.0.0"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "atlas.graph/1.0.0"
+    },
+    "analysisId": {
+      "type": "string",
+      "pattern": "^analysis_[0-9a-f]{64}$"
+    },
+    "analysisKey": {
+      "type": "string",
+      "pattern": "^akey_[0-9a-f]{64}$"
+    },
+    "repo": {
+      "type": "object",
+      "properties": {
+        "repoId": {
+          "type": "string",
+          "pattern": "^repo_[0-9a-f]{64}$"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "sourceKind": {
+          "type": "string",
+          "enum": [
+            "local-git",
+            "public-github"
+          ]
+        },
+        "remote": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "host": {
+                  "type": "string",
+                  "const": "github.com"
+                },
+                "owner": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$"
+                },
+                "name": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._-]{1,100}$"
+                },
+                "numericId": {
+                  "type": "string",
+                  "pattern": "^[1-9]\\d{0,19}$"
+                }
+              },
+              "required": [
+                "host",
+                "owner",
+                "name",
+                "numericId"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "objectFormat": {
+          "type": "string",
+          "enum": [
+            "sha1",
+            "sha256"
+          ]
+        }
+      },
+      "required": [
+        "repoId",
+        "displayName",
+        "sourceKind",
+        "remote",
+        "objectFormat"
+      ],
+      "additionalProperties": false
+    },
+    "selectedCommit": {
+      "type": "object",
+      "properties": {
+        "oid": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "committerTime": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+        },
+        "firstParentOid": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "oid",
+        "committerTime",
+        "firstParentOid"
+      ],
+      "additionalProperties": false
+    },
+    "analyzer": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "parserVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "gitVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "version",
+        "parserVersion",
+        "gitVersion"
+      ],
+      "additionalProperties": false
+    },
+    "optionsDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "metricDefinitionVersion": {
+      "type": "string",
+      "const": "atlas.metrics/1"
+    },
+    "frames": {
+      "minItems": 1,
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "snapshotId": {
+            "type": "string",
+            "pattern": "^snap_[0-9a-f]{64}$"
+          },
+          "commit": {
+            "type": "object",
+            "properties": {
+              "oid": {
+                "type": "string",
+                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+              },
+              "committerTime": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+              },
+              "firstParentOid": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "oid",
+              "committerTime",
+              "firstParentOid"
+            ],
+            "additionalProperties": false
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graphChunk": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "pattern": "^(?:graphs\\/snap_[0-9a-f]{64}|history\\/history|layout\\/layout)\\.json\\.gz$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "uncompressedBytes": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 104857600
+              },
+              "compressedBytes": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 20971520
+              },
+              "mediaType": {
+                "type": "string",
+                "const": "application/json"
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "uncompressedBytes",
+              "compressedBytes",
+              "mediaType"
+            ],
+            "additionalProperties": false
+          },
+          "nodeCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "edgeCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "analysisStatus": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ]
+          },
+          "coverage": {
+            "type": "object",
+            "properties": {
+              "discoveredFiles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "includedFiles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "supportedFiles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "parsedFiles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "parseFailedFiles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "opaqueFiles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "excludedFiles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "omittedFiles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "observedImports": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "internalResolved": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "externalResolved": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "builtinResolved": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "unresolved": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "unsupported": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "excludedTargets": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "reasons": {
+                "maxItems": 512,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "limitsHit": {
+                "maxItems": 64,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                }
+              },
+              "warnings": {
+                "maxItems": 10000,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                    },
+                    "path": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "path"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "discoveredFiles",
+              "includedFiles",
+              "supportedFiles",
+              "parsedFiles",
+              "parseFailedFiles",
+              "opaqueFiles",
+              "excludedFiles",
+              "omittedFiles",
+              "observedImports",
+              "internalResolved",
+              "externalResolved",
+              "builtinResolved",
+              "unresolved",
+              "unsupported",
+              "excludedTargets",
+              "reasons",
+              "limitsHit",
+              "warnings"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "snapshotId",
+          "commit",
+          "ordinal",
+          "graphChunk",
+          "nodeCount",
+          "edgeCount",
+          "analysisStatus",
+          "coverage"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "historyChunk": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?:graphs\\/snap_[0-9a-f]{64}|history\\/history|layout\\/layout)\\.json\\.gz$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "uncompressedBytes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 104857600
+        },
+        "compressedBytes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 20971520
+        },
+        "mediaType": {
+          "type": "string",
+          "const": "application/json"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "uncompressedBytes",
+        "compressedBytes",
+        "mediaType"
+      ],
+      "additionalProperties": false
+    },
+    "layoutChunk": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?:graphs\\/snap_[0-9a-f]{64}|history\\/history|layout\\/layout)\\.json\\.gz$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "uncompressedBytes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 104857600
+        },
+        "compressedBytes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 20971520
+        },
+        "mediaType": {
+          "type": "string",
+          "const": "application/json"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "uncompressedBytes",
+        "compressedBytes",
+        "mediaType"
+      ],
+      "additionalProperties": false
+    },
+    "chunks": {
+      "minItems": 3,
+      "maxItems": 14,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^(?:graphs\\/snap_[0-9a-f]{64}|history\\/history|layout\\/layout)\\.json\\.gz$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "uncompressedBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 104857600
+          },
+          "compressedBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 20971520
+          },
+          "mediaType": {
+            "type": "string",
+            "const": "application/json"
+          }
+        },
+        "required": [
+          "path",
+          "sha256",
+          "uncompressedBytes",
+          "compressedBytes",
+          "mediaType"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "head": {
+          "type": "object",
+          "properties": {
+            "discoveredFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "includedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "supportedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "parsedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "parseFailedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "opaqueFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "excludedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "omittedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "observedImports": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "internalResolved": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "externalResolved": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "builtinResolved": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "unresolved": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "unsupported": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "excludedTargets": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "reasons": {
+              "maxItems": 512,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                  },
+                  "count": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "code",
+                  "count"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "limitsHit": {
+              "maxItems": 64,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              }
+            },
+            "warnings": {
+              "maxItems": 10000,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                  },
+                  "path": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "path"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "discoveredFiles",
+            "includedFiles",
+            "supportedFiles",
+            "parsedFiles",
+            "parseFailedFiles",
+            "opaqueFiles",
+            "excludedFiles",
+            "omittedFiles",
+            "observedImports",
+            "internalResolved",
+            "externalResolved",
+            "builtinResolved",
+            "unresolved",
+            "unsupported",
+            "excludedTargets",
+            "reasons",
+            "limitsHit",
+            "warnings"
+          ],
+          "additionalProperties": false
+        },
+        "history": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "complete",
+                "partial",
+                "unavailable"
+              ]
+            },
+            "requestedDays": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 90
+            },
+            "requestedCommitCap": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 200
+            },
+            "commitsTraversed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "framesRequested": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 12
+            },
+            "framesCompleted": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 12
+            },
+            "boundary": {
+              "type": "string",
+              "enum": [
+                "root",
+                "days",
+                "commit-cap",
+                "shallow",
+                "resource-cap",
+                "none"
+              ]
+            },
+            "oldestOid": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "newestOid": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "renameDetection": {
+              "type": "string",
+              "enum": [
+                "complete",
+                "partial",
+                "unavailable"
+              ]
+            },
+            "lineDiffs": {
+              "type": "string",
+              "enum": [
+                "complete",
+                "partial",
+                "unavailable"
+              ]
+            },
+            "coChange": {
+              "type": "string",
+              "enum": [
+                "complete",
+                "partial",
+                "unavailable"
+              ]
+            }
+          },
+          "required": [
+            "status",
+            "requestedDays",
+            "requestedCommitCap",
+            "commitsTraversed",
+            "framesRequested",
+            "framesCompleted",
+            "boundary",
+            "oldestOid",
+            "newestOid",
+            "renameDetection",
+            "lineDiffs",
+            "coChange"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "head",
+        "history"
+      ],
+      "additionalProperties": false
+    },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+    },
+    "expiresAt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sourceTextIncluded": {
+      "type": "boolean",
+      "const": false
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/__schema0"
+      }
+    }
+  },
+  "required": [
+    "artifactVersion",
+    "schemaVersion",
+    "analysisId",
+    "analysisKey",
+    "repo",
+    "selectedCommit",
+    "analyzer",
+    "optionsDigest",
+    "metricDefinitionVersion",
+    "frames",
+    "historyChunk",
+    "layoutChunk",
+    "chunks",
+    "coverage",
+    "createdAt",
+    "expiresAt",
+    "sourceTextIncluded"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/__schema0"
+          }
+        }
+      ]
+    }
+  }
+}

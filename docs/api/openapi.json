@@ -1,0 +1,994 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ATLAS hosted API",
+    "version": "1.0.0",
+    "description": "Plan §13. Contract versions: atlas.graph/1.0.0, atlas.layout/1.0.0, atlas.artifact/1.0.0, atlas.metrics/1. Request bodies are limited to 16384 bytes. Implemented in Phase 5; this document is the initial contract."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "AnalysisSubmission": {
+        "type": "object",
+        "properties": {
+          "repositoryUrl": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "commitSha": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "profile": {
+            "type": "string",
+            "const": "v0.1-default"
+          },
+          "history": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false
+          },
+          "publication": {
+            "type": "string",
+            "const": "public-expiring"
+          }
+        },
+        "required": [
+          "repositoryUrl",
+          "commitSha",
+          "profile",
+          "history",
+          "publication"
+        ],
+        "additionalProperties": false
+      },
+      "AnalysisAccepted": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "pattern": "^job_[0-9a-f]{32}$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "ACQUIRING",
+              "ANALYZING",
+              "HISTORY",
+              "LAYOUT",
+              "VALIDATING",
+              "READY",
+              "PARTIAL",
+              "CANCEL_REQUESTED",
+              "CANCELLED",
+              "FAILED"
+            ]
+          },
+          "managementToken": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{43}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "statusUrl": {
+            "type": "string",
+            "format": "starts_with",
+            "pattern": "^\\/api\\/v1\\/jobs\\/.*"
+          },
+          "eventsUrl": {
+            "type": "string",
+            "format": "starts_with",
+            "pattern": "^\\/api\\/v1\\/jobs\\/.*"
+          },
+          "analysisId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^analysis_[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "jobId",
+          "state",
+          "managementToken",
+          "statusUrl",
+          "eventsUrl",
+          "analysisId"
+        ],
+        "additionalProperties": false
+      },
+      "JobStatus": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "pattern": "^job_[0-9a-f]{32}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "ACQUIRING",
+              "ANALYZING",
+              "HISTORY",
+              "LAYOUT",
+              "VALIDATING",
+              "READY",
+              "PARTIAL",
+              "CANCEL_REQUESTED",
+              "CANCELLED",
+              "FAILED"
+            ]
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "validate",
+                  "acquire",
+                  "index",
+                  "analyze",
+                  "history",
+                  "layout",
+                  "publish"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "queuePosition": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "counts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-zA-Z]{1,32}$"
+            },
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "warnings": {
+            "maxItems": 64,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "code",
+                "count"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "analysisId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^analysis_[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "enum": [
+                      "INVALID_REPOSITORY_URL",
+                      "REPOSITORY_NOT_PUBLIC",
+                      "REPOSITORY_NOT_FOUND",
+                      "REPOSITORY_MOVED",
+                      "EMPTY_REPOSITORY",
+                      "COMMIT_NOT_ACCESSIBLE",
+                      "UPSTREAM_RATE_LIMITED",
+                      "UPSTREAM_UNAVAILABLE",
+                      "REPOSITORY_TOO_LARGE",
+                      "ANALYSIS_RESOURCE_LIMIT",
+                      "UNSUPPORTED_SCHEMA",
+                      "ARTIFACT_INVALID",
+                      "JOB_CANCELLED",
+                      "ARTIFACT_EXPIRED",
+                      "ARTIFACT_REVOKED",
+                      "FORBIDDEN",
+                      "VALIDATION_FAILED",
+                      "IDEMPOTENCY_CONFLICT",
+                      "QUOTA_EXCEEDED",
+                      "INTERNAL_ERROR"
+                    ]
+                  },
+                  "message": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "retryable": {
+                    "type": "boolean"
+                  },
+                  "details": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 256
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    }
+                  },
+                  "requestId": {
+                    "type": "string",
+                    "pattern": "^req_[0-9a-f]{32}$"
+                  }
+                },
+                "required": [
+                  "code",
+                  "message",
+                  "retryable",
+                  "details",
+                  "requestId"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+          }
+        },
+        "required": [
+          "jobId",
+          "revision",
+          "state",
+          "stage",
+          "queuePosition",
+          "counts",
+          "warnings",
+          "analysisId",
+          "error",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "INVALID_REPOSITORY_URL",
+                  "REPOSITORY_NOT_PUBLIC",
+                  "REPOSITORY_NOT_FOUND",
+                  "REPOSITORY_MOVED",
+                  "EMPTY_REPOSITORY",
+                  "COMMIT_NOT_ACCESSIBLE",
+                  "UPSTREAM_RATE_LIMITED",
+                  "UPSTREAM_UNAVAILABLE",
+                  "REPOSITORY_TOO_LARGE",
+                  "ANALYSIS_RESOURCE_LIMIT",
+                  "UNSUPPORTED_SCHEMA",
+                  "ARTIFACT_INVALID",
+                  "JOB_CANCELLED",
+                  "ARTIFACT_EXPIRED",
+                  "ARTIFACT_REVOKED",
+                  "FORBIDDEN",
+                  "VALIDATION_FAILED",
+                  "IDEMPOTENCY_CONFLICT",
+                  "QUOTA_EXCEEDED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "details": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 256
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              },
+              "requestId": {
+                "type": "string",
+                "pattern": "^req_[0-9a-f]{32}$"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "retryable",
+              "details",
+              "requestId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "Capabilities": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string",
+            "const": "atlas"
+          },
+          "apiVersion": {
+            "type": "string",
+            "const": "v1"
+          },
+          "schemaVersions": {
+            "type": "object",
+            "properties": {
+              "graph": {
+                "type": "string"
+              },
+              "layout": {
+                "type": "string"
+              },
+              "artifact": {
+                "type": "string"
+              },
+              "metrics": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "graph",
+              "layout",
+              "artifact",
+              "metrics"
+            ],
+            "additionalProperties": false
+          },
+          "profiles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "const": "v0.1-default"
+            }
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "extensions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "capabilities": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "syntax",
+                      "imports",
+                      "declarations",
+                      "complexity"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "extensions",
+                "capabilities"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "limits": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "repositorySources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "public-github"
+              ]
+            }
+          }
+        },
+        "required": [
+          "service",
+          "apiVersion",
+          "schemaVersions",
+          "profiles",
+          "languages",
+          "limits",
+          "repositorySources"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "managementToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Management capability returned once at admission; never placed in URLs."
+      },
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-atlas-session",
+        "description": "HttpOnly same-origin session bound to a management capability."
+      }
+    }
+  },
+  "paths": {
+    "/analyses": {
+      "post": {
+        "operationId": "submitAnalysis",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisSubmission"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Completed cached analysis reused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisAccepted"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Job queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid submission or repository URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Policy violation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repository not found or not public",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request or repository exceeds limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Quota exceeded (Retry-After)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Upstream or service unavailable (Retry-After)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{jobId}": {
+      "get": {
+        "operationId": "getJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^job_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "security": [
+          {
+            "managementToken": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{jobId}/events": {
+      "get": {
+        "operationId": "streamJobEvents",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^job_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent events: state, progress, warning, terminal",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{jobId}/cancel": {
+      "post": {
+        "operationId": "cancelJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^job_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "security": [
+          {
+            "managementToken": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Already terminal"
+          },
+          "202": {
+            "description": "Cancellation accepted"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyses/{analysisId}": {
+      "get": {
+        "operationId": "getManifest",
+        "parameters": [
+          {
+            "name": "analysisId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^analysis_[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artifact manifest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "https://atlas.invalid/schemas/artifact-manifest.schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown analysis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Expired, deleted or revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAnalysis",
+        "parameters": [
+          {
+            "name": "analysisId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^analysis_[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "security": [
+          {
+            "managementToken": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Publication purged"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Already gone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyses/{analysisId}/chunks/{chunkId}": {
+      "get": {
+        "operationId": "getChunk",
+        "parameters": [
+          {
+            "name": "analysisId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^analysis_[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "chunkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]{1,80}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gzip-compressed canonical JSON chunk",
+            "content": {
+              "application/gzip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown chunk",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Expired, deleted or revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/capabilities": {
+      "get": {
+        "operationId": "getCapabilities",
+        "responses": {
+          "200": {
+            "description": "Static service contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "operationId": "live",
+        "responses": {
+          "200": {
+            "description": "Process is alive"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "ready",
+        "responses": {
+          "200": {
+            "description": "Ready to admit jobs"
+          },
+          "503": {
+            "description": "Not ready"
+          }
+        }
+      }
+    }
+  }
+}

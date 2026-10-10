@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["src"],
+  "references": [{ "path": "../../packages/schema" }, { "path": "../../packages/ingest" }, { "path": "../../packages/analyzer-core" }, { "path": "../../packages/artifact" }]
+}
