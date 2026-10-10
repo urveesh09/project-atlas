@@ -8,19 +8,24 @@ export function utf8Bytes(value: string): Uint8Array {
 }
 
 export function utf8ByteLength(value: string): number {
-  // Fast path for ASCII; exact count otherwise without allocating.
-  let bytes = 0;
-  for (let i = 0; i < value.length; i++) {
-    const code = value.charCodeAt(i);
-    if (code < 0x80) bytes += 1;
-    else if (code < 0x800) bytes += 2;
-    else if (code >= 0xd800 && code <= 0xdbff && i + 1 < value.length) {
-      const next = value.charCodeAt(i + 1);
-      if (next >= 0xdc00 && next <= 0xdfff) {
-        bytes += 4;
-        i++;
-      } else bytes += 3;
-    } else bytes += 3;
+  // Native scanning skips long ASCII spans; visit only code units requiring extra UTF-8 bytes.
+  let bytes = value.length;
+  const nonAscii = /[^\x00-\x7f]/g;
+  let match: RegExpExecArray | null;
+  while ((match = nonAscii.exec(value)) !== null) {
+    const i = match.index,
+      code = value.charCodeAt(i);
+    if (code < 0x800) bytes++;
+    else if (
+      code >= 0xd800 &&
+      code <= 0xdbff &&
+      i + 1 < value.length &&
+      value.charCodeAt(i + 1) >= 0xdc00 &&
+      value.charCodeAt(i + 1) <= 0xdfff
+    ) {
+      bytes += 2;
+      nonAscii.lastIndex++;
+    } else bytes += 2;
   }
   return bytes;
 }
@@ -69,65 +74,60 @@ export class CanonicalJsonError extends Error {
  * and ill-formed Unicode strings.
  */
 export function canonicalJson(value: unknown): string {
-  const parts: string[] = [];
-  write(value, '$', parts, new Set());
-  return parts.join('');
+  return write(value, [], new Set(), new Map());
 }
 
-function write(value: unknown, path: string, out: string[], stack: Set<object>): void {
-  if (value === null) {
-    out.push('null');
-    return;
-  }
+/** Join complete child values, rather than retaining millions of punctuation tokens. */
+function write(value: unknown, path: (string | number)[], stack: Set<object>, keys: Map<string, string>): string {
+  const at = () => '$' + path.map((part) => (typeof part === 'number' ? `[${part}]` : `.${part}`)).join('');
+  if (value === null) return 'null';
   switch (typeof value) {
     case 'boolean':
-      out.push(value ? 'true' : 'false');
-      return;
+      return value ? 'true' : 'false';
     case 'number':
-      if (!Number.isFinite(value)) throw new CanonicalJsonError('Non-finite number', path);
-      out.push(Object.is(value, -0) ? '0' : JSON.stringify(value));
-      return;
+      if (!Number.isFinite(value)) throw new CanonicalJsonError('Non-finite number', at());
+      return String(value);
     case 'string':
-      if (!value.isWellFormed()) throw new CanonicalJsonError('Ill-formed Unicode string', path);
-      out.push(JSON.stringify(value));
-      return;
+      if (!value.isWellFormed()) throw new CanonicalJsonError('Ill-formed Unicode string', at());
+      return JSON.stringify(value);
     case 'object':
       break;
     default:
-      throw new CanonicalJsonError(`Unsupported ${typeof value} value`, path);
+      throw new CanonicalJsonError(`Unsupported ${typeof value} value`, at());
   }
   const object = value as object;
-  if (stack.has(object)) throw new CanonicalJsonError('Cyclic structure', path);
+  if (stack.has(object)) throw new CanonicalJsonError('Cyclic structure', at());
   stack.add(object);
+  const parts: string[] = [];
+  let result: string;
   if (Array.isArray(object)) {
-    out.push('[');
     for (let i = 0; i < object.length; i++) {
-      if (i > 0) out.push(',');
-      write(object[i], `${path}[${i}]`, out, stack);
+      path.push(i);
+      parts.push(write(object[i], path, stack, keys));
+      path.pop();
     }
-    out.push(']');
+    result = '[' + parts.join(',') + ']';
   } else {
     const proto = Object.getPrototypeOf(object);
-    if (proto !== Object.prototype && proto !== null) {
-      throw new CanonicalJsonError('Non-plain object', path);
-    }
-    const keys = Object.keys(object).sort();
-    out.push('{');
-    let first = true;
-    for (const key of keys) {
+    if (proto !== Object.prototype && proto !== null) throw new CanonicalJsonError('Non-plain object', at());
+    for (const key of Object.keys(object).sort()) {
       const child = (object as Record<string, unknown>)[key];
-      if (child === undefined) throw new CanonicalJsonError(`Undefined value for "${key}"`, path);
-      if (!key.isWellFormed()) throw new CanonicalJsonError('Ill-formed Unicode key', path);
-      if (!first) out.push(',');
-      first = false;
-      out.push(JSON.stringify(key), ':');
-      write(child, `${path}.${key}`, out, stack);
+      if (child === undefined) throw new CanonicalJsonError(`Undefined value for "${key}"`, at());
+      let quoted = keys.get(key);
+      if (quoted === undefined) {
+        if (!key.isWellFormed()) throw new CanonicalJsonError('Ill-formed Unicode key', at());
+        quoted = JSON.stringify(key);
+        if (keys.size < 512) keys.set(key, quoted);
+      }
+      path.push(key);
+      parts.push(quoted + ':' + write(child, path, stack, keys));
+      path.pop();
     }
-    out.push('}');
+    result = '{' + parts.join(',') + '}';
   }
   stack.delete(object);
+  return result;
 }
-
 export function canonicalJsonSha256(value: unknown): string {
   return sha256Hex(canonicalJson(value));
 }

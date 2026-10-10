@@ -3,7 +3,7 @@
   "info": {
     "title": "ATLAS hosted API",
     "version": "1.0.0",
-    "description": "Plan §13. Contract versions: atlas.graph/1.0.0, atlas.layout/1.0.0, atlas.artifact/1.1.0, atlas.metrics/1. Request bodies are limited to 16384 bytes. Implemented in Phase 5; this document is the initial contract."
+    "description": "Plan §13. Contract versions: atlas.graph/1.0.0, atlas.layout/1.1.0, atlas.artifact/1.2.0, atlas.metrics/1. Request bodies are limited to 16384 bytes. Implemented in Phase 5; this document is the initial contract."
   },
   "servers": [
     {

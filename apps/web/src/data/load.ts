@@ -1,24 +1,45 @@
 import type { LoadResult, PickedFile } from '@atlas/artifact';
-import type { LoaderRequest, LoaderResponse } from './loader.worker';
+import type { LoaderRequest, LoaderResponse, ViewerLoadResult } from './loader.worker';
 
 /** Run one artifact load in a dedicated worker and resolve with its validated result. */
-export function loadInWorker(request: LoaderRequest, onProgress?: (path: string) => void): Promise<LoadResult> {
+export function loadInWorker(
+  request: LoaderRequest,
+  onProgress?: (path: string) => void,
+  signal?: AbortSignal,
+): Promise<ViewerLoadResult> {
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./loader.worker.ts', import.meta.url), { type: 'module', name: 'atlas-artifact-loader' });
+    const worker = new Worker(new URL('./loader.worker.ts', import.meta.url), {
+      type: 'module',
+      name: 'atlas-artifact-loader',
+    });
+    const abort = () => {
+      worker.terminate();
+      reject(new DOMException('Artifact load cancelled', 'AbortError'));
+    };
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
+    signal?.addEventListener('abort', abort, { once: true });
     worker.onmessage = (event: MessageEvent<LoaderResponse>) => {
       const message = event.data;
       if (message.type === 'progress') onProgress?.(message.path);
       else {
-        worker.terminate();
-        if (message.type === 'done') resolve(message.result);
-        else reject(new Error(message.message));
+        signal?.removeEventListener('abort', abort);
+        if (message.type === 'done' && message.result.ok) resolve({ ...message.result, queryWorker: worker });
+        else {
+          worker.terminate();
+          if (message.type === 'done') resolve(message.result);
+          else reject(new Error(message.message));
+        }
       }
     };
     worker.onerror = (event) => {
       worker.terminate();
+      signal?.removeEventListener('abort', abort);
       reject(new Error(event.message || 'The artifact loader stopped unexpectedly'));
     };
-    worker.postMessage(request);
+    worker.postMessage({ ...request, measure: new URLSearchParams(location.search).get('atlasBenchmark') === '1' });
   });
 }
 

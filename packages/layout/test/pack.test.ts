@@ -53,6 +53,16 @@ describe('square-shelf packing (hand-computed reference)', () => {
     expect(south!.z).toBeGreaterThan(geometry.root.depth);
     expect(west!.x).toBeLessThan(0);
     expect(north2!.z).toBe(north!.z);
+    expect(geometry.externalAnchors.map((a) => [a.x, a.z])).toEqual([[133, -700], [1100, 200], [200, 1100], [-700, 200], [267, -700]]);
+  });
+  it('keeps 10,000 integer terminals bounded by the same island perimeter', () => {
+    const geometry = validate({ repoId, frameKey: 'dense-ring', externals: Array.from({ length: 10_000 }, (_, i) => `npm:p${i}`), root: { kind: 'repository', path: '', files: [], children: [] } });
+    expect(geometry.layoutVersion).toBe('atlas.layout/1.1.0');
+    for (const a of geometry.externalAnchors) {
+      expect(Number.isInteger(a.x) && Number.isInteger(a.z)).toBe(true);
+      expect(a.x).toBeGreaterThanOrEqual(-700); expect(a.x).toBeLessThanOrEqual(1100);
+      expect(a.z).toBeGreaterThanOrEqual(-700); expect(a.z).toBeLessThanOrEqual(1100);
+    }
   });
 });
 

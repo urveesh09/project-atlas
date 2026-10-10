@@ -424,8 +424,8 @@ export function validateManifest(input: unknown): ValidationResult<ArtifactManif
     chunkPaths.add(chunk.path);
     uncompressed += Math.max(chunk.uncompressedBytes, chunk.decodedBytes ?? 0);
     if (chunk.encoding) {
-      if (!chunk.path.startsWith('graphs/') || manifest.artifactVersion !== 'atlas.artifact/1.1.0' || chunk.encodedSha256 === undefined || chunk.decodedBytes === undefined) {
-        sink.add('CHUNK_ENCODING', chunk.path, 'Indexed graph chunks require artifact 1.1 and complete encoded/decoded integrity metadata');
+      if (!chunk.path.startsWith('graphs/') || !['atlas.artifact/1.1.0', 'atlas.artifact/1.2.0'].includes(manifest.artifactVersion) || chunk.encodedSha256 === undefined || chunk.decodedBytes === undefined) {
+        sink.add('CHUNK_ENCODING', chunk.path, 'Indexed graph chunks require artifact 1.1/1.2 and complete encoded/decoded integrity metadata');
       }
     } else if (chunk.encodedSha256 !== undefined || chunk.decodedBytes !== undefined) {
       sink.add('CHUNK_ENCODING', chunk.path, 'Plain chunks cannot carry indexed graph metadata');

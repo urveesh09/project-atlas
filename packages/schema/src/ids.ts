@@ -1,4 +1,4 @@
-import { sha256Hex, utf8Bytes } from './canonical.js';
+import { sha256Hex, utf8ByteLength } from './canonical.js';
 
 /**
  * Readable type prefixes for hash-derived identifiers (plan §6.1, §7.1). Every ID is
@@ -33,30 +33,22 @@ const HEX64 = /^[0-9a-f]{64}$/;
  * can collide (plan §7.1: "never ambiguous string concatenation").
  */
 export function hashFields(domain: string, fields: readonly HashField[]): string {
-  const chunks: Uint8Array[] = [];
-  const push = (tag: string, payload: Uint8Array) => {
-    chunks.push(utf8Bytes(`${tag}${payload.length}:`), payload);
+  const framed: string[] = [];
+  const push = (tag: string, payload: string) => {
+    framed.push(`${tag}${utf8ByteLength(payload)}:${payload}`);
   };
-  push('d', utf8Bytes(domain));
+  push('d', domain.toWellFormed());
   for (const field of fields) {
-    if (field === null) push('z', new Uint8Array(0));
+    if (field === null) push('z', '');
     else if (typeof field === 'number') {
       if (!Number.isSafeInteger(field)) throw new TypeError(`Hash field must be a safe integer, got ${field}`);
-      push('n', utf8Bytes(String(field)));
+      push('n', String(field));
     } else {
       if (!field.isWellFormed()) throw new TypeError('Hash field must be well-formed Unicode');
-      push('s', utf8Bytes(field));
+      push('s', field);
     }
   }
-  let total = 0;
-  for (const chunk of chunks) total += chunk.length;
-  const buffer = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    buffer.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return sha256Hex(buffer);
+  return sha256Hex(framed.join(''));
 }
 
 export function makeId(kind: IdKind, fields: readonly HashField[]): string {
@@ -121,7 +113,12 @@ export function nodeId(snapshot: string, kind: OccurrenceKind, canonicalKey: str
   return makeId('node', [snapshot, kind, canonicalKey]);
 }
 
-export function lineageId(repoId: string, boundaryCommitOid: string, anchorCommitOid: string, originalPath: string): string {
+export function lineageId(
+  repoId: string,
+  boundaryCommitOid: string,
+  anchorCommitOid: string,
+  originalPath: string,
+): string {
   return makeId('lineage', [repoId, boundaryCommitOid, anchorCommitOid, originalPath]);
 }
 
@@ -140,10 +137,20 @@ export function observationId(
   return makeId('observation', [snapshot, sourceNodeId, kind, range.startOffset, range.endOffset, specifier]);
 }
 
-export function edgeId(snapshot: string, sourceIdValue: string, targetIdValue: string, kind: string, confidence: string): string {
+export function edgeId(
+  snapshot: string,
+  sourceIdValue: string,
+  targetIdValue: string,
+  kind: string,
+  confidence: string,
+): string {
   return makeId('edge', [snapshot, sourceIdValue, targetIdValue, kind, confidence]);
 }
 
-export function districtId(repoId: string, anchorKind: 'repository' | 'package' | 'directory' | 'direct', anchorPath: string): string {
+export function districtId(
+  repoId: string,
+  anchorKind: 'repository' | 'package' | 'directory' | 'direct',
+  anchorPath: string,
+): string {
   return makeId('district', [repoId, anchorKind, anchorPath]);
 }

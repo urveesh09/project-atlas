@@ -19,7 +19,7 @@ export const HeightSchema = z
   .refine((h) => Math.abs(h * 1000 - Math.round(h * 1000)) < 1e-6, 'Height must be quantized to 0.001');
 
 export const LayoutArtifactSchema = z.strictObject({
-  layoutVersion: z.literal('atlas.layout/1.0.0'),
+  layoutVersion: z.enum(['atlas.layout/1.0.0', 'atlas.layout/1.1.0']),
   layoutId: LayoutIdSchema,
   unitsPerCell: z.literal(UNITS_PER_CELL),
   root: RectSchema,

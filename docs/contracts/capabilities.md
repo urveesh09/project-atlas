@@ -1,6 +1,6 @@
 # Language and configuration capabilities: implementation status
 
-This tracks plan §4.1 against code through Phase 2. The TS/JS spike is integrated into committed-repository artifacts with isolated parsing and a tested virtual resolver. History and the production 3D city remain later phases.
+This tracks plan §4.1 against code through Phase 3. TS/JS analysis uses isolated parsing and a tested virtual resolver; the production city consumes the same validated artifacts. History remains Phase 4. Unsupported languages remain visible opaque buildings and are not claimed as analyzed.
 
 | Input | Treatment | Status |
 |---|---|---|
@@ -20,4 +20,4 @@ This tracks plan §4.1 against code through Phase 2. The TS/JS spike is integrat
 | Lockfiles | Structural only, content never read (`LOCKFILE_STRUCTURAL`) | Done (P1.2) |
 | JSON, styles, images, fonts, media | Asset buildings; byte size only | Done (P1.2) |
 | Symlinks, submodules, LFS pointers | Excluded (`SYMLINK`, `SUBMODULE`) or opaque (`LFS_NOT_FETCHED`); never followed or fetched | Done (P1.2) |
-| `atlas.config.json` | Versioned data: `exclude` globs (layout overrides deferred to P3) | Done (P1.2) |
+| `atlas.config.json` | Versioned `exclude` globs; unknown keys warn. Unspecified display overrides deferred beyond V0.1 (ADR-020) | Exclusions done (P1.2); no arbitrary styling/metric plugins |

@@ -133,7 +133,7 @@ describe('Harbor structural artifact (M1)', () => {
       {
         "graphs": "73902be68ff7461749cd9a8ef039e7433dcd1c87fafb5cf1f72b14d1d25e978b",
         "history": "6efe6df4ba79057462d59ecb63f0df61414e78560e2d5e306b80bf2c674f6daf",
-        "layout": "fdc23afa0b4a4d7703c0d7a1e6ae964a111c61658a842f8c43c3d9d0438c0d67",
+        "layout": "5aa9e27751e90490fce7209ca2fdbb515f2d28151603cd500285d141733df5c3",
       }
     `);
   });

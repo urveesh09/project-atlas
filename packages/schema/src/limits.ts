@@ -30,7 +30,7 @@ export const LIMITS = Object.freeze({
   workerDeadlineMs: 300_000,
   perFileParseDeadlineMs: 2_000,
   directoryNesting: 64,
-  artifactUncompressedBytes: 100 * MIB,
+  artifactUncompressedBytes: 128 * MIB,
   artifactCompressedBytes: 20 * MIB,
   renameSimilarityPercent: 80,
   renameCandidateLimit: 1_000,

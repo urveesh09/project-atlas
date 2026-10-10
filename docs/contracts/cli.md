@@ -49,3 +49,11 @@ Build viewer assets with `pnpm build:web` before `atlas serve`. The server binds
 `--repo` attaches committed source explicitly. The server validates the artifact's selected commit and each requested path/blob pair against that repository before returning bounded read-only text. Missing/wrong source never disables graph inspection. No arbitrary path, revision or blob endpoint exists. Without an attachment, source is unavailable with a reason.
 
 Artifact 1.1 graph chunks use the lossless indexed encoding in [ADR-018](../adr/ADR-018-indexed-graph-transport.md); CLI/browser consumers also read plain 1.0 chunks. Chunk hashes still verify full canonical decoded graphs. The browser's local file picker validates inside a worker and sends no artifact data to any server.
+
+Phase 3 writers emit artifact 1.2; readers accept 1.0/1.1/1.2 with a 128 MiB cumulative decoded cap and unchanged 20 MiB compressed cap. Limits reject oversized exports rather than dropping graph evidence. See [ADR-024](../adr/ADR-024-decoded-artifact-capacity.md).
+
+The same `serve` command now opens the production city. Choose 3D, map or paged file table; search/tree/inspector share selection. Selecting a file leaves the camera unchanged; Focus selection and reset/zoom/north controls explicitly move it. View fragments accept only validated frame, file lineage, lens, mode and inspector tab fields, bounded to 4 KiB. Loading another artifact cancels the previous validation and disposes its query worker.
+
+Structure, maximum complexity and fan-in lenses retain raw metrics and a visible legend. Incoming/outgoing dependency lists expose omitted arcs and support pinning; static reachability has explicit limits. The full external-package list remains available beyond the 50-terminal display cap. WebGL failure falls back to map; all graph tasks remain available through semantic HTML when canvas is unavailable.
+
+Image export is bounded to 2048×2048 and at most 4 million pixels. The PNG is accompanied by JSON identifying commit, analysis, layout/version, selection, lens, filters, edge limits and camera. Export does not upload data or embed source. Browser file import likewise stays local.

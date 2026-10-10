@@ -10,6 +10,8 @@ import { viewerDirectory } from '../src/commands/serve.js';
 import { SourceAttachment } from '../src/server/source.js';
 import { startViewerServer, type RunningViewerServer } from '../src/server/server.js';
 import { buildDemoRepository, type GitFixture } from '@atlas/test-fixtures';
+import { audit } from '../../../apps/web/test/audit.js';
+import type {} from '../../../apps/web/src/city/probe.js';
 
 /**
  * Gate G2 journeys in a real browser, keyboard only (plan §17 P2.6): find a file, inspect
@@ -25,7 +27,9 @@ try {
   viewerBuilt = false;
 }
 if (process.env['ATLAS_REQUIRE_BROWSER_TESTS'] === '1' && (!browserAvailable || !viewerBuilt)) {
-  throw new Error('Required browser tests need installed Chromium and a built viewer. Run playwright install chromium and pnpm build:web.');
+  throw new Error(
+    'Required browser tests need installed Chromium and a built viewer. Run playwright install chromium and pnpm build:web.',
+  );
 }
 
 async function capture(page: Page, name: string): Promise<void> {
@@ -46,12 +50,23 @@ beforeAll(async () => {
   if (!browserAvailable || !viewerBuilt) return;
   work = mkdtempSync(path.join(tmpdir(), 'atlas-e2e-'));
   demo = buildDemoRepository();
-  const io: CliIO = { stdout: { write: () => true }, stderr: { write: () => true }, env: { NO_COLOR: '1' }, cwd: work, signal: new AbortController().signal };
+  const io: CliIO = {
+    stdout: { write: () => true },
+    stderr: { write: () => true },
+    env: { NO_COLOR: '1' },
+    cwd: work,
+    signal: new AbortController().signal,
+  };
   expect(await run(['analyze', demo.dir, '--out', 'harbor-out'], io)).toBe(0);
   const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
   if (!loaded.ok) throw new Error('invalid artifact');
-  server = await startViewerServer({ artifactDir: path.join(work, 'harbor-out'), bundle: loaded.bundle, viewerDir: viewerDirectory(), source: await SourceAttachment.attach(demo.dir, loaded.bundle) });
-  browser = await chromium.launch();
+  server = await startViewerServer({
+    artifactDir: path.join(work, 'harbor-out'),
+    bundle: loaded.bundle,
+    viewerDir: viewerDirectory(),
+    source: await SourceAttachment.attach(demo.dir, loaded.bundle),
+  });
+  browser = await chromium.launch({ args: process.env['CI'] ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [] });
   context = await browser.newContext({ viewport: { width: 1280, height: 860 } });
 }, 120_000);
 
@@ -75,7 +90,8 @@ async function openViewer(): Promise<{ page: Page; requests: string[]; errors: s
   return { page, requests, errors };
 }
 
-const focusedText = (page: Page) => page.evaluate(() => (document.activeElement as HTMLElement | null)?.innerText ?? '');
+const focusedText = (page: Page) =>
+  page.evaluate(() => (document.activeElement as HTMLElement | null)?.innerText ?? '');
 
 /** Tab to the inspector's tab list (roving focus: only the selected tab is reachable). */
 async function tabToTabList(page: Page, max = 60): Promise<void> {
@@ -109,12 +125,16 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
   it('J1: finds a named file by search', async () => {
     await page.keyboard.press('/');
     await page.keyboard.type('pricing');
-    expect(await page.locator('[role="option"][aria-selected="true"]').innerText()).toContain('src/server/pricing.ts');
+    await expect
+      .poll(() => page.locator('[role="option"][aria-selected="true"]').innerText())
+      .toContain('src/server/pricing.ts');
     await page.keyboard.press('Enter');
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.ts');
     // Focus moves deliberately to the inspector heading; the live region announces it.
     expect(await page.evaluate(() => document.activeElement?.id)).toBe('inspector-title');
-    await expect.poll(() => page.locator('[role="status"][aria-live="polite"]').innerText()).toContain('src/server/pricing.ts');
+    await expect
+      .poll(() => page.locator('[role="status"][aria-live="polite"]').innerText())
+      .toContain('src/server/pricing.ts');
   });
 
   it('J2: inspects static dependencies and their evidence, then follows one', async () => {
@@ -176,9 +196,10 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
   it('opens verified source read-only from a finding, and Escape returns', async () => {
     await tabUntil(page, /^View source at this line$/);
     await page.keyboard.press('Enter');
-    const expectedImport = findingSourcePath === 'src/server/router.ts'
-      ? "import { handleQuote } from './handlers';"
-      : "import { routes } from './router';";
+    const expectedImport =
+      findingSourcePath === 'src/server/router.ts'
+        ? "import { handleQuote } from './handlers';"
+        : "import { routes } from './router';";
     await expect.poll(() => page.locator('.source-panel').innerText()).toContain(findingSourcePath);
     await expect.poll(() => page.locator('.source-panel').innerText()).toContain(expectedImport);
     await page.keyboard.press('Escape');
@@ -206,7 +227,187 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
   });
 });
 
+describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () => {
+  let page: Page;
+  beforeAll(async () => {
+    page = await context.newPage();
+    const url = new URL(server.url);
+    url.searchParams.set('atlasBenchmark', '1');
+    await page.goto(url.href);
+    await page.waitForSelector('#city-title');
+    await page.waitForFunction(() => !!window.__atlasCity);
+  });
+  const choose = async (name: string) => {
+    await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).focus();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.type(name);
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('#inspector-title');
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(name);
+  };
+  it('shows real artifact buildings and bounded draw calls', async () => {
+    const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
+    if (!loaded.ok) throw new Error('invalid');
+    const stats = await page.evaluate(() => window.__atlasCity!.stats());
+    expect(stats.buildings).toBe(loaded.bundle.layout.frameState[0]!.files.length);
+    expect(stats.drawCalls).toBeLessThan(30);
+    expect(stats.pickCells).toBeGreaterThan(0);
+  });
+  it('keeps the camera still on selection and across lenses', async () => {
+    const before = await page.evaluate(() => window.__atlasCity!.cameraState());
+    await choose('pricing.ts');
+    await page.getByLabel('Lens', { exact: true }).selectOption('complexity');
+    expect(await page.evaluate(() => window.__atlasCity!.cameraState())).toEqual(before);
+    expect(page.url()).toContain('lens=complexity');
+    await page.getByLabel('Lens', { exact: true }).selectOption('fan-in');
+    expect(await page.evaluate(() => window.__atlasCity!.cameraState())).toEqual(before);
+    expect(await page.locator('.city-legend').innerText()).toContain('25+');
+  });
+  it('synchronizes a real spatial pick with tree and inspector', async () => {
+    const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
+    if (!loaded.ok) throw new Error('invalid');
+    const file = loaded.bundle.graphs[0]!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
+    // Explicit focus is separate from single-click selection.
+    await choose('Dock.tsx');
+    await page.getByRole('button', { name: 'Focus selection' }).click();
+    const point = await page.evaluate((id) => window.__atlasCity!.screenPointOf(id), file.id);
+    expect(point).not.toBeNull();
+    const hit = await page.evaluate((p) => window.__atlasCity!.pickAt(p!.x, p!.y), point);
+    expect(hit).toBe(file.id);
+    await page.mouse.click(point!.x, point!.y);
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
+    expect(await page.locator('[role="treeitem"][aria-selected="true"]').innerText()).toContain('Dock.tsx');
+  });
+  it('shows directional overlays, type policy, limits and bounded reach through HTML', async () => {
+    await choose('pricing.ts');
+    await expect.poll(() => page.locator('[data-overlay-count]').innerText()).toMatch(/Overlay: [1-9]/);
+    await page.getByLabel('Include type-only', { exact: true }).check();
+    await expect.poll(() => page.locator('[data-overlay-count]').innerText()).toContain('including type-only');
+    await page.getByRole('button', { name: 'Show reachable files', exact: true }).click();
+    await expect.poll(() => page.locator('.reach-results').innerText()).toContain('depth ≤ 2');
+    expect(await page.locator('.reach-results').innerText()).toContain('packages/ledger/src/index.ts');
+  });
+  it('exports a bounded PNG and provenance without WebGL dependency', async () => {
+    await page.getByLabel('View', { exact: true }).selectOption('map');
+    await page.waitForSelector('[data-city-renderer="map"]');
+    const downloads: import('playwright').Download[] = [];
+    page.on('download', (d) => downloads.push(d));
+    await page.getByRole('button', { name: 'Export PNG', exact: true }).click();
+    await expect.poll(() => page.locator('.city-message').innerText(), { timeout: 5000 }).toContain('Exported PNG');
+    await expect.poll(() => downloads.length).toBe(2);
+    const png = downloads.find((d) => d.suggestedFilename() === 'atlas-city.png')!;
+    const json = downloads.find((d) => d.suggestedFilename().endsWith('.json'))!;
+    const { readFileSync } = await import('node:fs');
+    const bytes = readFileSync((await png.path())!);
+    expect(bytes.subarray(1, 4).toString()).toBe('PNG');
+    expect(bytes.readUInt32BE(16)).toBeLessThanOrEqual(2048);
+    expect(bytes.readUInt32BE(20)).toBeLessThanOrEqual(2048);
+    expect(bytes.readUInt32BE(16) * bytes.readUInt32BE(20)).toBeLessThanOrEqual(4_000_000);
+    const metadata = JSON.parse(readFileSync((await json.path())!, 'utf8'));
+    expect(metadata.lens).toBe('fan-in');
+    expect(metadata.mode).toBe('map');
+    expect(metadata.selectedPath).toBe('src/server/pricing.ts');
+    expect(metadata.layoutVersion).toBe('atlas.layout/1.1.0');
+    const artifact = await readArtifactDirectory(path.join(work, 'harbor-out'));
+    if (!artifact.ok) throw new Error('Invalid export reference artifact');
+    expect(metadata.artifactVersion).toBe('atlas.artifact/1.2.0');
+    expect(metadata.schemaVersion).toBe('atlas.graph/1.0.0');
+    expect(metadata.metricDefinitionVersion).toBe('atlas.metrics/1');
+    expect(metadata.analyzer).toEqual(artifact.bundle.manifest.analyzer);
+    expect(metadata.analysisKey).toBe(artifact.bundle.manifest.analysisKey);
+    expect(metadata.optionsDigest).toBe(artifact.bundle.manifest.optionsDigest);
+  });
+  it('retains selection through graphics context loss', async () => {
+    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await page.waitForFunction(() => !!window.__atlasCity);
+    await page.evaluate(() => window.__atlasCity!.loseContext());
+    await page.waitForSelector('[data-city-renderer="map"]');
+    expect(await page.locator('#inspector-title').innerText()).toBe('pricing.ts');
+    expect(await page.locator('.city-message').innerText()).toContain('context was lost');
+  });
+  it('offers a semantic file table and passes automated AA checks', async () => {
+    await page.getByLabel('View', { exact: true }).selectOption('table');
+    expect(await page.locator('.city-table caption').innerText()).toContain('Included files');
+    expect(await page.locator('.city-table').innerText()).toContain('src/server/pricing.ts');
+    expect(await audit(page)).toEqual([]);
+  });
+  it('reflows controls at 320px and works with reduced motion and canvas disabled', async () => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 320, height: 800 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.addStyleTag({ content: 'canvas { display: none !important; }' });
+    await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).click();
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
+    expect(await audit(page)).toEqual([]);
+  });
+});
+
 describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
+  it('round-trips file, lens and fallback mode; latest search wins when input changes rapidly', async () => {
+    const { page } = await openViewer();
+    await page.waitForSelector('#overview-title');
+    const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
+    if (!loaded.ok) throw new Error('invalid');
+    const node = loaded.bundle.graphs[0]!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
+    await page.goto(`${server.url}#v=1&file=${node.lineageId}&lens=fan-in&mode=map&tab=findings`);
+    await page.waitForSelector('[data-city-renderer="map"]');
+    expect(await page.getByLabel('Lens', { exact: true }).inputValue()).toBe('fan-in');
+    expect(await page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
+    const search = page.getByRole('combobox', { name: 'Search files, packages and declarations' });
+    await search.fill('pricing');
+    await search.fill('Dock.tsx');
+    await expect.poll(() => page.locator('[role="option"][aria-selected="true"]').innerText()).toContain('Dock.tsx');
+    await page.keyboard.press('Enter');
+    expect(await page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
+    await page.reload();
+    await page.waitForSelector('[data-city-renderer="map"]');
+    expect(await page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
+    expect(await page.getByLabel('Lens', { exact: true }).inputValue()).toBe('fan-in');
+  });
+  it('works with touch and unavailable WebGL without losing the file inspector', async () => {
+    const touch = await browser.newContext({
+      hasTouch: true,
+      viewport: { width: 390, height: 844 },
+      storageState: await context.storageState(),
+    });
+    try {
+      const page = await touch.newPage();
+      await page.addInitScript(() => {
+        const original = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...args: unknown[]) {
+          if (type.startsWith('webgl')) return null;
+          return Reflect.apply(original, this, [type, ...args]);
+        } as typeof original;
+      });
+      await page.goto(server.url);
+      await page.waitForSelector('[data-city-renderer="map"]');
+      await page.getByRole('button', { name: 'Zoom in', exact: true }).tap();
+      await page.getByRole('button', { name: 'Reset city', exact: true }).tap();
+      const map = page.locator('[data-city-renderer="map"]');
+      await map.scrollIntoViewIfNeeded();
+      const bounds = (await map.boundingBox())!, x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
+      const pixels = () => map.evaluate((el) => (el as HTMLCanvasElement).toDataURL());
+      const before = await pixels(), cdp = await touch.newCDPSession(page);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 24, y: y + 20 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      const panned = await pixels(); expect(panned).not.toBe(before);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x - 20, y, id: 1 }, { x: x + 20, y, id: 2 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 60, y, id: 1 }, { x: x + 60, y, id: 2 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      expect(await pixels()).not.toBe(panned);
+      expect(await page.locator('#overview-title').count()).toBe(1);
+      await cdp.detach();
+      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).tap();
+      await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    } finally {
+      await touch.close();
+    }
+  });
   it('restores a file and tab from an allowlisted fragment and ignores others', async () => {
     const { page } = await openViewer();
     await page.waitForSelector('#overview-title');
@@ -219,7 +420,9 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     await page.goto(`${server.url}#v=1&file=javascript:alert(1)&evil=1`);
     await page.reload();
     await page.waitForSelector('#overview-title');
-    await expect.poll(() => page.locator('[role="status"][aria-live="polite"]').innerText()).toContain('unsupported or invalid');
+    await expect
+      .poll(() => page.locator('[role="status"][aria-live="polite"]').innerText())
+      .toContain('unsupported or invalid');
   });
 });
 
@@ -236,7 +439,9 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
         res.writeHead(404).end();
         return;
       }
-      res.writeHead(200, { 'content-type': file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html' });
+      res.writeHead(200, {
+        'content-type': file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html',
+      });
       createReadStream(file).pipe(res);
     });
     await new Promise<void>((r) => staticServer.listen(0, '127.0.0.1', r));
@@ -257,9 +462,13 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
     await page.waitForSelector('#overview-title');
     const after = requests.slice(before);
     // Only the loader worker script itself may be fetched; no artifact bytes are sent.
-    expect(after.every((r) => r.method === 'GET' && r.url.startsWith(origin) && /\/assets\/.*\.js$/.test(r.url))).toBe(true);
+    expect(after.every((r) => r.method === 'GET' && r.url.startsWith(origin) && /\/assets\/.*\.js$/.test(r.url))).toBe(
+      true,
+    );
     expect(requests.filter((r) => r.method !== 'GET')).toEqual([]);
     const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
-    expect(await page.locator('#overview-title').innerText()).toBe(loaded.ok ? loaded.bundle.manifest.repo.displayName : '?');
+    expect(await page.locator('#overview-title').innerText()).toBe(
+      loaded.ok ? loaded.bundle.manifest.repo.displayName : '?',
+    );
   });
 });

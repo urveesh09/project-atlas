@@ -1,6 +1,6 @@
 {
   "$id": "https://atlas.invalid/schemas/artifact-manifest.schema.json",
-  "title": "ATLAS artifact-manifest (atlas.artifact/1.1.0)",
+  "title": "ATLAS artifact-manifest (atlas.artifact/1.2.0)",
   "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
@@ -9,7 +9,8 @@
       "type": "string",
       "enum": [
         "atlas.artifact/1.0.0",
-        "atlas.artifact/1.1.0"
+        "atlas.artifact/1.1.0",
+        "atlas.artifact/1.2.0"
       ]
     },
     "schemaVersion": {
@@ -217,7 +218,7 @@
               "uncompressedBytes": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
-                "maximum": 104857600
+                "maximum": 134217728
               },
               "compressedBytes": {
                 "type": "integer",
@@ -239,7 +240,7 @@
               "decodedBytes": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
-                "maximum": 104857600
+                "maximum": 134217728
               }
             },
             "required": [
@@ -453,7 +454,7 @@
         "uncompressedBytes": {
           "type": "integer",
           "exclusiveMinimum": 0,
-          "maximum": 104857600
+          "maximum": 134217728
         },
         "compressedBytes": {
           "type": "integer",
@@ -475,7 +476,7 @@
         "decodedBytes": {
           "type": "integer",
           "exclusiveMinimum": 0,
-          "maximum": 104857600
+          "maximum": 134217728
         }
       },
       "required": [
@@ -501,7 +502,7 @@
         "uncompressedBytes": {
           "type": "integer",
           "exclusiveMinimum": 0,
-          "maximum": 104857600
+          "maximum": 134217728
         },
         "compressedBytes": {
           "type": "integer",
@@ -523,7 +524,7 @@
         "decodedBytes": {
           "type": "integer",
           "exclusiveMinimum": 0,
-          "maximum": 104857600
+          "maximum": 134217728
         }
       },
       "required": [
@@ -553,7 +554,7 @@
           "uncompressedBytes": {
             "type": "integer",
             "exclusiveMinimum": 0,
-            "maximum": 104857600
+            "maximum": 134217728
           },
           "compressedBytes": {
             "type": "integer",
@@ -575,7 +576,7 @@
           "decodedBytes": {
             "type": "integer",
             "exclusiveMinimum": 0,
-            "maximum": 104857600
+            "maximum": 134217728
           }
         },
         "required": [

@@ -1,4 +1,5 @@
-import { forwardRef, useId, useMemo, useState, type KeyboardEvent } from 'react';
+import { forwardRef, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import type { SearchHit } from '@atlas/graph';
 import { useViewer } from '../app/context';
 
 /**
@@ -6,15 +7,31 @@ import { useViewer } from '../app/context';
  * announced through aria-activedescendant, Enter selects, Escape closes.
  */
 export const Search = forwardRef<HTMLInputElement>(function Search(_props, ref) {
-  const { model, select } = useViewer();
+  const { model, select, queries } = useViewer();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const listId = useId();
-  const results = useMemo(() => (query.trim() ? model.search.search(query, 30) : []), [model, query]);
+  const [results, setResults] = useState<SearchHit[]>([]);
+  const [resultQuery, setResultQuery] = useState('');
+  const [error, setError] = useState('');
+  const pendingChoice = useRef<string | null>(null);
+  useEffect(() => {
+    let stale = false;
+    setError('');
+    if (!query.trim()) { setResults([]); setResultQuery(query); return; }
+    if (!queries) return;
+    void queries.search(query).then((hits) => {
+      if (stale) return;
+      setResults(hits); setResultQuery(query); setActive(0);
+      if (pendingChoice.current === query && hits[0]) { pendingChoice.current = null; setOpen(false); select(hits[0].nodeId, { focusInspector: true }); }
+    }).catch(() => { if (!stale) { setError('Search is unavailable. Use the repository tree.'); setResults([]); } });
+    return () => { stale = true; };
+  }, [queries, query, select]);
   const expanded = open && query.trim().length > 0;
 
   const choose = (index: number) => {
+    if (query !== resultQuery) { pendingChoice.current = query; return; }
     const hit = results[index];
     if (!hit) return;
     setOpen(false);
@@ -54,9 +71,11 @@ export const Search = forwardRef<HTMLInputElement>(function Search(_props, ref) 
         placeholder="Search files, packages, declarations"
         autoComplete="off"
         spellCheck={false}
+        maxLength={512}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
+          pendingChoice.current = null;
           setActive(0);
           setOpen(true);
         }}
@@ -69,12 +88,12 @@ export const Search = forwardRef<HTMLInputElement>(function Search(_props, ref) 
       </kbd>
       {expanded && (
         <ul className="search-results" id={listId} role="listbox" aria-label="Search results">
-          {results.length === 0 && (
+          {(results.length === 0 || query !== resultQuery) && (
             <li className="search-empty" role="option" aria-selected={false} aria-disabled="true">
-              No matching files, packages or declarations
+              {error || (query !== resultQuery ? 'Searching…' : 'No matching files, packages or declarations')}
             </li>
           )}
-          {results.map((hit, i) => (
+          {(query === resultQuery ? results : []).map((hit, i) => (
             <li
               key={hit.nodeId}
               id={`${listId}-${i}`}

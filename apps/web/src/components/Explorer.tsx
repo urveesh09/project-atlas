@@ -6,6 +6,7 @@ import { Overview } from './Overview';
 import { Search } from './Search';
 import { SourcePanel } from './SourcePanel';
 import { Tree } from './Tree';
+import { City } from './City';
 
 /** The functional explorer: tree, search, inspector and overview, all plain HTML. */
 export function Explorer({ onOpenOther }: { onOpenOther: () => void }) {
@@ -80,8 +81,9 @@ export function Explorer({ onOpenOther }: { onOpenOther: () => void }) {
         <nav className="sidebar" aria-label="Repository">
           <Tree />
         </nav>
-        <main id="main-content" className="content" tabIndex={-1}>
-          {selected && selected.kind !== 'repository' ? <Inspector key={selected.id} node={selected} /> : <Overview />}
+        <main id="main-content" className="content city-content" tabIndex={-1}>
+          <City />
+          <div className="city-inspector">{selected && selected.kind !== 'repository' ? <Inspector key={selected.id} node={selected} /> : <Overview />}</div>
         </main>
         {state.source && <SourcePanel key={`${state.source.nodeId}:${state.source.line}`} />}
       </div>

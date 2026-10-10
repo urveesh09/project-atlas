@@ -9,7 +9,7 @@ ATLAS turns the committed contents of a TypeScript/JavaScript repository into a 
 
 Every visual encoding has a legend, every finding has evidence, and every gap in the analysis is shown as coverage.
 
-> **Status:** Phase 2 complete (milestone M2), verified on Windows and Linux in [CI](https://github.com/urveesh09/project-atlas/actions/runs/38053717357). `atlas analyze` produces a validated static graph with TS/JS imports, complexity, cycles and evidence-backed findings. `atlas serve` opens the functional browser explorer with search, keyboard navigation and optional verified source. The production 3D city is Phase 3; Git evolution and churn/hotspots are Phase 4; public hosted analysis is Phase 5. See [implementation status](docs/implementation-status.md) for checks and remaining gates.
+> **Status:** Phase 3 city implementation is available. `atlas analyze` produces a validated static graph with TS/JS imports, complexity, cycles and evidence-backed findings. `atlas serve` opens the stylized 3D city, equivalent map/file table, synchronized search/tree/inspector, directed dependency overlays and bounded image export. [Measured local performance](docs/benchmarks/phase3-city.md) and [implementation status](docs/implementation-status.md) distinguish automated evidence from pending human screen-reader and reference-device release audits. Git evolution and churn/hotspots are Phase 4; public hosted analysis is Phase 5.
 
 ## Try it
 
@@ -29,6 +29,12 @@ Every pixel of the city plan comes from the artifact's layout chunk: package dis
 
 ![coverage reasons for the adversarial inventory fixture](docs/images/atlas-inspect-coverage.png)
 
+Explore the same fixed plots in 3D, map or accessible table views. Structure, complexity and fan-in lenses have numeric legends; unknown metrics stay unknown. Selection synchronizes with search, tree and evidence without moving the camera. Camera focus is explicit.
+
+![Production city: 3,000 committed files in package districts](docs/images/phase3-3000-structure.png)
+
+Incoming/outgoing overlays retain direction and kind. Visible arcs are capped at 200, with omitted counts and a complete paged list; pinning an omitted relationship makes it visible. Package rollups and up to 50 external terminals offer another scale of navigation. PNG export includes separate JSON provenance. Keyboard controls, touch gestures, reduced motion and automatic map fallback preserve access to the same data.
+
 The browser explorer keeps file relationships and their evidence visible. Type-only imports are separate from default dependency counts:
 
 ![Browser dependency inspector on the Harbor demo](docs/images/phase2-dependencies.png)
@@ -39,7 +45,7 @@ Findings explain their static policy and limitations, including an actual cycle 
 
 Only committed files are analyzed. Use `--no-history` for the currently implemented HEAD-only scope; history options are accepted/recorded but history analysis is not implemented until Phase 4. `serve` without `--repo` still supports graph inspection; source access requires an explicit repository attachment. Opening an exported artifact through the browser's file picker never uploads it.
 
-Artifacts use a lossless indexed graph transport ([ADR-018](docs/adr/ADR-018-indexed-graph-transport.md)); decoded identities remain full SHA-256 IDs. Existing 1.0 artifacts remain readable. The medium benchmark is below the original 5 MiB budget without removing evidence or declarations.
+Artifacts use a lossless indexed graph transport ([ADR-018](docs/adr/ADR-018-indexed-graph-transport.md)); decoded identities remain full SHA-256 IDs. Writers emit artifact 1.2 with a 128 MiB cumulative decoded cap; readers also accept 1.0 and 1.1. The compressed limit stays 20 MiB. [ADR-024](docs/adr/ADR-024-decoded-artifact-capacity.md) explains the capacity decision and memory tradeoff. Layout 1.1 bounds external anchors without changing file plots or graph identity.
 
 ## What V0.1 will do
 
@@ -76,12 +82,13 @@ pnpm --filter @atlas/web dev   # viewer shell and the instancing spike at /spike
 | `pnpm contracts:generate` / `contracts:check` | Regenerate or verify JSON Schema and OpenAPI from the runtime schemas |
 | `pnpm spike:render` | Measure the WebGL instancing spike in Chromium |
 | `node scripts/bench-analysis.mjs` | 20 measured medium HEAD runs with cold parser caches; checks time and artifact size |
+| `node apps/web/scripts/bench-city.mjs --firefox` | 20-run production viewer/layout gate, dense fixtures, cold route, heap/disposal, Firefox and screenshots; install Firefox first |
 | `ATLAS_NETWORK_TESTS=1 pnpm exec vitest run packages/ingest/test/github.test.ts` | Live GitHub acquisition spike |
 
 ## Repository layout
 
 ```text
-apps/web/                 shared local/hosted viewer (React, Vite, React Three Fiber)
+apps/web/                 shared viewer (React, Vite, imperative Three.js production city; R3F spike)
 apps/api/                 hosted HTTP surface (Phase 5)
 apps/worker/              sandbox coordinator and publication (Phase 5)
 packages/schema/          canonical contracts, IDs, canonical JSON, validators, generated JSON Schema
@@ -107,6 +114,7 @@ The dependency direction is enforced in CI: schema is foundational, analyzers ne
 - Contracts: [identity](docs/contracts/identity.md), [metrics](docs/contracts/metrics.md), [capabilities](docs/contracts/capabilities.md), [CLI](docs/contracts/cli.md), [OpenAPI](docs/api/openapi.json), [JSON Schemas](packages/schema/generated/)
 - [Phase 0 rendering benchmark](docs/benchmarks/phase0-render-spike.md)
 - [Phase 2 analysis benchmark](docs/benchmarks/phase2-analysis.md), [transport decision](docs/adr/ADR-018-indexed-graph-transport.md), [Phase 2 decisions and gate](docs/adr/ADR-019-phase2-static-analysis-and-viewer.md)
+- [Phase 3 city benchmark](docs/benchmarks/phase3-city.md), [production viewer decision](docs/adr/ADR-020-production-city-viewer.md), [validated worker ownership](docs/adr/ADR-023-retain-validated-query-worker.md)
 
 ## License
 

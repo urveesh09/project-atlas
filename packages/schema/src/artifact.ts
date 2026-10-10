@@ -68,7 +68,7 @@ export const FrameDescriptorSchema = z.strictObject({
 });
 
 export const ArtifactManifestSchema = z.strictObject({
-  artifactVersion: z.enum(['atlas.artifact/1.0.0', 'atlas.artifact/1.1.0']),
+  artifactVersion: z.enum(['atlas.artifact/1.0.0', 'atlas.artifact/1.1.0', 'atlas.artifact/1.2.0']),
   schemaVersion: z.literal('atlas.graph/1.0.0'),
   analysisId: AnalysisIdSchema,
   analysisKey: AnalysisKeySchema,

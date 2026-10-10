@@ -1,24 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import {
-  encodeCanonical, gunzipNode, gunzipWithStreams, gzipDeterministic, loadArtifact,
-  packArtifact, type ArtifactSource, type PackedArtifact,
+  encodeCanonical,
+  gunzipNode,
+  gunzipWithStreams,
+  gzipDeterministic,
+  loadArtifact,
+  packArtifact,
+  type ArtifactSource,
+  type PackedArtifact,
 } from '@atlas/artifact/node';
 import {
-  canonicalJson, decodeIndexedGraph, encodeIndexedGraph, sha256Hex, utf8Bytes,
-  validateGraphSnapshot, type ChunkRef,
+  canonicalJson,
+  decodeIndexedGraph,
+  encodeIndexedGraph,
+  sha256Hex,
+  utf8Bytes,
+  validateGraphSnapshot,
+  LIMITS,
+  type ChunkRef,
 } from '@atlas/schema';
 import { buildHandcraftedArtifact } from '@atlas/test-fixtures';
 
 function draft() {
   const a = buildHandcraftedArtifact();
   const { historyChunk: _h, layoutChunk: _l, chunks: _c, frames, ...manifest } = a.manifest;
-  return { manifest: { ...manifest, frames: frames.map(({ graphChunk: _g, ...f }) => f) }, graphs: [a.graph], history: a.history, layout: a.layout };
+  return {
+    manifest: { ...manifest, frames: frames.map(({ graphChunk: _g, ...f }) => f) },
+    graphs: [a.graph],
+    history: a.history,
+    layout: a.layout,
+  };
 }
 function source(packed: PackedArtifact): ArtifactSource {
-  return { async read(path, max) {
-    const bytes = path === 'manifest.json' ? utf8Bytes(JSON.stringify(packed.manifest)) : packed.chunks.get(path);
-    return bytes ? bytes.subarray(0, max + 1) : null;
-  } };
+  return {
+    async read(path, max) {
+      const bytes = path === 'manifest.json' ? utf8Bytes(JSON.stringify(packed.manifest)) : packed.chunks.get(path);
+      return bytes ? bytes.subarray(0, max + 1) : null;
+    },
+  };
 }
 const refs = (p: PackedArtifact): ChunkRef[] => [p.manifest.frames[0]!.graphChunk, p.manifest.chunks[0]!];
 async function rewrite(p: PackedArtifact, mutate: (wire: ReturnType<typeof encodeIndexedGraph>) => void) {
@@ -26,9 +45,15 @@ async function rewrite(p: PackedArtifact, mutate: (wire: ReturnType<typeof encod
   const bytes = await gunzipNode(p.chunks.get(ref.path)!, ref.uncompressedBytes);
   const wire = JSON.parse(new TextDecoder().decode(bytes)) as ReturnType<typeof encodeIndexedGraph>;
   mutate(wire);
-  const encoded = encodeCanonical(wire), gz = gzipDeterministic(encoded.bytes);
+  const encoded = encodeCanonical(wire),
+    gz = gzipDeterministic(encoded.bytes);
   p.chunks.set(ref.path, gz);
-  for (const r of refs(p)) Object.assign(r, { uncompressedBytes: encoded.bytes.length, compressedBytes: gz.length, encodedSha256: encoded.sha256 });
+  for (const r of refs(p))
+    Object.assign(r, {
+      uncompressedBytes: encoded.bytes.length,
+      compressedBytes: gz.length,
+      encodedSha256: encoded.sha256,
+    });
 }
 const failures = async (p: PackedArtifact) => {
   const result = await loadArtifact(source(p), gunzipNode);
@@ -48,12 +73,18 @@ describe('indexed graph transport (ADR-018)', () => {
     expect(validateGraphSnapshot(decoded).ok).toBe(true);
   });
 
-  it.each([['Node', gunzipNode], ['browser', gunzipWithStreams]] as const)('round trips through %s with identical evidence, metrics, history and layout', async (_name, decompress) => {
-    const packed = packArtifact(draft(), gzipDeterministic);
-    expect(packed.manifest.artifactVersion).toBe('atlas.artifact/1.1.0');
-    const result = await loadArtifact(source(packed), decompress);
-    expect(result.ok ? result.bundle : result).toEqual(packed.bundle);
-  });
+  it.each([
+    ['Node', gunzipNode],
+    ['browser', gunzipWithStreams],
+  ] as const)(
+    'round trips through %s with identical evidence, metrics, history and layout',
+    async (_name, decompress) => {
+      const packed = packArtifact(draft(), gzipDeterministic);
+      expect(packed.manifest.artifactVersion).toBe('atlas.artifact/1.2.0');
+      const result = await loadArtifact(source(packed), decompress);
+      expect(result.ok ? result.bundle : result).toEqual(packed.bundle);
+    },
+  );
 
   it('reads legacy 1.0 plain graph artifacts', async () => {
     const input = draft();
@@ -63,6 +94,31 @@ describe('indexed graph transport (ADR-018)', () => {
     expect(packed.manifest.frames[0]!.graphChunk.encoding).toBeUndefined();
     const result = await loadArtifact(source(packed), gunzipNode);
     expect(result.ok ? result.bundle : result).toEqual(packed.bundle);
+  });
+
+  it('retains compatibility with 1.1 indexed exports', async () => {
+    const packed = packArtifact(draft(), gzipDeterministic);
+    packed.manifest.artifactVersion = 'atlas.artifact/1.1.0';
+    const result = await loadArtifact(source(packed), gunzipWithStreams);
+    expect(result.ok ? result.bundle : result).toEqual({ ...packed.bundle, manifest: packed.manifest });
+  });
+
+  it('rejects cumulative decoded overflow before reading or allocating any chunk', async () => {
+    const packed = packArtifact(draft(), gzipDeterministic);
+    for (const r of refs(packed)) r.decodedBytes = LIMITS.artifactUncompressedBytes;
+    const reads: string[] = [],
+      original = source(packed);
+    const result = await loadArtifact(
+      {
+        read(path, max) {
+          reads.push(path);
+          return original.read(path, max);
+        },
+      },
+      gunzipWithStreams,
+    );
+    expect(result.ok ? [] : result.issues.map((i) => i.code)).toContain('LIMIT');
+    expect(reads).toEqual(['manifest.json']);
   });
 
   it('rejects a tampered canonical ID instead of silently deriving a replacement', () => {
@@ -80,13 +136,17 @@ describe('indexed graph transport (ADR-018)', () => {
 
   it.each([-1, 0.5, 99_999])('rejects invalid/dangling node index %s', async (position) => {
     const packed = packArtifact(draft(), gzipDeterministic);
-    await rewrite(packed, (wire) => { wire.edges[0]!.sourceId = position; });
+    await rewrite(packed, (wire) => {
+      wire.edges[0]!.sourceId = position;
+    });
     expect(await failures(packed)).toContain('CHUNK_ENCODING');
   });
 
   it('rejects dangling evidence indices', async () => {
     const packed = packArtifact(draft(), gzipDeterministic);
-    await rewrite(packed, (wire) => { wire.edges[0]!.evidenceIds = [249_999]; });
+    await rewrite(packed, (wire) => {
+      wire.edges[0]!.evidenceIds = [249_999];
+    });
     expect(await failures(packed)).toContain('CHUNK_ENCODING');
   });
 
@@ -98,7 +158,9 @@ describe('indexed graph transport (ADR-018)', () => {
 
   it('rejects a duplicate derived entity rather than deduplicating it', async () => {
     const packed = packArtifact(draft(), gzipDeterministic);
-    await rewrite(packed, (wire) => { wire.nodes.push(wire.nodes[0]!); });
+    await rewrite(packed, (wire) => {
+      wire.nodes.push(wire.nodes[0]!);
+    });
     // Reconstructed content cannot match the original canonical graph hash/length.
     expect((await failures(packed)).length).toBeGreaterThan(0);
   });
@@ -116,7 +178,10 @@ describe('indexed graph transport (ADR-018)', () => {
     for (const r of refs(missing)) delete r.encodedSha256;
     expect(await failures(missing)).toContain('CHUNK_ENCODING');
     const inconsistent = packArtifact(draft(), gzipDeterministic);
-    inconsistent.manifest.frames[0]!.graphChunk = { ...inconsistent.manifest.frames[0]!.graphChunk, decodedBytes: inconsistent.manifest.frames[0]!.graphChunk.decodedBytes! + 1 };
+    inconsistent.manifest.frames[0]!.graphChunk = {
+      ...inconsistent.manifest.frames[0]!.graphChunk,
+      decodedBytes: inconsistent.manifest.frames[0]!.graphChunk.decodedBytes! + 1,
+    };
     expect(await failures(inconsistent)).toContain('CHUNK_REFERENCE');
   });
 

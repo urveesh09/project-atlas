@@ -1,5 +1,15 @@
-import { GraphIndex, SearchIndex } from '@atlas/graph';
-import { RULE_CATALOG, compareAscii, compareUtf8, type ArtifactBundle, type Diagnostic, type FileNode, type GraphNode, type RuleId } from '@atlas/schema';
+import { GraphIndex, type GraphIndexData } from '@atlas/graph';
+import { prepareCity, type CityData } from '@atlas/layout';
+import {
+  RULE_CATALOG,
+  compareAscii,
+  compareUtf8,
+  type ArtifactBundle,
+  type Diagnostic,
+  type FileNode,
+  type GraphNode,
+  type RuleId,
+} from '@atlas/schema';
 
 /**
  * Immutable dataset state (plan §12.1): the validated bundle and indexes derived from the
@@ -8,25 +18,43 @@ import { RULE_CATALOG, compareAscii, compareUtf8, type ArtifactBundle, type Diag
 export class ViewerModel {
   readonly graph;
   readonly index: GraphIndex;
-  readonly search: SearchIndex;
+  readonly city: CityData;
   readonly fileByLineage = new Map<string, FileNode>();
   readonly diagnostics: Diagnostic[];
   readonly sourceSnapshotId: string;
 
-  constructor(readonly bundle: ArtifactBundle) {
+  private queryWorker: Worker | undefined;
+  constructor(
+    readonly bundle: ArtifactBundle,
+    prepared?: GraphIndexData,
+    city?: CityData,
+    queryWorker?: Worker,
+  ) {
+    this.queryWorker = queryWorker;
     this.graph = bundle.graphs.at(-1)!;
     this.sourceSnapshotId = this.graph.snapshotId;
-    this.index = new GraphIndex(this.graph);
-    this.search = new SearchIndex(this.graph);
-    for (const node of this.graph.nodes) if (node.kind === 'file' && node.lineageId) this.fileByLineage.set(node.lineageId, node);
+    this.index = new GraphIndex(this.graph, prepared);
+    this.city = city ?? prepareCity(this.graph, bundle.layout);
+    for (const node of this.graph.nodes)
+      if (node.kind === 'file' && node.lineageId) this.fileByLineage.set(node.lineageId, node);
     const rank = { error: 0, warning: 1, info: 2 } as const;
     this.diagnostics = [...this.graph.diagnostics].sort(
-      (a, b) => rank[a.severity] - rank[b.severity] || compareAscii(a.ruleId, b.ruleId) || compareUtf8(this.pathOf(a.subjectIds[0]!), this.pathOf(b.subjectIds[0]!)),
+      (a, b) =>
+        rank[a.severity] - rank[b.severity] ||
+        compareAscii(a.ruleId, b.ruleId) ||
+        compareUtf8(this.pathOf(a.subjectIds[0]!), this.pathOf(b.subjectIds[0]!)),
     );
   }
 
   get manifest() {
     return this.bundle.manifest;
+  }
+
+  /** One owner only; a development StrictMode remount builds a fresh standalone worker. */
+  takeQueryWorker(): Worker | undefined {
+    const worker = this.queryWorker;
+    this.queryWorker = undefined;
+    return worker;
   }
 
   node(id: string | null | undefined): GraphNode | undefined {

@@ -1,0 +1,41 @@
+{
+  "exportVersion": "atlas.image/1",
+  "analysisId": "analysis_ac40d6477a5fc653a8e6e9f0dcb7396894c5f0537dfac74a9ee920eddc82b1f3",
+  "analysisKey": "akey_3de175901582a4cf19354f3515dcab36e696ccd2eb5683f704c7cc9eb6c0d6aa",
+  "artifactVersion": "atlas.artifact/1.2.0",
+  "schemaVersion": "atlas.graph/1.0.0",
+  "analyzer": {
+    "version": "0.1.0-dev",
+    "parserVersion": "typescript@6.0.3",
+    "gitVersion": "2.55.0.windows.3"
+  },
+  "metricDefinitionVersion": "atlas.metrics/1",
+  "optionsDigest": "e1a6f031ad8b7bf7acfc5dce859b8503530e7713a60f6ed7d90a4a162a5486f9",
+  "commit": "d73c8b8d98d2f86dbccf7096a458caca292767de",
+  "snapshotId": "snap_0836ae1004d5b8b16369eff22e4b1a76507f32271e78947a59fbc69b7dcb151f",
+  "layoutVersion": "atlas.layout/1.1.0",
+  "layoutId": "layout_706b0db09cc841713d0be5689735bd5e95a3c280b04603368d963137b0beb44c",
+  "lens": "fan-in",
+  "mode": "3d",
+  "selectedPath": null,
+  "filter": "all",
+  "edgePolicy": "Value, dynamic and resource observations; type-only excluded",
+  "visibleEdges": 0,
+  "omittedEdges": 0,
+  "visibleExternalTerminals": 0,
+  "omittedExternalTerminals": 0,
+  "camera": {
+    "position": [
+      185.99999999999997,
+      177.43699999999998,
+      219
+    ],
+    "target": [
+      34,
+      2.637,
+      67
+    ],
+    "zoom": 4.224723590074466
+  },
+  "note": "Static repository structure. Height is code lines; roads are spacing. Use the artifact/table for accessible evidence."
+}

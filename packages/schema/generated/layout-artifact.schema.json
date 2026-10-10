@@ -1,13 +1,16 @@
 {
   "$id": "https://atlas.invalid/schemas/layout-artifact.schema.json",
-  "title": "ATLAS layout-artifact (atlas.layout/1.0.0)",
+  "title": "ATLAS layout-artifact (atlas.layout/1.1.0)",
   "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
     "layoutVersion": {
       "type": "string",
-      "const": "atlas.layout/1.0.0"
+      "enum": [
+        "atlas.layout/1.0.0",
+        "atlas.layout/1.1.0"
+      ]
     },
     "layoutId": {
       "type": "string",

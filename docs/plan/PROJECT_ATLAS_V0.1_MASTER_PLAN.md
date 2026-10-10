@@ -204,7 +204,7 @@ Use the same defaults locally and hosted. Hosted limits are hard; CLI may lower 
 | End-to-end worker deadline | 300 seconds | Return complete HEAD with partial history if available; otherwise fail |
 | Per-file parsing deadline | 2 seconds | Terminate parser child; opaque failure node |
 | Directory nesting | 64 | Flatten display below boundary while retaining canonical paths |
-| Export artifact | 100 MiB uncompressed total, 20 MiB compressed transport | Deterministically reduce history frames; if HEAD still exceeds, fail export with limit details |
+| Export artifact | 128 MiB decoded total (artifact 1.2; revised from 100 MiB by ADR-024), 20 MiB compressed transport | Deterministically reduce history frames; if HEAD still exceeds, fail export with limit details |
 
 Limits may be revised only through a documented ADR and re-run capacity gates. A cap is not a performance promise. Hard timeouts are containment, not analysis completion guarantees. Start with one concurrent job per 2 GiB worker slot and scale slots explicitly.
 
@@ -591,7 +591,7 @@ Resolve HEAD/ref to a full commit OID before parsing data. CLI permits an existi
 - Control characters in displayable metadata are escaped; unsupported control-bearing filenames are omitted. Paths remain case-sensitive. Validate that normalization never maps distinct Git paths onto the same identity.
 - Decode text as strict UTF-8 with optional BOM. Binary/NUL or invalid encoding is opaque; no silent lossy decoding.
 - Built-in exclusions: `.git`, `node_modules`, vendored dependencies, recognized build/output/cache folders, minified bundles, source maps, and generated files indicated by bounded recognized headers. Always report applied patterns. Do not infer arbitrary generated paths only from a filename.
-- Apply a V0.1 `atlas.config.json` containing only versioned data: additional exclusion globs and layout display overrides. It cannot relax security caps, run plugins, redefine metrics, or supply network URLs. Ignore unknown keys with a warning or reject invalid major version.
+- Apply a V0.1 `atlas.config.json` containing only versioned data: additional exclusion globs. Display overrides were unspecified and are deferred beyond V0.1 until a bounded schema exists (ADR-020); interactive lens/filter controls already cover display choices. Configuration cannot relax security caps, run plugins, redefine metrics, or supply network URLs. Ignore unknown keys with a warning or reject invalid major version.
 - `.gitignore` is not the inclusion authority for committed files. The CLI's explicit exclusions and ATLAS defaults define the scope; show this in coverage.
 
 No archive extraction is required by the chosen bare-object design. If a Phase 0 acquisition alternative uses GitHub archives, add an ADR and strict streaming extraction: size/entry caps, path containment, reject links/special entries, no permissions, and no pre-write path escape. Source archive download behavior and redirects are documented by [GitHub repository archive endpoints](https://docs.github.com/en/rest/repos/repos#download-a-repository-archive-tar).
@@ -1060,7 +1060,7 @@ Fixtures: small 300 files/3,000 edges; medium 3,000/30,000; large 10,000/100,000
 | Continuous camera movement | Medium p95 frame time <= 33 ms; large <= 50 ms in low-quality mode |
 | Snapshot change after graph cached | <= 250 ms p95; crossfade does not extend response measurement |
 | GPU draw calls | <= 150 medium default view; <= 250 large selected-overlay view |
-| Viewer measured JS heap | <= 300 MiB large active view with bounded adjacent-frame cache |
+| Viewer retained JS heap | <= 300 MiB across main + owned workers after collection, large active view with bounded adjacent-frame cache; pre-collection allocations reported separately (ADR-024), not a startup/RSS peak guarantee |
 | Graph/history worker responsiveness | No unnecessary main-thread task > 50 ms in measured interaction traces |
 
 Collect at least 20 repeated non-network measurements for p95 budgets with warm/cold conditions specified. Use distributions and environment details; do not report a single favorable run. If a synthetic fixture exceeds a cap, the cap behavior is tested separately from normal performance. Memory/GPU limits need profiling, not only inferred object counts.

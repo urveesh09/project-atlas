@@ -35,6 +35,12 @@ describe('canonicalJson', () => {
     value['self'] = value;
     expect(() => canonicalJson(value)).toThrow(/Cyclic/);
   });
+
+  it('keeps lexicographic numeric keys and Unicode exact across serialization block boundaries', () => {
+    const row = { '2': 'é😀', '10': -0, '\u0001': [null, true, 1.25] };
+    const expected = '{"\\u0001":[null,true,1.25],"10":0,"2":"é😀"}';
+    expect(canonicalJson(Array.from({ length: 3000 }, () => row))).toBe(`[${Array(3000).fill(expected).join(',')}]`);
+  });
 });
 
 describe('compareUtf8', () => {
@@ -74,6 +80,14 @@ describe('IDs', () => {
 
   it('separate domains', () => {
     expect(makeId('node', ['x']).slice(5)).not.toBe(makeId('edge', ['x']).slice(5));
+  });
+
+  it('matches independent binary field framing for multibyte strings and safe integers', async () => {
+    const { createHash } = await import('node:crypto');
+    const fields = ['é😀', 9007199254740991, null, 'a:10\u0000b'] as const;
+    const frame = (tag: string, value: string) => Buffer.concat([Buffer.from(`${tag}${Buffer.byteLength(value)}:`), Buffer.from(value)]);
+    const bytes = Buffer.concat([frame('d', 'atlas.test'), ...fields.map((f) => f === null ? frame('z', '') : frame(typeof f === 'number' ? 'n' : 's', String(f)))]);
+    expect(hashFields('atlas.test', fields)).toBe(createHash('sha256').update(bytes).digest('hex'));
   });
 
   it('are stable (golden values guard accidental derivation changes)', () => {

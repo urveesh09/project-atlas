@@ -1,4 +1,4 @@
-import { UNITS_PER_CELL, compareAscii, districtId, makeId, type LayoutArtifact, type Rect } from '@atlas/schema';
+import { LAYOUT_VERSION, UNITS_PER_CELL, compareAscii, districtId, makeId, type LayoutArtifact, type Rect } from '@atlas/schema';
 import { seedFromId } from './prng.js';
 
 /**
@@ -154,16 +154,19 @@ export function computeLayout(input: LayoutInput): LayoutGeometry {
   const anchors = externals.map((canonicalName, index) => {
     const side = index % 4;
     const slot = Math.floor(index / 4);
-    const along = slot * C.externalSpacing;
+    const slots = Math.floor((externals.length - 1 - side) / 4) + 1;
+    const sideLength = side % 2 === 0 ? rootItem.width : rootItem.depth;
+    // Integer units permit dense rings without moving the island or file plots.
+    const along = Math.round(((slot + 1) * sideLength * UNITS_PER_CELL) / (slots + 1));
     switch (side) {
       case 0:
-        return { canonicalName, x: along, z: -ring };
+        return { canonicalName, x: along, z: -ring * UNITS_PER_CELL };
       case 1:
-        return { canonicalName, x: rootItem.width + ring, z: along };
+        return { canonicalName, x: (rootItem.width + ring) * UNITS_PER_CELL, z: along };
       case 2:
-        return { canonicalName, x: rootItem.width - along, z: rootItem.depth + ring };
+        return { canonicalName, x: rootItem.width * UNITS_PER_CELL - along, z: (rootItem.depth + ring) * UNITS_PER_CELL };
       default:
-        return { canonicalName, x: -ring, z: rootItem.depth - along };
+        return { canonicalName, x: -ring * UNITS_PER_CELL, z: rootItem.depth * UNITS_PER_CELL - along };
     }
   });
 
@@ -171,12 +174,12 @@ export function computeLayout(input: LayoutInput): LayoutGeometry {
   const sortedDistricts = districts.map((d) => ({ ...d, rect: scale(d.rect) })).sort((a, b) => compareAscii(a.id, b.id));
   const sortedPlots = plots.map((p) => ({ ...p, rect: scale(p.rect) })).sort((a, b) => compareAscii(a.lineageId, b.lineageId));
   return {
-    layoutVersion: 'atlas.layout/1.0.0',
-    layoutId: makeId('layout', [input.repoId, input.frameKey, 'atlas.layout/1.0.0', sortedPlots.length]),
+    layoutVersion: LAYOUT_VERSION,
+    layoutId: makeId('layout', [input.repoId, input.frameKey, LAYOUT_VERSION, sortedPlots.length]),
     unitsPerCell: UNITS_PER_CELL,
     root: scale({ x: 0, z: 0, width: rootItem.width, depth: rootItem.depth }),
     districts: sortedDistricts,
     plots: sortedPlots,
-    externalAnchors: anchors.map((a) => ({ canonicalName: a.canonicalName, x: a.x * UNITS_PER_CELL, z: a.z * UNITS_PER_CELL })),
+    externalAnchors: anchors,
   };
 }

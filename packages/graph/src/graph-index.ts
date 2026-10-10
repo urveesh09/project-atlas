@@ -57,6 +57,19 @@ export interface PackageRollup {
   kinds: EdgeKind[];
 }
 
+/** Derived indexes transferred only by ATLAS's validating worker, never artifact input. */
+export interface GraphIndexData {
+  nodes: Map<string, GraphNode>;
+  children: Map<string, GraphNode[]>;
+  filesByPath: Map<string, FileNode>;
+  observations: Map<string, ImportObservation>;
+  metrics: Map<string, NodeMetrics>;
+  out: Map<string, GraphEdge[]>;
+  in: Map<string, GraphEdge[]>;
+  observationsBySource: Map<string, ImportObservation[]>;
+  diagnosticsBySubject: Map<string, Diagnostic[]>;
+}
+
 export class GraphIndex {
   readonly nodes = new Map<string, GraphNode>();
   readonly children = new Map<string, GraphNode[]>();
@@ -69,7 +82,19 @@ export class GraphIndex {
   private readonly diagnosticsBySubject = new Map<string, Diagnostic[]>();
   private readonly packageCache = new Map<string, PackageNode | null>();
 
-  constructor(readonly snapshot: GraphSnapshot) {
+  constructor(readonly snapshot: GraphSnapshot, prepared?: GraphIndexData) {
+    if (prepared) {
+      this.nodes = prepared.nodes;
+      this.children = prepared.children;
+      this.filesByPath = prepared.filesByPath;
+      this.observations = prepared.observations;
+      this.metrics = prepared.metrics;
+      this.out = prepared.out;
+      this.in = prepared.in;
+      this.observationsBySource = prepared.observationsBySource;
+      this.diagnosticsBySubject = prepared.diagnosticsBySubject;
+      return;
+    }
     for (const node of snapshot.nodes) {
       this.nodes.set(node.id, node);
       if (node.kind === 'file') this.filesByPath.set(node.path, node);
@@ -91,6 +116,11 @@ export class GraphIndex {
     for (const list of this.observationsBySource.values()) list.sort((a, b) => a.range.startOffset - b.range.startOffset || compareAscii(a.kind, b.kind));
     for (const diagnostic of snapshot.diagnostics) for (const subject of diagnostic.subjectIds) push(this.diagnosticsBySubject, subject, diagnostic);
     for (const metric of snapshot.metrics) this.metrics.set(metric.nodeId, metric);
+  }
+
+  transferData(): GraphIndexData {
+    return { nodes: this.nodes, children: this.children, filesByPath: this.filesByPath, observations: this.observations, metrics: this.metrics,
+      out: this.out, in: this.in, observationsBySource: this.observationsBySource, diagnosticsBySubject: this.diagnosticsBySubject };
   }
 
   get root(): GraphNode {
