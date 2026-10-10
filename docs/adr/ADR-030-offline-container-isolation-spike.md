@@ -17,11 +17,13 @@ Seven checks pass locally against Docker Engine 29.8.1 with a Linux Node 24.15.0
 - Two policy checks pin every profile cap and reject mutable/injected/raised configuration.
 - Kernel/runtime probe proves non-root, read-only root, no host Docker socket, blocked metadata/private/public TCP probes and actual cgroup memory/PID/CPU values.
 - An 8 MiB scratch profile hits kernel `ENOSPC`.
-- A 64 MiB memory profile is actually OOM-killed, exit 137; the API process remains outside the sandbox.
+- A 64 MiB memory profile kills an allocation-heavy child with SIGKILL. A trusted surviving supervisor proves positive kernel `memory.events` `oom` and `oom_kill` counters, disabled swap and exit 137; the API process remains outside the sandbox.
 - A 16-PID profile actually rejects excess child-process creation.
 - A stalled program with a child process exceeds its coordinator deadline; the sandbox is force-removed and no labeled probe container remains.
 
 The dedicated Linux CI job repeats PostgreSQL races and these container gates. Ordinary cross-platform verification explicitly skips opt-in container/database checks when their runtime is absent, never substitutes mocks for the isolation evidence.
+
+The first hosted CI run (`a91b16e`, run 38077015611) returned exit 137 but Docker's `.State.OOMKilled` was false behind `--init`. Treating that daemon flag as the sole kernel witness was an unportable test assumption. The revised probe requires the actual cgroup's OOM/allocation counters plus the child signal, rather than accepting an exit code or dropping the memory gate. `oomKilled` in the probe result remains raw Docker metadata, not an authoritative resource diagnosis. Kernel counter meaning: [cgroup v2 memory.events](https://docs.kernel.org/admin-guide/cgroup-v2.html#memory).
 
 ## Remaining P5.3 and G5 gates
 

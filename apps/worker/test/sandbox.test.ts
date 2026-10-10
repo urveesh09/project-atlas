@@ -51,8 +51,25 @@ describe.runIf(enabled)('actual Linux container isolation spike (partial P5.3)',
     expect(JSON.parse(result.stdout).capped).toBe(true);
   });
   it('contains actual memory exhaustion under a lowered hard memory cap', async () => {
-    const result = await runOfflineProbe(runtime, `const blocks=[];for(let i=0;i<1000;i++)blocks.push(Buffer.alloc(1024*1024,1));console.log('unexpected completion');`, { limits: { memoryBytes: 64 * 1024 * 1024, scratchBytes: 8 * 1024 * 1024, cpus: 1, pids: 16 } });
-    expect(result.exitCode).toBe(137); expect(result.oomKilled).toBe(true);
+    // A surviving trusted supervisor reads the kernel counter. Docker's daemon
+    // OOMKilled flag was false for an exit-137 child behind --init on the CI engine.
+    // Exit code alone is insufficient proof that the memory boundary enforced a kill.
+    const result = await runOfflineProbe(runtime, `
+      const fs=require('node:fs'),{spawn}=require('node:child_process');
+      const program="require('node:fs').writeFileSync('/proc/self/oom_score_adj','1000');const blocks=[];for(let i=0;i<1000;i++)blocks.push(Buffer.alloc(1024*1024,1));";
+      const child=spawn(process.execPath,['-e',program],{stdio:['ignore','ignore','inherit']});
+      child.once('error',()=>process.exit(1));
+      child.once('exit',(code,signal)=>{
+        const events=Object.fromEntries(fs.readFileSync('/sys/fs/cgroup/memory.events','utf8').trim().split('\\n').map(line=>{const [key,value]=line.split(' ');return [key,Number(value)]}));
+        console.log(JSON.stringify({code,signal,events}));process.exit(signal==='SIGKILL'?137:1);
+      });
+    `, { limits: { memoryBytes: 64 * 1024 * 1024, scratchBytes: 8 * 1024 * 1024, cpus: 1, pids: 16 } });
+    expect(result.exitCode).toBe(137);
+    const witness = JSON.parse(result.stdout);
+    expect(witness.signal).toBe('SIGKILL');
+    expect(witness.events.oom).toBeGreaterThan(0);
+    expect(witness.events.oom_kill).toBeGreaterThan(0);
+    expect(result.config).toMatchObject({ Memory: 64 * 1024 * 1024, MemorySwap: 64 * 1024 * 1024 });
   });
   it('prevents process exhaustion at the kernel PID boundary', async () => {
     const result = await runOfflineProbe(runtime, `const {spawn}=require('node:child_process');let failed=0,done=0;const children=[];for(let i=0;i<30;i++){const c=spawn('sleep',['60']);children.push(c);const finish=()=>{if(++done===30){for(const child of children)child.kill();console.log(JSON.stringify({failed}));}};c.once('error',()=>{failed++;finish()});c.once('spawn',finish)}`, { limits: { memoryBytes: 128 * 1024 * 1024, scratchBytes: 8 * 1024 * 1024, cpus: 1, pids: 16 } });
