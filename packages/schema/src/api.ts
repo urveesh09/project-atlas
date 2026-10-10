@@ -4,6 +4,8 @@ import { AnalysisIdSchema, CountSchema, IsoUtcSchema } from './primitives.js';
 import { RELEASE_PROFILE } from './versions.js';
 
 /** Hosted HTTP contracts (plan §13). Routes are prefixed with /api/v1. */
+export const SessionStatusSchema = z.strictObject({ session: z.literal('active') });
+
 export const ERROR_CODES = [
   'INVALID_REPOSITORY_URL',
   'REPOSITORY_NOT_PUBLIC',

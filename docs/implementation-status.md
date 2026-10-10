@@ -2,7 +2,7 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone:** Phase 4 four-pillar local implementation reviewed; automated local checks and viewer measurements pass. The unloaded historical analysis repeat and cross-platform CI remain in progress. Human screen-reader and exact reference-device release audits remain open. Hosted service development is Phase 5; runtime instrumentation remains deferred.
+**Current milestone:** Phase 4 four-pillar local implementation reviewed; local automated checks, cross-platform CI and viewer measurements pass. The unloaded historical analysis repeat remains in progress. Phase 5 admission/queue/isolation foundations are implemented below. Human screen-reader and exact reference-device release audits remain open; runtime instrumentation remains deferred.
 
 ## Phase 0: prove constraints and lock contracts
 
@@ -134,11 +134,30 @@ Performance evidence: [historical analysis report](benchmarks/phase4-history.md)
 
 The [earlier transport report](benchmarks/phase4-history-precompact.md) failed size. The [contended timing batch](benchmarks/phase4-history-contended.md) passes size but fails latency at 101.75 s p95; full verification overlapped two runs. Both are preserved. The unloaded 20-run dev.5 analysis repeat is in progress; G4 timing is not accepted until that evidence exists. Reports record actual hardware, fixture identities and individual samples; exact reference-device performance remains a release audit.
 
+[Phase 4 Windows/Linux CI](https://github.com/urveesh09/project-atlas/actions/runs/38076541930) passes implementation commit `995acb3`, including live acquisition and the software-rendering check. The full local verification also exercised the separately committed Phase 5 foundation below.
+
 All four local pillars are implemented. Historical omission/window/anchor semantics are visible; missing history never becomes a measured zero. The selected graph is an in-memory local checkpoint and local output publication is atomic. Durable recovery of a crashed hosted sandbox remains P5.3 and is not claimed by the local implementation.
 
 Decisions: [ADR-025](adr/ADR-025-history-semantics.md), [ADR-026](adr/ADR-026-frame-delta-and-compact-transports.md), [ADR-027](adr/ADR-027-viewer-frames-and-history-ui.md), [ADR-028](adr/ADR-028-phase4-review-and-cache-ownership.md). Human assistive-technology and reference-hardware audits remain release checks; the protocol above extends to timeline, tombstone and A/B comparison tasks. Runtime tracing remains fully deferred.
 
 ![History comparison on fixed plots](images/phase4-compare.png)
+
+## Phase 5: hosted service foundation
+
+Phase 5 development has started. This is a loopback development control plane plus an independently tested offline container policy. No hosted analyzer coordinator or public artifact publication is enabled.
+
+| Task | Status | Implemented evidence | Remaining completion boundary |
+|---|---|---|---|
+| P5.1 API admission/auth | Foundation implemented | Exact GitHub-root validation/normalization, strict request/response contracts, sessions, one-time hashed capabilities, idempotency and transactional quotas; generated session OpenAPI route | Upstream numeric identity/visibility resolution and cache reuse |
+| P5.2 Queue/leases | Database implementation complete; coordinator pending | Additive checksummed migration, concurrent SKIP LOCKED claims, DB-time heartbeat/generation fences, cancellation, bounded events/SSE replay, one retry within original deadline; time rechecked before transaction commit | Actual acquisition/analysis orchestration, container termination on lost leases and cancellation |
+| P5.3 Isolation | Offline container spike passes | Real non-root/read-only/no-network cgroups, CPU/memory/PID/scratch enforcement, OOM/ENOSPC/PID faults and actual container/child cleanup | DNS-pinned acquisition broker, final analyzer image/object boundary, egress byte limits, repository sentinels, durable HEAD checkpoint and stage orchestration |
+| P5.4 Publication/storage | Pending | Private publication/object schema reserved; public routes return 503 | Validated private object storage, lease-fenced publication, cache ownership, visibility/expiry/revocation access gates and purge |
+| P5.5 Hosted flow | Pending | Management status/events/cancel API foundation | Landing/submission stages, reconnect/poll/cancel browser flows, immutable result URLs and existing viewer integration |
+| P5.6 Deploy/runbooks | Partial development documentation | [Dedicated database/container checks and recovery notes](hosted-development.md); required PostgreSQL/Docker CI job | Compose/deployment definitions, trusted proxy identity boundary, secrets/TLS/roles/backups and operator rehearsals |
+
+Local full verification passes **565 tests across 32 files**, including 30 admission/queue checks on actual PostgreSQL 17 and seven offline sandbox checks on Docker Engine 29.8.1. The two separately gated live-acquisition tests opt out of that suite. Strict source/test/viewer types, production build, generated contracts and dependency direction pass. Dedicated hosted CI requires the real database and containers; ordinary matrix runs explicitly opt out of integration checks when those runtimes are absent. Cross-platform/hosted CI links are added after the pushed commits finish.
+
+Decisions: [ADR-029](adr/ADR-029-hosted-admission-and-lease-foundation.md) and [ADR-030](adr/ADR-030-offline-container-isolation-spike.md). **G5 remains open.** The runtime fifth pillar remains deferred.
 
 ## How to reproduce the evidence
 

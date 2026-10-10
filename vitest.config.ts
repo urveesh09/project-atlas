@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     // Tests run against package sources so a stale dist/ can never mask a regression.
     alias: [
+      { find: /^@atlas\/(api|worker)$/, replacement: `${fileURLToPath(new URL('./apps/', import.meta.url))}$1/src/index.ts` },
       { find: /^@atlas\/artifact\/node$/, replacement: `${packagesDir}artifact/src/node-entry.ts` },
       { find: /^@atlas\/([a-z-]+)$/, replacement: `${packagesDir}$1/src/index.ts` },
     ],

@@ -28,6 +28,9 @@ const ALLOWED = {
   '@atlas/worker': ['@atlas/schema', '@atlas/ingest', '@atlas/analyzer-core', '@atlas/artifact'],
 };
 const DEV_ALLOWED = ['@atlas/test-fixtures'];
+// Worker integration fixtures use the API's real migration/admission against Postgres;
+// this dependency is forbidden in worker runtime source.
+const TEST_ONLY = { '@atlas/worker': ['@atlas/api'] };
 
 /** Runtime instrumentation is out of scope for V0.1 (ADR-012). */
 const FORBIDDEN_EXTERNAL = [/^@opentelemetry\//, /^dd-trace$/, /^newrelic$/, /^@sentry\//, /^elastic-apm/, /^applicationinsights$/];
@@ -78,7 +81,7 @@ for (const { dir, json } of packages) {
     if (!allowed.includes(dep)) failures.push(`${name} must not depend on ${dep}`);
   }
   for (const dep of devDeps.filter((d) => d.startsWith('@atlas/'))) {
-    if (!allowed.includes(dep) && !DEV_ALLOWED.includes(dep)) failures.push(`${name} must not dev-depend on ${dep}`);
+    if (!allowed.includes(dep) && !DEV_ALLOWED.includes(dep) && !(TEST_ONLY[name] ?? []).includes(dep)) failures.push(`${name} must not dev-depend on ${dep}`);
   }
   for (const dep of [...deps, ...devDeps]) {
     if (FORBIDDEN_EXTERNAL.some((re) => re.test(dep))) failures.push(`${name} depends on runtime instrumentation (${dep}), deferred by ADR-012`);
@@ -91,7 +94,7 @@ for (const { dir, json } of packages) {
       if (target === name) continue;
       const declared = deps.includes(target) || (isTest && devDeps.includes(target));
       if (!declared) failures.push(`${path.relative(root, file)} imports undeclared ${target}`);
-      else if (!allowed.includes(target) && !(isTest && DEV_ALLOWED.includes(target))) failures.push(`${path.relative(root, file)} imports forbidden ${target}`);
+      else if (!allowed.includes(target) && !(isTest && (DEV_ALLOWED.includes(target) || (TEST_ONLY[name] ?? []).includes(target)))) failures.push(`${path.relative(root, file)} imports forbidden ${target}`);
     }
   }
 }

@@ -12,6 +12,19 @@
   ],
   "components": {
     "schemas": {
+      "SessionStatus": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "string",
+            "const": "active"
+          }
+        },
+        "required": [
+          "session"
+        ],
+        "additionalProperties": false
+      },
       "AnalysisSubmission": {
         "type": "object",
         "properties": {
@@ -530,9 +543,72 @@
     }
   },
   "paths": {
+    "/session": {
+      "post": {
+        "operationId": "createSession",
+        "description": "Same-origin bootstrap, no body. Creates a 24-hour Secure HttpOnly SameSite=Strict cookie; reuses a live session. The session token is never returned in JSON.",
+        "responses": {
+          "200": {
+            "description": "Existing session reused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatus"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unexpected body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Session capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/analyses": {
       "post": {
         "operationId": "submitAnalysis",
+        "security": [
+          {
+            "session": []
+          }
+        ],
         "parameters": [
           {
             "name": "Idempotency-Key",
@@ -727,6 +803,9 @@
           }
         ],
         "security": [
+          {
+            "managementToken": []
+          },
           {
             "session": []
           }

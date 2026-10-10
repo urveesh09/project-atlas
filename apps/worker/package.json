@@ -11,6 +11,18 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
-  "dependencies": { "@atlas/schema": "workspace:*", "@atlas/ingest": "workspace:*", "@atlas/analyzer-core": "workspace:*", "@atlas/artifact": "workspace:*" }
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@atlas/analyzer-core": "workspace:*",
+    "@atlas/artifact": "workspace:*",
+    "@atlas/ingest": "workspace:*",
+    "@atlas/schema": "workspace:*",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@atlas/api": "workspace:*",
+    "@types/pg": "8.23.1"
+  }
 }

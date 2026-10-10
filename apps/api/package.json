@@ -11,6 +11,16 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
-  "dependencies": { "@atlas/schema": "workspace:*", "@atlas/ingest": "workspace:*", "@atlas/artifact": "workspace:*" }
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@atlas/artifact": "workspace:*",
+    "@atlas/ingest": "workspace:*",
+    "@atlas/schema": "workspace:*",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
 }

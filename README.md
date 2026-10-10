@@ -9,7 +9,7 @@ ATLAS turns the committed contents of a TypeScript/JavaScript repository into a 
 
 Every visual encoding has a legend, every finding has evidence, and every gap in the analysis is shown as coverage.
 
-> **Status:** Phase 4 implements all four local pillars: structure, static dependencies, evidence-backed diagnostics/hotspots, and bounded Git evolution. The city keeps fixed plots while you change sampled snapshots, follow renames, inspect absent files and compare A → B. [History analysis](docs/benchmarks/phase4-history.md), [viewer measurements](docs/benchmarks/phase4-history-viewer.md) and [implementation status](docs/implementation-status.md) record verification and pending human/reference-device release audits. Public hosted analysis remains Phase 5; runtime tracing stays deferred.
+> **Status:** Phase 4 implements all four local pillars: structure, static dependencies, evidence-backed diagnostics/hotspots, and bounded Git evolution. The city keeps fixed plots while you change sampled snapshots, follow renames, inspect absent files and compare A → B. [History analysis](docs/benchmarks/phase4-history.md), [viewer measurements](docs/benchmarks/phase4-history-viewer.md) and [implementation status](docs/implementation-status.md) record verification and pending human/reference-device release audits. Phase 5 has started with a [PostgreSQL admission/queue foundation and offline container spike](docs/hosted-development.md); hosted acquisition/publication and deployment remain unfinished. Runtime tracing stays deferred.
 
 ## Try it
 

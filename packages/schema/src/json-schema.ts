@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, CapabilitiesSchema, ErrorEnvelopeSchema, JobStatusSchema } from './api.js';
+import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, CapabilitiesSchema, ErrorEnvelopeSchema, JobStatusSchema, SessionStatusSchema } from './api.js';
 import { ArtifactManifestSchema } from './artifact.js';
 import { GraphSnapshotSchema } from './graph.js';
 import { IndexedGraphSchema } from './indexed-graph.js';
@@ -22,6 +22,7 @@ const ARTIFACT_SCHEMAS = {
 } as const;
 
 const API_SCHEMAS = {
+  SessionStatus: SessionStatusSchema,
   AnalysisSubmission: AnalysisSubmissionSchema,
   AnalysisAccepted: AnalysisAcceptedSchema,
   JobStatus: JobStatusSchema,
@@ -79,9 +80,21 @@ export function openApiDocument(): Record<string, unknown> {
       },
     },
     paths: {
+      '/session': {
+        post: {
+          operationId: 'createSession',
+          description: 'Same-origin bootstrap, no body. Creates a 24-hour Secure HttpOnly SameSite=Strict cookie; reuses a live session. The session token is never returned in JSON.',
+          responses: {
+            '200': { description: 'Existing session reused', content: { 'application/json': { schema: { $ref: '#/components/schemas/SessionStatus' } } } },
+            '201': { description: 'Session created', content: { 'application/json': { schema: { $ref: '#/components/schemas/SessionStatus' } } } },
+            '400': error('Unexpected body'), '403': error('Origin or Host rejected'), '429': error('Session capacity exceeded'),
+          },
+        },
+      },
       '/analyses': {
         post: {
           operationId: 'submitAnalysis',
+          security: [{ session: [] }],
           parameters: [{ name: 'Idempotency-Key', in: 'header', required: true, schema: { type: 'string', format: 'uuid' } }],
           requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/AnalysisSubmission' } } } },
           responses: {
@@ -109,7 +122,7 @@ export function openApiDocument(): Record<string, unknown> {
         get: {
           operationId: 'streamJobEvents',
           parameters: [jobId, { name: 'Last-Event-ID', in: 'header', required: false, schema: { type: 'string' } }],
-          security: [{ session: [] }],
+          security: management,
           responses: { '200': { description: 'Server-sent events: state, progress, warning, terminal', content: { 'text/event-stream': { schema: { type: 'string' } } } }, '403': error('Forbidden') },
         },
       },
