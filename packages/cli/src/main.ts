@@ -3,6 +3,7 @@ import { ANALYZER_VERSION } from '@atlas/analyzer-core';
 import { analyze, analyzeErrorExit } from './commands/analyze.js';
 import { doctor } from './commands/doctor.js';
 import { inspect } from './commands/inspect.js';
+import { serve } from './commands/serve.js';
 import { verify } from './commands/verify.js';
 import { EXIT, UsageError, createContext, type CliIO } from './context.js';
 import { PALETTE, createStyler, detectColorLevel } from './ui/style.js';
@@ -15,6 +16,8 @@ const HELP = `
     atlas analyze [dir] [options]      analyze the committed tree into an artifact
     atlas inspect <artifact> [--no-map]  report on an artifact, with a city plan
     atlas verify <artifact>            validate an artifact end to end
+    atlas serve <artifact> [--repo <dir>] [--no-open] [--port <n>]
+                                       browse an artifact in your browser (127.0.0.1 only)
 
   Analyze options
     --out <dir>              output directory (default ./atlas-output)
@@ -113,6 +116,18 @@ export async function run(argv: readonly string[], io: CliIO): Promise<number> {
         if (positionals.length !== 1) throw new UsageError('verify takes one artifact directory');
         return await verify(ctx, { artifact: positionals[0]! });
       }
+      case 'serve': {
+        const { values, positionals } = parseArgs({
+          args: rest,
+          allowPositionals: true,
+          strict: true,
+          options: { repo: { type: 'string' }, 'no-open': { type: 'boolean' }, port: { type: 'string' }, json: { type: 'boolean' } },
+        });
+        if (positionals.length !== 1) throw new UsageError('serve takes one artifact directory');
+        const port = intOption(values.port, '--port');
+        if (port !== undefined && port > 65_535) throw new UsageError('--port must be at most 65535');
+        return await serve(ctx, { artifact: positionals[0]!, open: !values['no-open'], ...(values.repo !== undefined ? { repo: values.repo } : {}), ...(port !== undefined ? { port } : {}) });
+      }
       default:
         throw new UsageError(`Unknown command "${command}". Run atlas --help.`);
     }
@@ -150,5 +165,6 @@ export async function cli(): Promise<void> {
     cwd: process.cwd(),
     signal: controller.signal,
   });
-  process.exitCode = interrupted ? EXIT.cancelled : code;
+  // Ctrl+C is how `serve` stops normally; other commands report cancellation themselves.
+  process.exitCode = interrupted && code !== EXIT.ok ? EXIT.cancelled : code;
 }

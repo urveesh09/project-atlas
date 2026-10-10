@@ -1,9 +1,9 @@
 import path from 'node:path';
 import { readArtifactDirectory, type LoadResult } from '@atlas/artifact/node';
-import { compareUtf8, type ArtifactBundle, type GraphNode } from '@atlas/schema';
+import { RULE_CATALOG, compareAscii, compareUtf8, formatDiagnosticMessage, type ArtifactBundle, type GraphNode } from '@atlas/schema';
 import { EXIT, type CommandContext } from '../context.js';
 import { renderCityMap } from '../ui/city-map.js';
-import { bar, box, check, formatBytes, formatCount, heading, plural, stackedBar, swatch, truncateMiddle } from '../ui/format.js';
+import { bar, box, check, formatBytes, formatCount, heading, plural, stackedBar, swatch, truncateMiddle, wrapText } from '../ui/format.js';
 import { PALETTE, padEndVisible, type Styler } from '../ui/style.js';
 
 /**
@@ -24,6 +24,12 @@ export interface InspectReport {
   limitsHit: string[];
   warnings: { code: string; path: string | null }[];
   history: { status: string; framesCompleted: number };
+  parse: { parsed: number; failed: number };
+  imports: { observed: number; internal: number; external: number; builtin: number; unresolved: number; unsupported: number; excludedTargets: number };
+  edges: number;
+  findings: { ruleId: string; severity: string; title: string; message: string; path: string; line: number | null }[];
+  mostComplex: { path: string; maxCyclomatic: number; codeLines: number | null }[];
+  mostDependedOn: { path: string; fanIn: number }[];
 }
 
 export function buildInspectReport(bundle: ArtifactBundle, stats: Extract<LoadResult, { ok: true }>['stats']): InspectReport {
@@ -51,6 +57,15 @@ export function buildInspectReport(bundle: ArtifactBundle, stats: Extract<LoadRe
   const declared = new Map<string, number>();
   for (const edge of graph.edges) if (edge.kind === 'declares-package') declared.set(edge.sourceId, (declared.get(edge.sourceId) ?? 0) + 1);
   const c = graph.coverage;
+  const severityRank = { error: 0, warning: 1, info: 2 } as const;
+  const pathOf = (id: string | undefined) => {
+    const node = id ? byId.get(id) : undefined;
+    return node && (node.kind === 'file' || node.kind === 'directory' || node.kind === 'package') ? node.path || '.' : (node?.label ?? '');
+  };
+  const fileMetrics = graph.metrics.flatMap((metric) => {
+    const node = byId.get(metric.nodeId);
+    return node?.kind === 'file' ? [{ path: node.path, metric }] : [];
+  });
   return {
     repository: manifest.repo.displayName,
     commit: manifest.selectedCommit.oid,
@@ -67,6 +82,22 @@ export function buildInspectReport(bundle: ArtifactBundle, stats: Extract<LoadRe
     limitsHit: c.limitsHit,
     warnings: c.warnings,
     history: { status: manifest.coverage.history.status, framesCompleted: manifest.coverage.history.framesCompleted },
+    parse: { parsed: c.parsedFiles, failed: c.parseFailedFiles },
+    imports: { observed: c.observedImports, internal: c.internalResolved, external: c.externalResolved, builtin: c.builtinResolved, unresolved: c.unresolved, unsupported: c.unsupported, excludedTargets: c.excludedTargets },
+    edges: graph.edges.filter((e) => e.kind !== 'declares-package' && e.kind !== 'project-reference').length,
+    findings: [...graph.diagnostics]
+      .sort((a, b) => severityRank[a.severity] - severityRank[b.severity] || compareAscii(a.ruleId, b.ruleId) || compareUtf8(pathOf(a.subjectIds[0]), pathOf(b.subjectIds[0])))
+      .map((d) => ({ ruleId: d.ruleId, severity: d.severity, title: RULE_CATALOG[d.ruleId as keyof typeof RULE_CATALOG]?.title ?? d.ruleId, message: formatDiagnosticMessage(d), path: pathOf(d.subjectIds[0]), line: d.range?.startLine ?? null })),
+    mostComplex: fileMetrics
+      .filter((m) => (m.metric.maxCyclomatic ?? 0) > 0)
+      .sort((a, b) => b.metric.maxCyclomatic! - a.metric.maxCyclomatic! || compareUtf8(a.path, b.path))
+      .slice(0, 5)
+      .map((m) => ({ path: m.path, maxCyclomatic: m.metric.maxCyclomatic!, codeLines: m.metric.codeLines })),
+    mostDependedOn: fileMetrics
+      .filter((m) => (m.metric.fanIn ?? 0) > 0)
+      .sort((a, b) => b.metric.fanIn! - a.metric.fanIn! || compareUtf8(a.path, b.path))
+      .slice(0, 5)
+      .map((m) => ({ path: m.path, fanIn: m.metric.fanIn! })),
   };
 }
 
@@ -181,8 +212,49 @@ function render(ctx: CommandContext, report: InspectReport, bundle: ArtifactBund
   }
 
   ctx.print();
+  ctx.print(`  ${heading(s, 'Dependencies')}  ${s.dim(`${formatCount(report.imports.observed)} import statements · ${formatCount(report.edges)} file edges`)}`);
+  const im = report.imports;
+  ctx.print(
+    `  ${stackedBar(
+      s,
+      [
+        { value: im.internal, color: PALETTE.accent, glyph: '#' },
+        { value: im.external + im.builtin, color: PALETTE.roles['asset']!, glyph: '+' },
+        { value: im.unresolved, color: PALETTE.warn, glyph: '?' },
+        { value: im.unsupported + im.excludedTargets, color: PALETTE.muted, glyph: '.' },
+      ],
+      Math.min(60, w - 8),
+    )}`,
+  );
+  ctx.print(
+    `  ${swatch(s, PALETTE.accent, '#')} ${formatCount(im.internal)} internal  ${swatch(s, PALETTE.roles['asset']!, '+')} ${formatCount(im.external)} npm · ${formatCount(im.builtin)} node  ${swatch(s, PALETTE.warn, '?')} ${formatCount(im.unresolved)} unresolved  ${swatch(s, PALETTE.muted, '.')} ${formatCount(im.unsupported)} unsupported · ${formatCount(im.excludedTargets)} to excluded files`,
+  );
+  if (report.parse.failed > 0) ctx.print(`  ${check(s, 'warn')} ${s.fg(PALETTE.warn, `${plural(report.parse.failed, 'file')} could not be parsed`)} ${s.dim('— no dependency or complexity claims are made for them')}`);
+
+  ctx.print();
+  const counts = { error: 0, warning: 0, info: 0 } as Record<string, number>;
+  for (const finding of report.findings) counts[finding.severity] = (counts[finding.severity] ?? 0) + 1;
+  ctx.print(`  ${heading(s, 'Findings')}  ${s.dim(report.findings.length === 0 ? 'none under the default rules' : `${counts['error']} error · ${counts['warning']} warning · ${counts['info']} info`)}`);
+  for (const finding of report.findings.slice(0, 12)) {
+    const icon = finding.severity === 'error' ? s.fg(PALETTE.error, s.unicode ? '●' : 'E') : finding.severity === 'warning' ? s.fg(PALETTE.warn, s.unicode ? '▲' : 'W') : s.fg(PALETTE.accent, s.unicode ? '◆' : 'i');
+    const where = `${finding.path}${finding.line ? `:${finding.line}` : ''}`;
+    ctx.print(`  ${icon} ${s.bold(finding.title)} ${s.dim(truncateMiddle(where, 60))}`);
+    for (const line of wrapText(finding.message, w - 8)) ctx.print(`    ${s.dim(line)}`);
+  }
+  if (report.findings.length > 12) ctx.print(s.dim(`  … ${report.findings.length - 12} more (atlas inspect --json)`));
+
+  if (report.mostComplex.length > 0 || report.mostDependedOn.length > 0) {
+    ctx.print();
+    ctx.print(`  ${heading(s, 'Look closer')}  ${s.dim('raw metrics, repository-relative; not a quality score')}`);
+    const left = report.mostComplex.map((m) => `${String(m.maxCyclomatic).padStart(4)}  ${truncateMiddle(m.path, 34)}`);
+    const right = report.mostDependedOn.map((m) => `${String(m.fanIn).padStart(4)}  ${truncateMiddle(m.path, 34)}`);
+    ctx.print(`  ${s.fg(PALETTE.muted, padEndVisible('max complexity', 42))}${s.fg(PALETTE.muted, 'direct consumers')}`);
+    for (let i = 0; i < Math.max(left.length, right.length); i++) ctx.print(`  ${padEndVisible(left[i] ?? '', 42)}${right[i] ?? ''}`);
+  }
+
+  ctx.print();
   ctx.print(`  ${heading(s, 'Not yet in this artifact')}`);
-  ctx.print(s.dim(`  imports & cycles (P2) · complexity & findings (P2) · Git history ${report.history.status} (P4) · 3D city viewer (P3)`));
+  ctx.print(s.dim(`  Git history ${report.history.status} (P4) · 3D city viewer (P3) · browse this artifact now with: atlas serve <artifact>`));
   if (report.externalPackages.length > 0) {
     ctx.print();
     ctx.print(`  ${heading(s, 'Declared external packages')}`);

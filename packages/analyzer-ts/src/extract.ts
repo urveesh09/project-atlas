@@ -1,4 +1,5 @@
 import ts from 'typescript';
+import { codeLineCount, collectCallables, physicalLineCount, type CallableFacts, type ComplexitySummary } from './complexity.js';
 import { parseDiagnosticsOf } from './internal.js';
 import { LIMITS, compareAscii, compareUtf8, repoExtension, type DeclarationSummary, type SourceRange } from '@atlas/schema';
 
@@ -8,6 +9,8 @@ import { LIMITS, compareAscii, compareUtf8, repoExtension, type DeclarationSumma
  */
 /** Recorded in artifacts and cache keys (plan §9.4). */
 export const PARSER_VERSION = `typescript@${ts.version}`;
+/** Version of the fact extraction rules; part of every fact-cache key (plan §9.4). */
+export const EXTRACTOR_VERSION = 'atlas.extract/1';
 
 export type ImportKind =
   | 'imports-value'
@@ -37,14 +40,43 @@ export interface ParseError {
   range: SourceRange;
 }
 
+export type ParseFailureReason = 'SYNTAX_ERROR' | 'PARSER_STACK_LIMIT' | 'PARSE_TIMEOUT' | 'PARSER_CRASHED';
+
 export interface FileFacts {
   language: 'typescript' | 'javascript';
   parseStatus: 'parsed' | 'failed';
+  failureReason: ParseFailureReason | null;
   parseErrors: ParseError[];
   /** Empty when parsing failed: no dependency claims are made from malformed ASTs. */
   imports: RawImport[];
   declarations: DeclarationSummary[];
   declarationsOmitted: number;
+  /** Text-based, so available even when parsing failed. */
+  physicalLines: number;
+  /** Token-based; null when parsing failed. */
+  codeLines: number | null;
+  /** Null when parsing failed; complexity is never claimed from a malformed AST. */
+  complexity: ComplexitySummary | null;
+  callables: CallableFacts[];
+  callablesOmitted: number;
+}
+
+export function failedFacts(path: string, text: string, reason: ParseFailureReason, parseErrors: ParseError[] = []): FileFacts {
+  const script = SCRIPT_KINDS[repoExtension(path)];
+  return {
+    language: script?.language ?? 'typescript',
+    parseStatus: 'failed',
+    failureReason: reason,
+    parseErrors,
+    imports: [],
+    declarations: [],
+    declarationsOmitted: 0,
+    physicalLines: physicalLineCount(text),
+    codeLines: null,
+    complexity: null,
+    callables: [],
+    callablesOmitted: 0,
+  };
 }
 
 const SCRIPT_KINDS: Record<string, { kind: ts.ScriptKind; language: 'typescript' | 'javascript' }> = {
@@ -170,13 +202,24 @@ function isShadowed(node: ts.Node, scopes: Set<ts.Node>): boolean {
 // ---------------------------------------------------------------------------------------
 
 export function extractFileFacts(path: string, text: string): FileFacts {
+  try {
+    return extractUnchecked(path, text);
+  } catch (error) {
+    // Pathologically deep input can exhaust the parser's recursion: contain it as a
+    // failed parse instead of crashing the analysis (plan §16.1 "huge token/deep nesting").
+    if (error instanceof RangeError) return failedFacts(path, text, 'PARSER_STACK_LIMIT');
+    throw error;
+  }
+}
+
+function extractUnchecked(path: string, text: string): FileFacts {
   const script = SCRIPT_KINDS[repoExtension(path)];
   if (!script) throw new TypeError(`Unsupported source extension for ${path}`);
   const sf = ts.createSourceFile(path, text, { languageVersion: ts.ScriptTarget.Latest, jsDocParsingMode: ts.JSDocParsingMode.ParseNone }, true, script.kind);
   const diagnostics = parseDiagnosticsOf(sf);
   const parseErrors = diagnostics.slice(0, 100).map((d) => ({ code: d.code, range: rangeOf(sf, d.start, Math.min(d.start + d.length, text.length)) }));
   if (parseErrors.length > 0) {
-    return { language: script.language, parseStatus: 'failed', parseErrors, imports: [], declarations: [], declarationsOmitted: 0 };
+    return failedFacts(path, text, 'SYNTAX_ERROR', parseErrors);
   }
 
   const imports: RawImport[] = [];
@@ -250,7 +293,21 @@ export function extractFileFacts(path: string, text: string): FileFacts {
   imports.sort((a, b) => a.range.startOffset - b.range.startOffset || compareAscii(a.kind, b.kind));
 
   const { declarations, omitted } = extractDeclarations(sf);
-  return { language: script.language, parseStatus: 'parsed', parseErrors: [], imports, declarations, declarationsOmitted: omitted };
+  const { callables, omitted: callablesOmitted, summary } = collectCallables(sf, (node) => nodeRange(sf, node));
+  return {
+    language: script.language,
+    parseStatus: 'parsed',
+    failureReason: null,
+    parseErrors: [],
+    imports,
+    declarations,
+    declarationsOmitted: omitted,
+    physicalLines: physicalLineCount(text),
+    codeLines: codeLineCount(sf),
+    complexity: summary,
+    callables,
+    callablesOmitted,
+  };
 }
 
 function extractDeclarations(sf: ts.SourceFile): { declarations: DeclarationSummary[]; omitted: number } {

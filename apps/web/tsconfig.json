@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "es2024",
-    "lib": ["es2024", "dom", "dom.iterable"],
+    "lib": [
+      "es2024",
+      "dom",
+      "dom.iterable"
+    ],
     "module": "esnext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
@@ -13,11 +17,26 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["vite/client"],
+    "types": [
+      "vite/client"
+    ],
     "paths": {
-      "@atlas/schema": ["../../packages/schema/src/index.ts"],
-      "@atlas/layout": ["../../packages/layout/src/index.ts"]
+      "@atlas/schema": [
+        "../../packages/schema/src/index.ts"
+      ],
+      "@atlas/layout": [
+        "../../packages/layout/src/index.ts"
+      ],
+      "@atlas/graph": [
+        "../../packages/graph/src/index.ts"
+      ],
+      "@atlas/artifact": [
+        "../../packages/artifact/src/index.ts"
+      ]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": [
+    "src",
+    "vite.config.ts"
+  ]
 }

@@ -21,8 +21,9 @@
     "contracts:check": "node scripts/generate-contracts.mjs --check",
     "fixtures:demo": "node packages/test-fixtures/scripts/build-demo-repo.mjs",
     "spike:render": "pnpm --filter @atlas/web build && node apps/web/scripts/render-spike.mjs",
-    "verify": "pnpm typecheck && pnpm check:deps && pnpm contracts:check && pnpm test",
-    "atlas": "node packages/cli/bin/atlas.js"
+    "verify": "pnpm typecheck && pnpm build:web && pnpm check:deps && pnpm contracts:check && pnpm test",
+    "atlas": "node packages/cli/bin/atlas.js",
+    "build:web": "pnpm --filter @atlas/web build"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

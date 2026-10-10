@@ -13,3 +13,4 @@ export * from './api.js';
 export * from './invariants.js';
 export * from './json-schema.js';
 export * from './artifact-set.js';
+export * from './rules.js';

@@ -41,7 +41,9 @@ export function buildHierarchy(input: HierarchyInput): HierarchyResult {
   const { snapshotId: snap, inventory } = input;
   const fs = new SnapshotFS(
     inventory.files.map((f) => ({ path: f.path, text: f.text })),
-    inventory.excluded.flatMap((e) => (e.path === null ? [] : [e.path])),
+    // Excluded and limit-omitted files exist in Git but not in the analysis: imports that
+    // reach them become excluded-target observations, never dangling edges.
+    [...inventory.excluded.flatMap((e) => (e.path === null ? [] : [e.path])), ...inventory.omitted],
   );
   const resolver = new SnapshotResolver(fs);
   const workspace = resolver.workspace;

@@ -12,6 +12,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@atlas/artifact": "workspace:*",
+    "@atlas/graph": "workspace:*",
     "@atlas/layout": "workspace:*",
     "@atlas/schema": "workspace:*",
     "@react-three/fiber": "9.8.1",
@@ -27,5 +29,11 @@
     "playwright": "1.64.0",
     "typescript": "6.0.3",
     "vite": "8.3.4"
-  }
+  },
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ]
 }

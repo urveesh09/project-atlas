@@ -35,6 +35,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@atlas/artifact':
+        specifier: workspace:*
+        version: link:../../packages/artifact
+      '@atlas/graph':
+        specifier: workspace:*
+        version: link:../../packages/graph
       '@atlas/layout':
         specifier: workspace:*
         version: link:../../packages/layout
@@ -162,10 +168,16 @@ importers:
       '@atlas/schema':
         specifier: workspace:*
         version: link:../schema
+      '@atlas/web':
+        specifier: workspace:*
+        version: link:../../apps/web
     devDependencies:
       '@atlas/test-fixtures':
         specifier: workspace:*
         version: link:../test-fixtures
+      playwright:
+        specifier: 1.64.0
+        version: 1.64.0
 
   packages/graph:
     dependencies:

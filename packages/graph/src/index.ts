@@ -1,2 +1,5 @@
-/** Graph aggregation, adjacency, SCCs and bounded queries: implemented in P2.3/P2.4. */
-export {};
+export * from './aggregate.js';
+export * from './graph-index.js';
+export * from './scc.js';
+export * from './stats.js';
+export * from './search.js';

@@ -27,15 +27,18 @@ import {
 import { builtinExclusionPatterns } from './classify.js';
 import { AnalysisError } from './errors.js';
 import { buildHierarchy } from './hierarchy.js';
+import { MemoryFactCache, type FactCache } from './fact-cache.js';
 import { buildInventory, type Inventory } from './inventory.js';
+import { ParserPool } from './parse-pool.js';
+import { analyzeStaticSnapshot, type StaticSnapshot } from './static-snapshot.js';
 import { ANALYZER_VERSION, normalizeOptions, optionsDigest, parseRepositoryConfig, type AnalysisOptions, type NormalizedOptions } from './options.js';
 
 /**
- * Analyze one committed snapshot into a complete, validated artifact (Phase 1: structure,
- * packages, configuration and coverage). Parsing (P2), history (P4) and the polished city
- * (P3) extend this same pipeline; nothing here is a placeholder that fakes their output.
+ * Analyze one committed snapshot into a complete, validated artifact: structure, packages
+ * and coverage (Phase 1), then parsing, dependencies, metrics and findings (Phase 2).
+ * History (P4) extends this same pipeline; nothing here fakes its output.
  */
-export type AnalysisStage = 'resolve' | 'enumerate' | 'inventory' | 'hierarchy' | 'layout' | 'assemble';
+export type AnalysisStage = 'resolve' | 'enumerate' | 'inventory' | 'hierarchy' | 'parse' | 'dependencies' | 'findings' | 'layout' | 'assemble';
 
 export interface ProgressEvent {
   stage: AnalysisStage;
@@ -53,6 +56,10 @@ export interface AnalyzeCommitInput {
   onProgress?: (event: ProgressEvent) => void;
   /** Injectable clock for reproducible tests (wall-clock values never enter chunks). */
   now?: () => Date;
+  /** Shared parser pool (otherwise one is created and closed for this analysis). */
+  pool?: ParserPool;
+  /** Fact cache (otherwise an in-memory cache for this analysis). */
+  factCache?: FactCache;
 }
 
 export interface AnalysisResult {
@@ -78,6 +85,10 @@ export interface AnalysisSummary {
   appliedBuiltinExclusions: { reason: string; patterns: string[] }[];
   limitsHit: string[];
   warnings: { code: string; path: string | null }[];
+  imports: { observed: number; internal: number; external: number; builtin: number; unresolved: number; unsupported: number; excludedTargets: number };
+  parse: { parsed: number; failed: number; cacheHits: number };
+  findings: Record<string, number>;
+  cycles: number;
   history: { status: 'unavailable'; reason: string };
   sourceTextIncluded: false;
 }
@@ -114,19 +125,29 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
   const lineageOf = (path: string) => lineageId(repoId, commitOid, commitOid, path);
   const hierarchy = buildHierarchy({ snapshotId: snap, repoDisplayName: input.repository.displayName, inventory, lineageOf });
 
-  const coverage = buildCoverage(inventory, [...repositoryConfig.warnings, ...hierarchy.warnings]);
-  const status: 'complete' | 'partial' = inventory.limitsHit.size > 0 ? 'partial' : 'complete';
-  const graph: GraphSnapshot = {
-    snapshotId: snap,
-    repoId,
-    commitOid,
-    nodes: hierarchy.nodes,
-    edges: hierarchy.edges,
-    importObservations: [],
-    diagnostics: [],
-    metrics: [],
-    coverage,
-  };
+  const structuralCoverage = buildCoverage(inventory, [...repositoryConfig.warnings, ...hierarchy.warnings]);
+  const pool = input.pool ?? new ParserPool();
+  let analysis: StaticSnapshot;
+  try {
+    analysis = await analyzeStaticSnapshot({
+      snapshotId: snap,
+      repoId,
+      commitOid,
+      inventory,
+      hierarchy,
+      coverage: structuralCoverage,
+      pool,
+      cache: input.factCache ?? new MemoryFactCache(),
+      ...(input.signal ? { signal: input.signal } : {}),
+      onProgress: (stage, done, total) => progress({ stage, ...(done !== undefined ? { done } : {}), ...(total !== undefined ? { total } : {}) }),
+    });
+  } finally {
+    if (!input.pool) await pool.close();
+  }
+  const graph = analysis.graph;
+  const coverage = graph.coverage;
+  // Parse failures and caps both mean the result is useful but partial (plan §14.1).
+  const status: 'complete' | 'partial' = coverage.limitsHit.length > 0 || coverage.parseFailedFiles > 0 ? 'partial' : 'complete';
 
   progress({ stage: 'layout' });
   const layout = buildLayout(repoId, snap, graph);
@@ -180,7 +201,7 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
     draft: { manifest, graphs: [graph], history, layout },
     status,
     options,
-    summary: summarize(input.repository.displayName, commitOid, status, inventory, graph),
+    summary: summarize(input.repository.displayName, commitOid, status, inventory, graph, analysis),
   };
 }
 
@@ -238,6 +259,7 @@ function buildLayout(repoId: string, snap: string, graph: GraphSnapshot): Layout
     };
   };
   const repository = graph.nodes.find((n) => n.kind === 'repository')!;
+  const codeLines = new Map(graph.metrics.map((m) => [m.nodeId, m.codeLines]));
   const externals = graph.nodes.flatMap((n) => (n.kind === 'external-package' ? [`npm:${n.packageName}`] : n.kind === 'builtin' ? [`builtin:${n.moduleName}`] : []));
   const geometry = computeLayout({ repoId, frameKey: snap, externals, root: toTree(repository) });
 
@@ -246,13 +268,13 @@ function buildLayout(repoId: string, snap: string, graph: GraphSnapshot): Layout
     .map((n) => ({ graphNodeId: n.id, layoutDistrictId: districtId(repoId, n.kind as 'repository' | 'package' | 'directory', n.kind === 'repository' ? '' : (n as { path: string }).path) }))
     .sort((a, b) => compareAscii(a.graphNodeId, b.graphNodeId));
   const files = graph.nodes
-    .flatMap((n) => (n.kind === 'file' ? [{ nodeId: n.id, lineageId: n.lineageId!, currentParentId: n.parentId!, height: buildingHeight(n.role, n.parseStatus, null), present: true as const }] : []))
+    .flatMap((n) => (n.kind === 'file' ? [{ nodeId: n.id, lineageId: n.lineageId!, currentParentId: n.parentId!, height: buildingHeight(n.role, n.parseStatus, codeLines.get(n.id) ?? null), present: true as const }] : []))
     .sort((a, b) => compareAscii(a.lineageId, b.lineageId));
   return { ...geometry, frameState: [{ snapshotId: snap, containers, files }] };
 }
 
 
-function summarize(displayName: string, commitOid: string, status: 'complete' | 'partial', inventory: Inventory, graph: GraphSnapshot): AnalysisSummary {
+function summarize(displayName: string, commitOid: string, status: 'complete' | 'partial', inventory: Inventory, graph: GraphSnapshot, analysis: StaticSnapshot): AnalysisSummary {
   const roles: Record<string, number> = {};
   for (const file of inventory.files) roles[file.role] = (roles[file.role] ?? 0) + 1;
   const packages = graph.nodes.filter((n) => n.kind === 'package');
@@ -287,6 +309,10 @@ function summarize(displayName: string, commitOid: string, status: 'complete' | 
     appliedBuiltinExclusions: builtinExclusionPatterns(),
     limitsHit: c.limitsHit,
     warnings: c.warnings.slice(0, 200),
+    imports: { observed: c.observedImports, internal: c.internalResolved, external: c.externalResolved, builtin: c.builtinResolved, unresolved: c.unresolved, unsupported: c.unsupported, excludedTargets: c.excludedTargets },
+    parse: { parsed: c.parsedFiles, failed: c.parseFailedFiles, cacheHits: analysis.cacheHits },
+    findings: graph.diagnostics.reduce<Record<string, number>>((acc, d) => ((acc[d.ruleId] = (acc[d.ruleId] ?? 0) + 1), acc), {}),
+    cycles: analysis.cycles,
     history: { status: 'unavailable', reason: 'Git history analysis arrives in Phase 4 (P4.1).' },
     sourceTextIncluded: false,
   };

@@ -20,10 +20,12 @@
     "@atlas/analyzer-ts": "workspace:*",
     "@atlas/artifact": "workspace:*",
     "@atlas/ingest": "workspace:*",
-    "@atlas/schema": "workspace:*"
+    "@atlas/schema": "workspace:*",
+    "@atlas/web": "workspace:*"
   },
   "devDependencies": {
-    "@atlas/test-fixtures": "workspace:*"
+    "@atlas/test-fixtures": "workspace:*",
+    "playwright": "1.64.0"
   },
   "bin": {
     "atlas": "./bin/atlas.js"

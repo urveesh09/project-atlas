@@ -210,3 +210,41 @@ describe('package exports target selection', () => {
     expect(pickExportTarget(exportsField, subpath)).toBe(expected);
   });
 });
+
+describe('no host filesystem or network fallback (P2.2)', () => {
+  it('resolves the whole matrix without a single real filesystem or socket call', async () => {
+    const { createRequire } = await import('node:module');
+    const require = createRequire(import.meta.url);
+    // The CommonJS module objects that TypeScript's own `ts.sys` holds references to.
+    const fs = require('fs') as Record<string, unknown>;
+    const net = require('net') as { Socket: { prototype: { connect: (...args: unknown[]) => unknown } } };
+    const calls: string[] = [];
+    const patched = ['readFileSync', 'existsSync', 'statSync', 'lstatSync', 'readdirSync', 'realpathSync', 'openSync', 'accessSync'];
+    const originals = new Map<string, unknown>();
+    for (const name of patched) {
+      const original = fs[name] as (...args: unknown[]) => unknown;
+      originals.set(name, original);
+      fs[name] = (...args: unknown[]) => {
+        calls.push(`${name}(${String(args[0])})`);
+        return original.apply(fs, args);
+      };
+    }
+    const connect = net.Socket.prototype.connect;
+    net.Socket.prototype.connect = function (...args: unknown[]) {
+      calls.push('socket.connect');
+      return connect.apply(this, args);
+    };
+    try {
+      const fresh = resolveAll();
+      expect(fresh.get('apps/web/src/main.tsx')!.size).toBeGreaterThan(10);
+      expect(calls).toEqual([]);
+      // Control: the instrumentation does observe TypeScript's real host access.
+      const ts = (await import('typescript')).default;
+      ts.sys.fileExists(require.resolve('typescript'));
+      expect(calls.length).toBeGreaterThan(0);
+    } finally {
+      for (const [name, original] of originals) fs[name] = original;
+      net.Socket.prototype.connect = connect;
+    }
+  });
+});

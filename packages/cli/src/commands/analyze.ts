@@ -26,6 +26,9 @@ const STAGE_LABEL: Record<ProgressEvent['stage'], string> = {
   enumerate: 'Enumerate tree',
   inventory: 'Inventory files',
   hierarchy: 'Packages & configuration',
+  parse: 'Parse TS/JS',
+  dependencies: 'Resolve imports',
+  findings: 'Metrics & findings',
   layout: 'Lay out city',
   assemble: 'Assemble artifact',
 };

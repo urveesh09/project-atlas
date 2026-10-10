@@ -91,3 +91,25 @@ export function truncateMiddle(text: string, max: number): string {
   const keep = max - 1;
   return `${text.slice(0, Math.ceil(keep / 2))}…${text.slice(text.length - Math.floor(keep / 2))}`;
 }
+
+/** Word-wrap plain text to `width` columns, at most `maxLines` lines (last one ellipsized). */
+export function wrapText(text: string, width: number, maxLines = 3): string[] {
+  const words = text.split(/\s+/).filter((w) => w.length > 0);
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= width || current === '') current = candidate.length > width ? truncateMiddle(candidate, width) : candidate;
+    else {
+      lines.push(current);
+      current = word.length > width ? truncateMiddle(word, width) : word;
+    }
+  }
+  if (current) lines.push(current);
+  if (lines.length > maxLines) {
+    const kept = lines.slice(0, maxLines);
+    kept[maxLines - 1] = `${kept[maxLines - 1]!.slice(0, Math.max(0, width - 1))}…`;
+    return kept;
+  }
+  return lines;
+}
