@@ -4,3 +4,4 @@ export * from './safe-git.js';
 export * from './objects.js';
 export * from './local-repository.js';
 export * from './github.js';
+export * from './history.js';

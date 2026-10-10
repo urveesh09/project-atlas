@@ -1,5 +1,5 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { CITY_LENSES, LENS_STOPS, METRIC_PALETTE, type CityBuilding } from '@atlas/layout';
+import { LENS_STOPS, METRIC_PALETTE, lensValue, type CityBuilding, type CityLens, type MetricLens } from '@atlas/layout';
 import type { ReachResult } from '@atlas/graph';
 import { POLICIES } from '@atlas/graph';
 import { compareAscii, compareUtf8 } from '@atlas/schema';
@@ -7,6 +7,7 @@ import { useViewer } from '../app/context';
 import { ROLE_LABEL, formatNumber, shortOid } from '../app/model';
 import { MapCity } from '../city/MapCity';
 import type { CityHandle } from '../city/types';
+import type { CityGhost } from '../city/renderer';
 import { overlayKey, type OverlayResult } from '../city/overlay';
 import { addProvenance, downloadBlob, exportMetadata } from '../city/export';
 import '../styles/city.css';
@@ -22,10 +23,18 @@ const EMPTY: OverlayResult = {
   promotedTerminal: null,
   policy: 'Value, dynamic and resource observations; type-only excluded',
 };
-const LENS_LABEL = {
+export const LENS_LABEL: Record<CityLens, string> = {
   structure: 'Package structure',
   complexity: 'Max callable complexity',
   'fan-in': 'Fan-in (unique consumers)',
+  churn: 'Changed commits (up to this snapshot)',
+  hotspot: 'Hotspot score (0–100, HEAD cohort)',
+  attention: 'Structure attention (no history; 0–100)',
+};
+const LENS_NOTE: Partial<Record<CityLens, string>> = {
+  churn: 'Mainline commits in the analyzed window that changed each file, counted only up to the snapshot shown.',
+  hotspot: '0.40 complexity + 0.25 fan-in + 0.35 changed commits, as percentiles of the selected commit’s source cohort. A candidate for inspection, not a defect.',
+  attention: '0.60 complexity + 0.40 fan-in percentiles. Shown instead of the hotspot score because usable history is absent; it is not the same score.',
 };
 
 class GraphicsBoundary extends Component<{ children: ReactNode; fail(reason: string): void }, { failed: boolean }> {
@@ -42,7 +51,8 @@ class GraphicsBoundary extends Component<{ children: ReactNode; fail(reason: str
 }
 
 export function City() {
-  const { model, state, dispatch, select, queries } = useViewer();
+  const { dataset, model, state, dispatch, select, queries, comparison } = useViewer();
+  const lenses: CityLens[] = ['structure', 'complexity', 'fan-in', 'churn', dataset.hotspotAvailable ? 'hotspot' : 'attention'];
   const handle = useRef<CityHandle | null>(null);
   const [readyMode, setReadyMode] = useState<'3d' | 'map' | null>(null),
     [message, setMessage] = useState(''),
@@ -52,7 +62,7 @@ export function City() {
   const ready = readyMode === state.mode;
   const [storedOverlay, setOverlay] = useState<OverlayResult>(EMPTY),
     [lowQuality, setLowQuality] = useState(model.city.buildings.length >= 10_000);
-  const currentOverlayKey = overlayKey({
+  const currentOverlayKey = `${model.frame}|` + overlayKey({
     selectedId: state.selectedId,
     direction: state.direction,
     includeTypes: state.includeTypes,
@@ -132,9 +142,11 @@ export function City() {
     let stale = false;
     setOverlay(EMPTY);
     setOverlayReady(false);
+    const frame = model.frame;
+    const key = `${frame}|${overlayKey({ selectedId: state.selectedId, direction: state.direction, includeTypes: state.includeTypes, pinnedEdgeId: state.pinnedEdgeId, packages: state.packages })}`;
     if (queries)
       void queries
-        .overlay({
+        .overlay(frame, {
           selectedId: state.selectedId,
           direction: state.direction,
           includeTypes: state.includeTypes,
@@ -143,7 +155,7 @@ export function City() {
         })
         .then((result) => {
           if (!stale) {
-            setOverlay(result);
+            setOverlay({ ...result, key });
             setOverlayReady(true);
           }
         })
@@ -153,12 +165,28 @@ export function City() {
     return () => {
       stale = true;
     };
-  }, [queries, state.selectedId, state.direction, state.includeTypes, state.pinnedEdgeId, state.packages]);
+  }, [queries, model.frame, state.selectedId, state.direction, state.includeTypes, state.pinnedEdgeId, state.packages]);
+  // Compare marks on fixed plots: deleted lineages ghosted at their A height, added ones flagged.
+  const ghosts = useMemo<CityGhost[]>(() => {
+    const result = comparison?.result;
+    if (!state.compare || !result || comparison.a !== state.compare.a || comparison.b !== state.compare.b || model.frame !== state.compare.b) return [];
+    const marks: CityGhost[] = [];
+    for (const f of result.deleted) {
+      const plot = dataset.plotOf.get(f.lineageId);
+      if (plot) marks.push({ rect: plot.rect, kind: 'deleted', height: dataset.heightIn(state.compare.a, f.lineageId) ?? 0.8 });
+    }
+    for (const f of result.added) {
+      const plot = dataset.plotOf.get(f.lineageId);
+      if (plot) marks.push({ rect: plot.rect, kind: 'added', height: dataset.heightIn(state.compare.b, f.lineageId) ?? 0.8 });
+    }
+    return marks;
+  }, [comparison, dataset, model.frame, state.compare]);
   const showReach = async () => {
     if (!queries || !state.selectedId) return;
     const ticket = ++reachTicket.current;
     try {
       const result = await queries.reach(
+        model.frame,
         state.selectedId,
         state.direction === 'incoming' ? 'incoming' : 'outgoing',
         depth,
@@ -184,7 +212,7 @@ export function City() {
       const metadata = exportMetadata(model, state, overlay, handle.current.cameraState());
       const blob = await addProvenance(
         await handle.current.exportPng(),
-        `ATLAS · ${model.manifest.repo.displayName} · ${shortOid(model.graph.commitOid)} · ${LENS_LABEL[state.lens]} · static analysis`,
+        `ATLAS · ${model.manifest.repo.displayName} · ${shortOid(model.graph.commitOid)} ${model.commit.committerTime.slice(0, 10)}${model.isHead ? '' : ` (snapshot ${model.frame + 1}/${dataset.frames.length})`}${state.compare ? ` · compare ${state.compare.a + 1}→${state.compare.b + 1}` : ''} · ${LENS_LABEL[state.lens]}${model.manifest.coverage.history.status === 'partial' || model.graph.coverage.limitsHit.length ? ' · PARTIAL COVERAGE' : ''} · ${model.manifest.analyzer.version} · static analysis`,
       );
       downloadBlob(blob, 'atlas-city.png');
       downloadBlob(
@@ -201,12 +229,13 @@ export function City() {
     }
   };
   const hovered = model.node(hoverId);
+  const hoveredBuilding = hovered ? model.city.buildings.find((b) => b.nodeId === hovered.id) : undefined;
   return (
     <section className="city" aria-labelledby="city-title">
       <div className="city-heading">
         <div>
-          <p className="eyebrow">ONE FILE · ONE BUILDING</p>
-          <h1 id="city-title">Your code, in perspective</h1>
+          <p className="eyebrow">ONE FILE · ONE BUILDING{model.isHead ? '' : ` · SNAPSHOT ${model.frame + 1} OF ${dataset.frames.length}`}</p>
+          <h1 id="city-title">{model.isHead ? 'Your code, in perspective' : `As it stood on ${model.commit.committerTime.slice(0, 10)}`}</h1>
         </div>
         <span>
           {model.city.buildings.length.toLocaleString()} plots ·{' '}
@@ -233,7 +262,7 @@ export function City() {
             value={state.lens}
             onChange={(e) => dispatch({ type: 'lens', lens: e.target.value as typeof state.lens })}
           >
-            {CITY_LENSES.map((lens) => (
+            {lenses.map((lens) => (
               <option key={lens} value={lens}>
                 {LENS_LABEL[lens]}
               </option>
@@ -298,15 +327,21 @@ export function City() {
           <span>Stable package colors; inspect package names below and in the tree.</span>
         ) : (
           <>
-            {LENS_STOPS[state.lens].map((n, i) => (
+            {LENS_STOPS[state.lens as MetricLens].map((n, i) => (
               <span key={n}>
                 <i style={{ background: METRIC_PALETTE[i] }} aria-hidden="true" />
                 {n}
-                {i === 4 ? '+' : `–${LENS_STOPS[state.lens as 'complexity' | 'fan-in'][i + 1]! - 1}`}
+                {i === 4 ? '+' : LENS_STOPS[state.lens as MetricLens][i + 1]! - 1 === n ? '' : `–${LENS_STOPS[state.lens as MetricLens][i + 1]! - 1}`}
               </span>
             ))}
             <span>× unknown</span>
           </>
+        )}
+        {LENS_NOTE[state.lens] && <span className="legend-note">{LENS_NOTE[state.lens]}</span>}
+        {ghosts.length > 0 && (
+          <span className="legend-note">
+            Compare marks: <span aria-hidden="true">▢</span> outlined ghost = deleted since A · <span aria-hidden="true">◆</span> raised diamond = added in B.
+          </span>
         )}
       </div>
       {state.filter !== 'all' && (
@@ -325,6 +360,7 @@ export function City() {
           {state.mode === 'map' ? (
             <MapCity
               city={model.city}
+              ghosts={ghosts}
               lens={state.lens}
               selected={selectedIds}
               filter={filter}
@@ -343,6 +379,8 @@ export function City() {
                 }
               >
                 <ThreeCity
+                  layoutKey={dataset.layout.layoutId}
+                  ghosts={ghosts}
                   city={model.city}
                   lens={state.lens}
                   selected={selectedIds}
@@ -365,11 +403,7 @@ export function City() {
                 {ROLE_LABEL[hovered.role]} · {hovered.parseStatus} · {LENS_LABEL[state.lens]}:{' '}
                 {state.lens === 'structure'
                   ? (model.index.packageOf(hovered.id)?.packageName ?? 'root package')
-                  : formatNumber(
-                      state.lens === 'complexity'
-                        ? model.index.metrics.get(hovered.id)?.maxCyclomatic
-                        : model.index.metrics.get(hovered.id)?.fanIn,
-                    )}
+                  : formatNumber(hoveredBuilding ? lensValue(hoveredBuilding, state.lens) : null)}
               </span>
             </div>
           )}
@@ -490,6 +524,8 @@ export function City() {
                 <th scope="col">Code lines</th>
                 <th scope="col">Max complexity</th>
                 <th scope="col">Fan-in</th>
+                <th scope="col">Changed commits</th>
+                <th scope="col">{dataset.hotspotAvailable ? 'Hotspot' : 'Structure attention'}</th>
                 <th scope="col">Status</th>
               </tr>
             </thead>
@@ -510,6 +546,8 @@ export function City() {
                   <td>{formatNumber(b.metric?.codeLines)}</td>
                   <td>{formatNumber(b.metric?.maxCyclomatic)}</td>
                   <td>{formatNumber(b.metric?.fanIn)}</td>
+                  <td>{formatNumber(lensValue(b, 'churn'))}</td>
+                  <td>{formatNumber(lensValue(b, dataset.hotspotAvailable ? 'hotspot' : 'attention'))}</td>
                   <td>{b.parseStatus}</td>
                 </tr>
               ))}

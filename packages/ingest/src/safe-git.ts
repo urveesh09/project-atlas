@@ -1,3 +1,4 @@
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -180,6 +181,22 @@ export class SafeGit {
       ...(options.stdin !== undefined ? { stdin: options.stdin } : {}),
       ...(options.signal ? { signal: options.signal } : {}),
       ...(options.okExitCodes ? { okExitCodes: options.okExitCodes } : {}),
+    });
+  }
+
+  /**
+   * Start a long-lived Git child (for request/response protocols such as
+   * `cat-file --batch`) with the same hardening, environment and process-group ownership
+   * as `run`. The caller owns the deadline and must call `killProcessTree` on failure.
+   */
+  spawnInteractive(args: readonly string[]): ChildProcessWithoutNullStreams {
+    return spawn(this.gitExecutable, [...this.hardening, ...args], {
+      cwd: this.scratch,
+      env: { ...this.env },
+      shell: false,
+      windowsHide: true,
+      detached: process.platform !== 'win32',
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
   }
 

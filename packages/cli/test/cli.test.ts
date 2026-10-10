@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ANALYZER_VERSION } from '@atlas/analyzer-core';
 import { EXIT, run, type CliIO } from '@atlas/cli';
 import { buildDemoRepository, buildInventoryFixture, type GitFixture, type InventoryFixture } from '@atlas/test-fixtures';
 
@@ -219,7 +220,7 @@ describe('the real binary', () => {
   it.runIf(existsSync(fileURLToPath(new URL('../dist/main.js', import.meta.url))))('prints its version and help', () => {
     const version = spawnSync(process.execPath, [bin, '--version'], { encoding: 'utf8' });
     expect(version.status).toBe(0);
-    expect(version.stdout.trim()).toBe('0.1.0-dev');
+    expect(version.stdout.trim()).toBe(ANALYZER_VERSION);
     const help = spawnSync(process.execPath, [bin], { encoding: 'utf8' });
     expect(help.status).toBe(EXIT.usage);
     expect(help.stdout).toContain('Exit codes');

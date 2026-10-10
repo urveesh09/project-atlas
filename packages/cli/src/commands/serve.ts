@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { readArtifactDirectory } from '@atlas/artifact/node';
+import { verifyArtifactDirectory } from '@atlas/artifact/node';
 import { EXIT, UsageError, type CommandContext } from '../context.js';
 import { SourceAttachment } from '../server/source.js';
 import { startViewerServer } from '../server/server.js';
@@ -37,7 +37,9 @@ const SOURCE_REASONS: Record<string, string> = {
 
 export async function serve(ctx: CommandContext, args: { artifact: string; repo?: string; open: boolean; port?: number; viewerDir?: string }): Promise<number> {
   const dir = path.resolve(ctx.io.cwd, args.artifact);
-  const loaded = await readArtifactDirectory(dir);
+  // Every chunk and frame is validated before serving, one frame decoded at a time.
+  const verified = await verifyArtifactDirectory(dir);
+  const loaded = verified.ok ? { ok: true as const, bundle: verified.opened } : verified;
   if (!loaded.ok) {
     ctx.note(`  ${check(ctx.err, false)} ${loaded.code}: the artifact did not validate. Run atlas verify for details.`);
     return EXIT.failure;

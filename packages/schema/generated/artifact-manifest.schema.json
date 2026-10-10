@@ -1,6 +1,6 @@
 {
   "$id": "https://atlas.invalid/schemas/artifact-manifest.schema.json",
-  "title": "ATLAS artifact-manifest (atlas.artifact/1.2.0)",
+  "title": "ATLAS artifact-manifest (atlas.artifact/1.3.0)",
   "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
@@ -10,7 +10,8 @@
       "enum": [
         "atlas.artifact/1.0.0",
         "atlas.artifact/1.1.0",
-        "atlas.artifact/1.2.0"
+        "atlas.artifact/1.2.0",
+        "atlas.artifact/1.3.0"
       ]
     },
     "schemaVersion": {
@@ -231,7 +232,12 @@
               },
               "encoding": {
                 "type": "string",
-                "const": "atlas.graph.indexed/1"
+                "enum": [
+                  "atlas.graph.indexed/1",
+                  "atlas.graph.delta/1",
+                  "atlas.history.compact/1",
+                  "atlas.layout.compact/1"
+                ]
               },
               "encodedSha256": {
                 "type": "string",
@@ -467,7 +473,12 @@
         },
         "encoding": {
           "type": "string",
-          "const": "atlas.graph.indexed/1"
+          "enum": [
+            "atlas.graph.indexed/1",
+            "atlas.graph.delta/1",
+            "atlas.history.compact/1",
+            "atlas.layout.compact/1"
+          ]
         },
         "encodedSha256": {
           "type": "string",
@@ -515,7 +526,12 @@
         },
         "encoding": {
           "type": "string",
-          "const": "atlas.graph.indexed/1"
+          "enum": [
+            "atlas.graph.indexed/1",
+            "atlas.graph.delta/1",
+            "atlas.history.compact/1",
+            "atlas.layout.compact/1"
+          ]
         },
         "encodedSha256": {
           "type": "string",
@@ -567,7 +583,12 @@
           },
           "encoding": {
             "type": "string",
-            "const": "atlas.graph.indexed/1"
+            "enum": [
+              "atlas.graph.indexed/1",
+              "atlas.graph.delta/1",
+              "atlas.history.compact/1",
+              "atlas.layout.compact/1"
+            ]
           },
           "encodedSha256": {
             "type": "string",

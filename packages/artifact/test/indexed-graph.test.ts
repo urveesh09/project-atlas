@@ -10,6 +10,7 @@ import {
   type PackedArtifact,
 } from '@atlas/artifact/node';
 import {
+  ARTIFACT_VERSION,
   canonicalJson,
   decodeIndexedGraph,
   encodeIndexedGraph,
@@ -80,7 +81,7 @@ describe('indexed graph transport (ADR-018)', () => {
     'round trips through %s with identical evidence, metrics, history and layout',
     async (_name, decompress) => {
       const packed = packArtifact(draft(), gzipDeterministic);
-      expect(packed.manifest.artifactVersion).toBe('atlas.artifact/1.2.0');
+      expect(packed.manifest.artifactVersion).toBe(ARTIFACT_VERSION);
       const result = await loadArtifact(source(packed), decompress);
       expect(result.ok ? result.bundle : result).toEqual(packed.bundle);
     },
@@ -97,15 +98,19 @@ describe('indexed graph transport (ADR-018)', () => {
   });
 
   it('retains compatibility with 1.1 indexed exports', async () => {
-    const packed = packArtifact(draft(), gzipDeterministic);
+    // A 1.1 export: indexed graphs, plain history and layout.
+    const packed = packArtifact(draft(), gzipDeterministic, { graphEncoding: 'indexed' });
     packed.manifest.artifactVersion = 'atlas.artifact/1.1.0';
     const result = await loadArtifact(source(packed), gunzipWithStreams);
     expect(result.ok ? result.bundle : result).toEqual({ ...packed.bundle, manifest: packed.manifest });
   });
 
-  it('rejects cumulative decoded overflow before reading or allocating any chunk', async () => {
+  it('rejects cumulative stored overflow before reading or allocating any chunk', async () => {
+    // ADR-026: the cumulative cap counts stored (wire) bytes; each reconstructed graph is
+    // capped on its own by the schema.
     const packed = packArtifact(draft(), gzipDeterministic);
-    for (const r of refs(packed)) r.decodedBytes = LIMITS.artifactUncompressedBytes;
+    for (const c of packed.manifest.chunks) c.uncompressedBytes = Math.floor(LIMITS.artifactUncompressedBytes / 2) + 1;
+    for (const r of refs(packed)) r.uncompressedBytes = Math.floor(LIMITS.artifactUncompressedBytes / 2) + 1;
     const reads: string[] = [],
       original = source(packed);
     const result = await loadArtifact(
@@ -119,6 +124,13 @@ describe('indexed graph transport (ADR-018)', () => {
     );
     expect(result.ok ? [] : result.issues.map((i) => i.code)).toContain('LIMIT');
     expect(reads).toEqual(['manifest.json']);
+  });
+
+  it('rejects one reconstructed graph above the decoded cap in the manifest schema', async () => {
+    const packed = packArtifact(draft(), gzipDeterministic);
+    for (const r of refs(packed)) r.decodedBytes = LIMITS.artifactUncompressedBytes + 1;
+    const result = await loadArtifact(source(packed), gunzipWithStreams);
+    expect(result.ok).toBe(false);
   });
 
   it('rejects a tampered canonical ID instead of silently deriving a replacement', () => {

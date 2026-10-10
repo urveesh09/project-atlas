@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { lstat, mkdir, open, readdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { constants, gunzipSync, gzipSync } from 'node:zlib';
-import { DecompressionLimitError, MANIFEST_PATH, loadArtifact, type ArtifactSource, type Decompressor, type LoadResult } from './load.js';
+import { DecompressionLimitError, MANIFEST_PATH, loadArtifact, openArtifact, type ArtifactSource, type Decompressor, type LoadResult, type OpenResult } from './load.js';
 import type { PackedArtifact } from './pack.js';
 
 /**
@@ -187,7 +187,7 @@ export async function writeArtifactDirectory(packed: PackedArtifact, outDir: str
     }
     // The manifest is written last: a staging directory without one is never valid.
     await writeFile(path.join(staging, MANIFEST_PATH), `${JSON.stringify(packed.manifest, null, 2)}\n`, { flag: 'wx' });
-    const verified = await readArtifactDirectory(staging);
+    const verified = await verifyArtifactDirectory(staging);
     if (!verified.ok) throw new ArtifactWriteError('VERIFY_FAILED', `Written artifact failed verification: ${verified.issues[0]?.code ?? 'unknown'}`);
   } catch (error) {
     await rm(staging, { recursive: true, force: true });
@@ -216,4 +216,35 @@ export async function writeArtifactDirectory(packed: PackedArtifact, outDir: str
     }
   }
   return { path: target, replaced: replacing };
+}
+
+/** Open an artifact directory lazily: core and selected frame validated, other frames on demand. */
+export function openArtifactDirectory(dir: string): Promise<OpenResult> {
+  return openArtifact(directorySource(dir), gunzipNode);
+}
+
+export interface VerifySummary {
+  frames: number;
+  nodes: number;
+  edges: number;
+  stats: { compressedBytes: number; uncompressedBytes: number; chunks: number };
+}
+
+/**
+ * Validate every chunk and frame exactly as an eager load does, decoding one frame at a
+ * time so memory stays bounded by the largest frame rather than the whole history.
+ */
+export async function verifyArtifactDirectory(dir: string): Promise<{ ok: true; summary: VerifySummary; opened: Extract<OpenResult, { ok: true }>['artifact'] } | Extract<LoadResult, { ok: false }>> {
+  const opened = await openArtifactDirectory(dir);
+  if (!opened.ok) return opened;
+  const { artifact } = opened;
+  let nodes = 0;
+  let edges = 0;
+  for (let i = 0; i < artifact.manifest.frames.length; i++) {
+    const frame = await artifact.frame(i);
+    if (!frame.ok) return frame;
+    nodes += frame.graph.nodes.length;
+    edges += frame.graph.edges.length;
+  }
+  return { ok: true, opened: artifact, summary: { frames: artifact.manifest.frames.length, nodes, edges, stats: artifact.stats } };
 }

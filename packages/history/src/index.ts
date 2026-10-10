@@ -1,2 +1,4 @@
-/** Bounded first-parent history, lineage and frame selection: implemented in P4.1/P4.2. */
-export {};
+/** Bounded first-parent history: frame selection, conservative lineage, churn and co-change. */
+export * from './frames.js';
+export * from './lineage.js';
+export * from './activity.js';

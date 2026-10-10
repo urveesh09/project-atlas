@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { POLICIES } from '@atlas/graph';
+import { HOTSPOT_WEIGHTS, POLICIES, STRUCTURE_ATTENTION_WEIGHTS, hotspotFactors } from '@atlas/graph';
 import { LIMITS, RULE_CATALOG, describeReason, formatDiagnosticMessage, type Diagnostic, type GraphNode, type ImportObservation, type NodeMetrics, type RuleId } from '@atlas/schema';
 import { useViewer } from '../app/context';
 import { ROLE_LABEL, formatNumber, shortOid } from '../app/model';
 import { TABS, type InspectorTab } from '../app/state';
 import { AvailabilityNote, Chip, Paged, Section, SeverityBadge } from './ui';
+import { HistoryTab } from './HistoryPanel';
 
 const TAB_LABEL: Record<InspectorTab, string> = { overview: 'Overview', dependencies: 'Dependencies', findings: 'Findings', history: 'History' };
 
@@ -61,8 +62,9 @@ export function Inspector({ node }: { node: GraphNode }) {
           {pkg && node.kind !== 'package' && <Chip>{model.title(pkg)}</Chip>}
           {node.kind === 'file' && node.language && <Chip>{node.language === 'typescript' ? 'TypeScript' : 'JavaScript'}</Chip>}
           {node.kind === 'file' && <ParseChip status={node.parseStatus} />}
-          <Chip tone="muted" title={model.manifest.selectedCommit.oid}>
-            @ {shortOid(model.manifest.selectedCommit.oid)}
+          <Chip tone="muted" title={model.commit.oid}>
+            @ {shortOid(model.commit.oid)}
+            {model.isHead ? '' : ` · ${model.commit.committerTime.slice(0, 10)}`}
           </Chip>
         </div>
       </header>
@@ -91,7 +93,7 @@ export function Inspector({ node }: { node: GraphNode }) {
         {state.tab === 'overview' && <OverviewTab node={node} />}
         {state.tab === 'dependencies' && <DependenciesTab node={node} />}
         {state.tab === 'findings' && <FindingsTab node={node} />}
-        {state.tab === 'history' && <HistoryTab />}
+        {state.tab === 'history' && <HistoryTab node={node} />}
       </div>
     </article>
   );
@@ -111,6 +113,9 @@ const METRICS: { key: keyof NodeMetrics; label: string; definition: string; cont
   { key: 'callableCount', label: 'Functions', definition: 'Functions, methods, constructors, accessors and arrows with a body.', container: 'Sum over files.' },
   { key: 'fanIn', label: 'Direct consumers', definition: 'Files that import this one (value, re-export, require or dynamic import).' },
   { key: 'fanOut', label: 'Direct dependencies', definition: 'Files this one imports under the same policy. Type-only and resources excluded.' },
+  { key: 'changedCommits', label: 'Changed commits', definition: 'Mainline commits in the window that changed this file, up to this snapshot.', container: 'Distinct commits changing any file here.' },
+  { key: 'linesAdded', label: 'Lines added', definition: 'Text lines added by those changes (numstat); binary content has none.', container: 'Sum over files.' },
+  { key: 'linesDeleted', label: 'Lines deleted', definition: 'Text lines deleted by those changes.', container: 'Sum over files.' },
 ];
 
 function OverviewTab({ node }: { node: GraphNode }) {
@@ -144,12 +149,14 @@ function OverviewTab({ node }: { node: GraphNode }) {
           </table>
           <p className="availability">
             Syntax <AvailabilityNote value={metrics.availability.syntax} /> {metrics.availability.syntax === 'complete' && 'complete'} · Dependencies{' '}
-            <AvailabilityNote value={metrics.availability.dependencies} /> {metrics.availability.dependencies === 'complete' && 'complete'} · History <AvailabilityNote value="unavailable" />
+            <AvailabilityNote value={metrics.availability.dependencies} /> {metrics.availability.dependencies === 'complete' && 'complete'} · History{' '}
+            <AvailabilityNote value={metrics.availability.history} /> {metrics.availability.history === 'complete' && 'complete'}
           </p>
         </Section>
       ) : (
         <p className="empty">No measurements for this {node.kind}.</p>
       )}
+      {node.kind === 'file' && <HotspotExplanation node={node} />}
       {cycle && (
         <Section title="Static cycle">
           <p>
@@ -553,15 +560,77 @@ export function FindingCard({ diagnostic: d, focusId }: { diagnostic: Diagnostic
   );
 }
 
-function HistoryTab() {
-  const { model } = useViewer();
-  const h = model.manifest.coverage.history;
+const pct = (p: number) => `${Math.round(p * 100)}th percentile`;
+
+/**
+ * Hotspot explainability (plan §10.3): raw values, percentiles against the fixed HEAD
+ * cohort, weights and window. Without usable history, the separately named Structure
+ * attention score is shown instead; the full score is never renormalized.
+ */
+function HotspotExplanation({ node }: { node: Extract<GraphNode, { kind: 'file' }> }) {
+  const { model, dataset } = useViewer();
+  const metric = model.index.metrics.get(node.id);
+  const factors = hotspotFactors(dataset.baseline, node, metric);
+  if (!factors || !metric)
+    return (
+      <Section title="Hotspot">
+        <p className="note">
+          Not scored: only parsed production-source files with complete dependency data are ranked. Tests, configuration, declarations and opaque files form separate cohorts.
+        </p>
+      </Section>
+    );
+  const W = HOTSPOT_WEIGHTS;
+  const S = STRUCTURE_ATTENTION_WEIGHTS;
+  const full = factors.score !== null;
   return (
-    <div className="empty-state">
-      <h3>History is not in this artifact</h3>
-      <p>
-        Mainline history, renames and snapshot comparison arrive with Phase 4. This artifact describes commit <code>{shortOid(model.manifest.selectedCommit.oid)}</code> only (history status: {h.status}).
+    <Section
+      title={full ? 'Hotspot score' : 'Structure attention'}
+      description={`A candidate for inspection under documented heuristics, ranked against the ${dataset.baseline.cohortSize} production-source files of the selected commit. It is not a defect, risk or quality grade.`}
+    >
+      <p className="hotspot-score">
+        <strong>{full ? factors.score : factors.structureAttention}</strong> / 100
+        {!full && <span className="note"> — no usable history, so the full hotspot score is unavailable rather than recomputed without it.</span>}
       </p>
-    </div>
+      <table className="metrics">
+        <thead>
+          <tr>
+            <th scope="col">Factor</th>
+            <th scope="col" className="num">
+              Raw
+            </th>
+            <th scope="col">Percentile</th>
+            <th scope="col" className="num">
+              Weight
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Max complexity</th>
+            <td className="num">{formatNumber(metric.maxCyclomatic)}</td>
+            <td>{pct(factors.pComplexity)}</td>
+            <td className="num">{full ? W.complexity : S.complexity}</td>
+          </tr>
+          <tr>
+            <th scope="row">Direct consumers</th>
+            <td className="num">{formatNumber(metric.fanIn)}</td>
+            <td>{pct(factors.pFanIn)}</td>
+            <td className="num">{full ? W.fanIn : S.fanIn}</td>
+          </tr>
+          {full && (
+            <tr>
+              <th scope="row">Changed commits</th>
+              <td className="num">{formatNumber(metric.changedCommits)}</td>
+              <td>{pct(factors.pChangedCommits!)}</td>
+              <td className="num">{W.changedCommits}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <p className="note">
+        Score = round(100 × Σ weight × percentile). Percentiles use midranks of the selected commit's cohort{model.isHead ? '' : ', so this earlier snapshot is graded on the same scale'}.
+        {dataset.baseline.complexity?.allIdentical || dataset.baseline.fanIn?.allIdentical ? ' Some factors are identical across the cohort and cannot discriminate.' : ''}
+      </p>
+    </Section>
   );
 }

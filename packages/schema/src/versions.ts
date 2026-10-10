@@ -4,7 +4,7 @@
  */
 export const GRAPH_SCHEMA_VERSION = 'atlas.graph/1.0.0' as const;
 export const LAYOUT_VERSION = 'atlas.layout/1.1.0' as const;
-export const ARTIFACT_VERSION = 'atlas.artifact/1.2.0' as const;
+export const ARTIFACT_VERSION = 'atlas.artifact/1.3.0' as const;
 export const METRIC_DEFINITION_VERSION = 'atlas.metrics/1' as const;
 export const RELEASE_PROFILE = 'v0.1-default' as const;
 

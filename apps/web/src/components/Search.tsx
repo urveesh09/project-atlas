@@ -21,13 +21,14 @@ export const Search = forwardRef<HTMLInputElement>(function Search(_props, ref) 
     setError('');
     if (!query.trim()) { setResults([]); setResultQuery(query); return; }
     if (!queries) return;
-    void queries.search(query).then((hits) => {
+    // Results belong to the frame they were computed for; a frame change re-runs the query.
+    void queries.search(model.frame, query).then((hits) => {
       if (stale) return;
       setResults(hits); setResultQuery(query); setActive(0);
       if (pendingChoice.current === query && hits[0]) { pendingChoice.current = null; setOpen(false); select(hits[0].nodeId, { focusInspector: true }); }
     }).catch(() => { if (!stale) { setError('Search is unavailable. Use the repository tree.'); setResults([]); } });
     return () => { stale = true; };
-  }, [queries, query, select]);
+  }, [queries, query, select, model.frame]);
   const expanded = open && query.trim().length > 0;
 
   const choose = (index: number) => {

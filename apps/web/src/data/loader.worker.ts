@@ -1,14 +1,8 @@
-import {
-  gunzipWithStreams,
-  loadArtifact,
-  pickedFilesSource,
-  type ArtifactSource,
-  type LoadResult,
-  type PickedFile,
-} from '@atlas/artifact';
+import { gunzipWithStreams, openArtifact, pickedFilesSource, type ArtifactSource, type LoadResult, type PickedFile } from '@atlas/artifact';
 import { GraphIndex, type GraphIndexData } from '@atlas/graph';
 import { prepareCity, type CityData } from '@atlas/layout';
-import { initializeQueries, handleQuery, type QueryRequest } from './query.worker';
+import type { ArtifactCore, GraphSnapshot } from '@atlas/schema';
+import { FrameStore, initializeQueries, handleQuery, type QueryRequest } from './query.worker';
 
 /**
  * Artifact import runs here, off the main thread (plan §6.5): bounded reads, streaming
@@ -18,12 +12,22 @@ import { initializeQueries, handleQuery, type QueryRequest } from './query.worke
 export type LoaderRequest = ({ kind: 'server'; base: string } | { kind: 'files'; files: PickedFile[] }) & {
   measure?: boolean;
 };
-export type ViewerLoadResult = LoadResult & {
-  prepared?: GraphIndexData;
-  city?: CityData;
-  queryWorker?: Worker;
-  requiredChunksAvailableAt?: number;
-};
+/**
+ * The opened artifact: manifest, history and layout validated, the selected (HEAD) frame
+ * decoded and prepared. Other frames stay in this worker until requested (plan §11.7).
+ */
+export type ViewerLoadResult =
+  | {
+      ok: true;
+      core: ArtifactCore;
+      head: GraphSnapshot;
+      prepared: GraphIndexData;
+      city: CityData;
+      stats: Extract<LoadResult, { ok: true }>['stats'];
+      queryWorker?: Worker;
+      requiredChunksAvailableAt?: number;
+    }
+  | Extract<LoadResult, { ok: false }>;
 export type LoaderResponse =
   | { type: 'progress'; path: string }
   | { type: 'done'; result: ViewerLoadResult }
@@ -72,7 +76,7 @@ function serverSource(base: string, onRead: (path: string) => void): ArtifactSou
 scope.onmessage = async (event: MessageEvent<LoaderRequest | QueryRequest>) => {
   const request = event.data;
   if (!('kind' in request)) {
-    handleQuery(request);
+    void handleQuery(request);
     return;
   }
   const report = (path: string) => scope.postMessage({ type: 'progress', path } satisfies LoaderResponse);
@@ -88,25 +92,30 @@ scope.onmessage = async (event: MessageEvent<LoaderRequest | QueryRequest>) => {
       },
     };
     const stages: Record<string, number> = {};
-    const result = await loadArtifact(source, gunzipWithStreams, (stage, ms) => {
+    const opened = await openArtifact(source, gunzipWithStreams, (stage, ms) => {
       stages[stage] = ms;
     });
-    if (result.ok) {
-      const graph = result.bundle.graphs.at(-1)!;
+    if (opened.ok) {
+      const { artifact } = opened;
+      const graph = artifact.head;
+      const frame = artifact.manifest.frames.length - 1;
       if (request.measure) console.debug('ATLAS load stages', JSON.stringify(stages));
       const index = new GraphIndex(graph),
-        city = prepareCity(graph, result.bundle.layout);
-      initializeQueries(graph, city, index);
+        city = prepareCity(graph, artifact.layout, { attention: FrameStore.attention(graph) });
+      initializeQueries(new FrameStore(artifact, { frame, graph, index, city }));
       scope.postMessage({
         type: 'done',
         result: {
-          ...result,
+          ok: true,
+          core: { manifest: artifact.manifest, history: artifact.history, layout: artifact.layout },
+          head: graph,
           prepared: index.transferData(),
           city,
+          stats: artifact.stats,
           ...(request.measure ? { requiredChunksAvailableAt } : {}),
         },
       });
-    } else scope.postMessage({ type: 'done', result });
+    } else scope.postMessage({ type: 'done', result: opened });
   } catch (error) {
     scope.postMessage({
       type: 'crash',

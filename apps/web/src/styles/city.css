@@ -53,3 +53,4 @@
   .city-details li { flex-wrap: wrap; }
   .city-table-wrap { padding: 10px; }
 }
+.city-content > .timeline, .city-content > .compare { grid-column: 1 / -1; }

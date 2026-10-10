@@ -27,7 +27,7 @@ const HELP = `
     --repo-id <uuid>         reuse a repository identity
     --previous <artifact>    reuse identity and options from a previous artifact
     --max-files <n>          lower the included-file limit (at most 10,000)
-    --no-history             skip Git history (history arrives in a later release)
+    --no-history             skip Git history (structure, dependencies and findings still run)
     --history-days <1..90>   --history-commits <1..200>   --snapshots <1..12>
 
   Global

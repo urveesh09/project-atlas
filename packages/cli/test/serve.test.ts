@@ -130,8 +130,9 @@ describe('what can be served', () => {
 });
 
 describe('read-only source attachment', () => {
-  const fileNode = (p: string) => bundle.graphs[0]!.nodes.find((n) => n.kind === 'file' && n.path === p)!;
-  const snap = () => bundle.graphs[0]!.snapshotId;
+  // The selected (newest) frame; older frames are validated against their own commits.
+  const fileNode = (p: string) => bundle.graphs.at(-1)!.nodes.find((n) => n.kind === 'file' && n.path === p)!;
+  const snap = () => bundle.graphs.at(-1)!.snapshotId;
 
   it('serves committed source by snapshot and occurrence ID, not the working tree', async () => {
     writeFileSync(path.join(demo.dir, 'src', 'server', 'router.ts'), '// uncommitted edit\n');

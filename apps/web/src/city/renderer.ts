@@ -9,7 +9,21 @@ const color = new THREE.Color();
 const matrix = new THREE.Matrix4();
 const white = new THREE.Color('#e9e4d7');
 
-/** GPU owner. One renderer per mounted city, shared geometry and bounded batches. */
+const ROLES = ['source', 'test', 'declaration', 'config', 'asset', 'opaque'] as const;
+
+/** A compare mark on a fixed plot (plan §11.1): deleted = outlined ghost, added = marker. */
+export interface CityGhost {
+  rect: Rect;
+  kind: 'deleted' | 'added';
+  height: number;
+}
+
+/**
+ * GPU owner. One renderer per mounted dataset: the island, districts and every batch are
+ * created once with capacity for all union plots; `setCity` swaps a frame's presence,
+ * heights and metrics in place, so the camera and WebGL context survive a snapshot change
+ * (plan §11.7: history changes only height/color/presence on fixed plots).
+ */
 export class CityRenderer {
   readonly renderer: THREE.WebGLRenderer;
   readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100_000);
@@ -19,7 +33,7 @@ export class CityRenderer {
   private readonly geometry = new Set<THREE.BufferGeometry>();
   private readonly materials = new Set<THREE.Material>();
   private readonly instances = new Set<THREE.InstancedMesh>();
-  private readonly roofs: THREE.InstancedMesh[] = [];
+  private readonly roofs = new Map<(typeof ROLES)[number], THREE.InstancedMesh>();
   private readonly bodies: THREE.InstancedMesh;
   private readonly windows: THREE.InstancedMesh;
   private readonly missing: THREE.InstancedMesh;
@@ -31,9 +45,13 @@ export class CityRenderer {
   private packageZoom = -1;
   private readonly overlayGroup = new THREE.Group();
   private readonly arcGeometries: THREE.BufferGeometry[] = [];
+  private readonly ghosts: THREE.InstancedMesh;
+  private readonly addedMarkers: THREE.InstancedMesh;
   private readonly pickCells = new Map<string, { bounds: THREE.Box3; indices: number[] }>();
-  private readonly boxes: THREE.Box3[];
-  private readonly buildingIndex: Map<string, number>;
+  private boxes: THREE.Box3[] = [];
+  private buildingIndex = new Map<string, number>();
+  private styled: CityData | null = null;
+  city: CityData;
   private readonly raycaster = new THREE.Raycaster();
   private readonly intersection = new THREE.Vector3();
   private readonly point = new THREE.Vector2();
@@ -57,10 +75,13 @@ export class CityRenderer {
 
   constructor(
     readonly host: HTMLElement,
-    readonly city: CityData,
+    initial: CityData,
     readonly callbacks: { select(id: string): void; hover(id: string | null): void; fail(reason: string): void },
     readonly lowQuality: boolean,
   ) {
+    this.city = initial;
+    const city = initial;
+    const capacity = Math.max(1, city.plotCount, city.buildings.length);
     this.renderer = new THREE.WebGLRenderer({ antialias: !lowQuality, alpha: false, powerPreference: 'low-power' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, lowQuality ? 1 : 1.5));
     this.renderer.setClearColor('#e9e4d7');
@@ -104,32 +125,9 @@ export class CityRenderer {
       districtMesh.setColorAt(i, color.set(d.kind === 'package' ? '#d1d0bc' : d.depth % 2 ? '#e4dec9' : '#d8d5c2'));
     });
     this.finish(districtMesh);
-    this.bodies = this.batch(box, matte, city.buildings.length);
-    this.buildingIndex = new Map(city.buildings.map((b, i) => [b.nodeId, i]));
-    this.boxes = city.buildings.map((b, i) => {
-      const p = center(b.rect);
-      const h = b.height;
-      matrix.makeScale(0.88, h, 0.88).setPosition(p.x, 0.35 + h / 2, p.z);
-      this.bodies.setMatrixAt(i, matrix);
-      const bounds = new THREE.Box3(
-        new THREE.Vector3(p.x - 0.44, 0.35, p.z - 0.44),
-        new THREE.Vector3(p.x + 0.44, h + 0.8, p.z + 0.44),
-      );
-      const key = `${Math.floor(p.x / 8)}:${Math.floor(p.z / 8)}`;
-      let cell = this.pickCells.get(key);
-      if (!cell) {
-        cell = { bounds: bounds.clone(), indices: [] };
-        this.pickCells.set(key, cell);
-      }
-      cell.bounds.union(bounds);
-      cell.indices.push(i);
-      return bounds;
-    });
-    this.finish(this.bodies);
+    this.bodies = this.batch(box, matte, capacity);
     // Role silhouettes share geometry; no per-building light, label or material.
-    for (const role of ['source', 'test', 'declaration', 'config', 'asset', 'opaque'] as const) {
-      const list = city.buildings.map((b, i) => ({ b, i })).filter(({ b }) => b.role === role);
-      if (!list.length) continue;
+    for (const role of ROLES) {
       const shape =
         role === 'source'
           ? new THREE.ConeGeometry(0.68, 0.44, 4)
@@ -145,38 +143,26 @@ export class CityRenderer {
       const roof = this.batch(
         this.ownGeometry(shape),
         this.ownMaterial(new THREE.MeshLambertMaterial({ color: role === 'test' ? '#456471' : '#626d75' })),
-        list.length,
+        capacity,
       );
-      list.forEach(({ b }, i) => {
-        const p = center(b.rect);
-        matrix
-          .makeRotationY(role === 'source' ? Math.PI / 4 : ((b.seed % 4) * Math.PI) / 2)
-          .setPosition(p.x, b.height + 0.45, p.z);
-        roof.setMatrixAt(i, matrix);
-      });
-      this.finish(roof);
-      this.roofs.push(roof);
+      roof.count = 0;
+      this.roofs.set(role, roof);
     }
     const glass = this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#f1deaa' }));
-    this.windows = this.batch(box, glass, city.buildings.length * 2);
-    city.buildings.forEach((b, i) => {
-      const p = center(b.rect);
-      for (let w = 0; w < 2; w++) {
-        matrix
-          .makeScale(0.15, Math.min(0.35, b.height * 0.3), 0.012)
-          .setPosition(p.x + (w ? 0.2 : -0.2), 0.45 + b.height * 0.58, p.z + 0.445);
-        this.windows.setMatrixAt(i * 2 + w, matrix);
-      }
-    });
-    this.finish(this.windows);
-    this.missing = this.batch(
-      box,
-      this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#242d38' })),
-      city.buildings.length * 2,
-    );
+    this.windows = this.batch(box, glass, capacity * 2);
+    this.missing = this.batch(box, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#242d38' })), capacity * 2);
     const wire = this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#174664', wireframe: true, depthTest: false }));
-    this.selection = this.batch(box, wire, city.buildings.length);
+    this.selection = this.batch(box, wire, capacity);
     this.selection.count = 0;
+    // Compare marks: deleted plots as outlined ghosts, added files with a raised marker.
+    this.ghosts = this.batch(box, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#7a4f2a', wireframe: true })), capacity);
+    this.ghosts.count = 0;
+    this.addedMarkers = this.batch(
+      this.ownGeometry(new THREE.OctahedronGeometry(0.32)),
+      this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#1f6b45', depthTest: false })),
+      capacity,
+    );
+    this.addedMarkers.count = 0;
     this.marker = new THREE.Mesh(
       this.ownGeometry(new THREE.ConeGeometry(0.25, 0.6, 4)),
       this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#174664', depthTest: false })),
@@ -184,16 +170,8 @@ export class CityRenderer {
     this.marker.rotation.z = Math.PI;
     this.marker.visible = false;
     this.scene.add(this.marker, this.overlayGroup);
-    this.terminals = this.batch(
-      box,
-      this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#687e85' })),
-      city.terminals.length,
-    );
-    city.terminals.forEach((t, i) => {
-      matrix.makeScale(1.3, 0.8, 1.3).setPosition(t.x / 100, 0.45, t.z / 100);
-      this.terminals.setMatrixAt(i, matrix);
-    });
-    this.finish(this.terminals);
+    // Terminal anchors are fixed; which packages a frame imports decides which are shown.
+    this.terminals = this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#687e85' })), 51);
     this.packageLines = this.batch(
       this.ownGeometry(new THREE.CylinderGeometry(1, 1, 1, 6)),
       this.ownMaterial(new THREE.MeshBasicMaterial({ color: EDGE_COLORS.package, depthTest: false })),
@@ -201,6 +179,7 @@ export class CityRenderer {
     );
     this.packageLines.count = 0;
     this.overlayGroup.add(this.packageLines);
+    this.layoutBuildings();
     this.applyStyle('structure', new Set(), () => true);
     const { signal } = this.abort;
     const canvas = this.renderer.domElement;
@@ -257,7 +236,8 @@ export class CityRenderer {
       'dblclick',
       (e) => {
         const id = this.pickAt(e.clientX, e.clientY);
-        if (id) this.fit(this.boxes[city.buildings.findIndex((b) => b.nodeId === id)]);
+        const index = id ? this.buildingIndex.get(id) : undefined;
+        if (index !== undefined) this.fit(this.boxes[index]);
       },
       { signal },
     );
@@ -266,6 +246,92 @@ export class CityRenderer {
     this.resizeObserver.observe(host);
     this.resize();
     this.reset();
+  }
+
+  /** Swap the displayed frame. Plots, districts, camera and GPU context are unchanged. */
+  setCity(city: CityData) {
+    if (this.disposed || city === this.city) return;
+    if (city.plotCount > this.city.plotCount || city.root.width !== this.city.root.width || city.root.depth !== this.city.root.depth)
+      throw new Error('A frame from a different layout cannot reuse this renderer');
+    this.city = city;
+    this.layoutBuildings();
+    const present = new Set([...this.selected].filter((id) => this.buildingIndex.has(id)));
+    this.applyStyle(this.lens, present, this.filter);
+  }
+
+  /** Mark deleted (ghost) and added plots for an A -> B comparison; [] clears them. */
+  setGhosts(ghosts: readonly CityGhost[]) {
+    let deleted = 0,
+      added = 0;
+    for (const ghost of ghosts) {
+      const p = center(ghost.rect);
+      if (ghost.kind === 'deleted') {
+        const h = Math.max(0.6, ghost.height);
+        matrix.makeScale(0.92, h, 0.92).setPosition(p.x, 0.35 + h / 2, p.z);
+        this.ghosts.setMatrixAt(deleted++, matrix);
+      } else {
+        matrix.makeScale(1, 1.4, 1).setPosition(p.x, ghost.height + 1.9, p.z);
+        this.addedMarkers.setMatrixAt(added++, matrix);
+      }
+    }
+    this.ghosts.count = deleted;
+    this.addedMarkers.count = added;
+    this.finish(this.ghosts);
+    this.finish(this.addedMarkers);
+    this.invalidate();
+  }
+
+  /** Per-frame instance data: bodies, roofs, windows, terminals and the pick index. */
+  private layoutBuildings() {
+    const { buildings } = this.city;
+    this.buildingIndex = new Map(buildings.map((b, i) => [b.nodeId, i]));
+    this.pickCells.clear();
+    this.boxes = buildings.map((b, i) => {
+      const p = center(b.rect);
+      const h = b.height;
+      matrix.makeScale(0.88, h, 0.88).setPosition(p.x, 0.35 + h / 2, p.z);
+      this.bodies.setMatrixAt(i, matrix);
+      const bounds = new THREE.Box3(new THREE.Vector3(p.x - 0.44, 0.35, p.z - 0.44), new THREE.Vector3(p.x + 0.44, h + 0.8, p.z + 0.44));
+      const key = `${Math.floor(p.x / 8)}:${Math.floor(p.z / 8)}`;
+      let cell = this.pickCells.get(key);
+      if (!cell) {
+        cell = { bounds: bounds.clone(), indices: [] };
+        this.pickCells.set(key, cell);
+      }
+      cell.bounds.union(bounds);
+      cell.indices.push(i);
+      return bounds;
+    });
+    this.bodies.count = buildings.length;
+    this.finish(this.bodies);
+    const roofCounts = new Map<string, number>();
+    for (const b of buildings) {
+      const roof = this.roofs.get(b.role)!;
+      const n = roofCounts.get(b.role) ?? 0;
+      const p = center(b.rect);
+      matrix.makeRotationY(b.role === 'source' ? Math.PI / 4 : ((b.seed % 4) * Math.PI) / 2).setPosition(p.x, b.height + 0.45, p.z);
+      roof.setMatrixAt(n, matrix);
+      roofCounts.set(b.role, n + 1);
+    }
+    for (const [role, roof] of this.roofs) {
+      roof.count = roofCounts.get(role) ?? 0;
+      this.finish(roof);
+    }
+    buildings.forEach((b, i) => {
+      const p = center(b.rect);
+      for (let w = 0; w < 2; w++) {
+        matrix.makeScale(0.15, Math.min(0.35, b.height * 0.3), 0.012).setPosition(p.x + (w ? 0.2 : -0.2), 0.45 + b.height * 0.58, p.z + 0.445);
+        this.windows.setMatrixAt(i * 2 + w, matrix);
+      }
+    });
+    this.windows.count = buildings.length * 2;
+    this.finish(this.windows);
+    this.city.terminals.forEach((t, i) => {
+      matrix.makeScale(1.3, 0.8, 1.3).setPosition(t.x / 100, 0.45, t.z / 100);
+      this.terminals.setMatrixAt(i, matrix);
+    });
+    this.terminals.count = this.city.terminals.length;
+    this.finish(this.terminals);
   }
 
   private ownGeometry<T extends THREE.BufferGeometry>(g: T): T {
@@ -333,9 +399,7 @@ export class CityRenderer {
       this.packageZoom = this.camera.zoom;
     }
     const near = this.camera.zoom >= 6;
-    this.roofs.forEach((r) => {
-      r.visible = near;
-    });
+    for (const roof of this.roofs.values()) roof.visible = near;
     this.windows.visible = near && !this.lowQuality && this.camera.zoom >= 12;
     this.renderer.render(this.scene, this.camera);
     this.drawLabels(this.labels, this.camera, this.width, this.height);
@@ -368,7 +432,8 @@ export class CityRenderer {
     if (b) label(b.path, center(b.rect).setY(b.height + 1.6));
   }
   applyStyle(lens: CityLens, selected: ReadonlySet<string>, filter: (b: CityBuilding) => boolean) {
-    const recolor = this.lens !== lens || this.filter !== filter || !this.bodies.instanceColor;
+    const recolor = this.lens !== lens || this.filter !== filter || this.styled !== this.city || !this.bodies.instanceColor;
+    this.styled = this.city;
     this.lens = lens;
     this.selected = new Set(selected);
     this.filter = filter;
@@ -584,6 +649,8 @@ export class CityRenderer {
       textures: this.renderer.info.memory.textures,
       buildings: this.city.buildings.length,
       pickCells: this.pickCells.size,
+      ghosts: this.ghosts.count,
+      added: this.addedMarkers.count,
       lens: this.lens,
       zoom: this.camera.zoom,
       renderer: ext ? String(ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'unknown',

@@ -15,3 +15,5 @@ export * from './json-schema.js';
 export * from './artifact-set.js';
 export * from './rules.js';
 export * from './indexed-graph.js';
+export * from './delta-graph.js';
+export * from './compact-chunks.js';

@@ -204,9 +204,13 @@ describe('bounded view fragments', () => {
       frame: null,
       rejected: false,
     });
+    // Phase 4 lenses and frames round-trip like the others.
+    for (const lens of ['churn', 'hotspot', 'attention'] as const) expect(parseFragment(formatFragment(null, 'overview', lens, '3d')).lens).toBe(lens);
+    const frame = `snap_${'b'.repeat(64)}`;
+    expect(parseFragment(formatFragment(file, 'history', 'structure', '3d', frame))).toMatchObject({ frame, file, tab: 'history', rejected: false });
     for (const bad of [
       '#v=2',
-      '#v=1&lens=hotspot',
+      '#v=1&lens=heat',
       '#mode=javascript:alert(1)',
       '#file=x',
       '#mode=map&mode=3d',

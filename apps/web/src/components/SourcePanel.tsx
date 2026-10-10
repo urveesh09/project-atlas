@@ -18,7 +18,7 @@ export function SourcePanel() {
   useEffect(() => {
     let current = true;
     setResult(null);
-    fetchSource(model.sourceSnapshotId, request.nodeId).then(
+    fetchSource(model.snapshotId, request.nodeId).then(
       (r) => current && setResult(r),
       () => current && setResult({ error: 'NETWORK' }),
     );

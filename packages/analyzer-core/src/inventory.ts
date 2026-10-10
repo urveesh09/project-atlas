@@ -12,6 +12,7 @@ import {
 import { compileGlob } from './globs.js';
 import type { EffectiveLimits } from './options.js';
 import { AnalysisError } from './errors.js';
+import type { BlobReader } from './blob-cache.js';
 
 /**
  * Safe committed inventory (task P1.2, plan §4.3, §8.5). Enumerates one commit's tree in
@@ -56,6 +57,8 @@ export interface InventoryOptions {
   /** Repository-config and CLI patterns, applied after the built-in rules. */
   repositoryExclude: readonly string[];
   cliExclude: readonly string[];
+  /** Shared blob reads across frames (history); defaults to direct object reads. */
+  blobs?: BlobReader;
   signal?: AbortSignal;
   onProgress?: (done: number, total: number) => void;
 }
@@ -79,17 +82,32 @@ function exclusionRoot(path: string, rule: ExclusionRule): string {
   return path;
 }
 
+/** Built-in, repository-config and CLI exclusion rules, in precedence order. */
+export function scopeRules(repositoryExclude: readonly string[], cliExclude: readonly string[]): ExclusionRule[] {
+  return [
+    ...builtinExclusions(),
+    ...repositoryExclude.map((p) => ({ reason: 'REPOSITORY_EXCLUDED', glob: compileGlob(p)!, source: 'repository-config' as const })),
+    ...cliExclude.map((p) => ({ reason: 'CLI_EXCLUDED', glob: compileGlob(p)!, source: 'cli' as const })),
+  ];
+}
+
+/**
+ * The path-only part of inventory scope: a valid repository path not excluded by any
+ * rule. History lineage uses exactly this test, so a file's lineage and its occurrences
+ * in frames agree. Content checks (generated headers, encoding, size) still decide later
+ * whether an in-scope path becomes a building in a particular frame.
+ */
+export function isPathInScope(path: string, rules: readonly ExclusionRule[]): boolean {
+  return checkRepoPath(path).ok && firstMatchingRule(path, rules) === null;
+}
+
 export async function buildInventory(git: SafeGit, treeOid: string, options: InventoryOptions): Promise<Inventory> {
   const listing = await listTree(git, treeOid, { maxEntries: options.limits.treeEntries, ...(options.signal ? { signal: options.signal } : {}) });
   if (listing.truncated) {
     throw new AnalysisError('ANALYSIS_RESOURCE_LIMIT', `The tree has more than ${options.limits.treeEntries.toLocaleString('en-US')} entries`, { limit: 'TREE_ENTRY_LIMIT' });
   }
   const entries = [...listing.entries].sort(rawCompare);
-  const rules: ExclusionRule[] = [
-    ...builtinExclusions(),
-    ...options.repositoryExclude.map((p) => ({ reason: 'REPOSITORY_EXCLUDED', glob: compileGlob(p)!, source: 'repository-config' as const })),
-    ...options.cliExclude.map((p) => ({ reason: 'CLI_EXCLUDED', glob: compileGlob(p)!, source: 'cli' as const })),
-  ];
+  const rules = scopeRules(options.repositoryExclude, options.cliExclude);
 
   const inventory: Inventory = {
     files: [],
@@ -185,7 +203,7 @@ async function classifyBatch(
     const infos = await batchCheck(git, unique.map((w) => w.oid), options.signal);
     infos.forEach((info, i) => (unique[i]!.size = info.size ?? 0));
   }
-  const contents = await readObjects(git, unique, options.signal);
+  const contents = options.blobs ? await options.blobs.read(git, unique, options.signal) : await readObjects(git, unique, options.signal);
 
   batch.forEach(({ entry, path }, i) => {
     const cls = classes[i]!;

@@ -886,3 +886,303 @@ select {
     animation: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------------------
+ * History (Phase 4): snapshot strip, comparison, presence, tombstone.
+ * Every state is text plus shape; color only reinforces it.
+ * ------------------------------------------------------------------------------------- */
+.timeline {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px 12px;
+  margin-bottom: 14px;
+}
+.timeline-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+}
+.timeline-title {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--brand);
+}
+.timeline-summary {
+  margin: 0;
+  color: var(--muted);
+  flex: 1 1 320px;
+}
+.timeline-summary strong {
+  color: var(--text);
+}
+.timeline-chip {
+  margin-left: 8px;
+}
+.timeline-help {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.timeline-help summary {
+  cursor: pointer;
+  color: var(--accent);
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+}
+.timeline-help ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  line-height: 1.5;
+}
+.timeline-track {
+  position: relative;
+  height: 56px;
+  margin: 10px 22px 4px;
+}
+.timeline-axis {
+  position: absolute;
+  inset: 27px 0 auto 0;
+  height: 2px;
+  background: var(--border);
+}
+.timeline-tick {
+  position: absolute;
+  top: -4px;
+  width: 1px;
+  height: 10px;
+  background: var(--muted);
+  opacity: 0.6;
+}
+.timeline-strip {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  inset: 0;
+}
+.timeline-strip li {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+}
+.timeline-frame {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.timeline-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--panel);
+  display: grid;
+  place-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.timeline-frame:hover .timeline-dot {
+  background: var(--raised);
+}
+.timeline-frame.is-active .timeline-dot {
+  width: 26px;
+  height: 26px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--accent);
+}
+.timeline-frame.is-compare .timeline-dot {
+  border-style: double;
+  border-width: 4px;
+}
+.timeline-frame.is-loading .timeline-dot {
+  border-style: dashed;
+}
+.timeline-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.timeline-current {
+  margin: 0;
+  flex: 1 1 260px;
+  text-align: center;
+  color: var(--muted);
+}
+.timeline-current strong {
+  color: var(--text);
+}
+.timeline-status {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.timeline-error {
+  color: var(--error);
+}
+.timeline-past {
+  border-left: 3px solid var(--brand);
+  padding-left: 10px;
+  color: var(--text);
+}
+.status-past {
+  border: 1px dashed var(--brand);
+  color: var(--brand);
+}
+.legend-note {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.compare {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 14px 0;
+}
+.compare-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.compare-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.compare-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+  margin: 12px 0;
+}
+.compare-pick label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.compare-pick select {
+  min-height: 44px;
+  min-width: 220px;
+  max-width: 100%;
+}
+.compare-direction {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.compare-direction strong {
+  color: var(--text);
+}
+.compare-summary {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 8px 0 4px;
+}
+.compare-error {
+  color: var(--error);
+}
+.delta-up {
+  color: var(--ok);
+  font-weight: 600;
+}
+.delta-down {
+  color: var(--warn);
+  font-weight: 600;
+}
+.presence {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 0;
+  margin: 0;
+}
+.presence-cell {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.presence-cell.is-present {
+  color: var(--accent);
+}
+.presence-cell.is-active {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+.tombstone .inspector-header {
+  border-left: 4px dashed var(--muted);
+  padding-left: 12px;
+}
+.tombstone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0;
+}
+.hotspot-score {
+  font-size: 1.05rem;
+}
+.hotspot-score strong {
+  font-size: 1.6rem;
+  color: var(--brand);
+}
+@media (max-width: 640px) {
+  .timeline-track {
+    margin: 10px 12px 4px;
+  }
+  .timeline-current {
+    text-align: left;
+    flex-basis: 100%;
+    order: -1;
+  }
+  .compare-pick select {
+    min-width: 0;
+    width: 100%;
+  }
+  .compare-pick label {
+    flex: 1 1 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .timeline-frame .timeline-dot {
+    transition: none;
+  }
+}
+.timeline-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+/* Four inspector tabs must all stay visible in the narrow inspector column: wrap, never clip. */
+.tabs {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+.tab {
+  padding: 8px 10px;
+  flex: 1 1 auto;
+}

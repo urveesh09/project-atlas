@@ -8,12 +8,24 @@ import {
   type Rect,
 } from '@atlas/schema';
 
-export type CityLens = 'structure' | 'complexity' | 'fan-in';
-export const CITY_LENSES = ['structure', 'complexity', 'fan-in'] as const;
+/**
+ * One lens = one metric (plan §11.5). `hotspot` is the documented full score and needs
+ * usable history; `attention` is the separately named structure-only score offered when it
+ * does not (plan §10.3). Neither is ever relabelled as the other.
+ */
+export type CityLens = 'structure' | 'complexity' | 'fan-in' | 'churn' | 'hotspot' | 'attention';
+export const CITY_LENSES = ['structure', 'complexity', 'fan-in', 'churn', 'hotspot', 'attention'] as const;
 export const DISTRICT_PALETTE = ['#78a9ac', '#d9ad73', '#9c94bf', '#8fb894', '#cf91a0', '#84a9ce'] as const;
 export const METRIC_PALETTE = ['#b9d7da', '#7dbbc6', '#478baf', '#496891', '#785688'] as const;
 export const UNKNOWN_COLOR = '#aeb4bc';
-export const LENS_STOPS = { complexity: [0, 5, 10, 20, 40], 'fan-in': [0, 1, 5, 10, 25] } as const;
+export const LENS_STOPS = {
+  complexity: [0, 5, 10, 20, 40],
+  'fan-in': [0, 1, 5, 10, 25],
+  churn: [0, 1, 3, 6, 12],
+  hotspot: [0, 20, 40, 60, 80],
+  attention: [0, 20, 40, 60, 80],
+} as const;
+export type MetricLens = keyof typeof LENS_STOPS;
 
 export interface CityBuilding {
   nodeId: string;
@@ -28,9 +40,13 @@ export interface CityBuilding {
   packageId: string | null;
   packageColor: string;
   metric: NodeMetrics | null;
+  /** Structure attention (plan §10.3) against the artifact's HEAD baseline, when computed. */
+  attention: number | null;
 }
 export interface CityData {
   root: Rect;
+  /** Union plots in the layout: the most buildings any frame can show (renderer capacity). */
+  plotCount: number;
   buildings: CityBuilding[];
   districts: {
     id: string;
@@ -46,8 +62,12 @@ export interface CityData {
   terminalOmitted: number;
 }
 
-/** Pure projection of an already validated bundle. No coordinate or ID invention. */
-export function prepareCity(graph: GraphSnapshot, layout: LayoutArtifact): CityData {
+/**
+ * Pure projection of one validated frame onto the artifact's fixed plot plan. No
+ * coordinate or ID invention: every frame of an artifact shares plots, districts and
+ * terminal anchors; only presence, heights and metrics differ.
+ */
+export function prepareCity(graph: GraphSnapshot, layout: LayoutArtifact, options: { attention?: (node: FileNode, metric: NodeMetrics | undefined) => number | null } = {}): CityData {
   const frame = layout.frameState.find((f) => f.snapshotId === graph.snapshotId);
   if (!frame) throw new Error('The active snapshot has no layout membership');
   const nodes = new Map(graph.nodes.map((n) => [n.id, n]));
@@ -90,6 +110,7 @@ export function prepareCity(graph: GraphSnapshot, layout: LayoutArtifact): CityD
         packageId,
         packageColor: colorOf((packageId && districtOf.get(packageId)) || plot.districtId),
         metric: metrics.get(node.id) ?? null,
+        attention: options.attention?.(node, metrics.get(node.id)) ?? null,
       };
     })
     .sort((a, b) => compareAscii(a.lineageId, b.lineageId));
@@ -125,6 +146,7 @@ export function prepareCity(graph: GraphSnapshot, layout: LayoutArtifact): CityD
   );
   return {
     root: layout.root,
+    plotCount: layout.plots.length,
     buildings,
     districts,
     terminals:
@@ -137,8 +159,21 @@ export function prepareCity(graph: GraphSnapshot, layout: LayoutArtifact): CityD
 }
 
 export function lensValue(building: CityBuilding, lens: CityLens): number | null {
-  if (lens === 'structure') return null;
-  return lens === 'complexity' ? (building.metric?.maxCyclomatic ?? null) : (building.metric?.fanIn ?? null);
+  switch (lens) {
+    case 'structure':
+      return null;
+    case 'complexity':
+      return building.metric?.maxCyclomatic ?? null;
+    case 'fan-in':
+      return building.metric?.fanIn ?? null;
+    case 'churn':
+      // Unavailable history stays unknown, never "unchanged".
+      return building.metric && building.metric.availability.history !== 'unavailable' ? building.metric.changedCommits : null;
+    case 'hotspot':
+      return building.metric?.hotspotScore ?? null;
+    case 'attention':
+      return building.attention;
+  }
 }
 export function facadeColor(building: CityBuilding, lens: CityLens): string {
   if (lens === 'structure') return building.packageColor;

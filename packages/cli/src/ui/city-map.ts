@@ -1,4 +1,7 @@
-import type { ArtifactBundle } from '@atlas/schema';
+import type { ArtifactCore, GraphSnapshot } from '@atlas/schema';
+
+/** What the CLI reads to report an artifact: validated core plus the selected frame. */
+export type ArtifactView = ArtifactCore & { head: GraphSnapshot };
 import { PALETTE, lighten, type Styler } from './style.js';
 
 /**
@@ -17,9 +20,9 @@ export interface CityMap {
 
 type Pixel = string | null;
 
-export function renderCityMap(bundle: ArtifactBundle, s: Styler, options: { maxWidth: number; maxRows: number }): CityMap {
+export function renderCityMap(bundle: ArtifactView, s: Styler, options: { maxWidth: number; maxRows: number }): CityMap {
   const { layout } = bundle;
-  const graph = bundle.graphs.at(-1)!;
+  const graph = bundle.head;
   const frame = layout.frameState.at(-1)!;
   const unit = layout.unitsPerCell;
   const widthCells = layout.root.width / unit;

@@ -23,6 +23,9 @@
     },
     {
       "path": "../artifact"
+    },
+    {
+      "path": "../graph"
     }
   ]
 }

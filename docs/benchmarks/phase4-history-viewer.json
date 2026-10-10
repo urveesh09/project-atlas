@@ -1,0 +1,160 @@
+{
+  "task": "Gate G4 — snapshot change in the production viewer",
+  "recordedAt": "2026-10-10T18:30:29.054Z",
+  "environment": {
+    "os": "Windows_NT 10.0.26200 x64",
+    "cpu": "Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz",
+    "node": "v24.15.0",
+    "browser": "Chromium (Playwright)",
+    "viewport": "1920x1080",
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "artifact": {
+    "frames": 12,
+    "filesAtHead": 3252,
+    "edgesAtHead": 29757,
+    "compressedBytes": 4924526,
+    "analyzer": {
+      "version": "0.1.0-dev.5",
+      "parserVersion": "typescript@6.0.3",
+      "gitVersion": "2.55.0.windows.3"
+    },
+    "selectedCommit": "0c370cfdba3ed86d745cf7882667925be7b8d768",
+    "analysisId": "analysis_29a3b54224d1aa6184035ef6eedee9c66cb53c885e52a2d2f26b62d28ded65bc",
+    "layoutSha256": "1ad851e5fe11d738b7122bff77bd8016706decb5bfbd2003f00239f27c3a438d"
+  },
+  "cachedChangeMs": {
+    "samples": 20,
+    "p50": 132.9,
+    "p95": 135.5,
+    "max": 137.8
+  },
+  "steppedChangeMs": {
+    "samples": 11,
+    "p50": 2912.9,
+    "p95": 4919.6,
+    "max": 4919.6
+  },
+  "coldChangeMs": {
+    "samples": 11,
+    "p50": 4093.5,
+    "p95": 11288.2,
+    "max": 11288.2
+  },
+  "budgetCachedP95Ms": 250,
+  "drawCallsAfter": 6,
+  "heapAfterSweeps": [
+    {
+      "mainBeforeBytes": 251080136,
+      "mainRetainedBytes": 154116776,
+      "workers": [
+        {
+          "beforeBytes": 300084700,
+          "retainedBytes": 64730412
+        }
+      ],
+      "beforeMiB": 525.63,
+      "retainedMiB": 208.71
+    },
+    {
+      "mainBeforeBytes": 250250120,
+      "mainRetainedBytes": 154184060,
+      "workers": [
+        {
+          "beforeBytes": 439026060,
+          "retainedBytes": 64532276
+        }
+      ],
+      "beforeMiB": 657.34,
+      "retainedMiB": 208.58
+    },
+    {
+      "mainBeforeBytes": 159900344,
+      "mainRetainedBytes": 154532952,
+      "workers": [
+        {
+          "beforeBytes": 171024572,
+          "retainedBytes": 64197776
+        }
+      ],
+      "beforeMiB": 315.59,
+      "retainedMiB": 208.6
+    },
+    {
+      "mainBeforeBytes": 159349432,
+      "mainRetainedBytes": 154395180,
+      "workers": [
+        {
+          "beforeBytes": 179246136,
+          "retainedBytes": 64110052
+        }
+      ],
+      "beforeMiB": 322.91,
+      "retainedMiB": 208.38
+    }
+  ],
+  "comparisonHeap": {
+    "mainBeforeBytes": 177737260,
+    "mainRetainedBytes": 172688272,
+    "workers": [
+      {
+        "beforeBytes": 205451328,
+        "retainedBytes": 64716120
+      }
+    ],
+    "beforeMiB": 365.44,
+    "retainedMiB": 226.41
+  },
+  "errors": [],
+  "rawSamples": {
+    "cached": [
+      129.40000000596046,
+      135.30000000447035,
+      135.5,
+      133.79999999701977,
+      133.5,
+      134.20000000298023,
+      133.79999999701977,
+      130.60000000149012,
+      132.89999999850988,
+      131.29999999701977,
+      128,
+      133.29999999701977,
+      137.79999999701977,
+      129,
+      132.10000000149012,
+      130.10000000149012,
+      130.40000000596046,
+      135,
+      130.5,
+      129.89999999850988
+    ],
+    "stepped": [
+      783,
+      2912.89999999851,
+      1066.7999999970198,
+      2819.39999999851,
+      4741.60000000149,
+      1085.8999999985099,
+      2963.3000000044703,
+      4919.60000000149,
+      1085.5,
+      3061.7999999970198,
+      4667.69999999553
+    ],
+    "cold": [
+      5522.80000000447,
+      5818.29999999702,
+      7455.89999999851,
+      11288.19999999553,
+      4093.5,
+      2183.7000000029802,
+      5811.70000000298,
+      3999.5,
+      2168.5,
+      3986.89999999851,
+      2152.5
+    ]
+  },
+  "pass": true
+}

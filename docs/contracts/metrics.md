@@ -1,6 +1,6 @@
 # Metric definitions: atlas.metrics/1
 
-The normative text is plan §10; this page is the implementation index. P2.1–P2.4 syntax, dependency and static findings are implemented. Churn, full hotspots and structure attention remain Phase 4. Thresholds are versioned product defaults, not quality standards.
+The normative text is plan §10; this page is the implementation index. P2.1–P2.4 syntax, dependency and static findings are implemented. Churn, full hotspots and separately named Structure attention are implemented in Phase 4. Thresholds are versioned product defaults, not quality standards.
 
 | Metric | Definition | Task |
 |---|---|---|
@@ -22,7 +22,7 @@ Nested callable bodies are excluded from their enclosing callable's complexity t
 
 Fan-in/out deduplicate file endpoints even when multiple statements or kinds reference them. Default degree includes literal dynamic imports; default SCC cycles exclude them along with type-only/resource imports. A cycle finding includes its policy, members and a witness, and describes a static cycle rather than observed runtime behavior.
 
-The shared `RULE_CATALOG` supplies version, severity, category and explanation to both analyzer and viewer. Implemented findings cover parse failure, missing local import, incomplete resolver context, static cycle, callable complexity >=20, source size >=500 code lines, high fan-in (>=20 and source-cohort nearest-rank p95), and analysis limits. Findings retain source ranges or observation/member evidence. The history change-concentration rule is reserved until P4.4.
+The shared `RULE_CATALOG` supplies version, severity, category and explanation to both analyzer and viewer. Implemented findings cover parse failure, missing local import, incomplete resolver context, static cycle, callable complexity >=20, source size >=500 code lines, high fan-in (>=20 and source-cohort nearest-rank p95), and analysis limits. Findings retain source ranges or observation/member evidence. Change concentration is implemented with the 10-commit minimum and nearest-rank p95 among usable source histories.
 
 Independent expectations: `analyzer-ts/test/complexity.test.ts`, `analyzer-ts/test/extract.test.ts`, `graph/test/graph.test.ts` and `analyzer-core/test/analyze.test.ts`. [ADR-019](../adr/ADR-019-phase2-static-analysis-and-viewer.md) records the Phase 2 gate and its limitations.
 
@@ -33,3 +33,11 @@ Structure facade colors derive from stable layout package districts, independent
 Complexity uses maximum callable complexity with band starts **0, 5, 10, 20, 40**. Fan-in uses the canonical unique-source default degree with band starts **0, 1, 5, 10, 25**. Neutral marked buildings mean missing metrics; zero is a measured value. These are raw metrics, not percentiles or a fabricated hotspot score. Filters and type-only overlay toggles do not recalculate metrics.
 
 An arrow runs from importer to imported target. Solid/dashed class and legend retain value, type, dynamic and resource kinds; inspector evidence retains confidence. Roads and district gates are navigation geometry, never inferred imports. File arcs cap at 200 with explicit omitted/unplaced counts and pinning. Package aggregation counts unique file endpoint pairs under the selected edge policy. Reach queries cap depth at 5 and visits at 2,000 and describe static reachability, not observed runtime impact. The full external list remains HTML-accessible when only 50 terminals are visible.
+
+## Phase 4 history semantics
+
+Changed commits count a lineage once per mainline commit up to the viewed snapshot, including unsampled commits. Text lines sum known numstat values; binary values do not apply, and missing/path-only diff values remain unavailable or partial. Container activity describes current members. Co-change excludes commits changing more than 50 lineages and retains pairs with at least three shared commits, bounded to the strongest 20 partners per lineage.
+
+Hotspots use the fixed selected-commit parsed-source cohort and its empirical midrank distributions, with interpolation for historical values. Weights are complexity 0.40, fan-in 0.25 and changed commits 0.35. The full score is null when comparable usable history is absent; Structure attention uses complexity 0.60 and fan-in 0.40 under its own label. Earlier raw churn never includes later commits. The inspector shows factors, baseline/cohort/window and availability. These rank candidates within the repository; they are not universal defect or project-quality scores.
+
+A/B metric differences are B−A only when both values exist. Added/deleted files, renamed lineages, current-parent moves and content/dependency differences are distinct from mainline activity in the interval. See [ADR-025](../adr/ADR-025-history-semantics.md), [ADR-027](../adr/ADR-027-viewer-frames-and-history-ui.md) and the authored Git/history fixtures.

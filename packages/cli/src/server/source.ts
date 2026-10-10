@@ -1,5 +1,14 @@
 import { batchCheck, listTree, openLocalRepository, readCommit, readObjects, type SafeGit } from '@atlas/ingest';
-import { LIMITS, type ArtifactBundle } from '@atlas/schema';
+import { LIMITS, type ArtifactBundle, type ArtifactManifest, type GraphSnapshot } from '@atlas/schema';
+
+/** A fully loaded bundle, or a lazily opened artifact whose frames are decoded one at a time. */
+export type FrameSource = ArtifactBundle | { manifest: ArtifactManifest; frame(index: number): Promise<{ ok: true; graph: GraphSnapshot } | { ok: false }> };
+
+async function frameGraph(artifact: FrameSource, index: number): Promise<GraphSnapshot | null> {
+  if ('graphs' in artifact) return artifact.graphs[index] ?? null;
+  const result = await artifact.frame(index);
+  return result.ok ? result.graph : null;
+}
 
 /**
  * Read-only source attachment for `atlas serve --repo` (plan §14.3). The repository is
@@ -28,7 +37,7 @@ export class SourceAttachment {
     return new SourceAttachment({ attached: false, reason }, null, new Map());
   }
 
-  static async attach(repoPath: string, bundle: ArtifactBundle): Promise<SourceAttachment> {
+  static async attach(repoPath: string, bundle: FrameSource): Promise<SourceAttachment> {
     let opened;
     try {
       opened = await openLocalRepository(repoPath);
@@ -50,7 +59,9 @@ export class SourceAttachment {
       if ((commit.parents[0] ?? null) !== frame.commit.firstParentOid) return fail('FIRST_PARENT_MISMATCH');
       const tree = await listTree(git, commit.tree, { maxEntries: LIMITS.treeEntriesPerSnapshot });
       const committed = new Map(tree.entries.filter((e) => e.path !== null).map((e) => [e.path!, e.oid]));
-      const graph = bundle.graphs[i]!;
+      // Only each frame's file -> blob facts are kept, never the whole graph.
+      const graph = await frameGraph(bundle, i);
+      if (!graph) return fail('TREE_MISMATCH');
       const map = new Map<string, { path: string; blobOid: string; supported: boolean }>();
       for (const node of graph.nodes) {
         if (node.kind !== 'file') continue;

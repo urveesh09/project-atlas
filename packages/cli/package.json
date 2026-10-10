@@ -19,6 +19,7 @@
     "@atlas/analyzer-core": "workspace:*",
     "@atlas/analyzer-ts": "workspace:*",
     "@atlas/artifact": "workspace:*",
+    "@atlas/graph": "workspace:*",
     "@atlas/ingest": "workspace:*",
     "@atlas/schema": "workspace:*",
     "@atlas/web": "workspace:*"

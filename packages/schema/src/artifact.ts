@@ -27,7 +27,8 @@ export const ChunkRefSchema = z.strictObject({
   uncompressedBytes: z.number().int().positive().max(LIMITS.artifactUncompressedBytes),
   compressedBytes: z.number().int().positive().max(LIMITS.artifactCompressedBytes),
   mediaType: z.literal('application/json'),
-  encoding: z.literal('atlas.graph.indexed/1').optional(),
+  /** Lossless graph transports (ADR-018 indexed, ADR-026 frame delta); absent for plain JSON. */
+  encoding: z.enum(['atlas.graph.indexed/1', 'atlas.graph.delta/1', 'atlas.history.compact/1', 'atlas.layout.compact/1']).optional(),
   encodedSha256: Hex64Schema.optional(),
   decodedBytes: z.number().int().positive().max(LIMITS.artifactUncompressedBytes).optional(),
 });
@@ -68,7 +69,7 @@ export const FrameDescriptorSchema = z.strictObject({
 });
 
 export const ArtifactManifestSchema = z.strictObject({
-  artifactVersion: z.enum(['atlas.artifact/1.0.0', 'atlas.artifact/1.1.0', 'atlas.artifact/1.2.0']),
+  artifactVersion: z.enum(['atlas.artifact/1.0.0', 'atlas.artifact/1.1.0', 'atlas.artifact/1.2.0', 'atlas.artifact/1.3.0']),
   schemaVersion: z.literal('atlas.graph/1.0.0'),
   analysisId: AnalysisIdSchema,
   analysisKey: AnalysisKeySchema,

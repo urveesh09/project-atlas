@@ -422,10 +422,15 @@ export function validateManifest(input: unknown): ValidationResult<ArtifactManif
   for (const chunk of manifest.chunks) {
     if (chunkPaths.has(chunk.path)) sink.add('DUPLICATE_CHUNK', chunk.path, 'Duplicate chunk path');
     chunkPaths.add(chunk.path);
-    uncompressed += Math.max(chunk.uncompressedBytes, chunk.decodedBytes ?? 0);
+    // Cumulative bytes are what is stored and transported (ADR-026). Reconstructed graphs are
+    // bounded per chunk by the schema (decodedBytes <= the cap) and consumers bound how many
+    // frames they hold decoded at once.
+    uncompressed += chunk.uncompressedBytes;
     if (chunk.encoding) {
-      if (!chunk.path.startsWith('graphs/') || !['atlas.artifact/1.1.0', 'atlas.artifact/1.2.0'].includes(manifest.artifactVersion) || chunk.encodedSha256 === undefined || chunk.decodedBytes === undefined) {
-        sink.add('CHUNK_ENCODING', chunk.path, 'Indexed graph chunks require artifact 1.1/1.2 and complete encoded/decoded integrity metadata');
+      const versions = chunk.encoding === 'atlas.graph.indexed/1' ? ['atlas.artifact/1.1.0', 'atlas.artifact/1.2.0', 'atlas.artifact/1.3.0'] : ['atlas.artifact/1.3.0'];
+      const place = chunk.encoding.startsWith('atlas.graph.') ? chunk.path.startsWith('graphs/') : chunk.encoding === 'atlas.history.compact/1' ? chunk.path === 'history/history.json.gz' : chunk.path === 'layout/layout.json.gz';
+      if (!place || !versions.includes(manifest.artifactVersion) || chunk.encodedSha256 === undefined || chunk.decodedBytes === undefined) {
+        sink.add('CHUNK_ENCODING', chunk.path, 'Encoded graph chunks require a supporting artifact version and complete encoded/decoded integrity metadata');
       }
     } else if (chunk.encodedSha256 !== undefined || chunk.decodedBytes !== undefined) {
       sink.add('CHUNK_ENCODING', chunk.path, 'Plain chunks cannot carry indexed graph metadata');
@@ -457,6 +462,10 @@ export function validateManifest(input: unknown): ValidationResult<ArtifactManif
   if (manifest.chunks.length !== manifest.frames.length + 2) sink.add('CHUNK_REF', 'chunks', 'Unreferenced chunks are not allowed');
   const head = manifest.frames.at(-1);
   if (head && head.commit.oid !== manifest.selectedCommit.oid) sink.add('HEAD_FRAME', 'frames', 'The newest frame must be the selected commit');
+  // Frame deltas are decoded against the selected (HEAD) graph, which is never itself a delta.
+  if (head?.graphChunk.encoding === 'atlas.graph.delta/1') sink.add('CHUNK_ENCODING', 'frames', 'The selected frame cannot be a delta');
+  // Frames are oldest to newest along the first-parent chain: committer time may skew, so
+  // order is checked through the history chain rather than by timestamp.
   const oidLength = manifest.repo.objectFormat === 'sha256' ? 64 : 40;
   if (manifest.selectedCommit.oid.length !== oidLength) sink.add('OBJECT_FORMAT', 'selectedCommit', 'Commit OID does not match object format');
   if (manifest.coverage.history.newestOid !== manifest.selectedCommit.oid) sink.add('COVERAGE', 'coverage.history', 'newestOid must be the selected commit');

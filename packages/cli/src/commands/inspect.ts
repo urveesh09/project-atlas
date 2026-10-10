@@ -1,8 +1,9 @@
 import path from 'node:path';
-import { readArtifactDirectory, type LoadResult } from '@atlas/artifact/node';
-import { RULE_CATALOG, compareAscii, compareUtf8, formatDiagnosticMessage, type ArtifactBundle, type GraphNode } from '@atlas/schema';
+import { hotspotBaseline, hotspotFactors } from '@atlas/graph';
+import { openArtifactDirectory, type LoadResult } from '@atlas/artifact/node';
+import { RULE_CATALOG, compareAscii, compareUtf8, formatDiagnosticMessage, type GraphNode } from '@atlas/schema';
 import { EXIT, type CommandContext } from '../context.js';
-import { renderCityMap } from '../ui/city-map.js';
+import { renderCityMap, type ArtifactView } from '../ui/city-map.js';
 import { bar, box, check, formatBytes, formatCount, heading, plural, stackedBar, swatch, truncateMiddle, wrapText } from '../ui/format.js';
 import { PALETTE, padEndVisible, type Styler } from '../ui/style.js';
 
@@ -23,7 +24,7 @@ export interface InspectReport {
   coverageReasons: { code: string; count: number }[];
   limitsHit: string[];
   warnings: { code: string; path: string | null }[];
-  history: { status: string; framesCompleted: number };
+  history: InspectHistory;
   parse: { parsed: number; failed: number };
   imports: { observed: number; internal: number; external: number; builtin: number; unresolved: number; unsupported: number; excludedTargets: number };
   edges: number;
@@ -32,9 +33,103 @@ export interface InspectReport {
   mostDependedOn: { path: string; fanIn: number }[];
 }
 
-export function buildInspectReport(bundle: ArtifactBundle, stats: Extract<LoadResult, { ok: true }>['stats']): InspectReport {
+export interface InspectHistory {
+  status: string;
+  boundary: string;
+  commits: number;
+  oldest: { oid: string; time: string } | null;
+  newest: { oid: string; time: string };
+  framesRequested: number;
+  framesCompleted: number;
+  unavailableFrames: { commit: string; reason: string }[];
+  renameDetection: string;
+  lineDiffs: string;
+  coChange: string;
+  /** Analyzed frames, oldest first, with included files and window commits since the previous frame. */
+  frames: { commit: string; time: string; files: number; commitsSincePrevious: number }[];
+  renames: { from: string; to: string; commit: string; time: string; similarity: number | null }[];
+  mostChanged: { path: string; changedCommits: number; linesAdded: number | null; linesDeleted: number | null; availability: string }[];
+  hotspots: { path: string; score: number; pComplexity: number; pFanIn: number; pChangedCommits: number }[];
+  structureAttention: { path: string; score: number }[];
+  pairs: { a: string; b: string; together: number; jaccard: number }[];
+}
+
+function buildHistory(bundle: ArtifactView): InspectHistory {
+  const { manifest, history } = bundle;
+  const c = manifest.coverage.history;
+  const graph = bundle.head;
+  const chainIndex = new Map(history.commits.map((commit, i) => [commit.oid, history.commits.length - 1 - i]));
+  const files = graph.nodes.filter((n): n is Extract<GraphNode, { kind: 'file' }> => n.kind === 'file');
+  const metric = new Map(graph.metrics.map((m) => [m.nodeId, m]));
+  const pathOfLineage = new Map<string, string>();
+  for (const lineage of history.lineages) pathOfLineage.set(lineage.id, lineage.occurrences.at(-1)?.path ?? lineage.anchorPath);
+  const baseline = hotspotBaseline(graph);
+  const scored = files.flatMap((node) => {
+    const factors = hotspotFactors(baseline, node, metric.get(node.id));
+    return factors ? [{ path: node.path, factors }] : [];
+  });
+  return {
+    status: c.status,
+    boundary: c.boundary,
+    commits: c.commitsTraversed,
+    oldest: c.oldestOid ? { oid: c.oldestOid, time: history.commits.at(-1)?.committerTime ?? '' } : null,
+    newest: { oid: manifest.selectedCommit.oid, time: manifest.selectedCommit.committerTime },
+    framesRequested: c.framesRequested,
+    framesCompleted: c.framesCompleted,
+    unavailableFrames: (history.frameSelection?.commits ?? []).filter((x) => x.status === 'unavailable').map((x) => ({ commit: x.commitOid, reason: x.reason ?? '' })),
+    renameDetection: c.renameDetection,
+    lineDiffs: c.lineDiffs,
+    coChange: c.coChange,
+    frames: manifest.frames.map((frame, i) => {
+      const here = chainIndex.get(frame.commit.oid);
+      const before = i > 0 ? chainIndex.get(manifest.frames[i - 1]!.commit.oid) : undefined;
+      return {
+        commit: frame.commit.oid,
+        time: frame.commit.committerTime,
+        files: frame.coverage.includedFiles,
+        commitsSincePrevious: here === undefined ? 0 : before === undefined ? here + 1 : here - before,
+      };
+    }),
+    renames: history.commits.flatMap((commit) =>
+      commit.changes.filter((ch) => ch.kind === 'rename').map((ch) => ({ from: ch.oldPath!, to: ch.newPath!, commit: commit.oid, time: commit.committerTime, similarity: ch.renameSimilarity })),
+    ),
+    mostChanged: files
+      .flatMap((node) => {
+        const m = metric.get(node.id);
+        return m && m.changedCommits !== null && m.changedCommits > 0
+          ? [{ path: node.path, changedCommits: m.changedCommits, linesAdded: m.linesAdded, linesDeleted: m.linesDeleted, availability: m.availability.history }]
+          : [];
+      })
+      .sort((a, b) => b.changedCommits - a.changedCommits || compareUtf8(a.path, b.path))
+      .slice(0, 5),
+    hotspots: scored
+      .filter((x) => x.factors.score !== null)
+      .sort((a, b) => b.factors.score! - a.factors.score! || compareUtf8(a.path, b.path))
+      .slice(0, 5)
+      .map((x) => ({ path: x.path, score: x.factors.score!, pComplexity: x.factors.pComplexity, pFanIn: x.factors.pFanIn, pChangedCommits: x.factors.pChangedCommits! })),
+    structureAttention: [...scored]
+      .sort((a, b) => b.factors.structureAttention - a.factors.structureAttention || compareUtf8(a.path, b.path))
+      .slice(0, 5)
+      .map((x) => ({ path: x.path, score: x.factors.structureAttention })),
+    pairs: [...history.coChangePairs]
+      .sort((a, b) => b.jaccard - a.jaccard || b.togetherCommits - a.togetherCommits || compareAscii(a.aLineageId, b.aLineageId))
+      .slice(0, 5)
+      .map((p) => ({ a: pathOfLineage.get(p.aLineageId) ?? p.aLineageId, b: pathOfLineage.get(p.bLineageId) ?? p.bLineageId, together: p.togetherCommits, jaccard: p.jaccard })),
+  };
+}
+
+const BOUNDARY_TEXT: Record<string, string> = {
+  root: 'reaches the first commit',
+  days: 'bounded by the day window',
+  'commit-cap': 'bounded by the commit cap',
+  shallow: 'stops at a shallow-clone boundary; the oldest change is unknown',
+  'resource-cap': 'stopped by a resource limit',
+  none: 'not analyzed',
+};
+
+export function buildInspectReport(bundle: ArtifactView, stats: Extract<LoadResult, { ok: true }>['stats']): InspectReport {
   const { manifest } = bundle;
-  const graph = bundle.graphs.at(-1)!;
+  const graph = bundle.head;
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
   const packageOf = (node: GraphNode): string | null => {
     let current: GraphNode | undefined = node;
@@ -81,7 +176,7 @@ export function buildInspectReport(bundle: ArtifactBundle, stats: Extract<LoadRe
     coverageReasons: c.reasons,
     limitsHit: c.limitsHit,
     warnings: c.warnings,
-    history: { status: manifest.coverage.history.status, framesCompleted: manifest.coverage.history.framesCompleted },
+    history: buildHistory(bundle),
     parse: { parsed: c.parsedFiles, failed: c.parseFailedFiles },
     imports: { observed: c.observedImports, internal: c.internalResolved, external: c.externalResolved, builtin: c.builtinResolved, unresolved: c.unresolved, unsupported: c.unsupported, excludedTargets: c.excludedTargets },
     edges: graph.edges.filter((e) => e.kind !== 'declares-package' && e.kind !== 'project-reference').length,
@@ -130,7 +225,7 @@ function describeReason(code: string): string {
   return code.toLowerCase().replaceAll('_', ' ');
 }
 
-function render(ctx: CommandContext, report: InspectReport, bundle: ArtifactBundle, showMap: boolean): void {
+function render(ctx: CommandContext, report: InspectReport, bundle: ArtifactView, showMap: boolean): void {
   const s: Styler = ctx.out;
   const w = ctx.width;
   const statusText = report.status === 'complete' ? s.fg(PALETTE.ok, 'complete') : s.fg(PALETTE.warn, report.status);
@@ -252,9 +347,9 @@ function render(ctx: CommandContext, report: InspectReport, bundle: ArtifactBund
     for (let i = 0; i < Math.max(left.length, right.length); i++) ctx.print(`  ${padEndVisible(left[i] ?? '', 42)}${right[i] ?? ''}`);
   }
 
+  renderHistory(ctx, report.history);
   ctx.print();
-  ctx.print(`  ${heading(s, 'Not yet in this artifact')}`);
-  ctx.print(s.dim(`  Git history ${report.history.status} (P4) · 3D city viewer (P3) · browse this artifact now with: atlas serve <artifact>`));
+  ctx.print(s.dim('  Explore the city, its history and A/B comparisons: atlas serve <artifact>'));
   if (report.externalPackages.length > 0) {
     ctx.print();
     ctx.print(`  ${heading(s, 'Declared external packages')}`);
@@ -263,9 +358,56 @@ function render(ctx: CommandContext, report: InspectReport, bundle: ArtifactBund
   ctx.print();
 }
 
+const BLOCKS = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+const pct = (p: number) => `p${p.toFixed(2)}`;
+const GUTTER = ''.padEnd(10);
+
+function renderHistory(ctx: CommandContext, h: InspectHistory): void {
+  const s: Styler = ctx.out;
+  ctx.print();
+  if (h.status === 'unavailable') {
+    const why = h.commits === 0 ? 'not analyzed; churn and hotspot scores are absent, never zero' : 'unavailable';
+    ctx.print(`  ${heading(s, 'History')}  ${s.dim(why)}`);
+    return;
+  }
+  const span = h.oldest ? `${h.oldest.time.slice(0, 10)} → ${h.newest.time.slice(0, 10)}` : h.newest.time.slice(0, 10);
+  const tone = h.status === 'complete' ? PALETTE.ok : PALETTE.warn;
+  ctx.print(`  ${heading(s, 'History')}  ${s.fg(tone, h.status)} ${s.dim(`· ${plural(h.commits, 'mainline commit')} · ${span} · ${BOUNDARY_TEXT[h.boundary] ?? h.boundary}`)}`);
+  const maxFiles = Math.max(1, ...h.frames.map((f) => f.files));
+  const spark = h.frames.map((f) => s.fg(PALETTE.accent, BLOCKS[Math.max(1, Math.round((f.files / maxFiles) * 8))]!)).join('');
+  const first = h.frames[0]!;
+  const last = h.frames.at(-1)!;
+  ctx.print(`  ${s.fg(PALETTE.muted, 'frames'.padEnd(10))}${spark}  ${s.dim(`${plural(h.framesCompleted, 'analyzed snapshot')} of ${h.framesRequested} requested · ${formatCount(first.files)} → ${formatCount(last.files)} files`)}`);
+  ctx.print(s.dim(`  ${GUTTER}sampled frames, not every commit; churn counts every commit in the window`));
+  for (const missing of h.unavailableFrames) ctx.print(`  ${check(s, 'warn')} frame ${missing.commit.slice(0, 7)} unavailable ${s.dim(missing.reason)}`);
+  const quality = [h.renameDetection !== 'complete' ? `renames ${h.renameDetection}` : null, h.lineDiffs !== 'complete' ? `line counts ${h.lineDiffs}` : null, h.coChange !== 'complete' ? `co-change ${h.coChange}` : null].filter(Boolean);
+  if (quality.length > 0) ctx.print(`  ${check(s, 'warn')} ${s.fg(PALETTE.warn, quality.join(' · '))}`);
+  for (const rename of h.renames.slice(0, 5)) {
+    const detail = `${rename.time.slice(0, 10)}${rename.similarity !== null ? `, ${rename.similarity}% similar` : ''}`;
+    ctx.print(`  ${s.fg(PALETTE.muted, 'renamed'.padEnd(10))}${truncateMiddle(rename.from, 36)} → ${truncateMiddle(rename.to, 36)} ${s.dim(detail)}`);
+  }
+  if (h.renames.length > 5) ctx.print(s.dim(`  ${GUTTER}… ${h.renames.length - 5} more renames`));
+  if (h.mostChanged.length > 0) {
+    ctx.print();
+    ctx.print(`  ${s.fg(PALETTE.muted, padEndVisible('changed most (commits, lines)', 46))}${s.fg(PALETTE.muted, 'hotspot candidates (complexity · fan-in · changes)')}`);
+    const left = h.mostChanged.map((m) => `${String(m.changedCommits).padStart(4)}  ${truncateMiddle(m.path, 28)} ${s.dim(m.linesAdded === null ? 'binary' : `+${m.linesAdded} −${m.linesDeleted}`)}`);
+    const right = h.hotspots.map((x) => `${String(x.score).padStart(4)}  ${truncateMiddle(x.path, 28)} ${s.dim(`${pct(x.pComplexity)} · ${pct(x.pFanIn)} · ${pct(x.pChangedCommits)}`)}`);
+    for (let i = 0; i < Math.max(left.length, right.length); i++) ctx.print(`  ${padEndVisible(left[i] ?? '', 46)}${right[i] ?? ''}`);
+    ctx.print(s.dim('  Hotspot = round(100 × (0.40 complexity + 0.25 fan-in + 0.35 changes)), percentiles of the HEAD source cohort.'));
+    ctx.print(s.dim('  A candidate for inspection under these heuristics; not a defect or quality grade.'));
+  }
+  if (h.pairs.length > 0) {
+    ctx.print();
+    ctx.print(`  ${s.fg(PALETTE.muted, 'changed together')}`);
+    for (const pair of h.pairs) ctx.print(`  ${String(pair.together).padStart(4)}  ${truncateMiddle(pair.a, 30)} ${s.dim('&')} ${truncateMiddle(pair.b, 30)} ${s.dim(`jaccard ${pair.jaccard.toFixed(2)}`)}`);
+  }
+}
+
 export async function inspect(ctx: CommandContext, args: { artifact: string; map: boolean }): Promise<number> {
   const dir = path.resolve(ctx.io.cwd, args.artifact);
-  const loaded = await readArtifactDirectory(dir);
+  // Lazy open: the report needs the core and the selected frame only.
+  const opened = await openArtifactDirectory(dir);
+  const loaded = opened.ok ? { ok: true as const, bundle: opened.artifact, stats: opened.artifact.stats } : opened;
   if (!loaded.ok) {
     if (ctx.json) ctx.print(JSON.stringify({ ok: false, code: loaded.code, issues: loaded.issues }, null, 2));
     else {

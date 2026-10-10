@@ -1,6 +1,6 @@
 # CLI contract
 
-From plan §14. `doctor`, `analyze`, `inspect`, `verify` and `serve` are implemented through P2.6. History options are validated and recorded now and take effect in Phase 4; use `--no-history` for the currently implemented HEAD-only scope.
+From plan §14. `doctor`, `analyze`, `inspect`, `verify` and `serve` are implemented through P2.6. History options take effect and history is on by default. `--no-history` explicitly disables only history. Inspect reports the requested/observed window, frame selection, lineage and history availability; verification streams every frame. Serve verifies source attachment for every declared historical frame.
 
 ```sh
 atlas doctor

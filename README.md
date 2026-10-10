@@ -9,7 +9,7 @@ ATLAS turns the committed contents of a TypeScript/JavaScript repository into a 
 
 Every visual encoding has a legend, every finding has evidence, and every gap in the analysis is shown as coverage.
 
-> **Status:** Phase 3 city implementation is available. `atlas analyze` produces a validated static graph with TS/JS imports, complexity, cycles and evidence-backed findings. `atlas serve` opens the stylized 3D city, equivalent map/file table, synchronized search/tree/inspector, directed dependency overlays and bounded image export. [Measured local performance](docs/benchmarks/phase3-city.md) and [implementation status](docs/implementation-status.md) distinguish automated evidence from pending human screen-reader and reference-device release audits. Git evolution and churn/hotspots are Phase 4; public hosted analysis is Phase 5.
+> **Status:** Phase 4 implements all four local pillars: structure, static dependencies, evidence-backed diagnostics/hotspots, and bounded Git evolution. The city keeps fixed plots while you change sampled snapshots, follow renames, inspect absent files and compare A → B. [History analysis](docs/benchmarks/phase4-history.md), [viewer measurements](docs/benchmarks/phase4-history-viewer.md) and [implementation status](docs/implementation-status.md) record verification and pending human/reference-device release audits. Public hosted analysis remains Phase 5; runtime tracing stays deferred.
 
 ## Try it
 
@@ -43,9 +43,9 @@ Findings explain their static policy and limitations, including an actual cycle 
 
 ![Browser cycle finding on the Harbor demo](docs/images/phase2-findings.png)
 
-Only committed files are analyzed. Use `--no-history` for the currently implemented HEAD-only scope; history options are accepted/recorded but history analysis is not implemented until Phase 4. `serve` without `--repo` still supports graph inspection; source access requires an explicit repository attachment. Opening an exported artifact through the browser's file picker never uploads it.
+Only committed files are analyzed. History is enabled by default: up to 90 days, 200 first-parent commits and 12 sampled frames. Use `--history-days`, `--history-commits` and `--snapshots` to lower that scope, or `--no-history` for one selected frame with churn/hotspots explicitly unavailable. `serve` without `--repo` still supports graph inspection; source access requires an explicit repository attachment. Opening an exported artifact through the browser's file picker never uploads it.
 
-Artifacts use a lossless indexed graph transport ([ADR-018](docs/adr/ADR-018-indexed-graph-transport.md)); decoded identities remain full SHA-256 IDs. Writers emit artifact 1.2 with a 128 MiB cumulative decoded cap; readers also accept 1.0 and 1.1. The compressed limit stays 20 MiB. [ADR-024](docs/adr/ADR-024-decoded-artifact-capacity.md) explains the capacity decision and memory tradeoff. Layout 1.1 bounds external anchors without changing file plots or graph identity.
+Artifacts use a lossless indexed graph transport ([ADR-018](docs/adr/ADR-018-indexed-graph-transport.md)); decoded identities remain full SHA-256 IDs. Writers emit artifact 1.3 with lossless frame-delta graphs and compact history/layout ([ADR-026](docs/adr/ADR-026-frame-delta-and-compact-transports.md)). The 128 MiB cumulative cap counts stored JSON bytes; each reconstructed chunk is separately bounded and historical graphs are loaded on demand. Readers also accept 1.0, 1.1 and 1.2. The compressed limit stays 20 MiB. [ADR-024](docs/adr/ADR-024-decoded-artifact-capacity.md) explains the capacity decision and memory tradeoff. Layout 1.1 bounds external anchors without changing file plots or graph identity.
 
 ## What V0.1 will do
 
@@ -96,7 +96,7 @@ packages/ingest/          sanitized local Git reader, GitHub admission and filte
 packages/analyzer-ts/     TS/JS syntax facts and virtual-filesystem module resolution
 packages/analyzer-core/   committed inventory, package hierarchy, artifact assembly
 packages/graph/           aggregation, SCC witnesses, search and bounded reach queries
-packages/history/         first-parent history and lineage (Phase 4)
+packages/history/         first-parent history, lineage and change activity
 packages/layout/          deterministic integer city layout
 packages/artifact/        deterministic chunks, bounded import (Node + browser), atomic output
 packages/cli/             the atlas command: doctor, analyze, inspect, verify, serve

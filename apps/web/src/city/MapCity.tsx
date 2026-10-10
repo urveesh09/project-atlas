@@ -6,6 +6,8 @@ import type { CityHandle } from './types';
 /** Same immutable rectangles as 3D; never reruns the layout. No WebGL dependency. */
 export function MapCity(props: {
   city: CityData;
+  /** Compare marks: outlined ghosts for deleted plots, a diamond for added files. */
+  ghosts: readonly { rect: { x: number; z: number; width: number; depth: number }; kind: 'deleted' | 'added' }[];
   lens: CityLens;
   selected: ReadonlySet<string>;
   filter(b: CityBuilding): boolean;
@@ -18,6 +20,8 @@ export function MapCity(props: {
     latest = useRef(props);
   latest.current = props;
   const view = useRef({ x: 0, z: 0, scale: 1 });
+  // Frames share one plot plan: keep the view across snapshots, reset only for a new layout.
+  const viewFor = useRef<string | null>(null);
   const drawRef = useRef<() => void>(() => {});
   useEffect(() => {
     const el = canvas.current!,
@@ -96,6 +100,28 @@ export function MapCity(props: {
       for (const terminal of terminals) {
         context.fillStyle = '#607887';
         context.fillRect(x(terminal.x) - 3, z(terminal.z) - 3, 6, 6);
+      }
+      for (const ghost of latest.current.ghosts) {
+        const gx = x(ghost.rect.x),
+          gz = z(ghost.rect.z),
+          w = Math.max(4, ghost.rect.width * s),
+          h = Math.max(4, ghost.rect.depth * s);
+        context.lineWidth = 2 * scaleFactor;
+        if (ghost.kind === 'deleted') {
+          context.strokeStyle = '#7a4f2a';
+          context.setLineDash([3, 2]);
+          context.strokeRect(gx - 1, gz - 1, w + 2, h + 2);
+          context.setLineDash([]);
+        } else {
+          context.fillStyle = '#1f6b45';
+          context.beginPath();
+          context.moveTo(gx + w / 2, gz - 7);
+          context.lineTo(gx + w / 2 + 5, gz - 2);
+          context.lineTo(gx + w / 2, gz + 3);
+          context.lineTo(gx + w / 2 - 5, gz - 2);
+          context.closePath();
+          context.fill();
+        }
       }
       for (const arc of overlay.arcs) {
         context.strokeStyle = EDGE_COLORS[edgeClass(arc.kind)];
@@ -274,7 +300,11 @@ export function MapCity(props: {
       },
       { signal, passive: false },
     );
-    reset();
+    const layoutKey = `${city.root.x},${city.root.z},${city.root.width},${city.root.depth},${city.plotCount}`;
+    if (viewFor.current !== layoutKey) {
+      viewFor.current = layoutKey;
+      reset();
+    } else drawRef.current();
     return () => {
       controller.abort();
       observer.disconnect();
@@ -284,7 +314,7 @@ export function MapCity(props: {
   }, [props.city, props.register]);
   useEffect(() => {
     drawRef.current();
-  }, [props.lens, props.selected, props.filter, props.overlay]);
+  }, [props.lens, props.selected, props.filter, props.overlay, props.ghosts]);
   useEffect(() => {
     if (props.focusNonce) {
       /* The toolbar invokes the registered handle directly. */

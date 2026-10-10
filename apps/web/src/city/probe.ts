@@ -6,6 +6,8 @@ export interface CityProbe {
     textures: number;
     buildings: number;
     pickCells: number;
+    ghosts: number;
+    added: number;
     lens: string;
     zoom: number;
     renderer: string;

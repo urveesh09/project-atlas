@@ -4,7 +4,7 @@ import { ARTIFACT_VERSION } from '@atlas/schema';
 import { Explorer } from '../components/Explorer';
 import { detectLocalSession, filesFromInput, loadInWorker, type SourceStatus } from '../data/load';
 import { ViewerProvider } from './context';
-import { ViewerModel } from './model';
+import { ViewerDataset, ViewerModel } from './model';
 import { parseFragment } from './state';
 
 type Phase =
@@ -17,7 +17,7 @@ type Phase =
         | Extract<LoadResult, { ok: false }>
         | { code: 'LOAD_FAILED'; issues: { code: string; path: string; message: string }[] };
     }
-  | { kind: 'ready'; model: ViewerModel; source: SourceStatus | null };
+  | { kind: 'ready'; head: ViewerModel; source: SourceStatus | null };
 
 /**
  * Loads one artifact — from `atlas serve` or from files the user picks — through the
@@ -28,6 +28,12 @@ export function App() {
   const [phase, setPhase] = useState<Phase>({ kind: 'starting' });
   const inputRef = useRef<HTMLInputElement>(null);
   const activeLoad = useRef<AbortController | null>(null);
+  // The session owns the dataset's retained worker; replacing or leaving it terminates it.
+  const dataset = useRef<ViewerDataset | null>(null);
+  const replaceDataset = (next: ViewerDataset | null) => {
+    if (dataset.current !== next) dataset.current?.dispose();
+    dataset.current = next;
+  };
 
   const run = useCallback(
     async (label: string, request: Parameters<typeof loadInWorker>[0], source: SourceStatus | null) => {
@@ -49,18 +55,18 @@ export function App() {
           controller.signal,
         );
         if (controller.signal.aborted) {
-          result.queryWorker?.terminate();
+          if (result.ok) result.queryWorker?.terminate();
           return;
         }
-        if (result.requiredChunksAvailableAt !== undefined)
-          window.__atlasChunksAvailableAt = result.requiredChunksAvailableAt;
-        if (result.ok)
-          setPhase({
-            kind: 'ready',
-            model: new ViewerModel(result.bundle, result.prepared, result.city, result.queryWorker),
-            source,
-          });
-        else setPhase({ kind: 'failed', result });
+        if (result.ok && result.requiredChunksAvailableAt !== undefined) window.__atlasChunksAvailableAt = result.requiredChunksAvailableAt;
+        if (result.ok) {
+          const next = new ViewerDataset(result.core, result.head, result.queryWorker);
+          replaceDataset(next);
+          setPhase({ kind: 'ready', head: new ViewerModel(next, next.headIndex, result.head, result.prepared, result.city), source });
+        } else {
+          replaceDataset(null);
+          setPhase({ kind: 'failed', result });
+        }
       } catch (error) {
         if (controller.signal.aborted) return;
         setPhase({
@@ -85,6 +91,7 @@ export function App() {
     return () => {
       disposed = true;
       activeLoad.current?.abort();
+      replaceDataset(null);
     };
   }, [run]);
 
@@ -111,7 +118,7 @@ export function App() {
     return (
       <>
         {picker}
-        <ViewerProvider key={phase.model.manifest.analysisId} model={phase.model} source={phase.source}>
+        <ViewerProvider key={phase.head.manifest.analysisId} head={phase.head} source={phase.source}>
           <Explorer onOpenOther={openPicker} />
         </ViewerProvider>
       </>
@@ -144,6 +151,7 @@ export function App() {
               className="button"
               onClick={() => {
                 activeLoad.current?.abort();
+                replaceDataset(null);
                 setPhase({ kind: 'landing' });
               }}
             >

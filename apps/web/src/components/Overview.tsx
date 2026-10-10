@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { hotspotFactors } from '@atlas/graph';
 import { useViewer } from '../app/context';
 import { formatNumber, shortOid } from '../app/model';
 import { FindingCard } from './Inspector';
@@ -6,7 +7,7 @@ import { Meter, Section, StackBar } from './ui';
 
 /** Repository overview: what was analyzed, what was not, and where to look first. */
 export function Overview() {
-  const { model, select } = useViewer();
+  const { model, dataset, select } = useViewer();
   const c = model.graph.coverage;
   const files = useMemo(
     () =>
@@ -19,7 +20,17 @@ export function Overview() {
   const mostUsed = [...files].filter((f) => (f.metric.fanIn ?? 0) > 0).sort((a, b) => b.metric.fanIn! - a.metric.fanIn!).slice(0, 8);
   const packages = model.graph.nodes.filter((n) => n.kind === 'package');
   const repoMetrics = model.index.metrics.get(model.index.root.id);
-  const status = model.manifest.frames.at(-1)!.analysisStatus;
+  const status = model.manifest.frames[model.frame]!.analysisStatus;
+  const h = model.manifest.coverage.history;
+  const mostChanged = [...files].filter((f) => (f.metric.changedCommits ?? 0) > 0).sort((a, b) => b.metric.changedCommits! - a.metric.changedCommits!).slice(0, 8);
+  const candidates = files
+    .flatMap((f) => {
+      const factors = f.node.kind === 'file' ? hotspotFactors(dataset.baseline, f.node, f.metric) : null;
+      const score = factors ? (dataset.hotspotAvailable ? factors.score : factors.structureAttention) : null;
+      return score === null || score === undefined ? [] : [{ id: f.node.id, path: model.pathOf(f.node.id), value: score }];
+    })
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
 
   return (
     <article className="overview" aria-labelledby="overview-title">
@@ -28,7 +39,8 @@ export function Overview() {
           {model.manifest.repo.displayName}
         </h2>
         <p className="lede">
-          Commit <code title={model.manifest.selectedCommit.oid}>{shortOid(model.manifest.selectedCommit.oid)}</code> from {model.manifest.selectedCommit.committerTime.slice(0, 10)} ·{' '}
+          {model.isHead ? 'Commit' : `Snapshot ${model.frame + 1} of ${dataset.frames.length}: commit`} <code title={model.commit.oid}>{shortOid(model.commit.oid)}</code> from{' '}
+          {model.commit.committerTime.slice(0, 10)} ·{' '}
           <span className={`status status-${status}`}>{status === 'complete' ? 'complete analysis' : 'partial analysis'}</span> · {formatNumber(repoMetrics?.codeLines)} lines of code in{' '}
           {formatNumber(c.includedFiles)} files
         </p>
@@ -95,6 +107,34 @@ export function Overview() {
           <LeaderTable rows={mostUsed.map((f) => ({ id: f.node.id, path: model.pathOf(f.node.id), value: f.metric.fanIn! }))} unit="consumers" onSelect={select} />
         </Section>
       </div>
+
+      <div className="cards">
+        <Section title="Changed most" description={h.status === 'unavailable' ? 'History was not analyzed: no change counts, never zero.' : 'Mainline commits in the window that changed each file, up to this snapshot.'}>
+          <LeaderTable rows={mostChanged.map((f) => ({ id: f.node.id, path: model.pathOf(f.node.id), value: f.metric.changedCommits! }))} unit="commits" onSelect={select} />
+        </Section>
+        <Section
+          title={dataset.hotspotAvailable ? 'Hotspot candidates' : 'Structure attention'}
+          description={
+            dataset.hotspotAvailable
+              ? 'Complexity, consumers and change frequency as percentiles of the selected commit’s source files. Select a file to see every factor.'
+              : 'No usable history, so the hotspot score is unavailable; this structure-only score is named separately.'
+          }
+        >
+          <LeaderTable rows={candidates} unit="score" onSelect={select} />
+        </Section>
+      </div>
+
+      <Section title="History coverage" description="What part of the past is analyzed, and how completely.">
+        <dl className="facts">
+          <div><dt>Status</dt><dd>{h.status}</dd></div>
+          <div><dt>Mainline commits</dt><dd>{formatNumber(h.commitsTraversed)} (requested ≤ {h.requestedCommitCap} within {h.requestedDays} days)</dd></div>
+          <div><dt>Window ends</dt><dd>{h.boundary}</dd></div>
+          <div><dt>Snapshots</dt><dd>{h.framesCompleted} of {h.framesRequested} analyzed</dd></div>
+          <div><dt>Renames</dt><dd>{h.renameDetection}</dd></div>
+          <div><dt>Line counts</dt><dd>{h.lineDiffs}</dd></div>
+          <div><dt>Co-change</dt><dd>{h.coChange}</dd></div>
+        </dl>
+      </Section>
 
       <Section title="Packages" count={packages.length}>
         <table className="table">

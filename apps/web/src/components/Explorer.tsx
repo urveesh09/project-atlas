@@ -7,6 +7,9 @@ import { Search } from './Search';
 import { SourcePanel } from './SourcePanel';
 import { Tree } from './Tree';
 import { City } from './City';
+import { ComparePanel } from './ComparePanel';
+import { Tombstone } from './HistoryPanel';
+import { Timeline } from './Timeline';
 
 /** The functional explorer: tree, search, inspector and overview, all plain HTML. */
 export function Explorer({ onOpenOther }: { onOpenOther: () => void }) {
@@ -14,7 +17,7 @@ export function Explorer({ onOpenOther }: { onOpenOther: () => void }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const selected = model.node(state.selectedId);
-  const status = model.manifest.frames.at(-1)!.analysisStatus;
+  const status = model.manifest.frames[model.frame]!.analysisStatus;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -29,12 +32,12 @@ export function Explorer({ onOpenOther }: { onOpenOther: () => void }) {
       } else if (event.key === 'Escape' && !typing) {
         if (helpOpen) setHelpOpen(false);
         else if (state.source) dispatch({ type: 'close-source' });
-        else if (state.selectedId) select(null);
+        else if (state.selectedId || state.tombstone) select(null);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dispatch, helpOpen, select, state.selectedId, state.source]);
+  }, [dispatch, helpOpen, select, state.selectedId, state.tombstone, state.source]);
 
   return (
     <div className={`app${state.source ? ' with-source' : ''}`}>
@@ -50,9 +53,10 @@ export function Explorer({ onOpenOther }: { onOpenOther: () => void }) {
         </button>
         <div className="repo">
           <span className="repo-name">{model.manifest.repo.displayName}</span>
-          <code className="repo-commit" title={model.manifest.selectedCommit.oid}>
-            {shortOid(model.manifest.selectedCommit.oid)}
+          <code className="repo-commit" title={model.commit.oid}>
+            {shortOid(model.commit.oid)}
           </code>
+          {!model.isHead && <span className="status status-past">snapshot {model.frame + 1}</span>}
           <span className={`status status-${status}`}>{status}</span>
         </div>
         <Search ref={searchRef} />
@@ -72,6 +76,7 @@ export function Explorer({ onOpenOther }: { onOpenOther: () => void }) {
             <div><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Move in the tree or results</dd></div>
             <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Collapse, expand; switch inspector tabs</dd></div>
             <div><dt><kbd>Enter</kbd></dt><dd>Select</dd></div>
+            <div><dt><kbd>←</kbd> <kbd>→</kbd> in History</dt><dd>Earlier or later snapshot</dd></div>
             <div><dt><kbd>Esc</kbd></dt><dd>Close panel, then clear selection</dd></div>
             <div><dt><kbd>?</kbd></dt><dd>Show or hide this help</dd></div>
           </dl>
@@ -82,8 +87,18 @@ export function Explorer({ onOpenOther }: { onOpenOther: () => void }) {
           <Tree />
         </nav>
         <main id="main-content" className="content city-content" tabIndex={-1}>
+          <Timeline />
           <City />
-          <div className="city-inspector">{selected && selected.kind !== 'repository' ? <Inspector key={selected.id} node={selected} /> : <Overview />}</div>
+          <div className="city-inspector">
+            {state.tombstone ? (
+              <Tombstone key={`${state.tombstone.lineageId}:${state.frame}`} lineageId={state.tombstone.lineageId} />
+            ) : selected && selected.kind !== 'repository' ? (
+              <Inspector key={selected.id} node={selected} />
+            ) : (
+              <Overview />
+            )}
+          </div>
+          <ComparePanel />
         </main>
         {state.source && <SourcePanel key={`${state.source.nodeId}:${state.source.line}`} />}
       </div>

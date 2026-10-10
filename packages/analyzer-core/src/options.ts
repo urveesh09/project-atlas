@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { CLI_OPTION_RANGES, LIMITS, RELEASE_PROFILE, canonicalJsonSha256 } from '@atlas/schema';
 import { compileGlob } from './globs.js';
 
-export const ANALYZER_VERSION = '0.1.0-dev';
+/** Bumped whenever identity, lineage or metric derivations change (plan §20.1 rule 9). */
+export const ANALYZER_VERSION = '0.1.0-dev.5';
 
 /** Caller-facing analysis options. Limits can only be lowered (plan §4.2). */
 export interface AnalysisOptions {

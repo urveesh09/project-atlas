@@ -16,7 +16,8 @@ import type { SourceAttachment } from './source.js';
  */
 export interface ViewerServerOptions {
   artifactDir: string;
-  bundle: ArtifactBundle;
+  /** Only the validated manifest is needed: it names exactly the files that may be served. */
+  bundle: Pick<ArtifactBundle, 'manifest'>;
   /** Directory holding the built viewer (index.html, assets/). */
   viewerDir: string;
   source: SourceAttachment;

@@ -168,6 +168,9 @@ importers:
       '@atlas/artifact':
         specifier: workspace:*
         version: link:../artifact
+      '@atlas/graph':
+        specifier: workspace:*
+        version: link:../graph
       '@atlas/ingest':
         specifier: workspace:*
         version: link:../ingest

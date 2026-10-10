@@ -21,6 +21,15 @@ export interface ViewState {
   tab: InspectorTab;
   expanded: ReadonlySet<string>;
   source: { nodeId: string; line: number | null } | null;
+  /** Active analyzed frame (manifest ordinal); the newest frame is the selected commit. */
+  frame: number;
+  /** Explicit A -> B comparison; the city shows B with A's deleted plots as ghosts. */
+  compare: { a: number; b: number } | null;
+  /**
+   * A selected file lineage that is absent from the active frame (plan §12.1): the
+   * inspector shows its last/next occurrences instead of silently selecting another file.
+   */
+  tombstone: { lineageId: string } | null;
   /** One concise message for the polite live region. */
   announcement: string;
 }
@@ -38,6 +47,8 @@ export type ViewAction =
     }
   | { type: 'focus' }
   | { type: 'select'; id: string | null; ancestors?: readonly string[]; announce?: string }
+  | { type: 'frame'; frame: number; selectedId: string | null; tombstone: ViewState['tombstone']; expanded?: ReadonlySet<string>; announce: string }
+  | { type: 'compare'; compare: ViewState['compare']; announce?: string }
   | { type: 'tab'; tab: InspectorTab }
   | { type: 'toggle'; id: string; open?: boolean }
   | { type: 'source'; nodeId: string; line: number | null }
@@ -64,12 +75,29 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
       return {
         ...state,
         selectedId: action.id,
+        tombstone: null,
         pinnedEdgeId: null,
         expanded,
         source: null,
         announcement: action.announce ?? state.announcement,
       };
     }
+    case 'frame': {
+      const expanded = action.expanded ?? state.expanded;
+      return {
+        ...state,
+        frame: action.frame,
+        selectedId: action.selectedId,
+        tombstone: action.tombstone,
+        // Occurrence-scoped transient state never survives a frame change.
+        pinnedEdgeId: null,
+        source: null,
+        expanded,
+        announcement: action.announce,
+      };
+    }
+    case 'compare':
+      return { ...state, compare: action.compare, announcement: action.announce ?? state.announcement };
     case 'tab':
       return { ...state, tab: action.tab };
     case 'toggle': {
@@ -130,14 +158,17 @@ export function parseFragment(hash: string): FragmentState {
   };
 }
 
+/** `frame` is the snapshot ID of a historical frame; null for the selected commit. */
 export function formatFragment(
   file: string | null,
   tab: InspectorTab,
   lens: CityLens = 'structure',
   mode: ViewState['mode'] = '3d',
+  frame: string | null = null,
 ): string {
-  if (!file && lens === 'structure' && mode === '3d') return '';
+  if (!file && lens === 'structure' && mode === '3d' && !frame) return '';
   const params = new URLSearchParams({ v: '1' });
+  if (frame) params.set('frame', frame);
   if (file) params.set('file', file);
   if (tab !== 'overview') params.set('tab', tab);
   if (lens !== 'structure') params.set('lens', lens);

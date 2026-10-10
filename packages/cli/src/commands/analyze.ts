@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
-import { AnalysisError, OptionsError, analyzeCommit, type ProgressEvent } from '@atlas/analyzer-core';
-import { ArtifactWriteError, gzipDeterministic, packArtifact, readArtifactDirectory, writeArtifactDirectory } from '@atlas/artifact/node';
+import { AnalysisError, OptionsError, analyzeCommit, type HistorySummary, type ProgressEvent } from '@atlas/analyzer-core';
+import { ArtifactWriteError, gzipDeterministic, openArtifactDirectory, packArtifact, writeArtifactDirectory } from '@atlas/artifact/node';
 import { IngestError, gitVersion, openLocalRepository, readCommit, resolveLocalCommit } from '@atlas/ingest';
 import { repoBasename } from '@atlas/schema';
 import { EXIT, UsageError, type CommandContext } from '../context.js';
@@ -24,11 +24,13 @@ export interface AnalyzeArgs {
 const STAGE_LABEL: Record<ProgressEvent['stage'], string> = {
   resolve: 'Read commit',
   enumerate: 'Enumerate tree',
+  history: 'Walk mainline history',
   inventory: 'Inventory files',
   hierarchy: 'Packages & configuration',
   parse: 'Parse TS/JS',
   dependencies: 'Resolve imports',
   findings: 'Metrics & findings',
+  frames: 'Analyze history frames',
   layout: 'Lay out city',
   assemble: 'Assemble artifact',
 };
@@ -72,10 +74,10 @@ async function resolveIdentity(args: AnalyzeArgs, out: string, cwd: string): Pro
   }
   if (args.previous) {
     const previous = path.resolve(cwd, args.previous);
-    const loaded = await readArtifactDirectory(previous);
+    const loaded = await openArtifactDirectory(previous);
     if (!loaded.ok) throw new UsageError(`--previous is not a valid ATLAS artifact (${loaded.issues[0]?.code ?? loaded.code})`);
     const identity = await readIdentity(previous);
-    if (!identity || identity.repoId !== loaded.bundle.manifest.repo.repoId) throw new UsageError(`--previous has no matching ${REPOSITORY_ID_FILE}`);
+    if (!identity || identity.repoId !== loaded.artifact.manifest.repo.repoId) throw new UsageError(`--previous has no matching ${REPOSITORY_ID_FILE}`);
     return identity;
   }
   // Re-running into the same output keeps the same identity.
@@ -117,6 +119,7 @@ export async function analyze(ctx: CommandContext, args: AnalyzeArgs): Promise<n
       repository: { repoId: identity.repoId, displayName, sourceKind: 'local-git', remote: null, objectFormat: repo.objectFormat },
       options: { exclude: args.exclude, history: args.history, ...(args.maxFiles !== undefined ? { limits: { includedFiles: args.maxFiles } } : {}) },
       signal: ctx.io.signal,
+      transport: gzipDeterministic,
       onProgress: (event) => {
         if (ctx.json && (event.total === undefined || event.done === event.total)) ctx.print(JSON.stringify({ type: 'progress', ...event }));
         else if (!ctx.json) reporter.update(event);
@@ -125,7 +128,7 @@ export async function analyze(ctx: CommandContext, args: AnalyzeArgs): Promise<n
     const summary = result.summary;
     reporter.finish(s.dim(`${plural(summary.files.included, 'file')} · ${plural(summary.packages.length, 'package')}`));
 
-    const packed = packArtifact(result.draft, gzipDeterministic);
+    const packed = result.packed ?? packArtifact(result.draft, gzipDeterministic);
     const writeStarted = performance.now();
     await writeArtifactDirectory(packed, out, {
       replace: args.replace,
@@ -142,7 +145,10 @@ export async function analyze(ctx: CommandContext, args: AnalyzeArgs): Promise<n
       const f = summary.files;
       ctx.note(`  ${s.bold(formatCount(f.included))} files in ${s.bold(String(summary.packages.length))} ${summary.packages.length === 1 ? 'package' : 'packages'}  ${s.dim(`· ${formatCount(f.supported)} TS/JS · ${formatCount(f.opaque)} other · ${formatCount(f.excluded)} excluded · ${formatCount(f.omitted)} omitted`)}`);
       for (const root of summary.excludedRoots.slice(0, 3)) ctx.note(s.dim(`  excluded ${root.path} (${plural(root.files, 'file')}, ${root.reason.toLowerCase().replaceAll('_', ' ')})`));
-      if (result.status === 'partial') ctx.note(`  ${check(s, 'warn')} ${s.fg(PALETTE.warn, `Partial: limits reached (${summary.limitsHit.join(', ')}).`)} ${s.dim('Omitted files are listed in coverage.')}`);
+      ctx.note(historyLine(s, summary.history));
+      if (result.status === 'partial' && summary.limitsHit.length > 0)
+        ctx.note(`  ${check(s, 'warn')} ${s.fg(PALETTE.warn, `Partial: limits reached (${summary.limitsHit.join(', ')}).`)} ${s.dim('Omitted files are listed in coverage.')}`);
+      if (summary.history.status === 'partial') ctx.note(`  ${check(s, 'warn')} ${s.fg(PALETTE.warn, `Partial history: ${describeHistoryReason(summary.history)}.`)} ${s.dim('Coverage records the observed boundary.')}`);
       ctx.note();
       ctx.note(`  Done in ${formatDuration(performance.now() - started)} ${s.dim('·')} ${result.status === 'complete' ? s.fg(PALETTE.ok, 'complete') : s.fg(PALETTE.warn, 'partial')}`);
       ctx.note(s.dim('  The artifact reveals paths, package names and commit IDs. It never contains source text.'));
@@ -153,6 +159,33 @@ export async function analyze(ctx: CommandContext, args: AnalyzeArgs): Promise<n
   } finally {
     await git.dispose();
   }
+}
+
+const BOUNDARY_TEXT: Record<HistorySummary['boundary'], string> = {
+  root: 'reaches the first commit',
+  days: 'bounded by the day window',
+  'commit-cap': 'bounded by the commit cap',
+  shallow: 'stops at a shallow-clone boundary',
+  'resource-cap': 'stopped by a resource limit',
+  none: 'no window',
+};
+
+/** One line describing the analyzed mainline window (plan §3.2: limitations visible). */
+function historyLine(s: CommandContext['err'], h: HistorySummary): string {
+  const label = s.fg(PALETTE.muted, 'history'.padEnd(10));
+  if (h.status === 'unavailable') return `  ${label}${s.dim(h.reason === 'HISTORY_DISABLED' ? 'not requested (--no-history)' : `unavailable (${h.reason ?? 'unknown'})`)}`;
+  const days = h.window.oldestTime ? Math.round((Date.parse(h.window.newestTime) - Date.parse(h.window.oldestTime)) / 86_400_000) : 0;
+  const span = h.window.oldestTime ? `${h.window.oldestTime.slice(0, 10)} → ${h.window.newestTime.slice(0, 10)}` : '';
+  const frames = h.frames.completed === h.frames.requested ? plural(h.frames.completed, 'frame') : `${h.frames.completed}/${h.frames.requested} frames`;
+  return `  ${label}${s.bold(plural(h.commits, 'mainline commit'))} ${s.dim(`· ${plural(days, 'day')} (${span}) · ${frames} · ${plural(h.renames, 'rename')} · ${BOUNDARY_TEXT[h.boundary]}`)}`;
+}
+
+function describeHistoryReason(h: HistorySummary): string {
+  if (h.boundary === 'shallow') return 'the clone is shallow, so the oldest analyzed change is unknown';
+  if (h.frames.unavailable.length > 0) return `${plural(h.frames.unavailable.length, 'frame')} unavailable (${[...new Set(h.frames.unavailable.map((f) => f.reason))].join(', ')})`;
+  if (h.renameDetection !== 'complete') return 'rename detection was limited';
+  if (h.lineDiffs !== 'complete') return 'some line counts are unknown';
+  return h.reason ?? 'see coverage';
 }
 
 /** Map library errors to stable exit codes and one-line messages. */

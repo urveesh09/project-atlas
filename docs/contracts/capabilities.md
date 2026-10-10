@@ -1,6 +1,6 @@
 # Language and configuration capabilities: implementation status
 
-This tracks plan §4.1 against code through Phase 3. TS/JS analysis uses isolated parsing and a tested virtual resolver; the production city consumes the same validated artifacts. History remains Phase 4. Unsupported languages remain visible opaque buildings and are not claimed as analyzed.
+This tracks plan §4.1 against code through Phase 4. TS/JS analysis uses isolated parsing and a tested virtual resolver; the production city consumes the same validated artifacts. First-parent history, sampled frames, conservative lineage, prior-window churn/hotspots and fixed-plot A/B comparison are implemented. Unsupported/missing historical data retains availability labels. Unsupported languages remain visible opaque buildings and are not claimed as analyzed.
 
 | Input | Treatment | Status |
 |---|---|---|

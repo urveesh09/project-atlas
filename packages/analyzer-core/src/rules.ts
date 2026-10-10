@@ -41,6 +41,34 @@ function bounded(text: string, maxBytes = LIMITS.diagnosticParameterBytes): stri
   return `${out}…`;
 }
 
+interface DiagnosticDraft {
+  subjectIds: string[];
+  range: SourceRange | null;
+  messageCode: string;
+  parameters: Record<string, string | number>;
+  evidenceIds?: string[];
+  fingerprint: unknown[];
+}
+
+/** The one place a diagnostic is constructed: bounded parameters, deduplicated subjects/evidence. */
+export function createDiagnostic(snapshotId: string, ruleId: RuleId, identity: (string | number)[], d: DiagnosticDraft): Diagnostic {
+  const rule = RULE_CATALOG[ruleId];
+  const parameters = Object.fromEntries(Object.entries(d.parameters).map(([k, v]) => [k, typeof v === 'string' ? bounded(v) : v]));
+  return {
+    id: makeId('diagnostic', [snapshotId, ruleId, ...identity]),
+    ruleId,
+    ruleVersion: rule.version,
+    severity: rule.severity,
+    category: rule.category,
+    subjectIds: [...new Set(d.subjectIds)].slice(0, MAX_SUBJECTS),
+    range: d.range,
+    messageCode: d.messageCode,
+    parameters,
+    evidenceIds: [...new Set(d.evidenceIds ?? [])].sort(compareAscii).slice(0, MAX_SUBJECTS),
+    fingerprint: canonicalJsonSha256([ruleId, rule.version, ...d.fingerprint]),
+  };
+}
+
 export function evaluateRules(input: RuleInput): { diagnostics: Diagnostic[]; omitted: number } {
   const { snapshot } = input;
   const snap = snapshot.snapshotId;
@@ -48,24 +76,7 @@ export function evaluateRules(input: RuleInput): { diagnostics: Diagnostic[]; om
   const metrics = new Map(input.metrics.map((m) => [m.nodeId, m]));
   const out: Diagnostic[] = [];
   const repositoryId = index.root.id;
-
-  const emit = (ruleId: RuleId, identity: (string | number)[], d: { subjectIds: string[]; range: SourceRange | null; messageCode: string; parameters: Record<string, string | number>; evidenceIds?: string[]; fingerprint: unknown[] }) => {
-    const rule = RULE_CATALOG[ruleId];
-    const parameters = Object.fromEntries(Object.entries(d.parameters).map(([k, v]) => [k, typeof v === 'string' ? bounded(v) : v]));
-    out.push({
-      id: makeId('diagnostic', [snap, ruleId, ...identity]),
-      ruleId,
-      ruleVersion: rule.version,
-      severity: rule.severity,
-      category: rule.category,
-      subjectIds: [...new Set(d.subjectIds)].slice(0, MAX_SUBJECTS),
-      range: d.range,
-      messageCode: d.messageCode,
-      parameters,
-      evidenceIds: [...new Set(d.evidenceIds ?? [])].sort(compareAscii).slice(0, MAX_SUBJECTS),
-      fingerprint: canonicalJsonSha256([ruleId, rule.version, ...d.fingerprint]),
-    });
-  };
+  const emit = (ruleId: RuleId, identity: (string | number)[], d: DiagnosticDraft) => out.push(createDiagnostic(snap, ruleId, identity, d));
   const files = snapshot.nodes.filter((n): n is FileNode => n.kind === 'file');
   const lineageKey = (file: FileNode) => file.lineageId ?? file.path;
 
@@ -201,4 +212,34 @@ export function evaluateRules(input: RuleInput): { diagnostics: Diagnostic[]; om
 export function displayOrder(index: GraphIndex): (a: Diagnostic, b: Diagnostic) => number {
   const rank = { error: 0, warning: 1, info: 2 } as const;
   return (a, b) => rank[a.severity] - rank[b.severity] || compareAscii(a.ruleId, b.ruleId) || compareUtf8(index.pathOf(a.subjectIds[0]!), index.pathOf(b.subjectIds[0]!));
+}
+
+/**
+ * `ATLAS_CHANGE_CONCENTRATION` (plan §10.2): changed commits >= 10 and at or above the
+ * nearest-rank 95th percentile of production-source files with usable history in this
+ * frame. Counts include only commits up to the frame. No history, no finding.
+ */
+export function evaluateChangeConcentration(snapshot: GraphSnapshot, windowCommits: number): Diagnostic[] {
+  const metrics = new Map(snapshot.metrics.map((m) => [m.nodeId, m]));
+  const cohort = snapshot.nodes.filter(
+    (n): n is FileNode => n.kind === 'file' && n.role === 'source' && n.parseStatus === 'parsed' && metrics.get(n.id)?.changedCommits != null && metrics.get(n.id)!.availability.history !== 'unavailable',
+  );
+  const p95 = nearestRankPercentile(cohort.map((f) => metrics.get(f.id)!.changedCommits!));
+  if (p95 === null) return [];
+  const out: Diagnostic[] = [];
+  for (const file of cohort) {
+    const metric = metrics.get(file.id)!;
+    const changed = metric.changedCommits!;
+    if (changed < RULE_THRESHOLDS.changeConcentrationCommits || changed < p95) continue;
+    out.push(
+      createDiagnostic(snapshot.snapshotId, 'ATLAS_CHANGE_CONCENTRATION', [file.id], {
+        subjectIds: [file.id],
+        range: null,
+        messageCode: 'CHANGE_CONCENTRATION',
+        parameters: { changedCommits: changed, windowCommits, threshold: RULE_THRESHOLDS.changeConcentrationCommits, p95, cohort: cohort.length, availability: metric.availability.history },
+        fingerprint: [file.lineageId ?? file.path],
+      }),
+    );
+  }
+  return out;
 }

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { analyzeCommit, type AnalysisResult } from '@atlas/analyzer-core';
 import { gzipDeterministic, packArtifact } from '@atlas/artifact/node';
 import { gitVersion, openLocalRepository, resolveLocalCommit, type SafeGit } from '@atlas/ingest';
-import { localRepositoryId, validateArtifactBundle } from '@atlas/schema';
+import { localRepositoryId, sha256Hex, validateArtifactBundle } from '@atlas/schema';
 import { DEMO_HEAD_FILES, DEMO_HEAD_IMPORTS, buildDemoRepository, type GitFixture } from '@atlas/test-fixtures';
 
 const repoId = localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f');
@@ -39,7 +39,8 @@ describe('Harbor structural artifact (M1)', () => {
     const packed = packArtifact(result.draft, gzipDeterministic);
     expect(validateArtifactBundle({ manifest: packed.manifest, graphs: result.draft.graphs, history: result.draft.history, layout: result.draft.layout }).ok).toBe(true);
     expect(result.status).toBe('complete');
-    const graph = result.draft.graphs[0]!;
+    expect(result.draft.graphs).toHaveLength(12);
+    const graph = result.draft.graphs.at(-1)!;
     expect(graph.nodes.filter((n) => n.kind === 'file').map((n) => (n.kind === 'file' ? n.path : '')).sort()).toEqual([...DEMO_HEAD_FILES].sort());
     // Import counts follow from the hand-written DEMO_HEAD_IMPORTS table: 25 statements,
     // 21 internal, 3 declared externals (decimal.js, react, vitest), 1 built-in (node:path).
@@ -63,7 +64,7 @@ describe('Harbor structural artifact (M1)', () => {
   });
 
   it('records every import exactly as the independent Harbor expectations say', async () => {
-    const graph = (await run()).draft.graphs[0]!;
+    const graph = (await run()).draft.graphs.at(-1)!;
     const byId = new Map(graph.nodes.map((n) => [n.id, n]));
     const actual: Record<string, string[][]> = {};
     for (const obs of graph.importObservations) {
@@ -80,7 +81,7 @@ describe('Harbor structural artifact (M1)', () => {
   });
 
   it('finds the authored router/handlers cycle and nothing spurious', async () => {
-    const graph = (await run()).draft.graphs[0]!;
+    const graph = (await run()).draft.graphs.at(-1)!;
     const byId = new Map(graph.nodes.map((n) => [n.id, n]));
     const findings = graph.diagnostics.map((d) => [d.ruleId, ...d.subjectIds.map((id) => (byId.get(id) as { path?: string }).path ?? '').sort()]);
     expect(findings).toEqual([['ATLAS_STATIC_CYCLE', 'src/server/handlers.ts', 'src/server/router.ts']]);
@@ -96,7 +97,7 @@ describe('Harbor structural artifact (M1)', () => {
   });
 
   it('builds the expected package hierarchy', async () => {
-    const graph = (await run()).draft.graphs[0]!;
+    const graph = (await run()).draft.graphs.at(-1)!;
     const byId = new Map(graph.nodes.map((n) => [n.id, n]));
     const containers = graph.nodes
       .flatMap((n) => (n.kind === 'package' || n.kind === 'directory' ? [`${n.kind}:${n.path} <- ${byId.get(n.parentId!)!.kind}:${'path' in byId.get(n.parentId!)! ? (byId.get(n.parentId!) as { path: string }).path : ''}`] : []))
@@ -129,11 +130,18 @@ describe('Harbor structural artifact (M1)', () => {
     const packed = packArtifact((await run()).draft, gzipDeterministic);
     // The Harbor commits, fixture identity and repoId are fixed, so these canonical
     // hashes must be identical on every platform. A change here is a contract change.
-    expect(Object.fromEntries(packed.manifest.chunks.map((c) => [c.path.split('/')[0], c.sha256]))).toMatchInlineSnapshot(`
+    const frames = packed.manifest.frames.map((f) => f.graphChunk.sha256);
+    expect({
+      head: frames.at(-1),
+      allFrames: sha256Hex(frames.join(',')),
+      history: packed.manifest.historyChunk.sha256,
+      layout: packed.manifest.layoutChunk.sha256,
+    }).toMatchInlineSnapshot(`
       {
-        "graphs": "73902be68ff7461749cd9a8ef039e7433dcd1c87fafb5cf1f72b14d1d25e978b",
-        "history": "6efe6df4ba79057462d59ecb63f0df61414e78560e2d5e306b80bf2c674f6daf",
-        "layout": "5aa9e27751e90490fce7209ca2fdbb515f2d28151603cd500285d141733df5c3",
+        "allFrames": "13f18ef10669a42c62ff576651e9d2bfbb0c6d6048a924df18d0a6d0a4dcd21f",
+        "head": "1a7b90356e9d2e2b1ac84b6252ba93ad27a8c38ee129058c3973d242e5fa1169",
+        "history": "c7f901f481be82bec95882de4c014ecb9eb017b2770c4371dbaa7d4766efde8e",
+        "layout": "a366f96862ac05145a506bca26ec6f493e40a9f7c8f52b16318a4672f579456b",
       }
     `);
   });
@@ -141,19 +149,22 @@ describe('Harbor structural artifact (M1)', () => {
   it('reports partial results with exact omissions when a limit is lowered', async () => {
     const result = await run({ limits: { includedFiles: 10 } });
     expect(result.status).toBe('partial');
-    const coverage = result.draft.graphs[0]!.coverage;
+    const coverage = result.draft.graphs.at(-1)!.coverage;
     expect(coverage.includedFiles).toBe(10);
     expect(coverage.omittedFiles).toBe(16);
     expect(coverage.limitsHit).toEqual(['FILE_LIMIT']);
-    expect(result.draft.manifest.frames[0]!.analysisStatus).toBe('partial');
-    expect(packArtifact(result.draft, gzipDeterministic).manifest.chunks).toHaveLength(3);
+    expect(result.draft.manifest.frames.at(-1)!.analysisStatus).toBe('partial');
+    // Historical frames over the lowered cap are unavailable; the selected commit
+    // remains a useful partial graph with exact omissions.
+    expect(result.draft.history.frameSelection?.commits.some((f) => f.reason === 'FRAME_RESOURCE_LIMIT')).toBe(true);
+    expect(packArtifact(result.draft, gzipDeterministic).manifest.chunks).toHaveLength(result.draft.graphs.length + 2);
   });
 
   it('changes the options digest (and so every ID) when scope options change', async () => {
     const plain = await run();
     const excluded = await run({ exclude: ['assets/'] });
     expect(excluded.draft.manifest.optionsDigest).not.toBe(plain.draft.manifest.optionsDigest);
-    expect(excluded.draft.graphs[0]!.snapshotId).not.toBe(plain.draft.graphs[0]!.snapshotId);
-    expect(excluded.draft.graphs[0]!.coverage.reasons).toEqual([{ code: 'CLI_EXCLUDED', count: 2 }]);
+    expect(excluded.draft.graphs.at(-1)!.snapshotId).not.toBe(plain.draft.graphs.at(-1)!.snapshotId);
+    expect(excluded.draft.graphs.at(-1)!.coverage.reasons).toEqual([{ code: 'CLI_EXCLUDED', count: 2 }]);
   });
 });

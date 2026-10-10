@@ -106,7 +106,8 @@ export const RULE_CATALOG: Readonly<Record<RuleId, RuleDefinition>> = Object.fre
     severity: 'info',
     category: 'history',
     title: 'Changes concentrate here',
-    explanation: 'This file changed in unusually many analyzed mainline commits. Requires usable history.',
+    explanation:
+      'This file changed in unusually many first-parent (mainline) commits of the bounded analysis window, counted up to the frame shown. Mainline changes can bundle several people\'s work; frequent change can reflect active development as much as instability. Requires usable history.',
     thresholds: { changedCommits: RULE_THRESHOLDS.changeConcentrationCommits, percentile: RULE_THRESHOLDS.percentile },
   },
   ATLAS_ANALYSIS_LIMIT: {
@@ -160,6 +161,8 @@ export function formatDiagnosticMessage(diagnostic: Pick<Diagnostic, 'messageCod
       return `${str(p['codeLines'])} lines of code (threshold ${str(p['threshold'])}).`;
     case 'HIGH_FAN_IN':
       return `${str(p['fanIn'])} files depend on this file directly (threshold ${str(p['threshold'])}; repository 95th percentile ${str(p['p95'])} across ${str(p['cohort'])} source files).`;
+    case 'CHANGE_CONCENTRATION':
+      return `Changed in ${str(p['changedCommits'])} of ${str(p['windowCommits'])} analyzed mainline commits up to this frame (threshold ${str(p['threshold'])}; repository 95th percentile ${str(p['p95'])} across ${str(p['cohort'])} source files with history).`;
     case 'ANALYSIS_LIMIT':
       return `${str(p['limit'])}: ${str(p['count'])} item${Number(p['count']) === 1 ? '' : 's'} omitted during ${str(p['stage'])}.`;
     default:

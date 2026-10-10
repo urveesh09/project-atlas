@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
 import type { CityBuilding, CityData, CityLens } from '@atlas/layout';
-import { CityRenderer } from './renderer';
+import { CityRenderer, type CityGhost } from './renderer';
 import type { CityHandle } from './types';
 import type { OverlayResult } from './overlay';
 import type {} from './probe';
 
 export default function ThreeCity(props: {
+  /** One renderer per layout: frames of the same artifact reuse it (camera kept). */
+  layoutKey: string;
+  ghosts: readonly CityGhost[];
   city: CityData;
   lens: CityLens;
   selected: ReadonlySet<string>;
@@ -27,7 +30,7 @@ export default function ThreeCity(props: {
     try {
       view = new CityRenderer(
         host.current!,
-        props.city,
+        latest.current.city,
         {
           select: (id) => latest.current.select(id),
           hover: (id) => latest.current.hover(id),
@@ -55,7 +58,17 @@ export default function ThreeCity(props: {
       renderer.current = null;
       latest.current.register(null);
     };
-  }, [props.city, props.lowQuality, props.register]);
+  }, [props.layoutKey, props.lowQuality, props.register]);
+  useEffect(() => {
+    try {
+      renderer.current?.setCity(props.city);
+    } catch {
+      latest.current.fail('This snapshot could not be drawn in 3D. The map and table show it.');
+    }
+  }, [props.city, props.layoutKey, props.lowQuality]);
+  useEffect(() => {
+    renderer.current?.setGhosts(props.ghosts);
+  }, [props.ghosts, props.layoutKey, props.lowQuality]);
   useEffect(() => {
     renderer.current?.applyStyle(props.lens, props.selected, props.filter);
   }, [props.city, props.lens, props.selected, props.filter, props.lowQuality]);

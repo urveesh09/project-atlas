@@ -5,6 +5,7 @@ import path from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
+import { ARTIFACT_VERSION } from '@atlas/schema';
 import { run, type CliIO } from '@atlas/cli';
 import { viewerDirectory } from '../src/commands/serve.js';
 import { SourceAttachment } from '../src/server/source.js';
@@ -249,7 +250,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
     if (!loaded.ok) throw new Error('invalid');
     const stats = await page.evaluate(() => window.__atlasCity!.stats());
-    expect(stats.buildings).toBe(loaded.bundle.layout.frameState[0]!.files.length);
+    expect(stats.buildings).toBe(loaded.bundle.layout.frameState.at(-1)!.files.length);
     expect(stats.drawCalls).toBeLessThan(30);
     expect(stats.pickCells).toBeGreaterThan(0);
   });
@@ -266,7 +267,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
   it('synchronizes a real spatial pick with tree and inspector', async () => {
     const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
     if (!loaded.ok) throw new Error('invalid');
-    const file = loaded.bundle.graphs[0]!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
+    const file = loaded.bundle.graphs.at(-1)!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
     // Explicit focus is separate from single-click selection.
     await choose('Dock.tsx');
     await page.getByRole('button', { name: 'Focus selection' }).click();
@@ -310,7 +311,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     expect(metadata.layoutVersion).toBe('atlas.layout/1.1.0');
     const artifact = await readArtifactDirectory(path.join(work, 'harbor-out'));
     if (!artifact.ok) throw new Error('Invalid export reference artifact');
-    expect(metadata.artifactVersion).toBe('atlas.artifact/1.2.0');
+    expect(metadata.artifactVersion).toBe(ARTIFACT_VERSION);
     expect(metadata.schemaVersion).toBe('atlas.graph/1.0.0');
     expect(metadata.metricDefinitionVersion).toBe('atlas.metrics/1');
     expect(metadata.analyzer).toEqual(artifact.bundle.manifest.analyzer);
@@ -348,7 +349,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     await page.waitForSelector('#overview-title');
     const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
     if (!loaded.ok) throw new Error('invalid');
-    const node = loaded.bundle.graphs[0]!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
+    const node = loaded.bundle.graphs.at(-1)!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
     await page.goto(`${server.url}#v=1&file=${node.lineageId}&lens=fan-in&mode=map&tab=findings`);
     await page.waitForSelector('[data-city-renderer="map"]');
     expect(await page.getByLabel('Lens', { exact: true }).inputValue()).toBe('fan-in');
@@ -413,7 +414,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     await page.waitForSelector('#overview-title');
     const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
     if (!loaded.ok) throw new Error('invalid');
-    const node = loaded.bundle.graphs[0]!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
+    const node = loaded.bundle.graphs.at(-1)!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
     await page.goto(`${server.url}#v=1&file=${node.lineageId}&tab=dependencies`);
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
     expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('Dependencies');
@@ -431,6 +432,178 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     await expect
       .poll(() => page.locator('[role="status"][aria-live="polite"]').innerText())
       .toContain('unsupported or invalid');
+  });
+});
+
+/**
+ * Gate G4 in a real browser (plan §17 P4.6): sampled snapshots, fixed plots, lineage-
+ * preserving selection, tombstones, A/B comparison, history lenses and deep links, with
+ * keyboard operation and automated accessibility checks. Harbor's authored story gives the
+ * expectations: pricing.ts appears in commit 4 and changes in 5, 9 and 12; legacy.ts lives
+ * from commit 3 to 11; Cargo.tsx is renamed to Manifest.tsx in commit 7.
+ */
+describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4)', () => {
+  let page: Page;
+  let errors: string[];
+  const active = () => page.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label');
+  const goTo = async (n: number) => {
+    await page.locator('.timeline-frame').nth(n - 1).click();
+    await expect.poll(active).toMatch(new RegExp(`^Snapshot ${n} of 12`));
+  };
+  const choose = async (name: string) => {
+    await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).focus();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.type(name);
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(name);
+  };
+  beforeAll(async () => {
+    page = await context.newPage();
+    errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    const url = new URL(server.url);
+    url.searchParams.set('atlasBenchmark', '1');
+    await page.goto(url.href);
+    await page.waitForSelector('.timeline-strip');
+    await page.waitForFunction(() => !!window.__atlasCity);
+  });
+
+  it('states the window, the sampling and the anchoring next to the strip', async () => {
+    const summary = await page.locator('.timeline-summary').innerText();
+    expect(summary).toContain('12 mainline commits');
+    expect(summary).toContain('12 analyzed snapshots');
+    expect(summary).toContain('first commit');
+    await page.getByText('How to read history').click();
+    const help = await page.locator('.timeline-help').innerText();
+    expect(help).toContain('sampled');
+    expect(help).toContain('one fixed plot');
+    expect(await page.locator('.timeline-frame').count()).toBe(12);
+    expect(await active()).toContain('selected commit');
+  });
+
+  it('keeps the camera and plots fixed and the lineage selected across snapshots (keyboard)', async () => {
+    await choose('pricing.ts');
+    const before = await page.evaluate(() => window.__atlasCity!.cameraState());
+    await page.locator('.timeline-frame[aria-current="step"]').focus();
+    for (let i = 0; i < 7; i++) await page.keyboard.press('ArrowLeft');
+    await expect.poll(active).toMatch(/^Snapshot 5 of 12/);
+    // Same lineage, earlier occurrence: still pricing.ts, now with 2 changed commits.
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.ts');
+    expect(await page.evaluate(() => window.__atlasCity!.cameraState())).toEqual(before);
+    const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
+    if (!loaded.ok) throw new Error('invalid');
+    expect((await page.evaluate(() => window.__atlasCity!.stats())).buildings).toBe(loaded.bundle.layout.frameState[4]!.files.length);
+    await expect.poll(() => page.locator('[role="status"][aria-live="polite"]').innerText()).toContain('Snapshot 5 of 12: 2026-08-10');
+    expect(page.url()).toContain(`frame=${loaded.bundle.manifest.frames[4]!.snapshotId}`);
+    await page.getByRole('tab', { name: 'History' }).click();
+    expect(await page.locator('.tabpanel').innerText()).toContain('2 of these happened up to the snapshot shown');
+  });
+
+  it('shows a tombstone with last and next appearance instead of a substitute', async () => {
+    await goTo(11);
+    await choose('legacy.ts');
+    await goTo(12);
+    await page.waitForSelector('.tombstone');
+    expect(await page.locator('.tombstone .inspector-path').innerText()).toContain('Not present in snapshot 12');
+    await page.getByRole('button', { name: /Last seen: snapshot 11 as src\/ui\/legacy\.ts/ }).click();
+    await expect.poll(active).toMatch(/^Snapshot 11 of 12/);
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('legacy.ts');
+  });
+
+  it('follows a rename on one plot and lists the rename in the file history', async () => {
+    await goTo(12);
+    await choose('Manifest.tsx');
+    const point = await page.evaluate(() => {
+      const city = window.__atlasCity!;
+      return city.stats().buildings;
+    });
+    expect(point).toBeGreaterThan(0);
+    await page.getByRole('tab', { name: 'History' }).click();
+    const panel = await page.locator('.tabpanel').innerText();
+    expect(panel).toContain('git-rename');
+    expect(panel).toContain('src/ui/Cargo.tsx → src/ui/Manifest.tsx');
+    await goTo(4);
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Cargo.tsx');
+  });
+
+  it('compares A -> B with exact differences, ghosts and separate interval activity', async () => {
+    await goTo(12);
+    await page.getByRole('button', { name: 'Compare snapshots…' }).click();
+    await page.waitForSelector('.compare');
+    await page.locator('.compare-pick select').first().selectOption('5');
+    await expect.poll(() => page.locator('.compare-summary').innerText()).toContain('+ 4 added');
+    const summary = await page.locator('.compare-summary').innerText();
+    for (const part of ['− 1 deleted', '↪ 1 renamed', '✎ 4 content changed', '17 unchanged']) expect(summary).toContain(part);
+    const stats = await page.evaluate(() => window.__atlasCity!.stats());
+    expect(stats.ghosts).toBe(1);
+    expect(stats.added).toBe(4);
+    const text = await page.locator('.compare').innerText();
+    expect(text).toContain('src/ui/Cargo.tsx → src/ui/Manifest.tsx');
+    expect(text).toMatch(/mainline activity in this interval/i);
+    expect(await page.locator('.compare section').last().locator('li').count()).toBe(6);
+    expect(await audit(page)).toEqual([]);
+    // Explicit timeline navigation changes B and the comparison legend together.
+    await goTo(11);
+    await expect.poll(() => page.locator('.compare-pick select').last().inputValue()).toBe('10');
+    await expect.poll(() => page.locator('.compare-direction').innerText()).toContain('to snapshot 11');
+    await page.getByRole('button', { name: 'Close comparison' }).first().click();
+    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).ghosts).toBe(0);
+  });
+
+  it('colors churn and hotspot lenses with explained, never invented, values', async () => {
+    await goTo(12);
+    await page.getByLabel('Lens', { exact: true }).selectOption('churn');
+    expect(await page.locator('.city-legend').innerText()).toContain('counted only up to the snapshot shown');
+    await page.getByLabel('Lens', { exact: true }).selectOption('hotspot');
+    expect(await page.locator('.city-legend').innerText()).toContain('not a defect');
+    await choose('pricing.ts');
+    await page.getByRole('tab', { name: 'Overview' }).click();
+    const overview = await page.locator('.tabpanel').innerText();
+    expect(overview).toMatch(/hotspot score/i);
+    expect(overview).toContain('Changed commits');
+    expect(overview).toMatch(/0\.35/);
+    await page.getByLabel('Lens', { exact: true }).selectOption('structure');
+  });
+
+  it('opens a historical frame and lineage from a deep link', async () => {
+    const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
+    if (!loaded.ok) throw new Error('invalid');
+    const sixth = loaded.bundle.graphs[5]!;
+    const pricing = sixth.nodes.find((n) => n.kind === 'file' && n.path === 'src/server/pricing.ts')!;
+    const fresh = await context.newPage();
+    await fresh.goto(`${server.url}#v=1&frame=${sixth.snapshotId}&file=${pricing.lineageId}&tab=history`);
+    await expect.poll(() => fresh.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toMatch(/^Snapshot 6 of 12/);
+    await expect.poll(() => fresh.locator('#inspector-title').innerText()).toBe('pricing.ts');
+    expect(await fresh.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('History');
+    // An unknown frame is rejected rather than approximated.
+    await fresh.goto('about:blank');
+    await fresh.goto(`${server.url}#v=1&frame=snap_${'0'.repeat(64)}`);
+    await expect.poll(() => fresh.locator('[role="status"][aria-live="polite"]').innerText()).toContain('unsupported or invalid');
+    await fresh.close();
+  });
+
+  it('never autoplays; reduced motion removes stepping; 320px reflows', async () => {
+    const reduced = await browser.newContext({ viewport: { width: 320, height: 800 }, reducedMotion: 'reduce' });
+    try {
+      const small = await reduced.newPage();
+      await small.goto(server.sessionUrl.replace(/_session\/.*/, ''));
+      const cookies = await context.cookies();
+      await reduced.addCookies(cookies);
+      await small.goto(server.url);
+      await small.waitForSelector('.timeline-strip');
+      expect(await small.getByRole('button', { name: 'Step through' }).count()).toBe(0);
+      expect(await small.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toContain('Snapshot 12 of 12');
+      expect(await small.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await small.getByRole('button', { name: '‹ Earlier' }).click();
+      await expect.poll(() => small.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toMatch(/^Snapshot 11 of 12/);
+      expect(await audit(small)).toEqual([]);
+    } finally {
+      await reduced.close();
+    }
+  });
+
+  it('logged no page errors during the history journeys', () => {
+    expect(errors).toEqual([]);
   });
 });
 

@@ -1,16 +1,27 @@
 import path from 'node:path';
-import { readArtifactDirectory } from '@atlas/artifact/node';
+import { verifyArtifactDirectory } from '@atlas/artifact/node';
 import { EXIT, type CommandContext } from '../context.js';
 import { check, formatBytes, formatCount } from '../ui/format.js';
 import { PALETTE } from '../ui/style.js';
 
-/** `atlas verify`: full bounded import; nonzero exit for any corruption or invariant failure. */
+/**
+ * `atlas verify`: every chunk and every frame validated exactly as an eager import would,
+ * decoding one frame at a time; nonzero exit for any corruption or invariant failure.
+ */
 export async function verify(ctx: CommandContext, args: { artifact: string }): Promise<number> {
   const dir = path.resolve(ctx.io.cwd, args.artifact);
-  const result = await readArtifactDirectory(dir);
+  const result = await verifyArtifactDirectory(dir);
   const s = ctx.out;
   if (ctx.json) {
-    ctx.print(JSON.stringify(result.ok ? { ok: true, stats: result.stats, analysisId: result.bundle.manifest.analysisId } : { ok: false, code: result.code, issues: result.issues }, null, 2));
+    ctx.print(
+      JSON.stringify(
+        result.ok
+          ? { ok: true, stats: result.summary.stats, frames: result.summary.frames, analysisId: result.opened.manifest.analysisId }
+          : { ok: false, code: result.code, issues: result.issues },
+        null,
+        2,
+      ),
+    );
     return result.ok ? EXIT.ok : EXIT.failure;
   }
   ctx.print();
@@ -21,17 +32,15 @@ export async function verify(ctx: CommandContext, args: { artifact: string }): P
     ctx.print();
     return EXIT.failure;
   }
-  const { bundle, stats } = result;
-  const graphs = bundle.graphs;
-  const nodes = graphs.reduce((a, g) => a + g.nodes.length, 0);
-  const edges = graphs.reduce((a, g) => a + g.edges.length, 0);
+  const { summary, opened } = result;
+  const encodings = new Set(opened.manifest.frames.map((f) => f.graphChunk.encoding ?? 'plain'));
   const lines: [string, string][] = [
-    ['manifest', `${bundle.manifest.artifactVersion} · ${bundle.manifest.schemaVersion}`],
-    ['chunks', `${stats.chunks} chunks · ${formatBytes(stats.compressedBytes)} compressed · ${formatBytes(stats.uncompressedBytes)} canonical JSON`],
-    ['integrity', 'lengths, SHA-256 and canonical form verified for every chunk'],
-    ['graph', `${graphs.length} frame · ${formatCount(nodes)} nodes · ${formatCount(edges)} edges · IDs re-derived`],
-    ['history', `${formatCount(bundle.history.lineages.length)} lineages · ${bundle.manifest.coverage.history.status}`],
-    ['layout', `${formatCount(bundle.layout.plots.length)} plots in ${formatCount(bundle.layout.districts.length)} districts · contained, no overlaps`],
+    ['manifest', `${opened.manifest.artifactVersion} · ${opened.manifest.schemaVersion}`],
+    ['chunks', `${summary.stats.chunks} chunks · ${formatBytes(summary.stats.compressedBytes)} compressed · ${formatBytes(summary.stats.uncompressedBytes)} stored JSON`],
+    ['integrity', 'lengths, SHA-256 and canonical form verified for every chunk and every reconstructed graph'],
+    ['graphs', `${summary.frames} ${summary.frames === 1 ? 'frame' : 'frames'} · ${formatCount(summary.nodes)} nodes · ${formatCount(summary.edges)} edges · ${[...encodings].join(', ')}`],
+    ['history', `${formatCount(opened.history.commits.length)} mainline commits · ${formatCount(opened.history.lineages.length)} lineages · ${opened.manifest.coverage.history.status}`],
+    ['layout', `${formatCount(opened.layout.plots.length)} plots in ${formatCount(opened.layout.districts.length)} districts · contained, no overlaps`],
   ];
   for (const [label, detail] of lines) ctx.print(`  ${check(s, true)} ${s.fg(PALETTE.muted, label.padEnd(11))}${detail}`);
   ctx.print();
