@@ -9,7 +9,7 @@ ATLAS turns the committed contents of a TypeScript/JavaScript repository into a 
 
 Every visual encoding has a legend, every finding has evidence, and every gap in the analysis is shown as coverage.
 
-> **Status:** Phase 2 complete locally (milestone M2). `atlas analyze` produces a validated static graph with TS/JS imports, complexity, cycles and evidence-backed findings. `atlas serve` opens the functional browser explorer with search, keyboard navigation and optional verified source. The production 3D city is Phase 3; Git evolution and churn/hotspots are Phase 4; public hosted analysis is Phase 5. See [implementation status](docs/implementation-status.md) for checks and remaining gates.
+> **Status:** Phase 2 complete (milestone M2), verified on Windows and Linux in [CI](https://github.com/urveesh09/project-atlas/actions/runs/38053717357). `atlas analyze` produces a validated static graph with TS/JS imports, complexity, cycles and evidence-backed findings. `atlas serve` opens the functional browser explorer with search, keyboard navigation and optional verified source. The production 3D city is Phase 3; Git evolution and churn/hotspots are Phase 4; public hosted analysis is Phase 5. See [implementation status](docs/implementation-status.md) for checks and remaining gates.
 
 ## Try it
 

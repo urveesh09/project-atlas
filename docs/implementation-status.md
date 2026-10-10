@@ -2,7 +2,7 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone:** M2 / Gate G2 complete locally on Windows, 10 October 2026. Cross-platform confirmation is tracked through the first CI run. **Next task:** P3.1 Production layout; do not implement history/runtime prematurely.
+**Current milestone:** M2 / Gate G2 complete, 10 October 2026. [CI run 38053717357](https://github.com/urveesh09/project-atlas/actions/runs/38053717357) verifies implementation commit `111061ac83f96f228044ba04cdd3aa2ec7923b6d`: Windows and Linux full verification, live GitHub acquisition and informational software-GL rendering all pass. **Next task:** P3.1 Production layout; do not implement history/runtime prematurely.
 
 ## Phase 0: prove constraints and lock contracts
 
@@ -44,10 +44,10 @@ Open items carried forward (none block G0):
 |---|---|
 | Correct package/directory/file hierarchy | Hand-written hierarchies for the monorepo fixture (`hierarchy.test.ts`) and Harbor (`analyze.test.ts`, `cli.test.ts`) |
 | Explicit omissions for all inventory fixtures | Every one of the 35 fixture entries is included, excluded or omitted with its expected reason, both through the library and through `atlas analyze` + `atlas inspect --json` |
-| Artifacts reproducible | Identical chunk hashes across runs and via `--previous`. Golden canonical hashes for the handcrafted artifact and Harbor are asserted in CI on Windows and Linux; Linux confirmation needs the first CI run, which is pending until the repository is pushed |
+| Artifacts reproducible | Identical chunk hashes across runs and via `--previous`. Golden canonical hashes for the handcrafted artifact and Harbor pass in CI on Windows and Linux |
 | Safe to import | The bounded loader rejects every corruption class in plan §16.1 "Artifacts" before any rendering code runs |
 
-Carried forward: the CLI end-to-end suite has run on Windows; the Linux run arrives with CI.
+The CLI end-to-end suite passes on Windows and Linux in the linked CI run.
 
 ![atlas analyze and inspect on the Harbor demo](images/atlas-inspect-harbor.png)
 
@@ -73,11 +73,13 @@ Carried forward: the CLI end-to-end suite has run on Windows; the Linux run arri
 | Functional source/artifact paths | Verified committed source; unattached source remains unavailable; file-picker loading performs no upload |
 | Medium analysis and size | [20-run report](benchmarks/phase2-analysis.md), cold fact cache after one warm-up: p50 8.21 s, p95 8.38 s, worst 8.57 s; artifact 2,146,223 bytes (2.05 MiB). Both original targets pass |
 | Preserve deterministic/full-ID graph | Exact indexed/plain/browser round trips, canonical hash and semantic validation; no dropped declarations/evidence |
-| Complete checks | `pnpm verify` with `ATLAS_REQUIRE_BROWSER_TESTS=1`: 20 test files, 417 tests passed, 2 live-acquisition tests intentionally skipped locally and covered by the separate live CI job; generated contracts, strict source/test/viewer type checks, build and dependency direction pass |
+| Complete checks | `pnpm verify` with `ATLAS_REQUIRE_BROWSER_TESTS=1`: 20 test files, 417 tests passed on local Windows and both CI platforms; 2 live-acquisition tests opt out of the main suite and pass in the separate live CI job (41/41). Generated contracts, strict source/test/viewer type checks, build and dependency direction pass |
 
 ![Phase 2 browser explorer](images/phase2-overview.png)
 
 Decisions and remaining boundaries: [ADR-019](adr/ADR-019-phase2-static-analysis-and-viewer.md). The production 3D city/accessibility/device budgets remain Phase 3; sampled Git history/churn/hotspots remain Phase 4; hosted egress/container/publication gates remain Phase 5. The functional viewer is not represented as the finished 3D product. Reference-class GPU performance, external 2 GiB hosted enforcement and real-repository coverage remain later measured gates.
+
+Cross-platform verification also corrected two test assumptions: linked-worktree paths are compared after filesystem resolution so Windows short paths and expanded paths identify the same directory; the keyboard-only cycle journey inspects both member files and validates source opening whether the diagnostic subject is selected or another member is selected. Production analysis and viewer behavior are unchanged by these corrections.
 
 ## How to reproduce the evidence
 
