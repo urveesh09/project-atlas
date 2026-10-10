@@ -1,6 +1,6 @@
 # Phase 4 historical analysis benchmark (Gate G4)
 
-Recorded 2026-10-10T18:17:16.355Z by `node scripts/bench-history.mjs`. 20 measured runs after one warm-up; every run uses a cold fact cache and performs the whole pipeline: first-parent walk, rename-aware diffs, 12 frame graphs, churn, hotspots, union layout and frame-delta packing within the export limits.
+Recorded 2026-10-10T18:58:21.845Z by `node scripts/bench-history.mjs`. 20 measured runs after one warm-up; every run uses a cold fact cache and performs the whole pipeline: first-parent walk, rename-aware diffs, 12 frame graphs, churn, hotspots, union layout and frame-delta packing within the export limits.
 
 ## Environment
 
@@ -21,12 +21,14 @@ Recorded 2026-10-10T18:17:16.355Z by `node scripts/bench-history.mjs`. 20 measur
 
 | Measure | Value | Budget |
 |---|---:|---:|
-| p50 | 71.86 s | |
-| p95 | 101.75 s | ≤ 90 s |
-| max | 105.04 s | |
+| p50 | 68.82 s | |
+| p95 | 69.59 s | ≤ 90 s |
+| max | 69.59 s | |
 | artifact (all chunks) | 4.70 MiB | ≤ 5 MiB |
 | — selected graph | 1.43 MiB | |
 | — 11 historical frames (deltas) | 2.36 MiB | |
 | — history / layout | 0.49 MiB / 0.42 MiB | |
 
-**Fail.** Time: fail; size: pass. Format atlas.artifact/1.3.0; frame-delta transport per ADR-026.
+**Pass.** Time: pass; size: pass. Format atlas.artifact/1.3.0; frame-delta transport per ADR-026.
+
+This acceptance batch ran without competing local tests or viewer profiling. The JSON retains every full-precision sample, analyzer version, selected commit and layout identity. The earlier [precompact size failure](phase4-history-precompact.md) and [contended timing failure](phase4-history-contended.md) remain available. Exact reference-device and hosted-container analysis measurements remain separate release gates.

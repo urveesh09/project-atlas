@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, CapabilitiesSchema, ErrorEnvelopeSchema, JobStatusSchema, SessionStatusSchema } from './api.js';
+import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, CapabilitiesSchema, ErrorEnvelopeSchema, IdempotencyKeySchema, JobStatusSchema, SessionStatusSchema } from './api.js';
 import { ArtifactManifestSchema } from './artifact.js';
 import { GraphSnapshotSchema } from './graph.js';
 import { IndexedGraphSchema } from './indexed-graph.js';
@@ -22,6 +22,7 @@ const ARTIFACT_SCHEMAS = {
 } as const;
 
 const API_SCHEMAS = {
+  IdempotencyKey: IdempotencyKeySchema,
   SessionStatus: SessionStatusSchema,
   AnalysisSubmission: AnalysisSubmissionSchema,
   AnalysisAccepted: AnalysisAcceptedSchema,
@@ -95,7 +96,7 @@ export function openApiDocument(): Record<string, unknown> {
         post: {
           operationId: 'submitAnalysis',
           security: [{ session: [] }],
-          parameters: [{ name: 'Idempotency-Key', in: 'header', required: true, schema: { type: 'string', format: 'uuid' } }],
+          parameters: [{ name: 'Idempotency-Key', in: 'header', required: true, schema: { $ref: '#/components/schemas/IdempotencyKey' } }],
           requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/AnalysisSubmission' } } } },
           responses: {
             '200': { description: 'Completed cached analysis reused', content: { 'application/json': { schema: { $ref: '#/components/schemas/AnalysisAccepted' } } } },

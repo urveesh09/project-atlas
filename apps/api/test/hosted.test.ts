@@ -49,7 +49,7 @@ describe.runIf(!!url)('hosted admission on real PostgreSQL', () => {
     await api?.close(); await pool?.end();
     if (admin && /^atlas_test_api_[0-9a-f]+$/.test(schema)) { await admin.query(`DROP SCHEMA ${schema} CASCADE`); await admin.end(); }
   });
-  const submit = async (value: unknown = input, key = randomUUID(), cookieValue = sessionCookie) => fetch(`${api.origin}/api/v1/analyses`, {
+  const submit = async (value: unknown = input, key: string = randomUUID(), cookieValue = sessionCookie) => fetch(`${api.origin}/api/v1/analyses`, {
     method: 'POST', headers: { Origin: api.origin, Cookie: cookieValue, 'Content-Type': 'application/json', 'Idempotency-Key': key }, body: JSON.stringify(value),
   });
   const accepted = async () => {
@@ -94,6 +94,14 @@ describe.runIf(!!url)('hosted admission on real PostgreSQL', () => {
     const b = await submit(input, key);
     expect(a.status).toBe(202); expect(b.status).toBe(202);
     expect((await a.json() as AnalysisAccepted).jobId).toBe((await b.json() as AnalysisAccepted).jobId);
+  });
+  it('admits UUIDv7 keys and replays their case-equivalent form without another token', async () => {
+    const key = '019cefa0-1000-7000-8000-000000000001';
+    const first = await submit(input, key); expect(first.status).toBe(202);
+    const a = AnalysisAcceptedSchema.parse(await first.json());
+    const again = await submit(input, key.toUpperCase()); expect(again.status).toBe(202);
+    expect(AnalysisAcceptedSchema.parse(await again.json())).toMatchObject({ jobId: a.jobId, managementToken: null });
+    expect((await pool.query('SELECT id FROM jobs')).rowCount).toBe(1);
   });
   it('blocks session and token cross-job access and does not reveal unknown job existence', async () => {
     const a = await accepted();

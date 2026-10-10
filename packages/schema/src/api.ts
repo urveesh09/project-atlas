@@ -5,6 +5,8 @@ import { RELEASE_PROFILE } from './versions.js';
 
 /** Hosted HTTP contracts (plan §13). Routes are prefixed with /api/v1. */
 export const SessionStatusSchema = z.strictObject({ session: z.literal('active') });
+/** UUID contract also accepts current RFC versions, including UUIDv7. */
+export const IdempotencyKeySchema = z.uuid();
 
 export const ERROR_CODES = [
   'INVALID_REPOSITORY_URL',

@@ -2,7 +2,7 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone:** Phase 4 four-pillar local implementation reviewed; local automated checks, cross-platform CI and viewer measurements pass. The unloaded historical analysis repeat remains in progress. Phase 5 admission/queue/isolation foundations are implemented below. Human screen-reader and exact reference-device release audits remain open; runtime instrumentation remains deferred.
+**Current milestone:** Phase 4 local implementation and measured G4 checks pass, including cross-platform CI and the unloaded 20-run history repeat. Phase 5 admission/queue/isolation foundations are implemented below. Human screen-reader and exact reference-device release audits remain open; runtime instrumentation remains deferred.
 
 ## Phase 0: prove constraints and lock contracts
 
@@ -132,7 +132,7 @@ The independent initial full suite passed 524 tests. Review added worker respons
 
 Performance evidence: [historical analysis report](benchmarks/phase4-history.md) and [snapshot-change/combined-heap report](benchmarks/phase4-history-viewer.md). The dev.5 artifact is 4,924,526 bytes (4.70 MiB), within the 5 MiB target. Cached snapshot changes pass at 135.5 ms p95 across 20 samples; four retained main/worker sweeps stay at 208.38–208.71 MiB and two non-HEAD frames compared retain 226.41 MiB, below 300 MiB. Cold first visits reach 11.29 seconds; pre-collection combined allocations reach 657.34 MiB. These are explicit costs, not hidden by cached or retained measurements.
 
-The [earlier transport report](benchmarks/phase4-history-precompact.md) failed size. The [contended timing batch](benchmarks/phase4-history-contended.md) passes size but fails latency at 101.75 s p95; full verification overlapped two runs. Both are preserved. The unloaded 20-run dev.5 analysis repeat is in progress; G4 timing is not accepted until that evidence exists. Reports record actual hardware, fixture identities and individual samples; exact reference-device performance remains a release audit.
+The [earlier transport report](benchmarks/phase4-history-precompact.md) failed size. The [contended timing batch](benchmarks/phase4-history-contended.md) passes size but fails latency at 101.75 s p95; full verification overlapped two runs. Both are preserved. The final unloaded 20-run dev.5 repeat passes: p50 **68.82 s**, p95 **69.59 s**, maximum **69.59 s**, against 90 seconds. No local tests or viewer profiling competed with that batch. Reports record actual hardware, fixture identities and individual samples; exact reference-device performance remains a release audit.
 
 [Phase 4 Windows/Linux CI](https://github.com/urveesh09/project-atlas/actions/runs/38076541930) passes implementation commit `995acb3`, including live acquisition and the software-rendering check. The full local verification also exercised the separately committed Phase 5 foundation below.
 
@@ -155,7 +155,7 @@ Phase 5 development has started. This is a loopback development control plane pl
 | P5.5 Hosted flow | Pending | Management status/events/cancel API foundation | Landing/submission stages, reconnect/poll/cancel browser flows, immutable result URLs and existing viewer integration |
 | P5.6 Deploy/runbooks | Partial development documentation | [Dedicated database/container checks and recovery notes](hosted-development.md); required PostgreSQL/Docker CI job | Compose/deployment definitions, trusted proxy identity boundary, secrets/TLS/roles/backups and operator rehearsals |
 
-Local full verification passes **565 tests across 32 files**, including 30 admission/queue checks on actual PostgreSQL 17 and seven offline sandbox checks on Docker Engine 29.8.1. The two separately gated live-acquisition tests opt out of that suite. Strict source/test/viewer types, production build, generated contracts and dependency direction pass. Dedicated hosted CI requires the real database and containers; ordinary matrix runs explicitly opt out of integration checks when those runtimes are absent. Cross-platform/hosted CI links are added after the pushed commits finish.
+Local final full verification passes **566 tests across 32 files**, including 31 admission/queue checks on actual PostgreSQL 17 and seven offline sandbox checks on Docker Engine 29.8.1. The two separately gated live-acquisition tests opt out of that suite. Strict source/test/viewer types, production build, generated contracts and dependency direction pass. Dedicated hosted CI requires the real database and containers; ordinary matrix runs explicitly opt out of integration checks when those runtimes are absent. [Foundation Windows/Linux/database/container CI](https://github.com/urveesh09/project-atlas/actions/runs/38077301854) passes `684337d`; the final shared UUID-header contract and evidence update is rerun separately.
 
 Decisions: [ADR-029](adr/ADR-029-hosted-admission-and-lease-foundation.md) and [ADR-030](adr/ADR-030-offline-container-isolation-spike.md). **G5 remains open.** The runtime fifth pillar remains deferred.
 

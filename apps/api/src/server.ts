@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { type AddressInfo } from 'node:net';
 import { parseGithubRepositoryUrl } from '@atlas/ingest';
-import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, API_REQUEST_BODY_LIMIT, ARTIFACT_VERSION, CapabilitiesSchema, ErrorEnvelopeSchema, GRAPH_SCHEMA_VERSION, JobIdSchema, LAYOUT_VERSION, LIMITS, METRIC_DEFINITION_VERSION, RELEASE_PROFILE, SessionStatusSchema } from '@atlas/schema';
+import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, API_REQUEST_BODY_LIMIT, ARTIFACT_VERSION, CapabilitiesSchema, ErrorEnvelopeSchema, GRAPH_SCHEMA_VERSION, IdempotencyKeySchema, JobIdSchema, LAYOUT_VERSION, LIMITS, METRIC_DEFINITION_VERSION, RELEASE_PROFILE, SessionStatusSchema } from '@atlas/schema';
 import { AdmissionStore, type Credentials } from './store.js';
 import { clientBucket, opaqueId, ServiceError, terminal } from './security.js';
 
@@ -81,15 +81,15 @@ export async function startApi(options: {
       }
       if (req.method === 'POST' && path === '/api/v1/analyses') {
         if (!sessionHash) throw new ServiceError('FORBIDDEN', 403, 'Create a same-origin session first.');
-        const key = req.headers['idempotency-key'];
-        if (typeof key !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) throw new ServiceError('VALIDATION_FAILED', 400, 'A UUID Idempotency-Key is required.');
+        const key = IdempotencyKeySchema.safeParse(req.headers['idempotency-key']);
+        if (!key.success) throw new ServiceError('VALIDATION_FAILED', 400, 'A UUID Idempotency-Key is required.');
         const parsed = AnalysisSubmissionSchema.safeParse(await body(req));
         if (!parsed.success) throw new ServiceError('VALIDATION_FAILED', 400, 'Invalid analysis submission.');
         let ref;
         try { ref = parseGithubRepositoryUrl(parsed.data.repositoryUrl); }
         catch { throw new ServiceError('INVALID_REPOSITORY_URL', 400, 'Use a public GitHub repository root URL.'); }
         const input = { ...parsed.data, repositoryUrl: `https://github.com/${ref.owner.toLowerCase()}/${ref.name.toLowerCase()}` };
-        const result = await options.store.admit(input, sessionHash, bucket, key);
+        const result = await options.store.admit(input, sessionHash, bucket, key.data);
         return json(res, 202, AnalysisAcceptedSchema.parse(result.accepted));
       }
       const match = /^\/api\/v1\/jobs\/([^/]+)(?:\/(events|cancel))?$/.exec(path);

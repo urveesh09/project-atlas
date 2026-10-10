@@ -1,6 +1,7 @@
 {
   "task": "Gate G4 — medium 12-frame historical analysis and artifact size",
-  "recordedAt": "2026-10-10T18:17:16.355Z",
+  "condition": "Unloaded acceptance repeat: no concurrent local tests or viewer profiling.",
+  "recordedAt": "2026-10-10T18:58:21.845Z",
   "environment": {
     "os": "Windows_NT 10.0.26200 x64",
     "cpu": "Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz",
@@ -21,9 +22,38 @@
     "historyStatus": "complete"
   },
   "runs": 20,
-  "secondsP50": 71.86,
-  "secondsP95": 101.75,
-  "secondsMax": 105.04,
+  "rawSampleMs": [
+    69096.5943,
+    69229.7278,
+    69585.72809999998,
+    69587.31660000002,
+    69202.00899999996,
+    69031.21630000003,
+    68820.80800000002,
+    68507.82149999996,
+    69037.544,
+    68487.27899999998,
+    69019.68300000008,
+    68486.13749999995,
+    68883.19160000002,
+    68806.36899999995,
+    68911.38229999994,
+    68520.12260000012,
+    68452.77389999991,
+    68639.6239,
+    68651.65980000002,
+    68528.26050000009
+  ],
+  "analyzer": {
+    "version": "0.1.0-dev.5",
+    "parserVersion": "typescript@6.0.3",
+    "gitVersion": "2.55.0.windows.3"
+  },
+  "selectedCommit": "0c370cfdba3ed86d745cf7882667925be7b8d768",
+  "layoutId": "layout_a51bc3541f146383f774abe291900da41598d13904e115a4d9508e4549a7d4fd",
+  "secondsP50": 68.82,
+  "secondsP95": 69.59,
+  "secondsMax": 69.59,
   "budgetSecondsP95": 90,
   "artifact": {
     "version": "atlas.artifact/1.3.0",
@@ -34,7 +64,7 @@
     "layoutBytes": 440192,
     "budgetBytes": 5242880
   },
-  "timePass": false,
+  "timePass": true,
   "sizePass": true,
-  "pass": false
+  "pass": true
 }
