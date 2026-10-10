@@ -417,8 +417,16 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     await page.goto(`${server.url}#v=1&file=${node.lineageId}&tab=dependencies`);
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
     expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('Dependencies');
-    await page.goto(`${server.url}#v=1&file=javascript:alert(1)&evil=1`);
-    await page.reload();
+    const invalidUrl = `${server.url}#v=1&file=javascript:alert(1)&evil=1`;
+    await page.goto(invalidUrl);
+    await expect
+      .poll(() => page.locator('[role="status"][aria-live="polite"]').innerText())
+      .toContain('unsupported or invalid');
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe('');
+    // Same-document rejection normalizes the fragment. Start a new document to
+    // exercise initial invalid-link admission without racing that normalization.
+    await page.goto('about:blank');
+    await page.goto(invalidUrl);
     await page.waitForSelector('#overview-title');
     await expect
       .poll(() => page.locator('[role="status"][aria-live="polite"]').innerText())
