@@ -1,2 +1,3 @@
-/** The atlas command (doctor, analyze, inspect, verify, serve): implemented in P1.5/P2.6. */
-export {};
+export { run, cli } from './main.js';
+export type { CliIO } from './context.js';
+export { EXIT } from './context.js';

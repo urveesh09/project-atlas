@@ -29,6 +29,8 @@ export interface WorkspaceMap {
   manifests: PackageManifest[];
   /** Workspace package name -> manifest (members and a named root). */
   byName: Map<string, PackageManifest>;
+  /** Names declared by more than one workspace manifest: mapped to neither, never guessed. */
+  ambiguousNames: Set<string>;
   /** Directories of recognized package roots, deepest first, for nearest-package lookup. */
   packageRoots: string[];
   usesWorkspaces: boolean;
@@ -145,20 +147,25 @@ export function discoverWorkspace(fs: SnapshotFS): WorkspaceMap {
     });
   }
 
-  const byName = new Map<string, PackageManifest>();
+  const claims = new Map<string, PackageManifest[]>();
   for (const manifest of manifests) {
     if (!manifest.name || !(manifest.workspace || manifest.root === '')) continue;
-    if (byName.has(manifest.name)) {
-      warnings.push({ code: 'DUPLICATE_WORKSPACE_PACKAGE_NAME', path: manifest.manifestPath });
-      continue;
+    claims.set(manifest.name, [...(claims.get(manifest.name) ?? []), manifest]);
+  }
+  const byName = new Map<string, PackageManifest>();
+  const ambiguousNames = new Set<string>();
+  for (const [name, claimants] of claims) {
+    if (claimants.length === 1) byName.set(name, claimants[0]!);
+    else {
+      ambiguousNames.add(name);
+      for (const claimant of claimants) warnings.push({ code: 'DUPLICATE_WORKSPACE_PACKAGE_NAME', path: claimant.manifestPath });
     }
-    byName.set(manifest.name, manifest);
   }
   const packageRoots = manifests
     .filter((m) => m.workspace || m.root === '')
     .map((m) => m.root)
     .sort((a, b) => b.length - a.length || compareUtf8(a, b));
-  return { manifests, byName, packageRoots, usesWorkspaces, warnings };
+  return { manifests, byName, ambiguousNames, packageRoots, usesWorkspaces, warnings };
 }
 
 /** The nearest manifest at or above a file (any package.json, workspace member or not). */

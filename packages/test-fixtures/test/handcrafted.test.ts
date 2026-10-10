@@ -19,7 +19,7 @@ describe('handcrafted artifact (P0.5 gate)', () => {
 
   it('validates every chunk', () => {
     for (const [name, result] of [
-      ['graph', validateGraphSnapshot(artifact.graph, 'sha1')],
+      ['graph', validateGraphSnapshot(artifact.graph, { objectFormat: 'sha1' })],
       ['history', validateHistoryArtifact(artifact.history)],
       ['layout', validateLayoutArtifact(artifact.layout)],
       ['manifest', validateManifest(artifact.manifest)],
@@ -101,7 +101,7 @@ describe('graph invariants reject corruption', () => {
   });
 
   it('wrong object format', () => {
-    expect(codes(validateGraphSnapshot(base, 'sha256'))).toContain('OBJECT_FORMAT');
+    expect(codes(validateGraphSnapshot(base, { objectFormat: 'sha256' }))).toContain('OBJECT_FORMAT');
   });
 
   it('hotspot score without history', () => {

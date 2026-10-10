@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node-entry.d.ts",
+      "default": "./dist/node-entry.js"
     }
   },
   "files": [

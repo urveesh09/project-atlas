@@ -9,7 +9,23 @@ ATLAS turns the committed contents of a TypeScript/JavaScript repository into a 
 
 Every visual encoding has a legend, every finding has evidence, and every gap in the analysis is shown as coverage.
 
-> **Status:** Phase 0 complete (milestone M0). The contracts, safe Git reading, the TypeScript resolver and the rendering approach are proven with tests and recorded evidence. There is no end-user CLI or viewer yet; see [implementation status](docs/implementation-status.md).
+> **Status:** Phase 1 complete (milestone M1). `atlas analyze` turns any local Git repository into a validated, reproducible structural artifact, and `atlas inspect` draws its city plan in your terminal. Imports, findings, history and the 3D viewer arrive in Phases 2–4; see [implementation status](docs/implementation-status.md).
+
+## Try it
+
+```sh
+pnpm install && pnpm build
+pnpm atlas doctor
+pnpm atlas analyze path/to/repo --out ./atlas-output
+pnpm atlas inspect ./atlas-output
+pnpm atlas verify ./atlas-output
+```
+
+![atlas analyze and atlas inspect on the Harbor demo repository](docs/images/atlas-inspect-harbor.png)
+
+Every pixel of the city plan comes from the artifact's layout chunk: package districts, folder blocks and one plot per file, colored by role. Anything not analyzed is listed with a reason:
+
+![coverage reasons for the adversarial inventory fixture](docs/images/atlas-inspect-coverage.png)
 
 ## What V0.1 will do
 
@@ -55,12 +71,12 @@ apps/worker/              sandbox coordinator and publication (Phase 5)
 packages/schema/          canonical contracts, IDs, canonical JSON, validators, generated JSON Schema
 packages/ingest/          sanitized local Git reader, GitHub admission and filtered acquisition
 packages/analyzer-ts/     TS/JS syntax facts and virtual-filesystem module resolution
-packages/analyzer-core/   analysis pipeline (Phase 1–2)
+packages/analyzer-core/   committed inventory, package hierarchy, artifact assembly
 packages/graph/           aggregation, SCCs, queries (Phase 2)
 packages/history/         first-parent history and lineage (Phase 4)
 packages/layout/          deterministic integer city layout
-packages/artifact/        artifact serialization and import (Phase 1)
-packages/cli/             the atlas command (Phase 1–2)
+packages/artifact/        deterministic chunks, bounded import (Node + browser), atomic output
+packages/cli/             the atlas command: doctor, analyze, inspect, verify
 packages/test-fixtures/   handcrafted artifact, Git fixture builder, Harbor demo repository
 docs/                     master plan, ADRs, contracts, benchmarks, status
 ```

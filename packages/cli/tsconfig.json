@@ -5,6 +5,24 @@
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "include": ["src"],
-  "references": [{ "path": "../schema" }, { "path": "../ingest" }, { "path": "../analyzer-core" }, { "path": "../artifact" }]
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../schema"
+    },
+    {
+      "path": "../ingest"
+    },
+    {
+      "path": "../analyzer-ts"
+    },
+    {
+      "path": "../analyzer-core"
+    },
+    {
+      "path": "../artifact"
+    }
+  ]
 }

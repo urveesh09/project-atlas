@@ -5,6 +5,7 @@ import { FILE_EDGE_KINDS, GraphSnapshotSchema, type GraphNode, type GraphSnapsho
 import { HistoryArtifactSchema, type HistoryArtifact } from './history.js';
 import { LayoutArtifactSchema, type LayoutArtifact, type Rect } from './layout.js';
 import { LIMITS } from './limits.js';
+import { edgeId, nodeId, observationId } from './ids.js';
 import { repoDirname } from './paths.js';
 
 /**
@@ -54,7 +55,31 @@ function nodePath(node: GraphNode): string | null {
   return node.kind === 'package' || node.kind === 'directory' || node.kind === 'file' ? node.path : null;
 }
 
-export function validateGraphSnapshot(input: unknown, objectFormat?: 'sha1' | 'sha256'): ValidationResult<GraphSnapshot> {
+export interface GraphValidationOptions {
+  objectFormat?: 'sha1' | 'sha256';
+  /**
+   * Re-derive node, edge and observation IDs from their documented inputs (plan §7.1).
+   * On by default: an artifact whose IDs do not match their contents is rejected.
+   */
+  verifyIds?: boolean;
+}
+
+/** The canonical key hashed into a node occurrence ID. */
+export function nodeIdentityKey(node: GraphNode): string {
+  switch (node.kind) {
+    case 'repository':
+      return '';
+    case 'external-package':
+      return node.packageName;
+    case 'builtin':
+      return node.moduleName;
+    default:
+      return node.path;
+  }
+}
+
+export function validateGraphSnapshot(input: unknown, options: GraphValidationOptions = {}): ValidationResult<GraphSnapshot> {
+  const objectFormat = options.objectFormat;
   const parsed = GraphSnapshotSchema.safeParse(input);
   if (!parsed.success) return { ok: false, issues: fromZod(parsed.error) };
   const snapshot = parsed.data;
@@ -74,6 +99,22 @@ export function validateGraphSnapshot(input: unknown, objectFormat?: 'sha1' | 's
 
   const nodes = new Map<string, GraphNode>();
   for (const node of snapshot.nodes) nodes.set(node.id, node);
+
+  if (options.verifyIds !== false) {
+    const snap = snapshot.snapshotId;
+    for (const node of snapshot.nodes) {
+      if (sink.full) break;
+      if (nodeId(snap, node.kind, nodeIdentityKey(node)) !== node.id) sink.add('ID_MISMATCH', node.id, `Node ID does not derive from (${node.kind}, "${nodeIdentityKey(node)}")`);
+    }
+    for (const edge of snapshot.edges) {
+      if (sink.full) break;
+      if (edgeId(snap, edge.sourceId, edge.targetId, edge.kind, edge.confidence) !== edge.id) sink.add('ID_MISMATCH', edge.id, 'Edge ID does not derive from its endpoints, kind and confidence');
+    }
+    for (const obs of snapshot.importObservations) {
+      if (sink.full) break;
+      if (observationId(snap, obs.sourceId, obs.kind, obs.range, obs.specifier) !== obs.id) sink.add('ID_MISMATCH', obs.id, 'Observation ID does not derive from its source, kind, range and specifier');
+    }
+  }
 
   // Hierarchy: exactly one repository root; containers form a tree by parentId.
   const repositories = snapshot.nodes.filter((n) => n.kind === 'repository');
@@ -230,6 +271,10 @@ export function validateGraphSnapshot(input: unknown, objectFormat?: 'sha1' | 's
   const c = snapshot.coverage;
   if (c.includedFiles !== fileCount) sink.add('COVERAGE', 'coverage.includedFiles', `includedFiles=${c.includedFiles} but graph has ${fileCount} file nodes`);
   if (c.includedFiles > c.discoveredFiles) sink.add('COVERAGE', 'coverage', 'includedFiles cannot exceed discoveredFiles');
+  if (c.includedFiles + c.excludedFiles + c.omittedFiles !== c.discoveredFiles) {
+    sink.add('COVERAGE', 'coverage', 'Every discovered entry is included, excluded or omitted exactly once');
+  }
+  if (c.supportedFiles + c.opaqueFiles !== c.includedFiles) sink.add('COVERAGE', 'coverage', 'Included files are either supported or opaque');
   if (c.parsedFiles + c.parseFailedFiles > c.supportedFiles) sink.add('COVERAGE', 'coverage', 'parsed + failed cannot exceed supported');
   const resolvedSum = c.internalResolved + c.externalResolved + c.builtinResolved + c.unresolved + c.unsupported + c.excludedTargets;
   if (resolvedSum !== c.observedImports) sink.add('COVERAGE', 'coverage', 'Import status counts must sum to observedImports');

@@ -22,6 +22,8 @@ export interface LocalRepository {
   promisor: boolean;
   linkedWorktree: boolean;
   bare: boolean;
+  /** Directory holding the `.git` entry (null for bare repositories). */
+  worktreeRoot: string | null;
 }
 
 const MAX_METADATA_BYTES = 1024 * 1024;
@@ -74,15 +76,19 @@ export async function discoverLocalRepository(start: string): Promise<LocalRepos
   });
   let gitDir: string | null = null;
   let bare = false;
+  let worktreeRoot: string | null = null;
   for (let depth = 0; depth < 128 && gitDir === null; depth++) {
     const dotGit = path.join(dir, '.git');
     const info = await lstat(dotGit).catch(() => null);
-    if (info?.isDirectory()) gitDir = dotGit;
-    else if (info?.isFile()) {
+    if (info?.isDirectory()) {
+      gitDir = dotGit;
+      worktreeRoot = dir;
+    } else if (info?.isFile()) {
       const content = await readSmall(dotGit, 4096);
       const match = content ? /^gitdir:\s*(.+?)\s*$/m.exec(content) : null;
       if (!match) throw new IngestError('NOT_A_GIT_REPOSITORY', 'Malformed .git file');
       gitDir = path.resolve(dir, match[1]!);
+      worktreeRoot = dir;
     } else if (await looksLikeGitDir(dir)) {
       gitDir = dir;
       bare = true;
@@ -122,6 +128,7 @@ export async function discoverLocalRepository(start: string): Promise<LocalRepos
     promisor,
     linkedWorktree: commondirFile !== null,
     bare: bare || config.get('core.bare') === 'true',
+    worktreeRoot,
   };
 }
 

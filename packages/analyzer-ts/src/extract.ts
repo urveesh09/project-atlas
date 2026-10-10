@@ -6,6 +6,9 @@ import { LIMITS, compareAscii, compareUtf8, repoExtension, type DeclarationSumma
  * Syntax facts for one TS/JS file (plan §9.2). The AST never leaves this module: callers
  * receive plain serializable records only.
  */
+/** Recorded in artifacts and cache keys (plan §9.4). */
+export const PARSER_VERSION = `typescript@${ts.version}`;
+
 export type ImportKind =
   | 'imports-value'
   | 'imports-type'

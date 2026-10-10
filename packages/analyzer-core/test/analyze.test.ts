@@ -1,0 +1,108 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { analyzeCommit, type AnalysisResult } from '@atlas/analyzer-core';
+import { gzipDeterministic, packArtifact } from '@atlas/artifact/node';
+import { gitVersion, openLocalRepository, resolveLocalCommit, type SafeGit } from '@atlas/ingest';
+import { localRepositoryId, validateArtifactBundle } from '@atlas/schema';
+import { DEMO_HEAD_FILES, buildDemoRepository, type GitFixture } from '@atlas/test-fixtures';
+
+const repoId = localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f');
+let demo: GitFixture;
+let git: SafeGit;
+let head: string;
+let version: string;
+
+const run = (options: Parameters<typeof analyzeCommit>[0]['options'] = {}): Promise<AnalysisResult> =>
+  analyzeCommit({
+    git,
+    commitOid: head,
+    gitVersion: version,
+    repository: { repoId, displayName: 'harbor', sourceKind: 'local-git', remote: null, objectFormat: 'sha1' },
+    options,
+    now: () => new Date('2026-10-10T00:00:00.000Z'),
+  });
+
+beforeAll(async () => {
+  demo = buildDemoRepository();
+  const opened = await openLocalRepository(demo.dir);
+  git = opened.git;
+  head = await resolveLocalCommit(opened.repo, git);
+  version = await gitVersion();
+});
+afterAll(async () => {
+  await git?.dispose();
+  demo?.dispose();
+});
+
+describe('Harbor structural artifact (M1)', () => {
+  it('produces a bundle that passes every invariant', async () => {
+    const result = await run();
+    const packed = packArtifact(result.draft, gzipDeterministic);
+    expect(validateArtifactBundle({ manifest: packed.manifest, graphs: result.draft.graphs, history: result.draft.history, layout: result.draft.layout }).ok).toBe(true);
+    expect(result.status).toBe('complete');
+    const graph = result.draft.graphs[0]!;
+    expect(graph.nodes.filter((n) => n.kind === 'file').map((n) => (n.kind === 'file' ? n.path : '')).sort()).toEqual([...DEMO_HEAD_FILES].sort());
+    expect(graph.coverage).toMatchObject({ discoveredFiles: 26, includedFiles: 26, supportedFiles: 14, opaqueFiles: 12, excludedFiles: 0, omittedFiles: 0, parsedFiles: 0 });
+  });
+
+  it('builds the expected package hierarchy', async () => {
+    const graph = (await run()).draft.graphs[0]!;
+    const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+    const containers = graph.nodes
+      .flatMap((n) => (n.kind === 'package' || n.kind === 'directory' ? [`${n.kind}:${n.path} <- ${byId.get(n.parentId!)!.kind}:${'path' in byId.get(n.parentId!)! ? (byId.get(n.parentId!) as { path: string }).path : ''}`] : []))
+      .sort();
+    expect(containers).toEqual([
+      'directory:assets <- package:',
+      'directory:packages/geo/src <- package:packages/geo',
+      'directory:packages/ledger/src <- package:packages/ledger',
+      'directory:src <- package:',
+      'directory:src/server <- directory:src',
+      'directory:src/ui <- directory:src',
+      'directory:tests <- package:',
+      'package: <- repository:',
+      'package:packages/geo <- repository:',
+      'package:packages/ledger <- repository:',
+    ]);
+    const externals = graph.nodes.flatMap((n) => (n.kind === 'external-package' ? [n.packageName] : [])).sort();
+    expect(externals).toEqual(['decimal.js', 'react', 'typescript', 'vitest', 'zod']);
+  });
+
+  it('is reproducible: identical chunk hashes across runs, only envelope fields differ', async () => {
+    const a = packArtifact((await run()).draft, gzipDeterministic);
+    const b = packArtifact((await run()).draft, gzipDeterministic);
+    expect(a.manifest.chunks).toEqual(b.manifest.chunks);
+    expect(a.manifest.analysisKey).toBe(b.manifest.analysisKey);
+    expect(a.manifest.analysisId).not.toBe(b.manifest.analysisId);
+  });
+
+  it('matches the cross-platform golden (asserted on Windows and Linux CI)', async () => {
+    const packed = packArtifact((await run()).draft, gzipDeterministic);
+    // The Harbor commits, fixture identity and repoId are fixed, so these canonical
+    // hashes must be identical on every platform. A change here is a contract change.
+    expect(Object.fromEntries(packed.manifest.chunks.map((c) => [c.path.split('/')[0], c.sha256]))).toMatchInlineSnapshot(`
+      {
+        "graphs": "3046c53a5fbc5a8e87a1b6b9e4d01bc28af46acd9d61bef42b3ad905e7dc7499",
+        "history": "6efe6df4ba79057462d59ecb63f0df61414e78560e2d5e306b80bf2c674f6daf",
+        "layout": "1b519ec321a0243dbc9e4c06f3554a145cf57544bcd28ade66a608aae7c96ea4",
+      }
+    `);
+  });
+
+  it('reports partial results with exact omissions when a limit is lowered', async () => {
+    const result = await run({ limits: { includedFiles: 10 } });
+    expect(result.status).toBe('partial');
+    const coverage = result.draft.graphs[0]!.coverage;
+    expect(coverage.includedFiles).toBe(10);
+    expect(coverage.omittedFiles).toBe(16);
+    expect(coverage.limitsHit).toEqual(['FILE_LIMIT']);
+    expect(result.draft.manifest.frames[0]!.analysisStatus).toBe('partial');
+    expect(packArtifact(result.draft, gzipDeterministic).manifest.chunks).toHaveLength(3);
+  });
+
+  it('changes the options digest (and so every ID) when scope options change', async () => {
+    const plain = await run();
+    const excluded = await run({ exclude: ['assets/'] });
+    expect(excluded.draft.manifest.optionsDigest).not.toBe(plain.draft.manifest.optionsDigest);
+    expect(excluded.draft.graphs[0]!.snapshotId).not.toBe(plain.draft.graphs[0]!.snapshotId);
+    expect(excluded.draft.graphs[0]!.coverage.reasons).toEqual([{ code: 'CLI_EXCLUDED', count: 2 }]);
+  });
+});

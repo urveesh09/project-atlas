@@ -176,12 +176,12 @@ export interface TreeListing {
 export async function listTree(
   git: SafeGit,
   treeOid: string,
-  options: { maxEntries: number; signal?: AbortSignal },
+  options: { maxEntries: number; recursive?: boolean; signal?: AbortSignal },
 ): Promise<TreeListing> {
   git.assertOid(treeOid);
   let result;
   try {
-    result = await git.run(['ls-tree', '-r', '-l', '-z', '--full-tree', treeOid], {
+    result = await git.run(['ls-tree', ...(options.recursive === false ? [] : ['-r']), '-l', '-z', '--full-tree', treeOid], {
       maxStdoutBytes: options.maxEntries * 4_400 + 4096,
       ...(options.signal ? { signal: options.signal } : {}),
     });

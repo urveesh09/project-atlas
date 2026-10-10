@@ -15,13 +15,14 @@
     "dist"
   ],
   "dependencies": {
-    "@atlas/schema": "workspace:*",
-    "@atlas/ingest": "workspace:*",
     "@atlas/analyzer-ts": "workspace:*",
+    "@atlas/artifact": "workspace:*",
     "@atlas/graph": "workspace:*",
     "@atlas/history": "workspace:*",
+    "@atlas/ingest": "workspace:*",
     "@atlas/layout": "workspace:*",
-    "@atlas/artifact": "workspace:*"
+    "@atlas/schema": "workspace:*",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@atlas/test-fixtures": "workspace:*"

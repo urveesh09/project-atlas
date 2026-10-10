@@ -95,6 +95,9 @@ export class SnapshotResolver {
     }
 
     const packageName = packageNameOf(specifier);
+    if (packageName && this.workspace.ambiguousNames.has(packageName)) {
+      return outcome({ status: 'unresolved', kind, targetPath: null, externalName: null, confidence: null, reasonCode: 'AMBIGUOUS_WORKSPACE_PACKAGE' });
+    }
     // 3. Workspace package whose declared entry is absent (e.g. uncommitted build output).
     const workspacePackage = packageName ? this.workspace.byName.get(packageName) : undefined;
     if (packageName && workspacePackage) {

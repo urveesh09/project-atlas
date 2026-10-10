@@ -12,15 +12,20 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "dependencies": {
-    "@atlas/schema": "workspace:*",
-    "@atlas/ingest": "workspace:*",
     "@atlas/analyzer-core": "workspace:*",
-    "@atlas/artifact": "workspace:*"
+    "@atlas/analyzer-ts": "workspace:*",
+    "@atlas/artifact": "workspace:*",
+    "@atlas/ingest": "workspace:*",
+    "@atlas/schema": "workspace:*"
   },
   "devDependencies": {
     "@atlas/test-fixtures": "workspace:*"
+  },
+  "bin": {
+    "atlas": "./bin/atlas.js"
   }
 }

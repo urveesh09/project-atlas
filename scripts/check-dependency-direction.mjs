@@ -20,7 +20,7 @@ const ALLOWED = {
   '@atlas/layout': ['@atlas/schema'],
   '@atlas/artifact': ['@atlas/schema'],
   '@atlas/analyzer-core': ['@atlas/schema', '@atlas/ingest', '@atlas/analyzer-ts', '@atlas/graph', '@atlas/history', '@atlas/layout', '@atlas/artifact'],
-  '@atlas/cli': ['@atlas/schema', '@atlas/ingest', '@atlas/analyzer-core', '@atlas/artifact', '@atlas/graph', '@atlas/layout', '@atlas/web'],
+  '@atlas/cli': ['@atlas/schema', '@atlas/ingest', '@atlas/analyzer-ts', '@atlas/analyzer-core', '@atlas/artifact', '@atlas/graph', '@atlas/layout', '@atlas/web'],
   '@atlas/test-fixtures': ['@atlas/schema'],
   // The viewer consumes artifacts, schema, graph queries and layout output only.
   '@atlas/web': ['@atlas/schema', '@atlas/artifact', '@atlas/graph', '@atlas/layout'],
@@ -86,7 +86,7 @@ for (const { dir, json } of packages) {
   for (const file of sourceFiles(dir)) {
     const text = readFileSync(file, 'utf8');
     const isTest = file.includes(`${path.sep}test${path.sep}`);
-    for (const match of text.matchAll(/(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"](@atlas\/[a-z-]+)['"]/g)) {
+    for (const match of text.matchAll(/(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"](@atlas\/[a-z-]+)(?:\/[a-z-]+)?['"]/g)) {
       const target = match[1];
       if (target === name) continue;
       const declared = deps.includes(target) || (isTest && devDeps.includes(target));
