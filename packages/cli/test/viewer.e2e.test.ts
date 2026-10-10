@@ -137,30 +137,40 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
   });
 
   it('J3: explains a diagnostic with policy, evidence and limits', async () => {
-    await page.keyboard.press('/');
-    await page.keyboard.press('Control+A');
-    await page.keyboard.type('router.ts');
-    await page.keyboard.press('Enter');
-    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('router.ts');
-    await tabToTabList(page);
-    await page.keyboard.press('End');
-    await page.keyboard.press('ArrowLeft');
-    expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toMatch(/^Findings/);
-    const panel = await page.locator('[role="tabpanel"]').innerText();
-    expect(panel).toContain('Static value dependency cycle detected');
-    // Witnesses are ordered by canonical IDs, which include the local repo UUID.
-    // Either rotation of these same two independently known edges is valid.
-    const witnesses = [
-      'src/server/router.ts → src/server/handlers.ts → src/server/router.ts',
-      'src/server/handlers.ts → src/server/router.ts → src/server/handlers.ts',
-    ];
-    expect(witnesses.some((w) => panel.includes(w))).toBe(true);
-    const sourceMatch = panel.match(/In (src\/server\/(?:router|handlers)\.ts)/);
-    expect(sourceMatch).not.toBeNull();
-    findingSourcePath = sourceMatch![1]!;
-    expect(panel).toContain('not a runtime deadlock');
-    expect(panel).toMatch(/WARNING/);
-    await capture(page, 'findings');
+    // Inspect both members: the same cycle names its subject only when
+    // another member is focused. A cycle has no single source range.
+    for (const file of ['router.ts', 'handlers.ts']) {
+      await page.keyboard.press('/');
+      await page.keyboard.press('Control+A');
+      await page.keyboard.type(file);
+      await page.keyboard.press('Enter');
+      await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(file);
+      await tabToTabList(page);
+      await page.keyboard.press('End');
+      await page.keyboard.press('ArrowLeft');
+      expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toMatch(/^Findings/);
+      const panel = await page.locator('[role="tabpanel"]').innerText();
+      expect(panel).toContain('Static value dependency cycle detected');
+      // Witnesses are ordered by canonical IDs, which include the local repo UUID.
+      // Either rotation of these same two independently known edges is valid.
+      const witnesses = [
+        'src/server/router.ts → src/server/handlers.ts → src/server/router.ts',
+        'src/server/handlers.ts → src/server/router.ts → src/server/handlers.ts',
+      ];
+      expect(witnesses.some((w) => panel.includes(w))).toBe(true);
+      const subject = page.locator('[role="tabpanel"] .finding-subject .link');
+      if (await subject.count()) {
+        findingSourcePath = await subject.innerText();
+        expect(findingSourcePath).not.toBe(`src/server/${file}`);
+      } else {
+        expect(await page.locator('[role="tabpanel"] .finding-subject').count()).toBe(0);
+        findingSourcePath = `src/server/${file}`;
+      }
+      expect(['src/server/router.ts', 'src/server/handlers.ts']).toContain(findingSourcePath);
+      expect(panel).toContain('not a runtime deadlock');
+      expect(panel).toMatch(/WARNING/);
+      if (file === 'router.ts') await capture(page, 'findings');
+    }
   });
 
   it('opens verified source read-only from a finding, and Escape returns', async () => {

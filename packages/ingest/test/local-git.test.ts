@@ -1,4 +1,5 @@
 import { existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -98,7 +99,8 @@ describe('local repository discovery', () => {
     try {
       const found = await discoverLocalRepository(worktree);
       expect(found.linkedWorktree).toBe(true);
-      expect(path.resolve(found.commonDir)).toBe(path.resolve(fixture.dir, '.git'));
+      // Git can expand Windows 8.3 paths written in the worktree metadata.
+      expect(await realpath(found.commonDir)).toBe(await realpath(path.join(fixture.dir, '.git')));
       const opened = await openLocalRepository(worktree);
       try {
         expect(await resolveLocalCommit(opened.repo, opened.git)).toBe(fixture.commits[1]);
@@ -308,4 +310,3 @@ describe('bounded processes', () => {
     await expect(run).rejects.toMatchObject({ code: 'CANCELLED' });
   });
 });
-
