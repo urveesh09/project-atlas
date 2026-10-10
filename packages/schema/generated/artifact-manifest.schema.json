@@ -1,13 +1,16 @@
 {
   "$id": "https://atlas.invalid/schemas/artifact-manifest.schema.json",
-  "title": "ATLAS artifact-manifest (atlas.artifact/1.0.0)",
+  "title": "ATLAS artifact-manifest (atlas.artifact/1.1.0)",
   "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
     "artifactVersion": {
       "type": "string",
-      "const": "atlas.artifact/1.0.0"
+      "enum": [
+        "atlas.artifact/1.0.0",
+        "atlas.artifact/1.1.0"
+      ]
     },
     "schemaVersion": {
       "type": "string",
@@ -224,6 +227,19 @@
               "mediaType": {
                 "type": "string",
                 "const": "application/json"
+              },
+              "encoding": {
+                "type": "string",
+                "const": "atlas.graph.indexed/1"
+              },
+              "encodedSha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "decodedBytes": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 104857600
               }
             },
             "required": [
@@ -447,6 +463,19 @@
         "mediaType": {
           "type": "string",
           "const": "application/json"
+        },
+        "encoding": {
+          "type": "string",
+          "const": "atlas.graph.indexed/1"
+        },
+        "encodedSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "decodedBytes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 104857600
         }
       },
       "required": [
@@ -482,6 +511,19 @@
         "mediaType": {
           "type": "string",
           "const": "application/json"
+        },
+        "encoding": {
+          "type": "string",
+          "const": "atlas.graph.indexed/1"
+        },
+        "encodedSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "decodedBytes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 104857600
         }
       },
       "required": [
@@ -521,6 +563,19 @@
           "mediaType": {
             "type": "string",
             "const": "application/json"
+          },
+          "encoding": {
+            "type": "string",
+            "const": "atlas.graph.indexed/1"
+          },
+          "encodedSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "decodedBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 104857600
           }
         },
         "required": [

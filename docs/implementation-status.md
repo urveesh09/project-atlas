@@ -2,7 +2,7 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone:** M1 complete (Gate G1 passed locally on Windows, 10 October 2026; Linux confirmation pending the first CI run). **Next task:** P2.1 Parser facts.
+**Current milestone:** M2 / Gate G2 complete locally on Windows, 10 October 2026. Cross-platform confirmation is tracked through the first CI run. **Next task:** P3.1 Production layout; do not implement history/runtime prematurely.
 
 ## Phase 0: prove constraints and lock contracts
 
@@ -51,12 +51,45 @@ Carried forward: the CLI end-to-end suite has run on Windows; the Linux run arri
 
 ![atlas analyze and inspect on the Harbor demo](images/atlas-inspect-harbor.png)
 
+## Phase 2: static analysis, graph and functional viewer
+
+| Task | Status | Evidence | Checks |
+|---|---|---|---|
+| P2.1 Parser facts | Done | Supported TS/JS imports/declarations/ranges, text and token line counts, per-callable cyclomatic contributions, nested callable isolation, malformed/deep syntax failures | `analyzer-ts/test/extract.test.ts`, `complexity.test.ts`; no partial-AST dependency claims |
+| P2.2 Resolver implementation | Done | Compiler host accesses only the indexed virtual tree/config/workspace map; explicit inferred/exact confidence and unresolved reasons | `analyzer-ts/test/resolve.test.ts`; real filesystem/network instrumentation reports zero calls, with an armed filesystem control |
+| P2.3 Graph aggregation/queries | Done | Grouped evidence, indexed adjacency, unique degree, package rollups, deterministic iterative SCC/witness, search and bounded reach | `graph/test/graph.test.ts`; 20k-node and 100k-edge internal fixtures (the product's included-file cap remains 10k) |
+| P2.4 Metrics/rules | Done | Hand-defined line/complexity/degree metrics; shared rule catalog and authored explanations; source/observation/member evidence | `analyzer-core/test/analyze.test.ts`: Harbor expected imports, degree, one cycle/witness, findings, null history; independent complexity tests |
+| P2.5 Parser isolation/cache | Done | Bounded child pool, timeout/process-tree kill, crash/OOM handling, deterministic merge, verified serializable fact caches | `analyzer-core/test/parse-pool.test.ts`; timeout child proven gone; malicious/corrupt cache rejected |
+| P2.6 Functional viewer/serve | Done | Tree/search/inspector/dependency/findings/source/deep links; browser-only artifact open; loopback session, Host/Origin and file boundaries | `cli/test/serve.test.ts` (13 security tests), `viewer.e2e.test.ts` (8 browser journeys); browser prerequisites enforced in CI |
+| Phase 2 transport gate | Done | Lossless indexed graph format preserving canonical IDs and evidence; legacy imports; separate wire/decoded limits and hashes | [ADR-018](adr/ADR-018-indexed-graph-transport.md); `artifact/test/indexed-graph.test.ts` (15), existing artifact/security fixtures, generated JSON Schema |
+
+### Gate G2 assessment
+
+| Requirement | Evidence |
+|---|---|
+| Find a file | Keyboard-only search and synchronized tree/inspector browser journey |
+| Inspect direct dependencies and limitations | Independent Harbor targets/counts; type/dynamic/external/context labels; keyboard navigation follows real targets |
+| Explain a finding | Cycle witness, raw metrics, static edge policy and authored limitations in the findings inspector |
+| Functional source/artifact paths | Verified committed source; unattached source remains unavailable; file-picker loading performs no upload |
+| Medium analysis and size | [20-run report](benchmarks/phase2-analysis.md), cold fact cache after one warm-up: p50 8.21 s, p95 8.38 s, worst 8.57 s; artifact 2,146,223 bytes (2.05 MiB). Both original targets pass |
+| Preserve deterministic/full-ID graph | Exact indexed/plain/browser round trips, canonical hash and semantic validation; no dropped declarations/evidence |
+| Complete checks | `pnpm verify` with `ATLAS_REQUIRE_BROWSER_TESTS=1`: 20 test files, 417 tests passed, 2 live-acquisition tests intentionally skipped locally and covered by the separate live CI job; generated contracts, strict source/test/viewer type checks, build and dependency direction pass |
+
+![Phase 2 browser explorer](images/phase2-overview.png)
+
+Decisions and remaining boundaries: [ADR-019](adr/ADR-019-phase2-static-analysis-and-viewer.md). The production 3D city/accessibility/device budgets remain Phase 3; sampled Git history/churn/hotspots remain Phase 4; hosted egress/container/publication gates remain Phase 5. The functional viewer is not represented as the finished 3D product. Reference-class GPU performance, external 2 GiB hosted enforcement and real-repository coverage remain later measured gates.
+
 ## How to reproduce the evidence
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm verify                                     # typecheck, dependency direction, contracts, tests
+pnpm --filter @atlas/web exec playwright install --with-deps chromium
+pnpm verify                                     # typecheck, viewer build, dependencies, contracts, tests
 ATLAS_NETWORK_TESTS=1 pnpm exec vitest run packages/ingest/test/github.test.ts
 pnpm spike:render                           # writes docs/benchmarks/phase0-render-spike.{md,json}
 pnpm build && pnpm atlas analyze <repo> --out ./atlas-output && pnpm atlas inspect ./atlas-output
+pnpm atlas serve ./atlas-output --repo <repo>
+node scripts/bench-analysis.mjs                  # 20 measured HEAD runs, cold fact cache
 ```
+
+CI sets `ATLAS_REQUIRE_BROWSER_TESTS=1` so missing Chromium/viewer assets are failures rather than skipped journeys. Set `ATLAS_CAPTURE_VIEWER=1` for the browser E2E file to regenerate the three Phase 2 screenshots. PowerShell environment syntax is `$env:ATLAS_REQUIRE_BROWSER_TESTS = '1'`; the inline `VAR=1` examples above use POSIX shell syntax.

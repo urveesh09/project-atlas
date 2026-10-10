@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -23,6 +23,16 @@ try {
   viewerDirectory();
 } catch {
   viewerBuilt = false;
+}
+if (process.env['ATLAS_REQUIRE_BROWSER_TESTS'] === '1' && (!browserAvailable || !viewerBuilt)) {
+  throw new Error('Required browser tests need installed Chromium and a built viewer. Run playwright install chromium and pnpm build:web.');
+}
+
+async function capture(page: Page, name: string): Promise<void> {
+  if (process.env['ATLAS_CAPTURE_VIEWER'] !== '1') return;
+  const dir = path.resolve('docs/images');
+  mkdirSync(dir, { recursive: true });
+  await page.screenshot({ path: path.join(dir, `phase2-${name}.png`), fullPage: true });
 }
 
 let work: string;
@@ -88,10 +98,12 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
   let page: Page;
   let requests: string[];
   let errors: string[];
+  let findingSourcePath: string;
 
   beforeAll(async () => {
     ({ page, requests, errors } = await openViewer());
     await page.waitForSelector('#overview-title');
+    await capture(page, 'overview');
   });
 
   it('J1: finds a named file by search', async () => {
@@ -118,6 +130,7 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
     expect(text).toContain('dynamic import');
     expect(text).toMatch(/TYPE-ONLY\s*1/i);
     expect(text).toContain('inferred');
+    await capture(page, 'dependencies');
     await tabUntil(page, /^src\/server\/handlers\.ts$/);
     await page.keyboard.press('Enter');
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('handlers.ts');
@@ -135,15 +148,29 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
     expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toMatch(/^Findings/);
     const panel = await page.locator('[role="tabpanel"]').innerText();
     expect(panel).toContain('Static value dependency cycle detected');
-    expect(panel).toContain('src/server/router.ts → src/server/handlers.ts → src/server/router.ts');
+    // Witnesses are ordered by canonical IDs, which include the local repo UUID.
+    // Either rotation of these same two independently known edges is valid.
+    const witnesses = [
+      'src/server/router.ts → src/server/handlers.ts → src/server/router.ts',
+      'src/server/handlers.ts → src/server/router.ts → src/server/handlers.ts',
+    ];
+    expect(witnesses.some((w) => panel.includes(w))).toBe(true);
+    const sourceMatch = panel.match(/In (src\/server\/(?:router|handlers)\.ts)/);
+    expect(sourceMatch).not.toBeNull();
+    findingSourcePath = sourceMatch![1]!;
     expect(panel).toContain('not a runtime deadlock');
     expect(panel).toMatch(/WARNING/);
+    await capture(page, 'findings');
   });
 
   it('opens verified source read-only from a finding, and Escape returns', async () => {
     await tabUntil(page, /^View source at this line$/);
     await page.keyboard.press('Enter');
-    await expect.poll(() => page.locator('.source-panel').innerText()).toContain("import { handleQuote } from './handlers';");
+    const expectedImport = findingSourcePath === 'src/server/router.ts'
+      ? "import { handleQuote } from './handlers';"
+      : "import { routes } from './router';";
+    await expect.poll(() => page.locator('.source-panel').innerText()).toContain(findingSourcePath);
+    await expect.poll(() => page.locator('.source-panel').innerText()).toContain(expectedImport);
     await page.keyboard.press('Escape');
     await expect.poll(() => page.locator('.source-panel').count()).toBe(0);
   });

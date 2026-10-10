@@ -118,9 +118,13 @@ const report = {
   secondsP95: +(pct(0.95) / 1000).toFixed(2),
   secondsMax: +(sorted.at(-1) / 1000).toFixed(2),
   budgetSecondsP95: 15,
+  budgetArtifactBytes: 5 * 1024 * 1024,
+  artifactVersion: last.packed.manifest.artifactVersion,
   artifactCompressedBytes: last.packed.manifest.chunks.reduce((a, ch) => a + ch.compressedBytes, 0),
 };
-report.pass = report.secondsP95 <= report.budgetSecondsP95;
+report.timePass = report.secondsP95 <= report.budgetSecondsP95;
+report.sizePass = report.artifactCompressedBytes <= report.budgetArtifactBytes;
+report.pass = report.timePass && report.sizePass;
 const outDir = path.join(root, 'docs/benchmarks');
 mkdirSync(outDir, { recursive: true });
 writeFileSync(path.join(outDir, 'phase2-analysis.json'), `${JSON.stringify(report, null, 2)}\n`);
@@ -147,9 +151,11 @@ writeFileSync(
     `| p50 | ${report.secondsP50} s | |`,
     `| p95 | ${report.secondsP95} s | ≤ ${report.budgetSecondsP95} s |`,
     `| max | ${report.secondsMax} s | |`,
+    `| artifact | ${(report.artifactCompressedBytes / 1024 / 1024).toFixed(2)} MiB | ≤ 5 MiB |`,
     '',
-    `**${report.pass ? 'Pass' : 'Fail'}.** Times cover the whole HEAD pipeline after acquisition (local objects) and include artifact packing, but not writing to disk.`,
+    `**${report.pass ? 'Pass' : 'Fail'}.** Time: ${report.timePass ? 'pass' : 'fail'}; artifact size: ${report.sizePass ? 'pass' : 'fail'}. Times cover the whole HEAD pipeline after acquisition (local objects) and include artifact packing, but not writing to disk. Format: ${report.artifactVersion}; indexed graph transport per ADR-018.`,
     '',
   ].join('\n'),
 );
 console.log(JSON.stringify(report, null, 2));
+if (!report.pass) process.exitCode = 1;

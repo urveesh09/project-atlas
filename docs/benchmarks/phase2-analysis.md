@@ -1,6 +1,6 @@
 # Phase 2 HEAD analysis benchmark (Gate G2)
 
-Recorded 2026-10-10T12:13:27.126Z by `node scripts/bench-analysis.mjs`. 3 measured runs after one warm-up, each with a cold fact cache, so every file is parsed every time.
+Recorded 2026-10-10T12:33:30.545Z by `node scripts/bench-analysis.mjs`. 20 measured runs after one warm-up, each with a cold fact cache, so every file is parsed every time.
 
 ## Environment
 
@@ -15,14 +15,15 @@ Recorded 2026-10-10T12:13:27.126Z by `node scripts/bench-analysis.mjs`. 3 measur
 ## Fixture (synthetic "medium", deterministic)
 
 - 3,142 files, 3,130 parsed, 30,000 import statements, 29,584 edges
-- Artifact: 9484 KiB compressed (medium budget 5 MiB)
+- Artifact: 2096 KiB compressed (medium budget 5 MiB)
 
 ## Result
 
 | Measure | Value | Budget |
 |---|---:|---:|
-| p50 | 6.27 s | |
-| p95 | 6.28 s | ≤ 15 s |
-| max | 6.28 s | |
+| p50 | 8.21 s | |
+| p95 | 8.38 s | ≤ 15 s |
+| max | 8.57 s | |
+| artifact | 2.05 MiB | ≤ 5 MiB |
 
-**Pass.** Times cover the whole HEAD pipeline after acquisition (local objects) and include artifact packing, but not writing to disk.
+**Pass.** Time: pass; artifact size: pass. Times cover the whole HEAD pipeline after acquisition (local objects) and include artifact packing, but not writing to disk. Format: atlas.artifact/1.1.0; indexed graph transport per ADR-018.

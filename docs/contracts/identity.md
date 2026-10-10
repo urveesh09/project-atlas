@@ -24,3 +24,5 @@ Framing makes `["ab","c"]` and `["a","bc"]` hash differently, and `1` differ fro
 | Analysis | `analysis` | 32 random bytes (not reproducible by design) |
 
 Canonical JSON (`canonicalJson`) sorts object keys by UTF-16 code unit, uses ECMAScript number formatting and rejects non-finite numbers, `undefined`, non-plain objects and ill-formed Unicode. Repository paths are ordered by UTF-8 bytes (`compareUtf8`), never by locale.
+
+Artifact 1.1 may store graph references as bounded array indices and omit exactly derivable IDs ([ADR-018](../adr/ADR-018-indexed-graph-transport.md)). This is transport encoding only: decoded graphs use the same full IDs and canonical hash as above. `sha256` verifies decoded canonical content; `encodedSha256` verifies wire JSON; `decodedBytes` bounds expansion before IDs are reconstructed. Plain artifact 1.0 remains readable. No cross-artifact identity or historical continuity guarantee changes.

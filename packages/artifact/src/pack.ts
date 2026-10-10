@@ -1,8 +1,12 @@
 import {
+  ARTIFACT_VERSION,
+  INDEXED_GRAPH_ENCODING,
   canonicalJson,
+  encodeIndexedGraph,
   sha256Hex,
   utf8Bytes,
   validateArtifactBundle,
+  validateGraphSnapshot,
   type ArtifactBundle,
   type ArtifactManifest,
   type ChunkRef,
@@ -45,6 +49,7 @@ export function encodeCanonical(value: unknown): { bytes: Uint8Array; sha256: st
 export function packArtifact(
   input: { manifest: ManifestDraft; graphs: GraphSnapshot[]; history: HistoryArtifact; layout: LayoutArtifact },
   compress: Compressor,
+  options: { graphEncoding?: 'indexed' | 'plain' } = {},
 ): PackedArtifact {
   const chunks = new Map<string, Uint8Array>();
   const ref = (path: string, value: unknown): ChunkRef => {
@@ -56,12 +61,23 @@ export function packArtifact(
   const frames: FrameDescriptor[] = input.manifest.frames.map((frame, i) => {
     const graph = input.graphs[i];
     if (!graph) throw new ArtifactPackError([{ code: 'FRAME_COUNT', path: 'graphs', message: 'Missing graph for frame' }]);
-    return { ...frame, graphChunk: ref(`graphs/${graph.snapshotId}.json.gz`, graph) };
+    const valid = validateGraphSnapshot(graph, { objectFormat: input.manifest.repo.objectFormat });
+    if (!valid.ok) throw new ArtifactPackError(valid.issues);
+    const graphChunk = ref(`graphs/${graph.snapshotId}.json.gz`, options.graphEncoding === 'plain' ? graph : encodeIndexedGraph(graph));
+    if (options.graphEncoding !== 'plain') {
+      const canonical = encodeCanonical(graph);
+      graphChunk.encoding = INDEXED_GRAPH_ENCODING;
+      graphChunk.encodedSha256 = graphChunk.sha256;
+      graphChunk.sha256 = canonical.sha256;
+      graphChunk.decodedBytes = canonical.bytes.length;
+    }
+    return { ...frame, graphChunk };
   });
   const historyChunk = ref('history/history.json.gz', input.history);
   const layoutChunk = ref('layout/layout.json.gz', input.layout);
   const manifest: ArtifactManifest = {
     ...input.manifest,
+    artifactVersion: options.graphEncoding === 'plain' ? input.manifest.artifactVersion : ARTIFACT_VERSION,
     frames,
     historyChunk,
     layoutChunk,

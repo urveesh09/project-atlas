@@ -3,10 +3,12 @@ import {
   GRAPH_SCHEMA_VERSION,
   LIMITS,
   canonicalJson,
+  decodeIndexedGraph,
   isCompatibleContractVersion,
   sha256Hex,
   validateArtifactBundle,
   validateManifest,
+  utf8ByteLength,
   type ArtifactBundle,
   type ValidationIssue,
 } from '@atlas/schema';
@@ -84,7 +86,7 @@ export async function loadArtifact(source: ArtifactSource, decompress: Decompres
   let uncompressedTotal = 0;
   for (const chunk of manifest.chunks) {
     compressedTotal += chunk.compressedBytes;
-    uncompressedTotal += chunk.uncompressedBytes;
+    uncompressedTotal += Math.max(chunk.uncompressedBytes, chunk.decodedBytes ?? 0);
     if (compressedTotal > LIMITS.artifactCompressedBytes || uncompressedTotal > LIMITS.artifactUncompressedBytes) {
       return fail('ARTIFACT_INVALID', 'LIMIT', chunk.path, 'Artifact exceeds the cumulative size limits');
     }
@@ -98,11 +100,24 @@ export async function loadArtifact(source: ArtifactSource, decompress: Decompres
       return fail('ARTIFACT_INVALID', error instanceof DecompressionLimitError ? 'DECOMPRESSION_LIMIT' : 'DECOMPRESSION', chunk.path, 'Chunk could not be decompressed within its declared size');
     }
     if (bytes.length !== chunk.uncompressedBytes) return fail('ARTIFACT_INVALID', 'CHUNK_LENGTH', chunk.path, 'Decompressed length differs from the manifest');
-    if (sha256Hex(bytes) !== chunk.sha256) return fail('ARTIFACT_INVALID', 'CHUNK_HASH', chunk.path, 'Chunk content hash differs from the manifest');
+    if (sha256Hex(bytes) !== (chunk.encodedSha256 ?? chunk.sha256)) return fail('ARTIFACT_INVALID', 'CHUNK_HASH', chunk.path, 'Chunk content hash differs from the manifest');
     const parsed = parseJson(bytes, chunk.path);
     if (!parsed.ok) return parsed.result;
     if (canonicalJson(parsed.value) !== parsed.text) return fail('ARTIFACT_INVALID', 'NOT_CANONICAL', chunk.path, 'Chunk is not canonical JSON');
-    decoded.set(chunk.path, parsed.value);
+    if (chunk.encoding) {
+      let graph;
+      try {
+        graph = decodeIndexedGraph(parsed.value, chunk.decodedBytes);
+      } catch (error) {
+        return fail('ARTIFACT_INVALID', error instanceof RangeError ? 'DECODED_LIMIT' : 'CHUNK_ENCODING', chunk.path, 'Indexed graph is invalid or exceeds its decoded size limit');
+      }
+      const canonical = canonicalJson(graph);
+      if (utf8ByteLength(canonical) !== chunk.decodedBytes) return fail('ARTIFACT_INVALID', 'CHUNK_LENGTH', chunk.path, 'Decoded canonical length differs from the manifest');
+      if (sha256Hex(canonical) !== chunk.sha256) return fail('ARTIFACT_INVALID', 'CHUNK_HASH', chunk.path, 'Decoded canonical hash differs from the manifest');
+      decoded.set(chunk.path, graph);
+    } else {
+      decoded.set(chunk.path, parsed.value);
+    }
   }
 
   const result = validateArtifactBundle({

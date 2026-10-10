@@ -5,6 +5,7 @@
     "declaration": false,
     "declarationMap": false,
     "noEmit": true,
+    "lib": ["es2024", "dom"],
     "rootDir": "."
   },
   "include": [

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { describe, expect, it } from 'vitest';
-import { canonicalJsonSha256, validateArtifactBundle, validateGraphSnapshot, type ValidationResult } from '@atlas/schema';
+import { canonicalJsonSha256, encodeIndexedGraph, validateArtifactBundle, validateGraphSnapshot, type ValidationResult } from '@atlas/schema';
 import { buildHandcraftedArtifact } from '@atlas/test-fixtures';
 
 /**
@@ -37,6 +37,7 @@ describe('generated JSON Schema agrees with the runtime schema (independent vali
   };
   const cases = [
     ['graph-snapshot', () => artifact.graph],
+    ['graph-indexed', () => encodeIndexedGraph(artifact.graph)],
     ['history-artifact', () => artifact.history],
     ['layout-artifact', () => artifact.layout],
     ['artifact-manifest', () => artifact.manifest],

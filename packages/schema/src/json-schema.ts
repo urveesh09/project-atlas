@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, CapabilitiesSchema, ErrorEnvelopeSchema, JobStatusSchema } from './api.js';
 import { ArtifactManifestSchema } from './artifact.js';
 import { GraphSnapshotSchema } from './graph.js';
+import { IndexedGraphSchema } from './indexed-graph.js';
 import { HistoryArtifactSchema } from './history.js';
 import { LayoutArtifactSchema } from './layout.js';
 import { LIMITS } from './limits.js';
@@ -14,6 +15,7 @@ import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION, LAYOUT_VERSION, METRIC_DEFINITI
  */
 const ARTIFACT_SCHEMAS = {
   'graph-snapshot': GraphSnapshotSchema,
+  'graph-indexed': IndexedGraphSchema,
   'history-artifact': HistoryArtifactSchema,
   'layout-artifact': LayoutArtifactSchema,
   'artifact-manifest': ArtifactManifestSchema,
@@ -34,6 +36,7 @@ function convert(schema: z.ZodType, io: 'input' | 'output' = 'output'): Record<s
 export function artifactJsonSchemas(): Record<string, Record<string, unknown>> {
   const versions: Record<string, string> = {
     'graph-snapshot': GRAPH_SCHEMA_VERSION,
+    'graph-indexed': 'atlas.graph.indexed/1',
     'history-artifact': GRAPH_SCHEMA_VERSION,
     'layout-artifact': LAYOUT_VERSION,
     'artifact-manifest': ARTIFACT_VERSION,

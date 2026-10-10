@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { compareAscii, compareUtf8 } from './canonical.js';
+import { canonicalJson, compareAscii, compareUtf8 } from './canonical.js';
 import { ArtifactManifestSchema, type ArtifactManifest } from './artifact.js';
 import { FILE_EDGE_KINDS, GraphSnapshotSchema, type GraphNode, type GraphSnapshot } from './graph.js';
 import { HistoryArtifactSchema, type HistoryArtifact } from './history.js';
@@ -422,12 +422,23 @@ export function validateManifest(input: unknown): ValidationResult<ArtifactManif
   for (const chunk of manifest.chunks) {
     if (chunkPaths.has(chunk.path)) sink.add('DUPLICATE_CHUNK', chunk.path, 'Duplicate chunk path');
     chunkPaths.add(chunk.path);
-    uncompressed += chunk.uncompressedBytes;
+    uncompressed += Math.max(chunk.uncompressedBytes, chunk.decodedBytes ?? 0);
+    if (chunk.encoding) {
+      if (!chunk.path.startsWith('graphs/') || manifest.artifactVersion !== 'atlas.artifact/1.1.0' || chunk.encodedSha256 === undefined || chunk.decodedBytes === undefined) {
+        sink.add('CHUNK_ENCODING', chunk.path, 'Indexed graph chunks require artifact 1.1 and complete encoded/decoded integrity metadata');
+      }
+    } else if (chunk.encodedSha256 !== undefined || chunk.decodedBytes !== undefined) {
+      sink.add('CHUNK_ENCODING', chunk.path, 'Plain chunks cannot carry indexed graph metadata');
+    }
     compressed += chunk.compressedBytes;
   }
   if (uncompressed > LIMITS.artifactUncompressedBytes) sink.add('LIMIT', 'chunks', 'Artifact exceeds the uncompressed size limit');
   if (compressed > LIMITS.artifactCompressedBytes) sink.add('LIMIT', 'chunks', 'Artifact exceeds the compressed transport limit');
   const listed = (path: string, sha: string) => manifest.chunks.some((c) => c.path === path && c.sha256 === sha);
+  for (const ref of [manifest.historyChunk, manifest.layoutChunk, ...manifest.frames.map((f) => f.graphChunk)]) {
+    const chunk = manifest.chunks.find((c) => c.path === ref.path);
+    if (chunk && canonicalJson(chunk) !== canonicalJson(ref)) sink.add('CHUNK_REFERENCE', ref.path, 'Repeated chunk references must agree in all fields');
+  }
   if (manifest.historyChunk.path !== 'history/history.json.gz' || !listed(manifest.historyChunk.path, manifest.historyChunk.sha256)) {
     sink.add('CHUNK_REF', 'historyChunk', 'historyChunk must be history/history.json.gz and listed in chunks');
   }

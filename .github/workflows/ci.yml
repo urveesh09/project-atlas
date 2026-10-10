@@ -31,10 +31,10 @@ jobs:
           cache: pnpm
       - run: git --version
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm check:deps
-      - run: pnpm contracts:check
-      - run: pnpm test
+      - run: pnpm --filter @atlas/web exec playwright install --with-deps chromium
+      - run: pnpm verify
+        env:
+          ATLAS_REQUIRE_BROWSER_TESTS: '1'
 
   acquisition:
     name: live GitHub acquisition spike
