@@ -2,7 +2,7 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone:** Phase 6 candidate verification: Phase 5 implementation has been reviewed; pinned real-repository evidence, repeated HEAD capacity runs, portable distribution and release audit are prepared. G6 remains open for human usability/assistive review, exact reference-device capacity and operator infrastructure acceptance. Runtime instrumentation remains deferred.
+**Current milestone (2026-10-11):** all plan phases 0–6 are implemented and CI is green. Phase 6 code-side evidence is complete, including the real corpus, the portable CLI candidate and the 20-sample large-history capacity gate under 4 CPU/2 GiB (p95 202.37 s, [ADR-037](adr/ADR-037-export-hashing-and-structural-proofs.md)). G6 remains open only for the human, reference-hardware and deployment acceptance items R6-01…R6-07 in the [release audit](release/release-audit.md). Runtime instrumentation remains deferred. Agents: read [AGENTS.md](../AGENTS.md).
 
 ## Phase 0: prove constraints and lock contracts
 

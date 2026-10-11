@@ -140,6 +140,7 @@ R6-01 and R6-02, then R6-05, R6-06 and R6-07.
 
 | Need | Document |
 |---|---|
+| Rules and pitfalls for coding agents | [AGENTS.md](../AGENTS.md) |
 | Product specification | [master plan](plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md) |
 | What is built and its evidence | [implementation status](implementation-status.md) |
 | Requirement-by-requirement trace and open items | [release audit](release/release-audit.md) |

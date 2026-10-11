@@ -141,6 +141,7 @@ The dependency direction is enforced in CI: schema is foundational, analyzers ne
 
 ## Documentation
 
+- [Start here](docs/START_HERE.md) for people; [AGENTS.md](AGENTS.md) for coding agents
 - [V0.1 master plan](docs/plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md): the specification
 - [Implementation status](docs/implementation-status.md): tasks, evidence and the next step
 - [Architecture decision records](docs/adr/)
