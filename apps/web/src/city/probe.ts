@@ -11,6 +11,7 @@ export interface CityProbe {
     lens: string;
     theme: string;
     animated: boolean;
+    lite: boolean;
     cameraMoving: boolean;
     shadowDrawCalls: number;
     zoom: number;

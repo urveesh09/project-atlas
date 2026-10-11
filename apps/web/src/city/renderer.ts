@@ -129,6 +129,8 @@ export class CityRenderer {
   /** Shared time for waves, clouds and foliage; advances only when ambient motion is allowed. */
   private readonly clock: Clock = { value: 0 };
   private readonly animated: boolean;
+  /** Low detail, chosen by the viewer or forced by a software renderer. */
+  private readonly lite: boolean;
   private ambientFrame = 0;
   private lastAmbient = 0;
   /** Ambient frames yield to the rest of the page until this time (ms). */
@@ -195,11 +197,17 @@ export class CityRenderer {
     this.spec = THEMES[theme];
     this.archetypes = this.spec.archetypes;
     this.reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    this.shadowsOn = !lowQuality;
     const ground = this.spec.ground;
     const capacity = Math.max(1, city.plotCount, city.buildings.length);
     this.renderer = new THREE.WebGLRenderer({ antialias: !lowQuality, alpha: false, powerPreference: 'low-power' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, lowQuality ? 1 : 1.5));
+    // A software renderer (no GPU, e.g. CI's SwiftShader) gets the low-detail scene: shadows,
+    // trees, clouds, waves and facade patterns cost CPU time that the rest of the page needs.
+    const info = this.renderer.getContext().getExtension('WEBGL_debug_renderer_info');
+    const gpu = info ? String(this.renderer.getContext().getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+    this.lite = lowQuality || /swiftshader|llvmpipe|software|microsoft basic/i.test(gpu);
+    const lite = this.lite;
+    this.shadowsOn = !lite;
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, lite ? 1 : 1.5));
     this.renderer.setClearColor(this.spec.sky.haze);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     if (this.shadowsOn) {
@@ -276,6 +284,19 @@ export class CityRenderer {
     slab(6.5, -0.02, 0.6, ground.beach);
     slab(5.5, 0.03, 0.2, ground.belt);
     slab(3, 0.07, 0.2, ground.road);
+    // Lawns and road markings are static flat quads, so they join the ground mesh: fewer draws.
+    const decor = cityDecor(city, theme);
+    const flat = (x: number, y: number, z: number, w: number, d: number, turn: number, tint: string) => {
+      const g = new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2).rotateY(turn).translate(x, y, z).toNonIndexed();
+      const c = new THREE.Color(tint),
+        n = g.getAttribute('position').count,
+        values = new Float32Array(n * 3);
+      for (let k = 0; k < n; k++) values.set([c.r, c.g, c.b], k * 3);
+      g.deleteAttribute('uv');
+      slabs.push(g.setAttribute('color', new THREE.BufferAttribute(values, 3)));
+    };
+    for (const l of decor.lawns) flat(l.x, l.y, l.z, Math.max(0.1, l.width), l.depth, 0, ground.lawn);
+    if (ground.marking) for (const m of decor.markings) flat(m.x, m.y, m.z, m.length, 0.07, m.rotation, ground.marking);
     const groundMesh = new THREE.Mesh(
       this.ownGeometry(mergeGeometries(slabs)),
       this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true })),
@@ -283,10 +304,8 @@ export class CityRenderer {
     for (const g of slabs) g.dispose();
     groundMesh.receiveShadow = true;
     this.scene.add(groundMesh);
-    // Ambient motion needs a GPU: software renderers (CI's SwiftShader) and low detail stay still.
-    const info = this.renderer.getContext().getExtension('WEBGL_debug_renderer_info');
-    const gpu = info ? String(this.renderer.getContext().getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
-    this.animated = !lowQuality && !this.reducedMotion && !/swiftshader|llvmpipe|software|microsoft basic/i.test(gpu);
+    // Ambient motion needs full detail on a GPU, and never runs under reduced motion.
+    this.animated = !lite && !this.reducedMotion;
     this.scene.fog = new THREE.Fog(this.spec.sky.haze, this.extent * 3, this.extent * 9);
     this.sky = skyDome(this.spec.sky, SUN);
     this.ownGeometry(this.sky.geometry);
@@ -295,7 +314,7 @@ export class CityRenderer {
     const beach = new THREE.Vector4(r.x / 100 - 6.5, r.z / 100 - 6.5, (r.x + r.width) / 100 + 6.5, (r.z + r.depth) / 100 + 6.5);
     const ocean = new THREE.Mesh(
       this.ownGeometry(new THREE.CircleGeometry(this.extent * 14, 96).rotateX(-Math.PI / 2)),
-      this.ownMaterial(waterMaterial(this.spec.sky, this.clock, SUN, { island: beach, foam: 1 })),
+      this.ownMaterial(waterMaterial(this.spec.sky, this.clock, SUN, { island: beach, foam: 1, detail: !lite })),
     );
     ocean.position.set(this.origin.x, -0.1, this.origin.z);
     const scenery = sceneryGeometry(this.spec, city, this.extent);
@@ -317,7 +336,7 @@ export class CityRenderer {
       scenery.mist.forEach((m, i) => mist.setMatrixAt(i, matrix.makeScale(m.size, 1, m.size * 0.6).setPosition(m.x, m.y, m.z)));
       this.finish(mist);
     }
-    if (!lowQuality) {
+    if (!lite) {
       const clouds = cloudLayer(this.spec.clouds, this.origin, this.extent, this.clock, (r.width * 7919 + r.depth) >>> 0);
       this.ownGeometry(clouds.mesh.geometry);
       this.ownMaterial(clouds.mesh.material as THREE.Material);
@@ -347,20 +366,13 @@ export class CityRenderer {
     });
     this.finish(districtMesh);
     this.districtDepth = new Map(city.districts.map((d) => [d.id, d.depth]));
-    const decor = cityDecor(city, theme);
-    const lawns = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: ground.lawn })), decor.lawns.length, 'receive');
-    decor.lawns.forEach((l, i) => {
-      matrix.makeScale(Math.max(0.1, l.width), 1, l.depth).setPosition(l.x, l.y, l.z);
-      lawns.setMatrixAt(i, matrix);
-    });
-    this.finish(lawns);
     const coloured = () => this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     const place = (mesh: THREE.InstancedMesh, list: readonly { x: number; y: number; z: number; rotation?: number }[], scale = 1) => {
       list.forEach((p, i) => mesh.setMatrixAt(i, matrix.makeRotationY(p.rotation ?? 0).scale(new THREE.Vector3(scale, scale, scale)).setPosition(p.x, p.y, p.z)));
       this.finish(mesh);
       return mesh;
     };
-    if (!lowQuality) {
+    if (!lite) {
       const foliage = this.ownMaterial(foliageMaterial(this.clock));
       this.spec.trees.forEach((kind, k) => {
         const list = decor.trees.filter((t) => t.kind === k);
@@ -393,14 +405,7 @@ export class CityRenderer {
         bridges.setMatrixAt(i, matrix.makeScale(1, 1, b.length).premultiply(rotation.makeRotationY(b.rotation)).setPosition(b.x, b.y, b.z)),
       );
       this.finish(bridges);
-      if (!lowQuality) place(this.batch(this.ownGeometry(lotusGeometry()), coloured(), decor.lotus.length), decor.lotus);
-    }
-    if (decor.markings.length && ground.marking) {
-      const marks = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: ground.marking })), decor.markings.length, 'receive');
-      decor.markings.forEach((m, i) =>
-        marks.setMatrixAt(i, matrix.makeScale(m.length, 1, 0.07).premultiply(rotation.makeRotationY(m.rotation)).setPosition(m.x, m.y, m.z)),
-      );
-      this.finish(marks);
+      if (!lite) place(this.batch(this.ownGeometry(lotusGeometry()), coloured(), decor.lotus.length), decor.lotus);
     }
     // Fantasy styles wall each package like a town: segments, a cap or merlons, corner towers.
     if (this.spec.walls !== 'none') {
@@ -422,7 +427,7 @@ export class CityRenderer {
           caps.setMatrixAt(i, matrix.makeScale(s.length + 0.06, 0.05, 0.22).premultiply(rotation.makeRotationY(s.rotation)).setPosition(s.x, s.y + wallHeight, s.z)),
         );
         this.finish(caps);
-      } else if (!lowQuality) {
+      } else if (!lite) {
         const teeth: { x: number; y: number; z: number; rotation: number }[] = [];
         for (const s of decor.walls) {
           // Merlons are bounded too; walls past the budget keep a plain parapet.
@@ -446,7 +451,7 @@ export class CityRenderer {
     }
     // Seeded archetype batches share one facade material; each grows on demand. Accent
     // parts share one lens-shaded material per kind and outline.
-    this.facade = this.ownMaterial(facadeMaterial(!lowQuality));
+    this.facade = this.ownMaterial(facadeMaterial(!lite));
     for (const a of this.archetypes) this.bodies.push(this.growable(this.ownGeometry(archetypeGeometry(a)), this.facade, true, 'both', true));
     // Lens-shaded accents (eaves, bands, battlements; corner parts carry dark caps per vertex),
     // stone bases and grey rooftop plant.
@@ -785,7 +790,7 @@ export class CityRenderer {
         continue;
       }
       const heights: number[] = [];
-      if (part.every && !this.lowQuality)
+      if (part.every && !this.lite)
         for (let y = ground + (part.from ?? part.every); y < top - 0.45 && heights.length < MAX_STOREY_PARTS; y += part.every)
           heights.push(y);
       if (part.top) heights.push(top - (part.kind === 'crenel' ? 0.12 : 0.2));
@@ -1320,6 +1325,7 @@ export class CityRenderer {
       lens: this.lens,
       theme: this.theme,
       animated: this.animated,
+      lite: this.lite,
       cameraMoving: this.flight !== null || this.settling,
       zoom: this.pixelsPerUnit(),
       renderer: ext ? String(ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'unknown',

@@ -20,7 +20,7 @@ export function waterMaterial(
   sky: ThemeSpec['sky'],
   time: Clock,
   sun: THREE.Vector3,
-  options: { island: THREE.Vector4; foam: number; deep?: string; shallow?: string; calm?: number },
+  options: { island: THREE.Vector4; foam: number; deep?: string; shallow?: string; calm?: number; detail?: boolean },
 ): THREE.ShaderMaterial {
   const uniforms = THREE.UniformsUtils.merge([
     THREE.UniformsLib.fog,
@@ -40,6 +40,8 @@ export function waterMaterial(
   return new THREE.ShaderMaterial({
     uniforms,
     fog: true,
+    // Without detail (low detail or a software renderer) the sea is a calm, reflective plane.
+    defines: { WATER_DETAIL: options.detail === false ? 0 : 1 },
     vertexShader: `#include <common>
 #include <fog_pars_vertex>
 varying vec3 vWorld;
@@ -86,8 +88,10 @@ void main() {
   vec2 p = vWorld.xz;
   float px = length(fwidth(p));
   // Short-crested sea: rotated octaves drifting in different directions, plus a faint swell.
+  vec2 g = vec2(0.0);
+#if WATER_DETAIL
   mat2 turn = mat2(0.8, -0.6, 0.6, 0.8);
-  vec2 g = atlasOctave(p, 0.11, 1.1, vec2(0.05, 0.03), px);
+  g += atlasOctave(p, 0.11, 1.1, vec2(0.05, 0.03), px);
   g += atlasOctave(turn * p, 0.24, 0.55, vec2(-0.08, 0.05), px);
   g += atlasOctave(p.yx, 0.53, 0.26, vec2(0.11, -0.09), px);
   g += atlasOctave(turn * p.yx, 1.17, 0.12, vec2(-0.16, -0.12), px);
@@ -95,6 +99,7 @@ void main() {
   float swell = 1.0 - smoothstep(0.03, 0.12, 0.09 * px);
   g += vec2(0.94, 0.33) * 0.016 * cos(dot(vec2(0.94, 0.33), p) * 0.09 + time * 0.5) * swell;
   g *= 0.55 * calm;
+#endif
   vec3 n = normalize(vec3(-g.x, 1.0, -g.y));
   vec3 v = normalize(cameraPosition - vWorld);
   float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);

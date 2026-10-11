@@ -65,6 +65,22 @@ bits picked "lit" at random per pixel.
    - The search box cancels its deferred close when refocused. A stale close used to hide
      the results list under new typing.
 
+7. **Software renderers get low detail.** CI run
+   [38160443032](https://github.com/urveesh09/project-atlas/actions/runs/38160443032) failed
+   on `verify (windows-latest)`, while its other seven jobs passed. Three tests failed:
+   - Harbor's main-pass draw calls reached 30 against the e2e bound of under 30.
+   - A history e2e test timed out.
+   - An analyzer test running in parallel reported `partial` coverage.
+
+   CI renders with SwiftShader on the CPU. The full scene starved the parallel tests and
+   tipped the draw-call bound. The changes:
+   - A software renderer (SwiftShader, llvmpipe, Microsoft Basic) now gets the low-detail
+     scene: no shadows, trees, clouds, waves or facade patterns. Users without a GPU benefit
+     the same way.
+   - Lawns and road markings are folded into the single ground mesh on every machine, saving
+     two draw calls.
+   - No test bound changed.
+
 ## Verification
 
 - GPU timer queries on Vite (2,842 files): the wave shader cost 2.5 ms per frame at first and
@@ -86,3 +102,8 @@ bits picked "lit" at random per pixel.
   or straight after `pnpm verify`: the selection did not reach the inspector within the
   1-second poll. After the selection-shadow and ambient-yield fixes, the same sequence
   passed. No assertion or timeout was changed.
+- After decision 7:
+  - SwiftShader is detected as low detail and draws 23 calls on Vue; the development GPU
+    draws 29 with full detail and animation.
+  - `CI=1 pnpm verify` (SwiftShader, as on CI): 627 tests passed.
+  - The GPU e2e suite: 27 passed, including draw calls under 30 on Harbor.

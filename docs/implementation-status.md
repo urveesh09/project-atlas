@@ -466,6 +466,18 @@ Two consecutive `pnpm verify` runs, each followed by a standalone e2e run, then 
 full. No test, timeout or assertion changed. The evidence supports load-induced latency
 rather than a logic fault, but a slow host could still approach the 1-second poll.
 
+CI run 38160443032 then failed `verify (windows-latest)` while its seven other jobs passed:
+Harbor's draw calls reached the e2e bound of 30, a history e2e test timed out, and a parallel
+analyzer test reported partial coverage. CI renders on the CPU with SwiftShader, and the full
+scene starved the parallel tests. Software renderers now get the low-detail scene, and lawns
+and markings joined the ground mesh, saving two draw calls on every machine. With those
+changes:
+- `CI=1 pnpm verify`: 627 tests passed.
+- GPU e2e: 27 tests passed.
+- SwiftShader draws 23 calls on Vue; the GPU draws 29.
+
+No test bound changed.
+
 Captures: Eastern [ponds and pagodas](images/city-living-eastern-ponds.png) and
 [establishing shot](images/city-living-eastern-establish.png),
 [Western](images/city-living-western.png), [Western castle](images/city-living-western-castle.png),
