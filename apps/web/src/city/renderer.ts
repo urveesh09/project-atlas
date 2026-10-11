@@ -4,18 +4,22 @@ import { districtColor, facadeColor, lensValue, type CityBuilding, type CityData
 import type { Rect } from '@atlas/schema';
 import { EDGE_COLORS, edgeClass, type OverlayResult } from './overlay';
 import {
-  ARCHETYPES,
-  TREE_TINTS,
   archetypeGeometry,
   buildingStyle,
   cityDecor,
+  cornerGeometry,
+  depotEaveGeometry,
   districtFamily,
   facadeMaterial,
   gableGeometry,
   groundLevel,
+  lampGeometry,
+  partGeometry,
   topExtent,
   treeGeometry,
+  wallAt,
 } from './architecture';
+import { THEMES, type Archetype, type CityTheme, type PartKind, type ThemeSpec } from './themes';
 
 const center = (r: Rect) => new THREE.Vector3((r.x + r.width / 2) / 100, 0, (r.z + r.depth / 2) / 100);
 const color = new THREE.Color();
@@ -30,6 +34,21 @@ const SUN = new THREE.Vector3(-30, 80, 50);
 const SHADOW = { x: -SUN.x / SUN.y, z: -SUN.z / SUN.y };
 
 const ROLES = ['source', 'test', 'declaration', 'config', 'asset', 'opaque'] as const;
+/** Accent parts take a darker shade of the lens colour, so a whole building reads as one hue. */
+const PART_SHADE: Record<Exclude<PartKind, 'platform'>, number> = { eave: 0.56, band: 0.8, crenel: 0.9 };
+/** World thickness of each accent part. */
+const PART_HEIGHT: Record<PartKind, number> = { eave: 0.26, band: 0.07, crenel: 0.3, platform: 0.2 };
+/** Most storey parts per building, so a 14-high tower stays bounded. */
+const MAX_STOREY_PARTS = 14;
+
+/** An instanced batch that grows on demand; `styled` batches carry a per-instance style buffer. */
+interface Growable {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+  mesh: THREE.InstancedMesh;
+  styled: boolean;
+  used: number;
+}
 
 /** A compare mark on a fixed plot (plan §11.1): deleted = outlined ghost, added = marker. */
 export interface CityGhost {
@@ -54,15 +73,25 @@ export class CityRenderer {
   private readonly materials = new Set<THREE.Material>();
   private readonly instances = new Set<THREE.InstancedMesh>();
   private readonly roofs = new Map<(typeof ROLES)[number], THREE.InstancedMesh>();
+  private readonly spec: ThemeSpec;
+  private readonly archetypes: readonly Archetype[];
   private readonly facade: THREE.Material;
-  private readonly bodies: { geometry: THREE.BufferGeometry; mesh: THREE.InstancedMesh; top: [number, number] }[] = [];
+  private readonly platformMaterial: THREE.Material;
+  private readonly bodies: Growable[] = [];
   /** Building index -> archetype batch and slot within it, rebuilt per frame. */
   private bodyBatch = new Uint8Array(0);
   private bodySlot = new Int32Array(0);
+  /** Accent part batches by `kind-sides`, and per-frame part instances for recolouring. */
+  private readonly parts = new Map<string, Growable>();
+  private partList: Growable[] = [];
+  private partOwner = new Int32Array(0);
+  private partBatch = new Uint8Array(0);
+  private partSlot = new Int32Array(0);
+  private partShade = new Float32Array(0);
   private readonly families = new Map<string, number>();
   private readonly districtDepth: Map<string, number>;
   private readonly shadows: THREE.InstancedMesh | null;
-  private readonly trees: THREE.InstancedMesh[] = [];
+  private readonly decorations: THREE.InstancedMesh[] = [];
   private readonly missing: THREE.InstancedMesh;
   private readonly selection: THREE.InstancedMesh;
   private readonly marker: THREE.Mesh;
@@ -105,9 +134,13 @@ export class CityRenderer {
     initial: CityData,
     readonly callbacks: { select(id: string): void; hover(id: string | null): void; fail(reason: string): void },
     readonly lowQuality: boolean,
+    readonly theme: CityTheme = 'modern',
   ) {
     this.city = initial;
     const city = initial;
+    this.spec = THEMES[theme];
+    this.archetypes = this.spec.archetypes;
+    const ground = this.spec.ground;
     const capacity = Math.max(1, city.plotCount, city.buildings.length);
     this.renderer = new THREE.WebGLRenderer({ antialias: !lowQuality, alpha: false, powerPreference: 'low-power' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, lowQuality ? 1 : 1.5));
@@ -148,11 +181,11 @@ export class CityRenderer {
       mesh.position.copy(this.origin).setY(top - thickness);
       this.scene.add(mesh);
     };
-    slab(12.4, -0.16, 1.2, '#8a8070');
-    slab(12, -0.1, 0.06, '#8fbac1');
-    slab(6.5, -0.02, 0.2, '#e3d4ab');
-    slab(5.5, 0.03, 0.2, '#a9be8c');
-    slab(3, 0.07, 0.2, '#bcb8aa');
+    slab(12.4, -0.16, 1.2, ground.earth);
+    slab(12, -0.1, 0.06, ground.water);
+    slab(6.5, -0.02, 0.2, ground.beach);
+    slab(5.5, 0.03, 0.2, ground.belt);
+    slab(3, 0.07, 0.2, ground.road);
     // Districts as kerbed blocks: a darker kerb, an inset surface, nested blocks stepping up.
     // The repository block reads as the street grid between packages.
     const districtMesh = this.batch(box, matte, city.districts.length * 2);
@@ -165,37 +198,84 @@ export class CityRenderer {
         pkg = d.kind === 'package';
       matrix.makeScale(w, top, dep).setPosition(c.x, 0, c.z);
       districtMesh.setMatrixAt(i * 2, matrix);
-      districtMesh.setColorAt(i * 2, color.set(root ? '#a9a598' : pkg ? '#bab29c' : '#c9c2ac'));
+      districtMesh.setColorAt(i * 2, color.set(root ? ground.rootKerb : pkg ? ground.packageKerb : ground.directoryKerb));
       matrix.makeScale(Math.max(0.1, w - 0.24), top + 0.015, Math.max(0.1, dep - 0.24)).setPosition(c.x, 0, c.z);
       districtMesh.setMatrixAt(i * 2 + 1, matrix);
-      districtMesh.setColorAt(i * 2 + 1, color.set(root ? '#c2beb0' : pkg ? '#e8e1cd' : d.depth % 2 ? '#ece6d4' : '#dfd8c4'));
+      districtMesh.setColorAt(
+        i * 2 + 1,
+        color.set(root ? ground.rootSurface : pkg ? ground.packageSurface : ground.directory[d.depth % 2]!),
+      );
     });
     this.finish(districtMesh);
     this.districtDepth = new Map(city.districts.map((d) => [d.id, d.depth]));
-    const decor = cityDecor(city);
+    const decor = cityDecor(city, theme);
     const plane = this.ownGeometry(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
-    const lawns = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#b3c795' })), decor.lawns.length);
+    const lawns = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: ground.lawn })), decor.lawns.length);
     decor.lawns.forEach((l, i) => {
       matrix.makeScale(Math.max(0.1, l.width), 1, l.depth).setPosition(l.x, l.y, l.z);
       lawns.setMatrixAt(i, matrix);
     });
     this.finish(lawns);
-    if (!lowQuality)
-      for (const kind of [0, 1] as const) {
-        const list = decor.trees.filter((t) => t.kind === kind);
-        const mesh = this.batch(
-          this.ownGeometry(treeGeometry(kind)),
-          this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true })),
-          list.length,
-        );
+    const coloured = () => this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    const place = (mesh: THREE.InstancedMesh, list: readonly { x: number; y: number; z: number; rotation?: number }[], scale = 1) => {
+      list.forEach((p, i) => mesh.setMatrixAt(i, matrix.makeRotationY(p.rotation ?? 0).scale(new THREE.Vector3(scale, scale, scale)).setPosition(p.x, p.y, p.z)));
+      this.finish(mesh);
+      return mesh;
+    };
+    if (!lowQuality) {
+      this.spec.trees.forEach((kind, k) => {
+        const list = decor.trees.filter((t) => t.kind === k);
+        const mesh = this.batch(this.ownGeometry(treeGeometry(kind.kind)), coloured(), list.length);
         list.forEach((t, i) => {
-          matrix.makeScale(t.scale, t.scale, t.scale).setPosition(t.x, t.y, t.z);
-          mesh.setMatrixAt(i, matrix);
-          mesh.setColorAt(i, color.set(TREE_TINTS[t.tint]!));
+          mesh.setMatrixAt(i, matrix.makeScale(t.scale, t.scale, t.scale).setPosition(t.x, t.y, t.z));
+          mesh.setColorAt(i, color.set(kind.tints[t.tint]!));
         });
         this.finish(mesh);
-        this.trees.push(mesh);
+        this.decorations.push(mesh);
+      });
+      this.decorations.push(place(this.batch(this.ownGeometry(lampGeometry(this.spec.lamp)), coloured(), decor.lamps.length), decor.lamps));
+    }
+    if (decor.markings.length && ground.marking) {
+      const marks = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: ground.marking })), decor.markings.length);
+      decor.markings.forEach((m, i) =>
+        marks.setMatrixAt(i, matrix.makeScale(m.length, 1, 0.07).premultiply(rotation.makeRotationY(m.rotation)).setPosition(m.x, m.y, m.z)),
+      );
+      this.finish(marks);
+    }
+    // Fantasy styles wall each package like a town: segments, a cap or merlons, corner towers.
+    if (this.spec.walls !== 'none') {
+      const eastern = this.spec.walls === 'eastern';
+      const wallHeight = eastern ? 0.26 : 0.3;
+      const segments = this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: eastern ? '#b4553f' : '#b5ad9d' })), decor.walls.length);
+      decor.walls.forEach((s, i) =>
+        segments.setMatrixAt(i, matrix.makeScale(s.length, wallHeight, 0.13).premultiply(rotation.makeRotationY(s.rotation)).setPosition(s.x, s.y, s.z)),
+      );
+      this.finish(segments);
+      if (eastern) {
+        const caps = this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#c8a24e' })), decor.walls.length);
+        decor.walls.forEach((s, i) =>
+          caps.setMatrixAt(i, matrix.makeScale(s.length + 0.06, 0.05, 0.22).premultiply(rotation.makeRotationY(s.rotation)).setPosition(s.x, s.y + wallHeight, s.z)),
+        );
+        this.finish(caps);
+      } else if (!lowQuality) {
+        const teeth: { x: number; y: number; z: number; rotation: number }[] = [];
+        for (const s of decor.walls) {
+          const n = Math.floor(s.length / 0.42),
+            dx = Math.cos(s.rotation),
+            dz = -Math.sin(s.rotation);
+          for (let k = 0; k < n; k++) {
+            const t = (k + 0.5) * (s.length / n) - s.length / 2;
+            teeth.push({ x: s.x + dx * t, y: s.y + wallHeight, z: s.z + dz * t, rotation: s.rotation });
+          }
+        }
+        const merlons = this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#b5ad9d' })), teeth.length);
+        teeth.forEach((m, i) =>
+          merlons.setMatrixAt(i, matrix.makeScale(0.17, 0.1, 0.15).premultiply(rotation.makeRotationY(m.rotation)).setPosition(m.x, m.y, m.z)),
+        );
+        this.finish(merlons);
       }
+      place(this.batch(this.ownGeometry(cornerGeometry(this.spec.walls)), coloured(), decor.corners.length), decor.corners);
+    }
     // Soft contact shadows: one translucent ground quad per building along the sun direction.
     this.shadows = lowQuality
       ? null
@@ -213,12 +293,20 @@ export class CityRenderer {
           ),
           capacity,
         );
-    // Seeded archetype batches share one facade material; each grows on demand.
+    // Seeded archetype batches share one facade material; each grows on demand. Accent
+    // parts share one lens-shaded material per kind and outline.
     this.facade = this.ownMaterial(facadeMaterial(!lowQuality));
-    ARCHETYPES.forEach((_, k) => {
-      const geometry = this.ownGeometry(archetypeGeometry(k));
-      this.bodies.push({ geometry, mesh: this.batch(geometry, this.facade, 1), top: topExtent(k) });
-    });
+    for (const a of this.archetypes) this.bodies.push(this.growable(this.ownGeometry(archetypeGeometry(a)), this.facade, true));
+    const accent = this.ownMaterial(new THREE.MeshLambertMaterial());
+    this.platformMaterial = this.ownMaterial(new THREE.MeshLambertMaterial({ color: this.spec.platform }));
+    for (const a of this.archetypes)
+      for (const part of a.parts ?? [])
+        for (const sides of part.kind === 'platform' ? ([4] as const) : ([...new Set(a.tiers.map((t) => t.sides))] as const)) {
+          const key = `${part.kind}-${sides}`;
+          if (!this.parts.has(key))
+            this.parts.set(key, this.growable(this.ownGeometry(partGeometry(part.kind, sides)), part.kind === 'platform' ? this.platformMaterial : accent, false));
+        }
+    this.partList = [...this.parts.values()];
     // Role silhouettes share geometry; no per-building light, label or material.
     for (const role of ROLES) {
       const shape =
@@ -235,7 +323,11 @@ export class CityRenderer {
                 );
       const roof = this.batch(
         this.ownGeometry(shape),
-        this.ownMaterial(new THREE.MeshLambertMaterial({ color: role === 'test' ? '#456471' : '#5e6971' })),
+        this.ownMaterial(
+          new THREE.MeshLambertMaterial({
+            color: role === 'test' ? this.spec.roofs.test : role === 'source' ? this.spec.roofs.source : this.spec.roofs.other,
+          }),
+        ),
         capacity,
       );
       roof.count = 0;
@@ -265,10 +357,15 @@ export class CityRenderer {
     this.scene.add(this.marker, this.overlayGroup);
     // Terminal anchors are fixed harbour depots; which packages a frame imports decides
     // which are shown.
+    const depot = this.spec.terminal;
     this.terminals = [
-      this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#8c7660' })), 51),
-      this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#c3b49a' })), 51),
-      this.batch(this.ownGeometry(gableGeometry()), this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#687e85' })), 51),
+      this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: depot.pier })), 51),
+      this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: depot.shed })), 51),
+      this.batch(
+        this.ownGeometry(depot.eaved ? depotEaveGeometry() : gableGeometry()),
+        this.ownMaterial(new THREE.MeshLambertMaterial({ color: depot.roof })),
+        51,
+      ),
     ];
     this.packageLines = this.batch(
       this.ownGeometry(new THREE.CylinderGeometry(1, 1, 1, 6)),
@@ -386,15 +483,25 @@ export class CityRenderer {
     this.pickCells.clear();
     const styles = buildings.map((b) => {
       let family = this.families.get(b.districtId);
-      if (family === undefined) this.families.set(b.districtId, (family = districtFamily(b.districtId)));
-      return buildingStyle(b, family);
+      if (family === undefined) this.families.set(b.districtId, (family = districtFamily(b.districtId, this.theme)));
+      return buildingStyle(b, family, this.theme);
     });
-    const used = this.bodies.map(() => 0);
-    for (const style of styles) used[style.archetype]!++;
-    used.forEach((n, k) => {
-      this.ensureBodies(k, n);
-      used[k] = 0;
-    });
+    // Size every batch first: bodies by archetype, parts by kind and outline at each storey.
+    const placements = buildings.map((b, i) => this.storeyParts(b, styles[i]!.archetype));
+    for (const g of [...this.bodies, ...this.partList]) g.used = 0;
+    for (const style of styles) this.bodies[style.archetype]!.used++;
+    for (const list of placements) for (const part of list) this.parts.get(part.key)!.used++;
+    for (const g of [...this.bodies, ...this.partList]) {
+      this.grow(g, g.used);
+      g.used = 0;
+    }
+    const partTotal = placements.reduce((sum, list) => sum + list.length, 0);
+    this.partOwner = new Int32Array(partTotal);
+    this.partBatch = new Uint8Array(partTotal);
+    this.partSlot = new Int32Array(partTotal);
+    this.partShade = new Float32Array(partTotal);
+    const batchIndex = new Map(this.partList.map((g, k) => [g, k]));
+    let partCount = 0;
     this.bodyBatch = new Uint8Array(buildings.length);
     this.bodySlot = new Int32Array(buildings.length);
     const roofCounts = new Map<string, number>();
@@ -402,8 +509,9 @@ export class CityRenderer {
       const p = center(b.rect);
       const h = b.height,
         style = styles[i]!,
+        archetype = this.archetypes[style.archetype]!,
         body = this.bodies[style.archetype]!,
-        slot = used[style.archetype]!++,
+        slot = body.used++,
         f = style.footprint;
       rotation.makeRotationY(style.rotation);
       matrix
@@ -414,12 +522,30 @@ export class CityRenderer {
       (body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute).setXY(slot, style.windows, style.variant);
       this.bodyBatch[i] = style.archetype;
       this.bodySlot[i] = slot;
+      // Accent parts follow the wall outline at their storey and turn with the body.
+      for (const part of placements[i]!) {
+        const batch = this.parts.get(part.key)!,
+          n = batch.used++;
+        matrix
+          .makeScale(part.hx * f, PART_HEIGHT[part.kind], part.hz * f)
+          .premultiply(rotation)
+          .setPosition(p.x, part.y, p.z);
+        batch.mesh.setMatrixAt(n, matrix);
+        if (part.kind !== 'platform') {
+          this.partOwner[partCount] = i;
+          this.partBatch[partCount] = batchIndex.get(batch)!;
+          this.partSlot[partCount] = n;
+          this.partShade[partCount++] = PART_SHADE[part.kind];
+        }
+      }
       // The role roof is fitted to the archetype's top outline and turns with the body.
       const roof = this.roofs.get(b.role)!;
       const n = roofCounts.get(b.role) ?? 0;
+      const [tx, tz] = topExtent(archetype),
+        fit = (archetype.roof ?? 1) * f;
       matrix
         .makeRotationY(b.role === 'source' ? Math.PI / 4 : ((b.seed % 4) * Math.PI) / 2)
-        .premultiply(scaling.makeScale((body.top[0] * f) / 0.44, 1, (body.top[1] * f) / 0.44))
+        .premultiply(scaling.makeScale((tx * fit) / 0.44, 1, (tz * fit) / 0.44))
         .premultiply(rotation)
         .setPosition(p.x, h + 0.45, p.z);
       roof.setMatrixAt(n, matrix);
@@ -444,11 +570,12 @@ export class CityRenderer {
       cell.indices.push(i);
       return bounds;
     });
-    this.bodies.forEach((body, k) => {
-      body.mesh.count = used[k]!;
-      (body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute).needsUpdate = true;
-      this.finish(body.mesh);
-    });
+    this.partOwner = this.partOwner.subarray(0, partCount);
+    for (const g of [...this.bodies, ...this.partList]) {
+      g.mesh.count = g.used;
+      if (g.styled) (g.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute).needsUpdate = true;
+      this.finish(g.mesh);
+    }
     for (const [role, roof] of this.roofs) {
       roof.count = roofCounts.get(role) ?? 0;
       this.finish(roof);
@@ -460,26 +587,67 @@ export class CityRenderer {
     this.placeTerminals(this.city.terminals);
   }
 
-  /** Grow an archetype batch and its per-instance style buffer to hold `needed` bodies. */
-  private ensureBodies(k: number, needed: number) {
-    const body = this.bodies[k]!;
-    const existing = body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute | undefined;
-    if (existing && existing.count >= needed) return;
-    const capacity = Math.max(16, Math.ceil(needed * 1.25));
-    // Disposing releases the old GPU buffers; the next render uploads the larger ones.
-    body.geometry.dispose();
-    body.geometry.setAttribute('atlasStyle', new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2));
-    this.scene.remove(body.mesh);
-    this.instances.delete(body.mesh);
-    body.mesh.dispose();
-    body.mesh = this.batch(body.geometry, this.facade, capacity);
-    body.mesh.count = 0;
+  /**
+   * Accent parts of one building: a base platform, storey eaves or bands at a fixed world
+   * spacing (so taller files gain storeys), and a top eave or battlement. Low detail keeps
+   * only base and top parts.
+   */
+  private storeyParts(b: CityBuilding, archetype: number) {
+    const a = this.archetypes[archetype]!;
+    const list: { key: string; kind: PartKind; y: number; hx: number; hz: number }[] = [];
+    if (!a.parts) return list;
+    const top = 0.35 + b.height,
+      span = top - BODY_BASE,
+      ground = groundLevel(this.districtDepth.get(b.districtId) ?? 1);
+    for (const part of a.parts) {
+      if (part.kind === 'platform') {
+        const wall = wallAt(a, 0);
+        list.push({ key: 'platform-4', kind: 'platform', y: ground - 0.02, hx: Math.min(0.66, wall.hx * 1.4), hz: Math.min(0.66, wall.hz * 1.4) });
+        continue;
+      }
+      const heights: number[] = [];
+      if (part.every && !this.lowQuality)
+        for (let y = ground + (part.from ?? part.every); y < top - 0.45 && heights.length < MAX_STOREY_PARTS; y += part.every)
+          heights.push(y);
+      if (part.top) heights.push(top - (part.kind === 'crenel' ? 0.12 : 0.2));
+      for (const y of heights) {
+        const wall = wallAt(a, (y - BODY_BASE) / span);
+        // Eave outlines meet the wall at 0.7 of their reach; bands and crenels overhang slightly.
+        const reach = part.kind === 'eave' ? 1 / 0.7 : (part.overhang ?? (part.kind === 'crenel' ? 1.04 : 1.08));
+        list.push({ key: `${part.kind}-${wall.sides}`, kind: part.kind, y, hx: wall.hx * reach, hz: wall.hz * reach });
+      }
+    }
+    return list;
   }
 
-  /** Harbour depots: a pier reaching into the water, a shed and a gable roof per terminal. */
+  private growable(geometry: THREE.BufferGeometry, material: THREE.Material, styled: boolean): Growable {
+    const mesh = this.batch(geometry, material, 1);
+    mesh.count = 0;
+    return { geometry, material, mesh, styled, used: 0 };
+  }
+
+  /** Grow a batch (and a styled batch's per-instance style buffer) to hold `needed` instances. */
+  private grow(g: Growable, needed: number) {
+    const style = g.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute | undefined;
+    if (g.styled ? style && style.count >= needed : g.mesh.instanceMatrix.count >= needed && g.mesh.instanceMatrix.count > 1) return;
+    const capacity = Math.max(16, Math.ceil(needed * 1.25));
+    if (g.styled) {
+      // Disposing releases the old GPU buffers; the next render uploads the larger ones.
+      g.geometry.dispose();
+      g.geometry.setAttribute('atlasStyle', new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2));
+    }
+    this.scene.remove(g.mesh);
+    this.instances.delete(g.mesh);
+    g.mesh.dispose();
+    g.mesh = this.batch(g.geometry, g.material, capacity);
+    g.mesh.count = 0;
+  }
+
+  /** Harbour depots: a pier reaching into the water, a shed and a roof per terminal. */
   private placeTerminals(terminals: CityData['terminals']) {
     const r = this.city.root;
-    const [piers, sheds, gables] = this.terminals;
+    const [piers, sheds, roofs] = this.terminals;
+    const eaved = this.spec.terminal.eaved;
     terminals.forEach((t, i) => {
       // North/south terminals face the island across z; east/west across x.
       rotation.makeRotationY(t.z < r.z || t.z > r.z + r.depth ? 0 : Math.PI / 2);
@@ -487,7 +655,10 @@ export class CityRenderer {
         z = t.z / 100;
       piers.setMatrixAt(i, matrix.makeScale(1.4, 0.14, 1.9).premultiply(rotation).setPosition(x, -0.12, z));
       sheds.setMatrixAt(i, matrix.makeScale(1.15, 0.5, 0.8).premultiply(rotation).setPosition(x, 0.02, z));
-      gables.setMatrixAt(i, matrix.makeScale(1.25, 0.3, 0.9).premultiply(rotation).setPosition(x, 0.52, z));
+      roofs.setMatrixAt(
+        i,
+        (eaved ? matrix.makeScale(0.78, 0.34, 0.56) : matrix.makeScale(1.25, 0.3, 0.9)).premultiply(rotation).setPosition(x, eaved ? 0.42 : 0.52, z),
+      );
     });
     for (const mesh of this.terminals) {
       mesh.count = terminals.length;
@@ -562,7 +733,7 @@ export class CityRenderer {
     const near = this.camera.zoom >= 6;
     for (const roof of this.roofs.values()) roof.visible = near;
     // Below ~1.5 px per cell trees are speckle; the facade shader fades windows by itself.
-    for (const tree of this.trees) tree.visible = this.camera.zoom >= 1.5;
+    for (const mesh of this.decorations) mesh.visible = this.camera.zoom >= 1.5;
     this.renderer.render(this.scene, this.camera);
     this.drawLabels(this.labels, this.camera, this.width, this.height);
   }
@@ -619,18 +790,20 @@ export class CityRenderer {
       this.lens !== lens ||
       this.filter !== filter ||
       this.styled !== this.city ||
-      this.bodies.some((body) => body.mesh.count > 0 && !body.mesh.instanceColor);
+      [...this.bodies, ...this.partList].some((g) => g.mesh.count > 0 && !g.mesh.instanceColor && g.material !== this.platformMaterial);
     this.styled = this.city;
     this.lens = lens;
     this.selected = new Set(selected);
     this.filter = filter;
     let count = 0,
       unknown = 0;
+    const tones = recolor ? new Float32Array(this.city.buildings.length * 3) : null;
     if (recolor)
       this.city.buildings.forEach((b, i) => {
         color.set(facadeColor(b, lens));
         if (!filter(b)) color.lerp(white, 0.8);
         this.bodies[this.bodyBatch[i]!]!.mesh.setColorAt(this.bodySlot[i]!, color);
+        tones!.set([color.r, color.g, color.b], i * 3);
         const p = center(b.rect);
         if ((lens !== 'structure' && lensValue(b, lens) === null) || b.parseStatus !== 'parsed') {
           for (const angle of [Math.PI / 4, -Math.PI / 4]) {
@@ -650,7 +823,16 @@ export class CityRenderer {
       matrix.makeScale(1.04, b.height + 0.5, 1.04).setPosition(p.x, 0.35 + b.height / 2, p.z);
       this.selection.setMatrixAt(count++, matrix);
     }
-    if (recolor) for (const body of this.bodies) if (body.mesh.instanceColor) body.mesh.instanceColor.needsUpdate = true;
+    if (tones) {
+      // Accent parts carry a darker shade of their building's facade colour.
+      for (let k = 0; k < this.partOwner.length; k++) {
+        const o = this.partOwner[k]! * 3,
+          s = this.partShade[k]!;
+        color.setRGB(tones[o]! * s, tones[o + 1]! * s, tones[o + 2]! * s);
+        this.partList[this.partBatch[k]!]!.mesh.setColorAt(this.partSlot[k]!, color);
+      }
+      for (const g of [...this.bodies, ...this.partList]) if (g.mesh.instanceColor) g.mesh.instanceColor.needsUpdate = true;
+    }
     this.selection.count = count;
     this.finish(this.selection);
     if (recolor) {
@@ -834,10 +1016,20 @@ export class CityRenderer {
       ghosts: this.ghosts.count,
       added: this.addedMarkers.count,
       lens: this.lens,
+      theme: this.theme,
       zoom: this.camera.zoom,
       renderer: ext ? String(ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'unknown',
       heapBytes: (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null,
     };
+  }
+  /** Return to a view saved by `cameraState`, e.g. after switching city style or detail. */
+  restoreCamera(state: { position: number[]; target: number[]; zoom: number }) {
+    this.camera.position.fromArray(state.position);
+    this.controls.target.fromArray(state.target);
+    this.camera.zoom = THREE.MathUtils.clamp(state.zoom, this.controls.minZoom, this.controls.maxZoom);
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
+    this.invalidate();
   }
   cameraState() {
     return { position: this.camera.position.toArray(), target: this.controls.target.toArray(), zoom: this.camera.zoom };

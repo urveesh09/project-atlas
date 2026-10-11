@@ -366,6 +366,36 @@ The 20-run [phase 3 report](benchmarks/phase3-city.md) and its reference images 
 this change and need a rerun of `apps/web/scripts/bench-city.mjs`; P3.6's pending
 reference-device audit is unchanged.
 
+### City styles (2026-10-11)
+
+At the owner's request the 3D city offers three decorative styles
+([ADR-039](adr/ADR-039-city-styles.md)):
+- *Modern city*;
+- *Eastern fantasy*: pagodas with upturned eaves on every storey, palace halls on marble
+  platforms, vermilion package walls, lanterns, pines and cherry blossom;
+- *Western fantasy*: battlemented keeps and round towers, half-timber houses, wizard
+  towers, stone town walls, oaks and cypresses.
+
+The style is a per-viewer preference in the city toolbar. It is kept in browser storage,
+never in URLs or artifacts, and recorded as `cityStyle` in PNG metadata. Eaves, bands and
+battlements take a darker shade of their building's lens colour, and storeys repeat at a
+fixed spacing, so taller files gain storeys. Height, lens colour, role roofs, picking and
+overlays keep their meaning.
+
+Evidence:
+- `pnpm verify`: 37 files, 622 tests passed, 80 service-gated skips, including 18
+  style-by-style architecture checks.
+- `check-repository-baseline.mjs`: exact for all three real repositories.
+- Draw calls: 26–38 for Vue in every style.
+- 10,000-file city: 18–24 draw calls and every orbit window at the 16.7 ms refresh cap,
+  after reducing eave subdivision removed 33–66 ms windows in the Eastern style.
+- Leak check: GPU geometry stays constant over ten forced-growth frame cycles per style.
+- Switching style keeps the camera and leaves the URL fragment empty.
+
+Captures: Eastern [quarter](images/city-eastern-quarter.png) and
+[close-up](images/city-eastern-closeup.png); Western
+[quarter](images/city-western-quarter.png) and [close-up](images/city-western-closeup.png).
+
 ### Reproduce verification
 
 ```sh

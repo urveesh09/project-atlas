@@ -2,7 +2,19 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { computeLayout, type CityBuilding, type CityData, type LayoutTreeNode } from '@atlas/layout';
 import { lineageId, localRepositoryId } from '@atlas/schema';
-import { ARCHETYPES, archetypeGeometry, buildingStyle, cityDecor, topExtent } from '../src/city/architecture';
+import {
+  archetypeGeometry,
+  buildingStyle,
+  cityDecor,
+  cornerGeometry,
+  districtFamily,
+  lampGeometry,
+  partGeometry,
+  topExtent,
+  treeGeometry,
+  wallAt,
+} from '../src/city/architecture';
+import { CITY_THEMES, THEMES } from '../src/city/themes';
 
 const repoId = localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f');
 const file = (path: string) => lineageId(repoId, '0'.repeat(40), '0'.repeat(40), path);
@@ -64,79 +76,126 @@ const building = (overrides: Partial<CityBuilding> = {}): CityBuilding => ({
   attention: null,
   ...overrides,
 });
+/** Every vertex of `g` (scaled) stays within `limit` of the plot centre and within [0, 1] height. */
+function expectInside(g: THREE.BufferGeometry, limit: number) {
+  const position = g.getAttribute('position');
+  for (let i = 0; i < position.count; i++) {
+    expect(Math.abs(position.getX(i))).toBeLessThanOrEqual(limit + 1e-9);
+    expect(Math.abs(position.getZ(i))).toBeLessThanOrEqual(limit + 1e-9);
+    expect(position.getY(i)).toBeGreaterThanOrEqual(-1e-9);
+    expect(position.getY(i)).toBeLessThanOrEqual(1 + 1e-9);
+  }
+}
 
-describe('decorative city architecture', () => {
+describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
+  const spec = THEMES[theme];
   it('derives style only from layout seeds, never from height, metrics or lens data', () => {
-    const base = buildingStyle(building());
-    expect(buildingStyle(building({ height: 14, attention: 90, packageColor: '#cf91a0' }))).toEqual(base);
-    expect(buildingStyle(building())).toEqual(base);
-    const styles = geometry.plots.map((p) => buildingStyle(building({ seed: p.seed, districtId: p.districtId })));
-    // Seeded variety: more than one archetype and window pattern across a small city.
-    expect(new Set(styles.map((s) => s.archetype)).size).toBeGreaterThan(2);
-    expect(new Set(styles.map((s) => s.windows)).size).toBeGreaterThan(1);
+    const family = districtFamily(geometry.plots[0]!.districtId, theme);
+    const base = buildingStyle(building(), family, theme);
+    expect(buildingStyle(building({ height: 14, attention: 90, packageColor: '#cf91a0' }), family, theme)).toEqual(base);
+    const styles = geometry.plots.map((p) =>
+      buildingStyle(building({ seed: p.seed, districtId: p.districtId }), districtFamily(p.districtId, theme), theme),
+    );
+    // Seeded variety: more than one archetype across a small city.
+    expect(new Set(styles.map((s) => s.archetype)).size).toBeGreaterThan(1);
     for (const s of styles) {
+      expect(s.archetype).toBeLessThan(spec.archetypes.length);
       expect(s.footprint).toBeGreaterThan(0.9);
       expect(s.footprint).toBeLessThanOrEqual(1);
       expect(s.variant).toBeGreaterThanOrEqual(0);
       expect(s.variant).toBeLessThan(1);
+      expect(s.windows).toBeGreaterThanOrEqual(0);
+      expect(s.windows).toBeLessThanOrEqual(8);
     }
   });
 
-  it('keeps fixed-height kiosk and declaration roles on simple low archetypes', () => {
+  it('keeps fixed-height kiosk and declaration roles on the low archetypes', () => {
     for (const p of geometry.plots)
       for (const role of ['config', 'asset', 'opaque', 'declaration'] as const)
-        expect([0, 1, 7]).toContain(buildingStyle(building({ role, seed: p.seed, districtId: p.districtId })).archetype);
+        expect(spec.low).toContain(
+          buildingStyle(building({ role, seed: p.seed, districtId: p.districtId }), districtFamily(p.districtId, theme), theme).archetype,
+        );
   });
 
-  it('builds every archetype inside its 1×1 plot with a unit-height body and outward faces', () => {
-    ARCHETYPES.forEach((_, k) => {
-      const g = archetypeGeometry(k);
+  it('builds every body inside its 1×1 plot, with unit height and outward faces', () => {
+    for (const a of spec.archetypes) {
+      const g = archetypeGeometry(a);
+      expectInside(g, 0.5);
       const position = g.getAttribute('position'),
         normal = g.getAttribute('normal'),
         face = g.getAttribute('atlasFace');
       let top = 0;
       for (let i = 0; i < position.count; i++) {
         const x = position.getX(i),
-          y = position.getY(i),
           z = position.getZ(i);
-        expect(Math.abs(x)).toBeLessThanOrEqual(0.5);
-        expect(Math.abs(z)).toBeLessThanOrEqual(0.5);
-        expect(y).toBeGreaterThanOrEqual(0);
-        expect(y).toBeLessThanOrEqual(1);
-        top = Math.max(top, y);
-        const n = new THREE.Vector3(normal.getX(i), normal.getY(i), normal.getZ(i));
-        if (n.y > 0.99) expect([face.getY(i), face.getW(i)]).toEqual([0, 0]);
+        top = Math.max(top, position.getY(i));
+        if (normal.getY(i) > 0.99) expect([face.getY(i), face.getW(i)]).toEqual([0, 0]);
         else {
           // Side faces point away from the body axis and carry a window grid.
-          expect(n.x * x + n.z * z).toBeGreaterThan(0);
+          expect(normal.getX(i) * x + normal.getZ(i) * z).toBeGreaterThan(0);
           expect(Math.abs(face.getY(i))).toBeGreaterThan(0);
           expect(face.getW(i)).toBeGreaterThan(0);
         }
       }
       expect(top).toBe(1);
-      const [hx, hz] = topExtent(k);
-      expect(hx).toBeGreaterThan(0.2);
-      expect(hz).toBeGreaterThan(0.2);
-      expect(Math.max(hx, hz)).toBeLessThanOrEqual(0.46);
+      const [hx, hz] = topExtent(a);
+      expect(Math.min(hx, hz)).toBeGreaterThan(0.2);
+      expect(Math.max(hx, hz) * (a.roof ?? 1)).toBeLessThanOrEqual(0.46);
       g.dispose();
-    });
+    }
   });
 
-  it('plants deterministic greenery only on free strips, never on a plot', () => {
-    const decor = cityDecor(city);
-    expect(cityDecor(city)).toEqual(decor);
+  it('keeps accent parts clear of neighbouring plots at every storey', () => {
+    for (const a of spec.archetypes)
+      for (const part of a.parts ?? []) {
+        for (let fraction = 0; fraction <= 1; fraction += 0.05) {
+          const wall = wallAt(a, fraction);
+          const reach = part.kind === 'eave' ? 1 / 0.7 : part.kind === 'platform' ? 1.4 : (part.overhang ?? 1.08);
+          // Plot centres are 2 cells apart: 0.7 leaves a clear gap to any neighbour.
+          expect(Math.min(0.66, Math.max(wall.hx, wall.hz) * reach)).toBeLessThanOrEqual(0.7);
+          if (part.kind !== 'platform') expect(Math.max(wall.hx, wall.hz) * reach).toBeLessThanOrEqual(0.7);
+        }
+        const sides = part.kind === 'platform' ? [4 as const] : [...new Set(a.tiers.map((t) => t.sides))];
+        for (const s of sides) {
+          const g = partGeometry(part.kind, s);
+          // Unit outlines: corners at ±1 (4 sides) or circumradius 1.
+          expectInside(g, 1);
+          expect(g.getAttribute('position').count).toBeGreaterThan(0);
+          g.dispose();
+        }
+      }
+  });
+
+  it('places deterministic decoration only on free strips, never on a plot', () => {
+    const decor = cityDecor(city, theme);
+    expect(cityDecor(city, theme)).toEqual(decor);
     expect(decor.trees.length).toBeGreaterThan(20);
+    expect(decor.lamps.length).toBeGreaterThan(4);
     expect(decor.lawns.length).toBe(city.districts.filter((d) => d.depth > 0).length);
-    const clear = 0.35;
-    for (const t of decor.trees)
+    const packages = city.districts.filter((d) => d.kind === 'package').length;
+    expect(decor.walls.length).toBe(spec.walls === 'none' ? 0 : packages * 4);
+    expect(decor.corners.length).toBe(spec.walls === 'none' ? 0 : packages * 4);
+    expect(decor.markings.length > 0).toBe(spec.ground.marking !== null);
+    for (const t of decor.trees) expect(t.kind).toBeLessThan(spec.trees.length);
+    const clear = (x: number, z: number, margin: number) => {
       for (const p of geometry.plots) {
         const inside =
-          t.x > p.rect.x / 100 - clear &&
-          t.x < (p.rect.x + p.rect.width) / 100 + clear &&
-          t.z > p.rect.z / 100 - clear &&
-          t.z < (p.rect.z + p.rect.depth) / 100 + clear;
+          x > p.rect.x / 100 - margin &&
+          x < (p.rect.x + p.rect.width) / 100 + margin &&
+          z > p.rect.z / 100 - margin &&
+          z < (p.rect.z + p.rect.depth) / 100 + margin;
         expect(inside).toBe(false);
       }
+    };
+    for (const t of decor.trees) clear(t.x, t.z, 0.35);
+    for (const l of decor.lamps) clear(l.x, l.z, 0.2);
+    for (const c of decor.corners) clear(c.x, c.z, 0.35);
+    for (const w of decor.walls) {
+      // Sample along each wall segment.
+      const dx = Math.cos(w.rotation),
+        dz = -Math.sin(w.rotation);
+      for (let t = -w.length / 2; t <= w.length / 2; t += 0.25) clear(w.x + dx * t, w.z + dz * t, 0.2);
+    }
     for (const l of decor.lawns)
       for (const p of geometry.plots) {
         const overlaps =
@@ -144,13 +203,29 @@ describe('decorative city architecture', () => {
           Math.abs(l.z - (p.rect.z + p.rect.depth / 2) / 100) < (l.depth + p.rect.depth / 100) / 2;
         expect(overlaps).toBe(false);
       }
-    // Trees in the green belt stay on land, inside the beach line.
+    // Trees and lamps in the belt stay on land, inside the beach line.
     const r = geometry.root;
-    for (const t of decor.trees) {
+    for (const t of [...decor.trees, ...decor.lamps]) {
       expect(t.x).toBeGreaterThan(r.x / 100 - 5.5);
       expect(t.x).toBeLessThan((r.x + r.width) / 100 + 5.5);
       expect(t.z).toBeGreaterThan(r.z / 100 - 5.5);
       expect(t.z).toBeLessThan((r.z + r.depth) / 100 + 5.5);
+    }
+  });
+
+  it('builds its trees, lamps and wall towers as coloured meshes', () => {
+    const meshes = [
+      ...spec.trees.map((t) => treeGeometry(t.kind)),
+      lampGeometry(spec.lamp),
+      ...(spec.walls === 'none' ? [] : [cornerGeometry(spec.walls)]),
+    ];
+    for (const g of meshes) {
+      expect(g.getAttribute('position').count).toBeGreaterThan(0);
+      expect(g.getAttribute('color').count).toBe(g.getAttribute('position').count);
+      g.computeBoundingBox();
+      // Small street furniture: below the 0.8 minimum building height plus its roof.
+      expect(g.boundingBox!.max.y).toBeLessThan(1.1);
+      g.dispose();
     }
   });
 });

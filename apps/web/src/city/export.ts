@@ -2,7 +2,7 @@ import type { ViewerModel } from '../app/model';
 import type { ViewState } from '../app/state';
 import type { OverlayResult } from './overlay';
 
-export function exportMetadata(model: ViewerModel, state: ViewState, overlay: OverlayResult, camera: unknown) {
+export function exportMetadata(model: ViewerModel, state: ViewState, overlay: OverlayResult, camera: unknown, cityStyle: string | null = null) {
   return {
     exportVersion: 'atlas.image/1',
     analysisId: model.manifest.analysisId,
@@ -29,6 +29,7 @@ export function exportMetadata(model: ViewerModel, state: ViewState, overlay: Ov
     visibleExternalTerminals: model.city.terminals.length,
     omittedExternalTerminals: model.city.terminalOmitted,
     camera,
+    cityStyle,
     note: 'Static repository structure. Height is code lines; roads are spacing; building styles and greenery are decorative. Use the artifact/table for accessible evidence.',
   };
 }

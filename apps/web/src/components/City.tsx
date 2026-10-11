@@ -10,6 +10,7 @@ import type { CityHandle } from '../city/types';
 import type { CityGhost } from '../city/renderer';
 import { overlayKey, type OverlayResult } from '../city/overlay';
 import { addProvenance, downloadBlob, exportMetadata } from '../city/export';
+import { CITY_THEMES, CITY_THEME_LABEL, type CityTheme } from '../city/themes';
 import '../styles/city.css';
 
 const ThreeCity = lazy(() => import('../city/ThreeCity'));
@@ -50,6 +51,24 @@ class GraphicsBoundary extends Component<{ children: ReactNode; fail(reason: str
   }
 }
 
+/** City style is a per-viewer preference; it never enters URLs, artifacts or shared state. */
+const THEME_KEY = 'atlas.cityStyle';
+function storedTheme(): CityTheme {
+  try {
+    const value = localStorage.getItem(THEME_KEY);
+    return (CITY_THEMES as readonly string[]).includes(value ?? '') ? (value as CityTheme) : 'modern';
+  } catch {
+    return 'modern';
+  }
+}
+function storeTheme(theme: CityTheme) {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    // Storage may be blocked; the choice then lasts for this page only.
+  }
+}
+
 export function City() {
   const { dataset, model, state, dispatch, select, queries, comparison } = useViewer();
   const lenses: CityLens[] = ['structure', 'complexity', 'fan-in', 'churn', dataset.hotspotAvailable ? 'hotspot' : 'attention'];
@@ -61,7 +80,8 @@ export function City() {
     [overlayReady, setOverlayReady] = useState(false);
   const ready = readyMode === state.mode;
   const [storedOverlay, setOverlay] = useState<OverlayResult>(EMPTY),
-    [lowQuality, setLowQuality] = useState(model.city.buildings.length >= 10_000);
+    [lowQuality, setLowQuality] = useState(model.city.buildings.length >= 10_000),
+    [theme, setTheme] = useState<CityTheme>(storedTheme);
   const currentOverlayKey = `${model.frame}|` + overlayKey({
     selectedId: state.selectedId,
     direction: state.direction,
@@ -209,7 +229,7 @@ export function City() {
     setExporting(true);
     setMessage('Preparing the bounded PNG export…');
     try {
-      const metadata = exportMetadata(model, state, overlay, handle.current.cameraState());
+      const metadata = exportMetadata(model, state, overlay, handle.current.cameraState(), state.mode === '3d' ? theme : null);
       const blob = await addProvenance(
         await handle.current.exportPng(),
         `ATLAS · ${model.manifest.repo.displayName} · ${shortOid(model.graph.commitOid)} ${model.commit.committerTime.slice(0, 10)}${model.isHead ? '' : ` (snapshot ${model.frame + 1}/${dataset.frames.length})`}${state.compare ? ` · compare ${state.compare.a + 1}→${state.compare.b + 1}` : ''} · ${LENS_LABEL[state.lens]}${model.manifest.coverage.history.status === 'partial' || model.graph.coverage.limitsHit.length ? ' · PARTIAL COVERAGE' : ''} · ${model.manifest.analyzer.version} · static analysis`,
@@ -311,6 +331,26 @@ export function City() {
           </>
         )}
         {state.mode === '3d' && (
+          <label>
+            City style
+            <select
+              aria-label="City style"
+              value={theme}
+              onChange={(e) => {
+                const next = e.target.value as CityTheme;
+                setTheme(next);
+                storeTheme(next);
+              }}
+            >
+              {CITY_THEMES.map((t) => (
+                <option key={t} value={t}>
+                  {CITY_THEME_LABEL[t]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {state.mode === '3d' && (
           <label className="city-check">
             <input type="checkbox" checked={lowQuality} onChange={(e) => setLowQuality(e.target.checked)} />
             Low detail
@@ -319,8 +359,9 @@ export function City() {
       </div>
       <p className="city-note">
         Height = code lines, on a logarithmic scale. △ source · ⬡ test · ▱ declaration · □ kiosk. × marks unavailable
-        analysis. Roads separate folders; they are spacing. Building styles, windows, trees and the harbour are
-        decorative and seeded per file; they carry no data.
+        analysis. Roads separate folders; they are spacing. City style, building shapes, storeys, windows, walls,
+        trees and the harbour are decorative and seeded per file; they carry no data. Roofs, eaves and battlements
+        share their building's lens colour.
       </p>
       <div className="city-legend" aria-label="City lens legend">
         <strong>{LENS_LABEL[state.lens]}</strong>
@@ -389,6 +430,7 @@ export function City() {
                   overlay={overlay}
                   focusNonce={state.focusNonce}
                   lowQuality={lowQuality}
+                  theme={theme}
                   select={(id) => select(id, { focusInspector: true })}
                   hover={setHoverId}
                   fail={fail}

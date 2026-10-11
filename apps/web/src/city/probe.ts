@@ -9,6 +9,7 @@ export interface CityProbe {
     ghosts: number;
     added: number;
     lens: string;
+    theme: string;
     zoom: number;
     renderer: string;
     heapBytes: number | null;
