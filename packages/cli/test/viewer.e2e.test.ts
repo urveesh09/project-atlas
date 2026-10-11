@@ -277,6 +277,8 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     // Explicit focus is separate from single-click selection.
     await choose('Dock.tsx');
     await page.getByRole('button', { name: 'Focus selection' }).click();
+    // Focus glides the cinematic camera; read screen positions once it settles.
+    await page.waitForFunction(() => !window.__atlasCity!.stats().cameraMoving);
     const point = await page.evaluate((id) => window.__atlasCity!.screenPointOf(id), file.id);
     expect(point).not.toBeNull();
     const hit = await page.evaluate((p) => window.__atlasCity!.pickAt(p!.x, p!.y), point);

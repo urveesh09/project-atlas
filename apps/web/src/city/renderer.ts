@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { districtColor, facadeColor, lensValue, type CityBuilding, type CityData, type CityLens } from '@atlas/layout';
 import type { Rect } from '@atlas/schema';
 import { EDGE_COLORS, edgeClass, type OverlayResult } from './overlay';
@@ -19,7 +20,8 @@ import {
   treeGeometry,
   wallAt,
 } from './architecture';
-import { THEMES, type Archetype, type CityTheme, type PartKind, type ThemeSpec } from './themes';
+import { THEMES, type Archetype, type CityTheme, type CityView, type PartKind, type ThemeSpec } from './themes';
+import { mistTexture, oceanMesh, sceneryGeometry, skyDome } from './atmosphere';
 
 const center = (r: Rect) => new THREE.Vector3((r.x + r.width / 2) / 100, 0, (r.z + r.depth / 2) / 100);
 const color = new THREE.Color();
@@ -29,9 +31,12 @@ const scaling = new THREE.Matrix4();
 const white = new THREE.Color('#e9e4d7');
 /** Bodies start inside the plinth so no block step leaves a gap; tops stay at 0.35 + height. */
 const BODY_BASE = 0.06;
-/** Key light direction; ground shadows fall along it, so they agree with the shading. */
+/** Key light direction; the sky's sun glow and the shadow map both follow it. */
 const SUN = new THREE.Vector3(-30, 80, 50);
-const SHADOW = { x: -SUN.x / SUN.y, z: -SUN.z / SUN.y };
+/** Cinematic lens and camera feel. */
+const FOV = 42;
+const FLIGHT_MS = 650;
+type Shadows = 'none' | 'cast' | 'receive' | 'both';
 
 const ROLES = ['source', 'test', 'declaration', 'config', 'asset', 'opaque'] as const;
 /** Accent parts take a darker shade of the lens colour, so a whole building reads as one hue. */
@@ -65,12 +70,14 @@ export interface CityGhost {
  */
 export class CityRenderer {
   readonly renderer: THREE.WebGLRenderer;
-  readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100_000);
+  /** Perspective in the cinematic view; orthographic in the isometric plan view. */
+  readonly camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
   readonly scene = new THREE.Scene();
   readonly controls: OrbitControls;
   readonly labels = document.createElement('canvas');
   private readonly geometry = new Set<THREE.BufferGeometry>();
   private readonly materials = new Set<THREE.Material>();
+  private readonly textures = new Set<THREE.Texture>();
   private readonly instances = new Set<THREE.InstancedMesh>();
   private readonly roofs = new Map<(typeof ROLES)[number], THREE.InstancedMesh>();
   private readonly spec: ThemeSpec;
@@ -90,12 +97,23 @@ export class CityRenderer {
   private partShade = new Float32Array(0);
   private readonly families = new Map<string, number>();
   private readonly districtDepth: Map<string, number>;
-  private readonly shadows: THREE.InstancedMesh | null;
   private readonly decorations: THREE.InstancedMesh[] = [];
+  private readonly sun: THREE.DirectionalLight;
+  private readonly sky: THREE.Mesh | null = null;
+  private readonly cinematic: boolean;
+  private readonly reducedMotion: boolean;
+  private readonly shadowsOn: boolean;
+  /** The shadow map renders only when buildings change, never per camera move. */
+  private shadowDirty = true;
+  private shadowCalls = 0;
+  private drawCalls = 0;
+  private flight: { cancel(): void } | null = null;
+  private damping = false;
+  private settling = false;
   private readonly missing: THREE.InstancedMesh;
   private readonly selection: THREE.InstancedMesh;
   private readonly marker: THREE.Mesh;
-  private readonly terminals: [THREE.InstancedMesh, THREE.InstancedMesh, THREE.InstancedMesh];
+  private readonly terminals: THREE.InstancedMesh;
   private readonly packageLines: THREE.InstancedMesh;
   private packageSegments: { a: THREE.Vector3; b: THREE.Vector3; width: number }[] = [];
   private packageZoom = -1;
@@ -135,17 +153,27 @@ export class CityRenderer {
     readonly callbacks: { select(id: string): void; hover(id: string | null): void; fail(reason: string): void },
     readonly lowQuality: boolean,
     readonly theme: CityTheme = 'modern',
+    readonly view: CityView = 'cinematic',
   ) {
     this.city = initial;
     const city = initial;
     this.spec = THEMES[theme];
     this.archetypes = this.spec.archetypes;
+    this.cinematic = view === 'cinematic';
+    this.reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.shadowsOn = !lowQuality;
     const ground = this.spec.ground;
     const capacity = Math.max(1, city.plotCount, city.buildings.length);
     this.renderer = new THREE.WebGLRenderer({ antialias: !lowQuality, alpha: false, powerPreference: 'low-power' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, lowQuality ? 1 : 1.5));
-    this.renderer.setClearColor('#e9e4d7');
+    this.renderer.setClearColor(this.cinematic ? this.spec.sky.haze : '#e9e4d7');
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    if (this.shadowsOn) {
+      this.renderer.shadowMap.enabled = true;
+      // Hardware 2x2 PCF: soft-PCF sampling in every pixel cost 2-3x frame time on fantasy cities.
+      this.renderer.shadowMap.type = THREE.PCFShadowMap;
+      this.renderer.shadowMap.autoUpdate = false;
+    }
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     this.renderer.domElement.className = 'city-canvas';
     this.labels.className = 'city-labels';
@@ -153,42 +181,118 @@ export class CityRenderer {
     host.append(this.renderer.domElement, this.labels);
     this.extent = Math.max(city.root.width, city.root.depth) / 100 + 18;
     this.origin = center(city.root);
+    this.camera = this.cinematic
+      ? new THREE.PerspectiveCamera(FOV, 1, 0.1, 10_000)
+      : new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100_000);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = false;
-    this.controls.minPolarAngle = 0.15;
-    this.controls.maxPolarAngle = Math.PI / 2.6;
-    this.controls.minZoom = 0.2;
-    this.controls.maxZoom = 100;
+    this.controls.minPolarAngle = 0.12;
     this.controls.maxTargetRadius = this.extent;
     this.controls.cursor.copy(this.origin);
+    if (this.cinematic) {
+      // Smooth, map-like navigation: damped orbit, zoom towards the cursor, pan on the ground.
+      this.damping = !this.reducedMotion;
+      this.controls.enableDamping = this.damping;
+      this.controls.dampingFactor = 0.09;
+      this.controls.zoomToCursor = true;
+      this.controls.screenSpacePanning = false;
+      this.controls.maxPolarAngle = 1.36;
+      this.controls.minDistance = 1.5;
+      this.controls.maxDistance = this.extent * 2.8;
+      this.controls.zoomSpeed = 1.1;
+    } else {
+      this.controls.enableDamping = false;
+      this.controls.maxPolarAngle = Math.PI / 2.6;
+      this.controls.minZoom = 0.2;
+      this.controls.maxZoom = 100;
+    }
     this.controls.addEventListener('change', this.invalidate);
-    this.scene.add(new THREE.HemisphereLight('#f6f8ff', '#9d9a8b', 1.9));
-    const light = new THREE.DirectionalLight('#fff3df', 2.5);
-    light.position.copy(SUN);
-    this.scene.add(light);
+    this.controls.addEventListener('start', () => this.flight?.cancel());
+    this.scene.add(new THREE.HemisphereLight('#f6f8ff', '#9d9a8b', this.shadowsOn ? 2.05 : 1.9));
+    this.sun = new THREE.DirectionalLight('#fff3df', 2.5);
+    this.sun.position.copy(this.origin).add(SUN.clone().normalize().multiplyScalar(this.extent * 2));
+    this.sun.target.position.copy(this.origin);
+    this.scene.add(this.sun, this.sun.target);
+    if (this.shadowsOn) {
+      // One static shadow map over the island; it re-renders only when buildings change.
+      const half = Math.hypot(city.root.width, city.root.depth) / 200 + 8;
+      const max = this.renderer.capabilities.maxTextureSize;
+      this.sun.castShadow = true;
+      this.sun.shadow.mapSize.setScalar(Math.min(max, half > 90 ? 4096 : 2048));
+      Object.assign(this.sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 1, far: this.extent * 4 + 40 });
+      this.sun.shadow.camera.updateProjectionMatrix();
+      this.sun.shadow.bias = -0.0004;
+      this.sun.shadow.normalBias = 0.03;
+      // Shaded sides stay readable: shadow darkens, never blacks out, the lens colour.
+      this.sun.shadow.intensity = 0.62;
+    }
     const fill = new THREE.DirectionalLight('#d9e6ff', 0.45);
     fill.position.set(40, 30, -20);
     this.scene.add(fill);
     // Base-anchored unit box: y spans [0, 1], so scale.y is a top height.
     const box = this.ownGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0));
+    const plane = this.ownGeometry(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
     const matte = this.ownMaterial(new THREE.MeshLambertMaterial());
-    // Diorama ground (plan §11.1 permits a decorative shoreline): earth, water, beach, a
-    // green belt and the perimeter road, each a slab whose top sits at a fixed height.
+    // Ground in one mesh (plan §11.1 permits a decorative shoreline): beach, a green belt and
+    // the perimeter road, plus the diorama's earth and water in the isometric view. The
+    // cinematic view puts the island in an open sea under a sky, with distant scenery.
     const r = city.root;
+    const slabs: THREE.BufferGeometry[] = [];
     const slab = (margin: number, top: number, thickness: number, tint: string) => {
-      const mesh = new THREE.Mesh(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: tint })));
-      mesh.scale.set(r.width / 100 + margin * 2, thickness, r.depth / 100 + margin * 2);
-      mesh.position.copy(this.origin).setY(top - thickness);
-      this.scene.add(mesh);
+      const g = new THREE.BoxGeometry(r.width / 100 + margin * 2, thickness, r.depth / 100 + margin * 2)
+        .translate(this.origin.x, top - thickness / 2, this.origin.z)
+        .toNonIndexed();
+      const c = new THREE.Color(tint),
+        n = g.getAttribute('position').count,
+        values = new Float32Array(n * 3);
+      for (let k = 0; k < n; k++) values.set([c.r, c.g, c.b], k * 3);
+      g.deleteAttribute('uv');
+      slabs.push(g.setAttribute('color', new THREE.BufferAttribute(values, 3)));
     };
-    slab(12.4, -0.16, 1.2, ground.earth);
-    slab(12, -0.1, 0.06, ground.water);
-    slab(6.5, -0.02, 0.2, ground.beach);
+    if (!this.cinematic) {
+      slab(12.4, -0.16, 1.2, ground.earth);
+      slab(12, -0.1, 0.06, ground.water);
+    }
+    slab(6.5, -0.02, this.cinematic ? 0.6 : 0.2, ground.beach);
     slab(5.5, 0.03, 0.2, ground.belt);
     slab(3, 0.07, 0.2, ground.road);
+    const groundMesh = new THREE.Mesh(
+      this.ownGeometry(mergeGeometries(slabs)),
+      this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true })),
+    );
+    for (const g of slabs) g.dispose();
+    groundMesh.receiveShadow = true;
+    this.scene.add(groundMesh);
+    if (this.cinematic) {
+      this.scene.fog = new THREE.Fog(this.spec.sky.haze, this.extent * 3, this.extent * 9);
+      this.sky = skyDome(this.spec.sky, SUN);
+      this.ownGeometry(this.sky.geometry);
+      this.ownMaterial(this.sky.material as THREE.Material);
+      const ocean = oceanMesh(this.spec.sky, this.origin, this.extent * 14);
+      this.ownGeometry(ocean.geometry);
+      this.ownMaterial(ocean.material as THREE.Material);
+      const scenery = sceneryGeometry(this.spec, city, this.extent);
+      const backdrop = new THREE.Mesh(
+        this.ownGeometry(scenery.geometry),
+        this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true })),
+      );
+      this.scene.add(this.sky, ocean, backdrop);
+      // Keep the camera inside the scenery ring so mountains never stand between it and the city.
+      this.controls.maxDistance = Math.min(this.controls.maxDistance, scenery.innerRadius);
+      if (scenery.mist.length) {
+        const texture = mistTexture();
+        this.textures.add(texture);
+        const mist = this.batch(
+          plane,
+          this.ownMaterial(new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, opacity: 0.75 })),
+          scenery.mist.length,
+        );
+        scenery.mist.forEach((m, i) => mist.setMatrixAt(i, matrix.makeScale(m.size, 1, m.size * 0.6).setPosition(m.x, m.y, m.z)));
+        this.finish(mist);
+      }
+    }
     // Districts as kerbed blocks: a darker kerb, an inset surface, nested blocks stepping up.
     // The repository block reads as the street grid between packages.
-    const districtMesh = this.batch(box, matte, city.districts.length * 2);
+    const districtMesh = this.batch(box, matte, city.districts.length * 2, 'receive');
     city.districts.forEach((d, i) => {
       const top = groundLevel(d.depth),
         c = center(d.rect),
@@ -209,14 +313,13 @@ export class CityRenderer {
     this.finish(districtMesh);
     this.districtDepth = new Map(city.districts.map((d) => [d.id, d.depth]));
     const decor = cityDecor(city, theme);
-    const plane = this.ownGeometry(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
-    const lawns = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: ground.lawn })), decor.lawns.length);
+    const lawns = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: ground.lawn })), decor.lawns.length, 'receive');
     decor.lawns.forEach((l, i) => {
       matrix.makeScale(Math.max(0.1, l.width), 1, l.depth).setPosition(l.x, l.y, l.z);
       lawns.setMatrixAt(i, matrix);
     });
     this.finish(lawns);
-    const coloured = () => this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    const coloured = () => this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     const place = (mesh: THREE.InstancedMesh, list: readonly { x: number; y: number; z: number; rotation?: number }[], scale = 1) => {
       list.forEach((p, i) => mesh.setMatrixAt(i, matrix.makeRotationY(p.rotation ?? 0).scale(new THREE.Vector3(scale, scale, scale)).setPosition(p.x, p.y, p.z)));
       this.finish(mesh);
@@ -225,7 +328,7 @@ export class CityRenderer {
     if (!lowQuality) {
       this.spec.trees.forEach((kind, k) => {
         const list = decor.trees.filter((t) => t.kind === k);
-        const mesh = this.batch(this.ownGeometry(treeGeometry(kind.kind)), coloured(), list.length);
+        const mesh = this.batch(this.ownGeometry(treeGeometry(kind.kind)), coloured(), list.length, 'cast');
         list.forEach((t, i) => {
           mesh.setMatrixAt(i, matrix.makeScale(t.scale, t.scale, t.scale).setPosition(t.x, t.y, t.z));
           mesh.setColorAt(i, color.set(kind.tints[t.tint]!));
@@ -233,10 +336,10 @@ export class CityRenderer {
         this.finish(mesh);
         this.decorations.push(mesh);
       });
-      this.decorations.push(place(this.batch(this.ownGeometry(lampGeometry(this.spec.lamp)), coloured(), decor.lamps.length), decor.lamps));
+      this.decorations.push(place(this.batch(this.ownGeometry(lampGeometry(this.spec.lamp)), coloured(), decor.lamps.length, 'cast'), decor.lamps));
     }
     if (decor.markings.length && ground.marking) {
-      const marks = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: ground.marking })), decor.markings.length);
+      const marks = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: ground.marking })), decor.markings.length, 'receive');
       decor.markings.forEach((m, i) =>
         marks.setMatrixAt(i, matrix.makeScale(m.length, 1, 0.07).premultiply(rotation.makeRotationY(m.rotation)).setPosition(m.x, m.y, m.z)),
       );
@@ -246,13 +349,18 @@ export class CityRenderer {
     if (this.spec.walls !== 'none') {
       const eastern = this.spec.walls === 'eastern';
       const wallHeight = eastern ? 0.26 : 0.3;
-      const segments = this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: eastern ? '#b4553f' : '#b5ad9d' })), decor.walls.length);
+      const segments = this.batch(
+        box,
+        this.ownMaterial(new THREE.MeshLambertMaterial({ color: eastern ? '#b4553f' : '#b5ad9d' })),
+        decor.walls.length,
+        'both',
+      );
       decor.walls.forEach((s, i) =>
         segments.setMatrixAt(i, matrix.makeScale(s.length, wallHeight, 0.13).premultiply(rotation.makeRotationY(s.rotation)).setPosition(s.x, s.y, s.z)),
       );
       this.finish(segments);
       if (eastern) {
-        const caps = this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#c8a24e' })), decor.walls.length);
+        const caps = this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#c8a24e' })), decor.walls.length, 'both');
         decor.walls.forEach((s, i) =>
           caps.setMatrixAt(i, matrix.makeScale(s.length + 0.06, 0.05, 0.22).premultiply(rotation.makeRotationY(s.rotation)).setPosition(s.x, s.y + wallHeight, s.z)),
         );
@@ -260,6 +368,8 @@ export class CityRenderer {
       } else if (!lowQuality) {
         const teeth: { x: number; y: number; z: number; rotation: number }[] = [];
         for (const s of decor.walls) {
+          // Merlons are bounded too; walls past the budget keep a plain parapet.
+          if (teeth.length > 5_000) break;
           const n = Math.floor(s.length / 0.42),
             dx = Math.cos(s.rotation),
             dz = -Math.sin(s.rotation);
@@ -268,43 +378,29 @@ export class CityRenderer {
             teeth.push({ x: s.x + dx * t, y: s.y + wallHeight, z: s.z + dz * t, rotation: s.rotation });
           }
         }
-        const merlons = this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#b5ad9d' })), teeth.length);
+        const merlons = this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#b5ad9d' })), teeth.length, 'cast');
         teeth.forEach((m, i) =>
           merlons.setMatrixAt(i, matrix.makeScale(0.17, 0.1, 0.15).premultiply(rotation.makeRotationY(m.rotation)).setPosition(m.x, m.y, m.z)),
         );
         this.finish(merlons);
       }
-      place(this.batch(this.ownGeometry(cornerGeometry(this.spec.walls)), coloured(), decor.corners.length), decor.corners);
+      place(this.batch(this.ownGeometry(cornerGeometry(this.spec.walls)), coloured(), decor.corners.length, 'both'), decor.corners);
     }
-    // Soft contact shadows: one translucent ground quad per building along the sun direction.
-    this.shadows = lowQuality
-      ? null
-      : this.batch(
-          plane,
-          this.ownMaterial(
-            new THREE.MeshBasicMaterial({
-              color: '#26303d',
-              transparent: true,
-              opacity: 0.13,
-              depthWrite: false,
-              polygonOffset: true,
-              polygonOffsetFactor: -2,
-            }),
-          ),
-          capacity,
-        );
     // Seeded archetype batches share one facade material; each grows on demand. Accent
     // parts share one lens-shaded material per kind and outline.
     this.facade = this.ownMaterial(facadeMaterial(!lowQuality));
-    for (const a of this.archetypes) this.bodies.push(this.growable(this.ownGeometry(archetypeGeometry(a)), this.facade, true));
-    const accent = this.ownMaterial(new THREE.MeshLambertMaterial());
-    this.platformMaterial = this.ownMaterial(new THREE.MeshLambertMaterial({ color: this.spec.platform }));
+    for (const a of this.archetypes) this.bodies.push(this.growable(this.ownGeometry(archetypeGeometry(a)), this.facade, true, 'both'));
+    const accent = this.ownMaterial(new THREE.MeshLambertMaterial({ flatShading: true }));
+    this.platformMaterial = this.ownMaterial(new THREE.MeshLambertMaterial({ color: this.spec.platform, flatShading: true }));
     for (const a of this.archetypes)
       for (const part of a.parts ?? [])
         for (const sides of part.kind === 'platform' ? ([4] as const) : ([...new Set(a.tiers.map((t) => t.sides))] as const)) {
           const key = `${part.kind}-${sides}`;
           if (!this.parts.has(key))
-            this.parts.set(key, this.growable(this.ownGeometry(partGeometry(part.kind, sides)), part.kind === 'platform' ? this.platformMaterial : accent, false));
+            this.parts.set(
+              key,
+              this.growable(this.ownGeometry(partGeometry(part.kind, sides)), part.kind === 'platform' ? this.platformMaterial : accent, false, 'both'),
+            );
         }
     this.partList = [...this.parts.values()];
     // Role silhouettes share geometry; no per-building light, label or material.
@@ -329,47 +425,40 @@ export class CityRenderer {
           }),
         ),
         capacity,
+        'both',
       );
       roof.count = 0;
       this.roofs.set(role, roof);
     }
     // Evidence marks keep the centred unit box they were positioned for.
     const centred = this.ownGeometry(new THREE.BoxGeometry(1, 1, 1));
-    this.missing = this.batch(centred, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#242d38' })), capacity * 2);
-    const wire = this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#174664', wireframe: true, depthTest: false }));
+    // Evidence marks are never fogged, so they read at any distance.
+    this.missing = this.batch(centred, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#242d38', fog: false })), capacity * 2);
+    const wire = this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#174664', wireframe: true, depthTest: false, fog: false }));
     this.selection = this.batch(centred, wire, capacity);
     this.selection.count = 0;
     // Compare marks: deleted plots as outlined ghosts, added files with a raised marker.
-    this.ghosts = this.batch(centred, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#7a4f2a', wireframe: true })), capacity);
+    this.ghosts = this.batch(centred, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#7a4f2a', wireframe: true, fog: false })), capacity);
     this.ghosts.count = 0;
     this.addedMarkers = this.batch(
       this.ownGeometry(new THREE.OctahedronGeometry(0.32)),
-      this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#1f6b45', depthTest: false })),
+      this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#1f6b45', depthTest: false, fog: false })),
       capacity,
     );
     this.addedMarkers.count = 0;
     this.marker = new THREE.Mesh(
       this.ownGeometry(new THREE.ConeGeometry(0.25, 0.6, 4)),
-      this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#174664', depthTest: false })),
+      this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#174664', depthTest: false, fog: false })),
     );
     this.marker.rotation.z = Math.PI;
     this.marker.visible = false;
     this.scene.add(this.marker, this.overlayGroup);
     // Terminal anchors are fixed harbour depots; which packages a frame imports decides
     // which are shown.
-    const depot = this.spec.terminal;
-    this.terminals = [
-      this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: depot.pier })), 51),
-      this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: depot.shed })), 51),
-      this.batch(
-        this.ownGeometry(depot.eaved ? depotEaveGeometry() : gableGeometry()),
-        this.ownMaterial(new THREE.MeshLambertMaterial({ color: depot.roof })),
-        51,
-      ),
-    ];
+    this.terminals = this.batch(this.ownGeometry(this.depotGeometry()), coloured(), 51, 'both');
     this.packageLines = this.batch(
       this.ownGeometry(new THREE.CylinderGeometry(1, 1, 1, 6)),
-      this.ownMaterial(new THREE.MeshBasicMaterial({ color: EDGE_COLORS.package, depthTest: false })),
+      this.ownMaterial(new THREE.MeshBasicMaterial({ color: EDGE_COLORS.package, depthTest: false, fog: false })),
       1000,
     );
     this.packageLines.count = 0;
@@ -432,7 +521,7 @@ export class CityRenderer {
       (e) => {
         const id = this.pickAt(e.clientX, e.clientY);
         const index = id ? this.buildingIndex.get(id) : undefined;
-        if (index !== undefined) this.fit(this.boxes[index]);
+        if (index !== undefined) this.fit(this.boxes[index], true);
       },
       { signal },
     );
@@ -550,15 +639,6 @@ export class CityRenderer {
         .setPosition(p.x, h + 0.45, p.z);
       roof.setMatrixAt(n, matrix);
       roofCounts.set(b.role, n + 1);
-      if (this.shadows) {
-        const length = h * Math.hypot(SHADOW.x, SHADOW.z);
-        const ground = groundLevel(this.districtDepth.get(b.districtId) ?? 1) + 0.045;
-        matrix
-          .makeScale(length + 0.84 * f, 1, 0.84 * f)
-          .premultiply(rotation.makeRotationY(Math.atan2(-SHADOW.z, SHADOW.x)))
-          .setPosition(p.x + (SHADOW.x * h) / 2, ground, p.z + (SHADOW.z * h) / 2);
-        this.shadows.setMatrixAt(i, matrix);
-      }
       const bounds = new THREE.Box3(new THREE.Vector3(p.x - 0.44, 0.35, p.z - 0.44), new THREE.Vector3(p.x + 0.44, h + 0.8, p.z + 0.44));
       const key = `${Math.floor(p.x / 8)}:${Math.floor(p.z / 8)}`;
       let cell = this.pickCells.get(key);
@@ -580,11 +660,8 @@ export class CityRenderer {
       roof.count = roofCounts.get(role) ?? 0;
       this.finish(roof);
     }
-    if (this.shadows) {
-      this.shadows.count = buildings.length;
-      this.finish(this.shadows);
-    }
     this.placeTerminals(this.city.terminals);
+    this.shadowDirty = true;
   }
 
   /**
@@ -620,8 +697,8 @@ export class CityRenderer {
     return list;
   }
 
-  private growable(geometry: THREE.BufferGeometry, material: THREE.Material, styled: boolean): Growable {
-    const mesh = this.batch(geometry, material, 1);
+  private growable(geometry: THREE.BufferGeometry, material: THREE.Material, styled: boolean, shadows: Shadows): Growable {
+    const mesh = this.batch(geometry, material, 1, shadows);
     mesh.count = 0;
     return { geometry, material, mesh, styled, used: 0 };
   }
@@ -636,34 +713,52 @@ export class CityRenderer {
       g.geometry.dispose();
       g.geometry.setAttribute('atlasStyle', new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2));
     }
+    const shadows: Shadows = g.mesh.castShadow ? (g.mesh.receiveShadow ? 'both' : 'cast') : g.mesh.receiveShadow ? 'receive' : 'none';
     this.scene.remove(g.mesh);
     this.instances.delete(g.mesh);
     g.mesh.dispose();
-    g.mesh = this.batch(g.geometry, g.material, capacity);
+    g.mesh = this.batch(g.geometry, g.material, capacity, shadows);
     g.mesh.count = 0;
   }
 
-  /** Harbour depots: a pier reaching into the water, a shed and a roof per terminal. */
+  /** One harbour depot in local space: a pier into the water, a shed and its roof. */
+  private depotGeometry(): THREE.BufferGeometry {
+    const depot = this.spec.terminal;
+    const roof = depot.eaved
+      ? depotEaveGeometry().scale(0.78, 0.34, 0.56).translate(0, 0.42, 0)
+      : gableGeometry().scale(1.25, 0.3, 0.9).translate(0, 0.52, 0);
+    const parts: [THREE.BufferGeometry, string][] = [
+      [new THREE.BoxGeometry(1.4, 0.14, 1.9).translate(0, -0.05, 0), depot.pier],
+      [new THREE.BoxGeometry(1.15, 0.5, 0.8).translate(0, 0.27, 0), depot.shed],
+      [roof, depot.roof],
+    ];
+    const flat = parts.map(([g, tint]) => {
+      const f = g.index ? g.toNonIndexed() : g.clone();
+      g.dispose();
+      for (const name of Object.keys(f.attributes)) if (name !== 'position') f.deleteAttribute(name);
+      f.computeVertexNormals();
+      const c = new THREE.Color(tint),
+        n = f.getAttribute('position').count,
+        values = new Float32Array(n * 3);
+      for (let k = 0; k < n; k++) values.set([c.r, c.g, c.b], k * 3);
+      return f.setAttribute('color', new THREE.BufferAttribute(values, 3));
+    });
+    const merged = mergeGeometries(flat);
+    for (const f of flat) f.dispose();
+    return merged;
+  }
+
+  /** Harbour depots at the external terminals, each facing the island. */
   private placeTerminals(terminals: CityData['terminals']) {
     const r = this.city.root;
-    const [piers, sheds, roofs] = this.terminals;
-    const eaved = this.spec.terminal.eaved;
     terminals.forEach((t, i) => {
       // North/south terminals face the island across z; east/west across x.
       rotation.makeRotationY(t.z < r.z || t.z > r.z + r.depth ? 0 : Math.PI / 2);
-      const x = t.x / 100,
-        z = t.z / 100;
-      piers.setMatrixAt(i, matrix.makeScale(1.4, 0.14, 1.9).premultiply(rotation).setPosition(x, -0.12, z));
-      sheds.setMatrixAt(i, matrix.makeScale(1.15, 0.5, 0.8).premultiply(rotation).setPosition(x, 0.02, z));
-      roofs.setMatrixAt(
-        i,
-        (eaved ? matrix.makeScale(0.78, 0.34, 0.56) : matrix.makeScale(1.25, 0.3, 0.9)).premultiply(rotation).setPosition(x, eaved ? 0.42 : 0.52, z),
-      );
+      this.terminals.setMatrixAt(i, matrix.copy(rotation).setPosition(t.x / 100, 0, t.z / 100));
     });
-    for (const mesh of this.terminals) {
-      mesh.count = terminals.length;
-      this.finish(mesh);
-    }
+    this.terminals.count = terminals.length;
+    this.finish(this.terminals);
+    this.shadowDirty = true;
   }
 
   private ownGeometry<T extends THREE.BufferGeometry>(g: T): T {
@@ -674,9 +769,11 @@ export class CityRenderer {
     this.materials.add(m);
     return m;
   }
-  private batch(g: THREE.BufferGeometry, m: THREE.Material, count: number) {
+  private batch(g: THREE.BufferGeometry, m: THREE.Material, count: number, shadows: Shadows = 'none') {
     const mesh = new THREE.InstancedMesh(g, m, Math.max(1, count));
     mesh.count = count;
+    mesh.castShadow = this.shadowsOn && (shadows === 'cast' || shadows === 'both');
+    mesh.receiveShadow = this.shadowsOn && (shadows === 'receive' || shadows === 'both');
     this.instances.add(mesh);
     this.scene.add(mesh);
     return mesh;
@@ -694,13 +791,25 @@ export class CityRenderer {
     this.renderer.setSize(this.width, this.height, false);
     this.labels.width = Math.round(this.width);
     this.labels.height = Math.round(this.height);
-    this.camera.left = -this.width / 2;
-    this.camera.right = this.width / 2;
-    this.camera.top = this.height / 2;
-    this.camera.bottom = -this.height / 2;
+    if (this.camera instanceof THREE.PerspectiveCamera) this.camera.aspect = this.width / this.height;
+    else {
+      this.camera.left = -this.width / 2;
+      this.camera.right = this.width / 2;
+      this.camera.top = this.height / 2;
+      this.camera.bottom = -this.height / 2;
+    }
     this.camera.updateProjectionMatrix();
     this.invalidate();
   };
+  /**
+   * Screen pixels per world unit at the orbit target: the orthographic zoom, or its
+   * perspective equivalent. Level of detail and overlay widths use it in both views.
+   */
+  pixelsPerUnit(): number {
+    if (this.camera instanceof THREE.OrthographicCamera) return this.camera.zoom;
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    return this.height / (2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2));
+  }
   readonly invalidate = () => {
     if (this.disposed || this.frame || document.hidden) return;
     this.frame = requestAnimationFrame(() => {
@@ -709,7 +818,12 @@ export class CityRenderer {
     });
   };
   private render() {
-    if (this.packageZoom !== this.camera.zoom) {
+    // Damped orbiting keeps moving after the pointer lifts; keep drawing until it settles.
+    this.settling = this.damping && this.controls.update();
+    if (this.settling) this.invalidate();
+    const ppu = this.pixelsPerUnit();
+    if (this.camera instanceof THREE.PerspectiveCamera) this.frameAtmosphere(this.camera);
+    if (Math.abs(this.packageZoom - ppu) > ppu * 0.02) {
       const rotation = new THREE.Quaternion(),
         direction = new THREE.Vector3(),
         y = new THREE.Vector3(0, 1, 0),
@@ -721,21 +835,51 @@ export class CityRenderer {
         direction.normalize();
         rotation.setFromUnitVectors(y, direction);
         midpoint.copy(segment.a).add(segment.b).multiplyScalar(0.5);
-        const radius = segment.width / (2 * this.camera.zoom);
+        const radius = segment.width / (2 * ppu);
         scale.set(radius, length, radius);
         matrix.compose(midpoint, rotation, scale);
         this.packageLines.setMatrixAt(i, matrix);
       });
       this.packageLines.count = this.packageSegments.length;
       this.finish(this.packageLines);
-      this.packageZoom = this.camera.zoom;
+      this.packageZoom = ppu;
     }
-    const near = this.camera.zoom >= 6;
+    // Perspective shows near roofs large even when the target is far, so it keeps them.
+    const near = this.cinematic ? ppu >= 2 : ppu >= 6;
     for (const roof of this.roofs.values()) roof.visible = near;
     // Below ~1.5 px per cell trees are speckle; the facade shader fades windows by itself.
-    for (const mesh of this.decorations) mesh.visible = this.camera.zoom >= 1.5;
+    for (const mesh of this.decorations) mesh.visible = ppu >= 1.5;
+    const shadowFrame = this.shadowsOn && this.shadowDirty;
+    if (shadowFrame) {
+      this.renderer.shadowMap.needsUpdate = true;
+      this.shadowDirty = false;
+    }
     this.renderer.render(this.scene, this.camera);
+    // Report steady-state draw calls; a shadow update's extra pass is recorded separately and
+    // followed by an ordinary frame.
+    if (shadowFrame) {
+      this.shadowCalls = this.renderer.info.render.calls;
+      this.invalidate();
+    } else this.drawCalls = this.renderer.info.render.calls;
     this.drawLabels(this.labels, this.camera, this.width, this.height);
+  }
+  /**
+   * Fog, clipping planes and the sky follow the camera: the island stays crisp, the distant
+   * scenery fades into the haze, and depth precision is spent where the camera looks.
+   */
+  private frameAtmosphere(camera: THREE.PerspectiveCamera) {
+    const distance = camera.position.distanceTo(this.controls.target);
+    camera.near = THREE.MathUtils.clamp(distance * 0.015, 0.05, 40);
+    camera.far = distance + this.extent * 10;
+    camera.updateProjectionMatrix();
+    if (this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.near = distance + this.extent * 0.6;
+      this.scene.fog.far = distance + this.extent * 7.5;
+    }
+    if (this.sky) {
+      this.sky.position.copy(camera.position);
+      this.sky.scale.setScalar(camera.far * 0.9);
+    }
   }
   private drawLabels(canvas: HTMLCanvasElement, camera: THREE.Camera, width: number, height: number) {
     const ctx = canvas.getContext('2d');
@@ -914,66 +1058,142 @@ export class CityRenderer {
     }
     this.invalidate();
   }
-  reset() {
+  /**
+   * The establishing shot: the whole island. Cinematic views look in at a three-quarter
+   * angle under the sky; the isometric view fits the projected island bounds.
+   */
+  reset(animate = false) {
     const maxHeight = this.city.buildings.reduce((max, b) => Math.max(max, b.height + 1.6), 1);
+    const r = this.city.root;
+    if (this.camera instanceof THREE.PerspectiveCamera) {
+      // A low three-quarter view: the island fills the lower frame, the horizon and sky the top.
+      const radius = Math.hypot(r.width / 200 + 7, r.depth / 200 + 7, maxHeight / 2);
+      const polar = 1.25,
+        azimuth = Math.PI / 4;
+      const direction = new THREE.Vector3(Math.sin(polar) * Math.sin(azimuth), Math.cos(polar), Math.sin(polar) * Math.cos(azimuth));
+      const ground = new THREE.Vector3(direction.x, 0, direction.z).normalize();
+      const target = this.origin.clone().setY(Math.min(maxHeight * 0.2, 2)).addScaledVector(ground, -radius * 0.28);
+      // A bounding sphere fits loosely; trimming it frames the island without wasted margin.
+      const distance = Math.min(this.controls.maxDistance, this.fitDistance(radius) * 0.7);
+      this.setView(target.clone().addScaledVector(direction, distance), target, undefined, animate);
+      return;
+    }
     const target = this.origin.clone().setY(maxHeight / 2);
-    this.controls.target.copy(target);
-    this.camera.position.copy(target).add(new THREE.Vector3(this.extent, this.extent * 1.15, this.extent));
-    this.camera.zoom = 1;
-    this.camera.updateProjectionMatrix();
-    this.controls.update();
-    this.camera.updateMatrixWorld();
+    const position = target.clone().add(new THREE.Vector3(this.extent, this.extent * 1.15, this.extent));
+    const camera = this.camera;
     // Fit projected island bounds, rather than a square estimate that wastes the viewport on long repositories.
-    const r = this.city.root,
-      bounds = new THREE.Box3(
-        new THREE.Vector3(r.x / 100 - 11, 0, r.z / 100 - 11),
-        new THREE.Vector3((r.x + r.width) / 100 + 11, maxHeight, (r.z + r.depth) / 100 + 11),
-      );
-    const projected = bounds.clone().applyMatrix4(this.camera.matrixWorldInverse).getSize(new THREE.Vector3());
+    const probe = camera.clone();
+    probe.position.copy(position);
+    probe.lookAt(target);
+    probe.updateMatrixWorld();
+    const bounds = new THREE.Box3(
+      new THREE.Vector3(r.x / 100 - 11, 0, r.z / 100 - 11),
+      new THREE.Vector3((r.x + r.width) / 100 + 11, maxHeight, (r.z + r.depth) / 100 + 11),
+    );
+    const projected = bounds.clone().applyMatrix4(probe.matrixWorldInverse).getSize(new THREE.Vector3());
     this.baseZoom = THREE.MathUtils.clamp(
       Math.min(this.width / (projected.x * 1.15), this.height / (projected.y * 1.15)),
       this.controls.minZoom,
       this.controls.maxZoom,
     );
-    this.camera.zoom = this.baseZoom;
-    this.camera.updateProjectionMatrix();
-    this.invalidate();
+    this.setView(position, target, this.baseZoom, animate);
   }
   zoom(factor: number) {
-    this.camera.zoom = THREE.MathUtils.clamp(this.camera.zoom * factor, this.controls.minZoom, this.controls.maxZoom);
-    this.camera.updateProjectionMatrix();
+    this.flight?.cancel();
+    if (this.camera instanceof THREE.PerspectiveCamera) {
+      // Dolly towards the target; perspective zoom keeps depth natural.
+      const offset = this.camera.position.clone().sub(this.controls.target);
+      const distance = THREE.MathUtils.clamp(offset.length() / factor, this.controls.minDistance, this.controls.maxDistance);
+      this.camera.position.copy(this.controls.target).addScaledVector(offset.normalize(), distance);
+      this.controls.update();
+    } else {
+      this.camera.zoom = THREE.MathUtils.clamp(this.camera.zoom * factor, this.controls.minZoom, this.controls.maxZoom);
+      this.camera.updateProjectionMatrix();
+    }
     this.invalidate();
   }
   north() {
     const distance = this.camera.position.distanceTo(this.controls.target);
-    this.camera.position.copy(this.controls.target).add(new THREE.Vector3(0, distance * 0.9, distance * 0.4));
-    this.controls.update();
-    this.invalidate();
+    this.setView(
+      this.controls.target.clone().add(new THREE.Vector3(0, distance * 0.9, distance * 0.4)),
+      this.controls.target.clone(),
+      undefined,
+      true,
+    );
   }
-  fit(bounds?: THREE.Box3) {
+  fit(bounds?: THREE.Box3, animate = false) {
     if (!bounds) {
-      this.reset();
+      this.reset(animate);
       return;
     }
     const size = bounds.getSize(new THREE.Vector3()),
       target = bounds.getCenter(new THREE.Vector3());
     const direction = this.camera.position.clone().sub(this.controls.target).normalize();
-    this.controls.target.copy(target);
-    this.camera.position.copy(target).addScaledVector(direction, this.extent * 2);
-    this.camera.zoom = Math.min(
-      60,
-      Math.min(this.width, this.height) / Math.max(8, Math.max(size.x, size.y, size.z) * 2),
-    );
-    this.camera.updateProjectionMatrix();
-    this.controls.update();
-    this.invalidate();
+    if (this.camera instanceof THREE.PerspectiveCamera) {
+      // Architectural framing: keep the bearing, settle at a low but readable elevation.
+      const spherical = new THREE.Spherical().setFromVector3(direction);
+      spherical.phi = THREE.MathUtils.clamp(spherical.phi, 0.75, 1.12);
+      spherical.radius = 1;
+      const distance = THREE.MathUtils.clamp(
+        this.fitDistance(Math.max(2.5, size.length() / 2)) * 1.25,
+        this.controls.minDistance,
+        this.controls.maxDistance,
+      );
+      this.setView(target.clone().add(new THREE.Vector3().setFromSpherical(spherical).multiplyScalar(distance)), target, undefined, animate);
+      return;
+    }
+    const zoom = Math.min(60, Math.min(this.width, this.height) / Math.max(8, Math.max(size.x, size.y, size.z) * 2));
+    this.setView(target.clone().addScaledVector(direction, this.extent * 2), target, zoom, animate);
+  }
+  /** Distance at which a sphere of `radius` fills the narrower field of view. */
+  private fitDistance(radius: number) {
+    const camera = this.camera as THREE.PerspectiveCamera;
+    const vertical = THREE.MathUtils.degToRad(camera.fov);
+    const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * (this.width / this.height));
+    return radius / Math.sin(Math.min(vertical, horizontal) / 2);
+  }
+  /**
+   * Move the camera, gliding along an eased path unless the viewer asked for reduced motion
+   * (plan §11.7). Any pointer interaction cancels a flight where it is.
+   */
+  private setView(position: THREE.Vector3, target: THREE.Vector3, zoom: number | undefined, animate: boolean) {
+    this.flight?.cancel();
+    const apply = (t: number, from: { position: THREE.Vector3; target: THREE.Vector3; zoom: number }) => {
+      this.camera.position.lerpVectors(from.position, position, t);
+      this.controls.target.lerpVectors(from.target, target, t);
+      if (zoom !== undefined) this.camera.zoom = from.zoom + (zoom - from.zoom) * t;
+      this.camera.updateProjectionMatrix();
+      this.controls.update();
+      this.camera.updateMatrixWorld();
+      this.invalidate();
+    };
+    const from = { position: this.camera.position.clone(), target: this.controls.target.clone(), zoom: this.camera.zoom };
+    if (!animate || this.reducedMotion || from.position.distanceTo(position) < 1e-6) {
+      apply(1, from);
+      return;
+    }
+    const start = performance.now();
+    let frame = 0;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / FLIGHT_MS);
+      apply(t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2, from);
+      if (t < 1 && !this.disposed) frame = requestAnimationFrame(step);
+      else this.flight = null;
+    };
+    frame = requestAnimationFrame(step);
+    this.flight = {
+      cancel: () => {
+        cancelAnimationFrame(frame);
+        this.flight = null;
+      },
+    };
   }
   focus(ids: ReadonlySet<string>) {
     const box = new THREE.Box3();
     this.city.buildings.forEach((b, i) => {
       if (ids.has(b.nodeId)) box.union(this.boxes[i]!);
     });
-    this.fit(box.isEmpty() ? undefined : box);
+    this.fit(box.isEmpty() ? undefined : box, true);
   }
   screenPointOf(id: string) {
     const b = this.city.buildings.find((b) => b.nodeId === id);
@@ -1008,7 +1228,9 @@ export class CityRenderer {
     const ctx = this.renderer.getContext(),
       ext = ctx.getExtension('WEBGL_debug_renderer_info');
     return {
-      drawCalls: this.renderer.info.render.calls,
+      drawCalls: this.drawCalls,
+      /** Extra calls of the last shadow-map update, which runs only when buildings change. */
+      shadowDrawCalls: this.shadowCalls,
       geometries: this.renderer.info.memory.geometries,
       textures: this.renderer.info.memory.textures,
       buildings: this.city.buildings.length,
@@ -1017,16 +1239,20 @@ export class CityRenderer {
       added: this.addedMarkers.count,
       lens: this.lens,
       theme: this.theme,
-      zoom: this.camera.zoom,
+      view: this.view,
+      cameraMoving: this.flight !== null || this.settling,
+      zoom: this.pixelsPerUnit(),
       renderer: ext ? String(ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'unknown',
       heapBytes: (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null,
     };
   }
   /** Return to a view saved by `cameraState`, e.g. after switching city style or detail. */
   restoreCamera(state: { position: number[]; target: number[]; zoom: number }) {
+    this.flight?.cancel();
     this.camera.position.fromArray(state.position);
     this.controls.target.fromArray(state.target);
-    this.camera.zoom = THREE.MathUtils.clamp(state.zoom, this.controls.minZoom, this.controls.maxZoom);
+    if (this.camera instanceof THREE.OrthographicCamera)
+      this.camera.zoom = THREE.MathUtils.clamp(state.zoom, this.controls.minZoom, this.controls.maxZoom);
     this.camera.updateProjectionMatrix();
     this.controls.update();
     this.invalidate();
@@ -1036,6 +1262,7 @@ export class CityRenderer {
   }
   measureFrames(count: number): Promise<number[]> {
     this.cancelMeasure?.();
+    this.flight?.cancel();
     return new Promise((resolve) => {
       const values: number[] = [];
       let last = 0,
@@ -1105,6 +1332,7 @@ export class CityRenderer {
     if (this.disposed) return;
     this.disposed = true;
     this.cancelMeasure?.();
+    this.flight?.cancel();
     cancelAnimationFrame(this.frame);
     this.abort.abort();
     this.resizeObserver.disconnect();
@@ -1114,6 +1342,7 @@ export class CityRenderer {
     for (const mesh of this.instances) mesh.dispose();
     for (const g of this.geometry) g.dispose();
     for (const m of this.materials) m.dispose();
+    for (const t of this.textures) t.dispose();
     this.scene.clear();
     this.renderer.dispose();
     this.renderer.forceContextLoss();

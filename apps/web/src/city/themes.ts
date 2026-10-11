@@ -4,6 +4,13 @@
  * the same encodings: code-line height, one lens colour on the facade, role roofs, plots.
  */
 export type CityTheme = 'modern' | 'eastern' | 'western';
+/** Camera mode: a perspective "cinematic" city, or the orthographic plan view. */
+export type CityView = 'cinematic' | 'isometric';
+export const CITY_VIEWS = ['cinematic', 'isometric'] as const;
+export const CITY_VIEW_LABEL: Record<CityView, string> = {
+  cinematic: 'Cinematic 3D',
+  isometric: 'Isometric',
+};
 export const CITY_THEMES = ['modern', 'eastern', 'western'] as const;
 export const CITY_THEME_LABEL: Record<CityTheme, string> = {
   modern: 'Modern city',
@@ -84,6 +91,9 @@ export interface ThemeSpec {
   roofs: { source: string; test: string; other: string };
   platform: string;
   terminal: { pier: string; shed: string; roof: string; eaved: boolean };
+  /** Cinematic view only: sky dome, ocean and the distant scenery around the island. */
+  sky: { zenith: string; horizon: string; haze: string; sun: string; ocean: string };
+  scenery: 'bay' | 'karst' | 'alps';
 }
 
 /** Window patterns understood by the facade shader. */
@@ -152,6 +162,8 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
     roofs: { source: '#5e6971', test: '#456471', other: '#5e6971' },
     platform: '#d9d4c6',
     terminal: { pier: '#8c7660', shed: '#c3b49a', roof: '#687e85', eaved: false },
+    sky: { zenith: '#6f9cd0', horizon: '#e4edf1', haze: '#dbe5ea', sun: '#fff3d6', ocean: '#6a9db0' },
+    scenery: 'bay',
   },
   eastern: {
     archetypes: [
@@ -197,6 +209,8 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
     roofs: { source: '#4a3c37', test: '#3e5a55', other: '#4a3c37' },
     platform: '#ebe6da',
     terminal: { pier: '#7d6450', shed: '#a8584a', roof: '#4a3c37', eaved: true },
+    sky: { zenith: '#86aebf', horizon: '#f1e7d4', haze: '#e7e2d6', sun: '#ffe6b5', ocean: '#6fa898' },
+    scenery: 'karst',
   },
   western: {
     archetypes: [
@@ -248,5 +262,7 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
     roofs: { source: '#4d5967', test: '#3f5a6a', other: '#4d5967' },
     platform: '#c9c0ae',
     terminal: { pier: '#7d6450', shed: '#a88a66', roof: '#4d5967', eaved: false },
+    sky: { zenith: '#5f86c0', horizon: '#f2e3c8', haze: '#e4dccb', sun: '#ffdf9f', ocean: '#55869f' },
+    scenery: 'alps',
   },
 };

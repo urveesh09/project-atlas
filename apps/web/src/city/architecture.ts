@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { seedFromId, xorshift32, type CityBuilding, type CityData } from '@atlas/layout';
 import { THEMES, type Archetype, type CityTheme, type LampKind, type PartKind, type Tier, type TreeKind } from './themes';
 
@@ -71,6 +71,18 @@ function outline(sides: Tier['sides'], hx: number, hz: number): [number, number]
 }
 
 const ZERO = [0, 0, 0, 0] as const;
+
+/**
+ * Index a triangle soup so corners are shaded once. Tens of thousands of instanced parts made
+ * per-triangle vertices the fantasy cities' main GPU cost; parts drop their normals and are
+ * flat-shaded per fragment instead (`flatShading` materials).
+ */
+function shared(g: THREE.BufferGeometry, keepNormals: boolean): THREE.BufferGeometry {
+  if (!keepNormals) g.deleteAttribute('normal');
+  const indexed = mergeVertices(g, 1e-5);
+  g.dispose();
+  return indexed;
+}
 const UP = new THREE.Vector3(0, 1, 0);
 const DOWN = new THREE.Vector3(0, -1, 0);
 const v3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -157,7 +169,8 @@ function prism(m: Mesher, tiers: readonly Tier[], bottomCap = false) {
 export function archetypeGeometry(a: Archetype): THREE.BufferGeometry {
   const m = new Mesher();
   prism(m, a.tiers);
-  return m.geometry(true);
+  // Facade corners share a face's normal and window coordinates, so they index cleanly.
+  return shared(m.geometry(true), true);
 }
 
 /**
@@ -186,7 +199,7 @@ export function partGeometry(kind: PartKind, sides: Tier['sides']): THREE.Buffer
     teeth.dispose();
     return merged;
   }
-  return m.geometry(false);
+  return shared(m.geometry(false), false);
 }
 
 /** Flared hip skirt whose corners turn up: the eave of a pagoda storey. */
@@ -259,7 +272,7 @@ function mergeFlat(parts: THREE.BufferGeometry[], colours?: readonly THREE.Color
   });
   const merged = mergeGeometries(flat)!;
   for (const g of flat) g.dispose();
-  return merged;
+  return shared(merged, false);
 }
 
 /**
@@ -421,6 +434,11 @@ export interface Decor {
 }
 const MAX_TREES = 15_000;
 const MAX_LAMPS = 4_000;
+/**
+ * Town walls go to the largest packages only: a repository with hundreds of packages would
+ * otherwise become a maze of walls costing more GPU time than its buildings.
+ */
+export const MAX_WALLED_PACKAGES = 48;
 
 /**
  * Layout-stable decoration. Lawns, trees, lamps and walls use only space the packer leaves
@@ -448,6 +466,13 @@ export function cityDecor(city: CityData, theme: CityTheme = 'modern'): Decor {
   const lamp = (x: number, y: number, z: number, rotation: number) => {
     if (decor.lamps.length < MAX_LAMPS) decor.lamps.push({ x, y, z, rotation });
   };
+  const walled = new Set(
+    city.districts
+      .filter((d) => d.kind === 'package' && d.depth > 0 && d.rect.width >= 300 && d.rect.depth >= 500)
+      .sort((a, b) => b.rect.width * b.rect.depth - a.rect.width * a.rect.depth || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .slice(0, MAX_WALLED_PACKAGES)
+      .map((d) => d.id),
+  );
   for (const d of city.districts) {
     if (d.depth === 0) continue;
     const x = d.rect.x / 100,
@@ -471,7 +496,7 @@ export function cityDecor(city: CityData, theme: CityTheme = 'modern'): Decor {
       if (next() % 100 >= 40) plant(next, x + w - 0.5, y, tz);
     }
     for (let tx = x + 1.5; tx <= x + w - 1.5; tx += 2) if (next() % 100 >= 40) plant(next, tx, y, z + depth - 0.5);
-    if (spec.walls !== 'none') {
+    if (spec.walls !== 'none' && walled.has(d.id)) {
       // A town wall on the package's outer border cell, with a tower at each corner.
       const base = groundLevel(d.depth),
         inset = 0.12;
@@ -625,7 +650,7 @@ export function cornerGeometry(walls: 'eastern' | 'western'): THREE.BufferGeomet
 export function depotEaveGeometry(): THREE.BufferGeometry {
   const m = new Mesher();
   eave(m, 4);
-  return m.geometry(false);
+  return shared(m.geometry(false), false);
 }
 
 /** Unit gable roof: ridge along x at y = 1, eaves on z = ±0.5. */

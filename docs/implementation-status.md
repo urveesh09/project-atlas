@@ -396,6 +396,40 @@ Captures: Eastern [quarter](images/city-eastern-quarter.png) and
 [close-up](images/city-eastern-closeup.png); Western
 [quarter](images/city-western-quarter.png) and [close-up](images/city-western-closeup.png).
 
+### Cinematic camera (2026-10-11)
+
+At the owner's request the 3D city now opens in a *Cinematic 3D* perspective view
+([ADR-040](adr/ADR-040-cinematic-camera-and-atmosphere.md)):
+- damped orbiting, zoom to cursor and ground panning;
+- eased glides for reset, focus and north, which reduced motion turns into jumps;
+- real sun shadows that re-render only when buildings change;
+- a sky dome, an ocean with fog to the horizon, and style-specific distant scenery: Modern
+  headlands and skyline; Eastern karst pillars, floating islands and mist; Western alps and
+  a hilltop castle.
+
+*Isometric* remains as a camera option for exact height comparison.
+
+Evidence:
+- GPU timer queries located the fantasy styles' cost, and indexing parts and capping town
+  walls cut it from about 11.5 to 7 ms per frame.
+- Vite and the 10,000-file city: all ten 120-frame orbits per style at the 16.7 ms
+  refresh cap.
+- Draw calls: 19–36.
+- Snapshot change including the shadow update: p95 ≤ 50 ms.
+- Leak check: GPU resources stay constant over frame-swap cycles.
+- `pnpm verify`: 626 tests passed, 80 service-gated skips; the corpus baseline is exact.
+- Viewer e2e: 27 tests pass with the cinematic default, inside `pnpm verify` and in seven
+  standalone runs (one under concurrent test load). One standalone run straight after
+  `pnpm verify` failed three consecutive tests in the miniature-city suite: overlays, PNG
+  export and context loss. Its log was not captured and it did not reproduce, so its cause
+  is unknown. It is recorded here, not dismissed.
+
+Captures: [Modern](images/city-cinematic-modern.png),
+[Eastern](images/city-cinematic-eastern.png),
+[Eastern establishing shot](images/city-cinematic-eastern-establish.png),
+[Western](images/city-cinematic-western.png),
+[Western street](images/city-cinematic-western-street.png).
+
 ### Reproduce verification
 
 ```sh

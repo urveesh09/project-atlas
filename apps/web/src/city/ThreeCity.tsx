@@ -3,7 +3,7 @@ import type { CityBuilding, CityData, CityLens } from '@atlas/layout';
 import { CityRenderer, type CityGhost } from './renderer';
 import type { CityHandle } from './types';
 import type { OverlayResult } from './overlay';
-import type { CityTheme } from './themes';
+import type { CityTheme, CityView } from './themes';
 import type {} from './probe';
 
 export default function ThreeCity(props: {
@@ -18,6 +18,7 @@ export default function ThreeCity(props: {
   focusNonce: number;
   lowQuality: boolean;
   theme: CityTheme;
+  view: CityView;
   select(id: string): void;
   hover(id: string | null): void;
   fail(reason: string): void;
@@ -26,7 +27,7 @@ export default function ThreeCity(props: {
   const host = useRef<HTMLDivElement>(null),
     renderer = useRef<CityRenderer | null>(null),
     // The view survives a style or detail switch, which rebuilds the renderer.
-    lastView = useRef<{ layoutKey: string; camera: ReturnType<CityRenderer['cameraState']> } | null>(null),
+    lastView = useRef<{ key: string; camera: ReturnType<CityRenderer['cameraState']> } | null>(null),
     latest = useRef(props);
   latest.current = props;
   useEffect(() => {
@@ -42,15 +43,18 @@ export default function ThreeCity(props: {
         },
         props.lowQuality,
         props.theme,
+        props.view,
       );
     } catch {
       latest.current.fail('3D graphics are unavailable. The same city is available as a map and table.');
       return;
     }
     renderer.current = view;
-    if (lastView.current?.layoutKey === props.layoutKey) view.restoreCamera(lastView.current.camera);
+    // A camera saved in the same layout and camera mode survives a style or detail switch.
+    const viewKey = `${props.layoutKey}|${props.view}`;
+    if (lastView.current?.key === viewKey) view.restoreCamera(lastView.current.camera);
     props.register({
-      reset: () => view.reset(),
+      reset: () => view.reset(true),
       zoom: (f) => view.zoom(f),
       north: () => view.north(),
       focus: (ids) => view.focus(ids),
@@ -60,28 +64,28 @@ export default function ThreeCity(props: {
     if (new URLSearchParams(location.search).get('atlasBenchmark') === '1') window.__atlasCity = view;
     return () => {
       if (window.__atlasCity === view) delete window.__atlasCity;
-      lastView.current = { layoutKey: props.layoutKey, camera: view.cameraState() };
+      lastView.current = { key: viewKey, camera: view.cameraState() };
       view.dispose();
       renderer.current = null;
       latest.current.register(null);
     };
-  }, [props.layoutKey, props.lowQuality, props.theme, props.register]);
+  }, [props.layoutKey, props.lowQuality, props.theme, props.view, props.register]);
   useEffect(() => {
     try {
       renderer.current?.setCity(props.city);
     } catch {
       latest.current.fail('This snapshot could not be drawn in 3D. The map and table show it.');
     }
-  }, [props.city, props.layoutKey, props.lowQuality, props.theme]);
+  }, [props.city, props.layoutKey, props.lowQuality, props.theme, props.view]);
   useEffect(() => {
     renderer.current?.setGhosts(props.ghosts);
-  }, [props.ghosts, props.layoutKey, props.lowQuality, props.theme]);
+  }, [props.ghosts, props.layoutKey, props.lowQuality, props.theme, props.view]);
   useEffect(() => {
     renderer.current?.applyStyle(props.lens, props.selected, props.filter);
-  }, [props.city, props.lens, props.selected, props.filter, props.lowQuality, props.theme]);
+  }, [props.city, props.lens, props.selected, props.filter, props.lowQuality, props.theme, props.view]);
   useEffect(() => {
     renderer.current?.setOverlay(props.overlay);
-  }, [props.overlay, props.city, props.lowQuality, props.theme]);
+  }, [props.overlay, props.city, props.lowQuality, props.theme, props.view]);
   useEffect(() => {
     if (props.focusNonce) renderer.current?.focus(props.selected);
   }, [props.focusNonce]);

@@ -46,6 +46,7 @@ try {
     await page.waitForFunction((query) => document.getElementById('inspector-title')?.textContent === query &&
       document.querySelector('[data-overlay-count]')?.getAttribute('data-overlay-ready') === 'true', query);
     await page.getByRole('button', { name: 'Reset city' }).click();
+    await page.waitForFunction(() => !window.__atlasCity.stats().cameraMoving);
     await page.evaluate(() => window.__atlasCity.measureFrames(60));
     const { profile } = await cdp.send('Profiler.stop');
     const tasks = await page.evaluate(() => window.__atlasProfileTasks);

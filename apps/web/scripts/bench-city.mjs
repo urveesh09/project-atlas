@@ -364,6 +364,8 @@ try {
         await page.keyboard.press('Enter');
         selectionTimes.push(await page.evaluate(() => window.__atlasInteraction));
         await page.getByRole('button', { name: 'Reset city' }).click();
+        // Camera glides are excluded: frames are measured from the settled view.
+        await page.waitForFunction(() => !window.__atlasCity.stats().cameraMoving);
         const frames = await page.evaluate(() => window.__atlasCity.measureFrames(60));
         frameP95s.push(p95(frames));
         longTasks.push(...(await page.evaluate(() => window.__atlasLongTasks)));
@@ -371,10 +373,12 @@ try {
       }
       const stats = await page.evaluate(() => window.__atlasCity.stats());
       await page.getByRole('button', { name: 'Focus selection' }).click();
+      await page.waitForFunction(() => !window.__atlasCity.stats().cameraMoving);
       await page.locator('.city').screenshot({ path: path.join(images, `phase3-${total}-detail.png`) });
       const focusedFrames = await page.evaluate(() => window.__atlasCity.measureFrames(60));
       const focusedFrameP95Ms = p95(focusedFrames);
       await page.getByRole('button', { name: 'Reset city' }).click();
+      await page.waitForFunction(() => !window.__atlasCity.stats().cameraMoving);
       const combinedHeap = await viewerHeap(context, page, server);
       report.environment.gpu ??= stats.renderer;
       const baseline = await page.evaluate(() => window.__atlasCity.stats());

@@ -9,12 +9,14 @@ import {
   cornerGeometry,
   districtFamily,
   lampGeometry,
+  MAX_WALLED_PACKAGES,
   partGeometry,
   topExtent,
   treeGeometry,
   wallAt,
 } from '../src/city/architecture';
 import { CITY_THEMES, THEMES } from '../src/city/themes';
+import { sceneryGeometry, skyDome } from '../src/city/atmosphere';
 
 const repoId = localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f');
 const file = (path: string) => lineageId(repoId, '0'.repeat(40), '0'.repeat(40), path);
@@ -173,8 +175,9 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
     expect(decor.lamps.length).toBeGreaterThan(4);
     expect(decor.lawns.length).toBe(city.districts.filter((d) => d.depth > 0).length);
     const packages = city.districts.filter((d) => d.kind === 'package').length;
-    expect(decor.walls.length).toBe(spec.walls === 'none' ? 0 : packages * 4);
-    expect(decor.corners.length).toBe(spec.walls === 'none' ? 0 : packages * 4);
+    const walled = Math.min(packages, MAX_WALLED_PACKAGES);
+    expect(decor.walls.length).toBe(spec.walls === 'none' ? 0 : walled * 4);
+    expect(decor.corners.length).toBe(spec.walls === 'none' ? 0 : walled * 4);
     expect(decor.markings.length > 0).toBe(spec.ground.marking !== null);
     for (const t of decor.trees) expect(t.kind).toBeLessThan(spec.trees.length);
     const clear = (x: number, z: number, margin: number) => {
@@ -228,4 +231,58 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
       g.dispose();
     }
   });
+
+  it('places cinematic scenery deterministically, beyond the island and its water ring', () => {
+    const extent = Math.max(geometry.root.width, geometry.root.depth) / 100 + 18;
+    const a = sceneryGeometry(spec, city, extent),
+      b = sceneryGeometry(spec, city, extent);
+    expect(Array.from(a.geometry.getAttribute('position').array)).toEqual(Array.from(b.geometry.getAttribute('position').array));
+    expect(a.mist).toEqual(b.mist);
+    expect(a.mist.length > 0).toBe(spec.scenery === 'karst');
+    const r = geometry.root,
+      cx = (r.x + r.width / 2) / 100,
+      cz = (r.z + r.depth / 2) / 100;
+    // The island, its belt, beach and the 12-cell water ring all lie inside this radius.
+    const shore = Math.hypot(r.width / 200 + 12, r.depth / 200 + 12);
+    const position = a.geometry.getAttribute('position');
+    let nearest = Infinity;
+    for (let i = 0; i < position.count; i++) nearest = Math.min(nearest, Math.hypot(position.getX(i) - cx, position.getZ(i) - cz));
+    expect(nearest).toBeGreaterThan(shore);
+    // The camera is held inside the scenery ring, so scenery never stands in front of the city.
+    expect(a.innerRadius).toBeLessThan(nearest);
+    expect(a.innerRadius).toBeGreaterThan(shore);
+    expect(a.geometry.getAttribute('color').count).toBe(position.count);
+    a.geometry.dispose();
+    b.geometry.dispose();
+    const sky = skyDome(spec.sky, new THREE.Vector3(-30, 80, 50));
+    expect((sky.material as THREE.ShaderMaterial).fog).toBe(false);
+    expect((sky.material as THREE.ShaderMaterial).depthTest).toBe(false);
+  });
 });
+
+describe('town walls', () => {
+  it('wall only the largest packages, deterministically', () => {
+    const many: CityData = {
+      ...city,
+      districts: [
+        city.districts.find((d) => d.depth === 0)!,
+        ...Array.from({ length: 60 }, (_, i) => ({
+          id: `dst_${i.toString(16).padStart(64, '0')}`,
+          rect: { x: (i % 10) * 2000, z: Math.floor(i / 10) * 2000, width: 600 + i * 100, depth: 800 },
+          depth: 1,
+          path: `packages/p${i}`,
+          nodeId: null,
+          kind: 'package',
+          label: `p${i}`,
+        })),
+      ],
+    };
+    const decor = cityDecor(many, 'western');
+    expect(decor.walls.length).toBe(MAX_WALLED_PACKAGES * 4);
+    // The largest 48 (indices 12…59) are walled; the smallest are not.
+    const xs = new Set(decor.corners.map((c) => Math.round((c.x - 0.3) * 100)));
+    expect(xs.has(59 % 10 * 2000)).toBe(true);
+    expect(decor).toEqual(cityDecor(many, 'western'));
+  });
+});
+
