@@ -19,5 +19,9 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 60_000,
     pool: 'forks',
+    // Each file can launch two parser children or cgroup-limited Docker jobs.
+    // Bound file concurrency so the complete integration run does not oversubscribe
+    // the host and turn functional deadlines into contention failures.
+    maxWorkers: 2,
   },
 });

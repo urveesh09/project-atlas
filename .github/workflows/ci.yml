@@ -83,6 +83,59 @@ jobs:
       - run: pnpm verify
         env:
           ATLAS_REQUIRE_BROWSER_TESTS: '1'
+      - name: Extract and verify the CLI candidate outside the checkout
+        run: pnpm verify:distribution
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-distribution-${{ matrix.os }}
+          retention-days: 7
+          include-hidden-files: true
+          path: |
+            docs/release/distribution-smoke.*
+            .atlas-tmp/cli-distribution-result.json
+            .atlas-tmp/releases/*/atlas-cli-candidate.tar.gz
+
+  corpus:
+    name: pinned repository corpus (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Acquire only the three immutable public corpus commits
+        run: node scripts/validate-real-repositories.mjs --acquire
+      - name: Five offline cold runs and independent source checks
+        run: node scripts/validate-real-repositories.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: repository-corpus-${{ matrix.os }}
+          retention-days: 7
+          path: docs/release/real-repositories.*
+
+  corpus-determinism:
+    name: pinned corpus Windows/Linux determinism
+    needs: corpus
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: repository-corpus-*
+          path: .atlas-tmp/corpus-reports
+      - run: node scripts/compare-repository-reports.mjs .atlas-tmp/corpus-reports/repository-corpus-ubuntu-latest/real-repositories.json .atlas-tmp/corpus-reports/repository-corpus-windows-latest/real-repositories.json
 
   acquisition:
     name: live GitHub acquisition spike

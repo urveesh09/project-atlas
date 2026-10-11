@@ -1,0 +1,51 @@
+{
+  "task": "P6 distribution candidate fresh-install smoke",
+  "recordedAt": "2026-10-11T04:19:26.919Z",
+  "os": "Windows_NT 10.0.26200 x64",
+  "node": "v24.15.0",
+  "archiveSha256": "d9584132525d128a087d0fec4ca7cce7446905c60e070c3c3d0be7ad9951b0c7",
+  "archiveBytes": 8692117,
+  "sourceCommit": "944d5799c8c8d546f5a79fd0cb21abecbf56e6cc",
+  "workingTreeDirty": true,
+  "stages": [
+    {
+      "stage": "relocated-extraction-and-integrity",
+      "files": 1488,
+      "passed": true
+    },
+    {
+      "stage": "doctor",
+      "elapsedMs": 747.8317,
+      "passed": true
+    },
+    {
+      "stage": "analyze",
+      "elapsedMs": 6176.3487000000005,
+      "passed": true
+    },
+    {
+      "stage": "verify",
+      "elapsedMs": 690.9488999999994,
+      "passed": true
+    },
+    {
+      "stage": "inspect",
+      "elapsedMs": 596.0578000000005,
+      "passed": true
+    },
+    {
+      "stage": "packaged-browser-city-history-search-and-dependencies",
+      "passed": true,
+      "outboundRequests": 0,
+      "pageErrors": 0,
+      "browser": "156.0.8078.4",
+      "renderer": "SwiftShader; functional only"
+    }
+  ],
+  "pass": true,
+  "limits": [
+    "Candidate only; human and reference-hardware audits remain open.",
+    "The CLI entry process denies outbound sockets. Existing instrumented resolver and offline analyzer-container gates independently cover parsing/analysis.",
+    "Archive bytes and every extracted file are verified; this is integrity evidence, not a release signature."
+  ]
+}

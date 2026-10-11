@@ -1,0 +1,3229 @@
+{
+  "task": "P6.1 pinned public repository validation",
+  "recordedAt": "2026-10-11T04:11:13.128Z",
+  "analyzerVersion": "0.1.0-dev.5",
+  "runs": 5,
+  "environment": {
+    "os": "Windows_NT 10.0.26200 x64",
+    "node": "v24.15.0",
+    "git": "2.55.0.windows.3",
+    "cpu": "Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz",
+    "memoryGiB": 15.919105529785156
+  },
+  "method": "Unfiltered depth-201 acquisition capped at 256 MiB; offline SafeGit reads; cold parser facts per repeat; canonical and compressed chunk hashes include every frame. Envelope IDs/time excluded. Authored examples check facts, repeat hashes check determinism only. Timings are corpus observations, not the synthetic capacity gate.",
+  "repositories": [
+    {
+      "owner": "sindresorhus",
+      "name": "is-plain-obj",
+      "numericId": "38923193",
+      "commit": "666df7c10035f7e26f27ec214fe5ae3173435f34",
+      "category": "single-package JavaScript",
+      "checks": [
+        {
+          "type": "file",
+          "path": "index.js",
+          "role": "source",
+          "language": "javascript",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "file",
+          "path": "index.d.ts",
+          "role": "declaration",
+          "language": "typescript",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "test.js",
+          "specifier": "./index.js",
+          "kind": "imports-value",
+          "status": "resolved-internal",
+          "target": "index.d.ts",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "test.js",
+          "specifier": "node:vm",
+          "kind": "imports-value",
+          "status": "builtin",
+          "target": "vm",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "test.js",
+          "specifier": "ava",
+          "kind": "imports-value",
+          "status": "resolved-external",
+          "target": "ava",
+          "passed": true
+        }
+      ],
+      "artifactPath": ".atlas-tmp/release-corpus/sindresorhus-is-plain-obj/artifact",
+      "analysisStatus": "complete",
+      "coverage": {
+        "tool": "atlas",
+        "analyzerVersion": "0.1.0-dev.5",
+        "repository": "sindresorhus/is-plain-obj",
+        "commit": "666df7c10035f7e26f27ec214fe5ae3173435f34",
+        "status": "complete",
+        "scope": "committed-tree",
+        "files": {
+          "discovered": 14,
+          "included": 14,
+          "supported": 5,
+          "opaque": 9,
+          "excluded": 0,
+          "omitted": 0
+        },
+        "roles": {
+          "config": 5,
+          "opaque": 4,
+          "source": 4,
+          "declaration": 1
+        },
+        "packages": [
+          {
+            "name": "is-plain-obj",
+            "path": "",
+            "files": 14,
+            "workspace": false
+          }
+        ],
+        "externalPackages": 3,
+        "exclusions": [],
+        "excludedRoots": [],
+        "appliedBuiltinExclusions": [
+          {
+            "reason": "DEPENDENCY_DIRECTORY",
+            "patterns": [
+              "node_modules/",
+              "bower_components/",
+              "jspm_packages/",
+              "vendor/"
+            ]
+          },
+          {
+            "reason": "BUILD_OUTPUT",
+            "patterns": [
+              "dist/",
+              ".next/",
+              ".nuxt/",
+              ".svelte-kit/",
+              ".output/",
+              ".vercel/",
+              ".netlify/",
+              "storybook-static/",
+              ".docusaurus/",
+              ".expo/",
+              "coverage/"
+            ]
+          },
+          {
+            "reason": "CACHE_DIRECTORY",
+            "patterns": [
+              ".cache/",
+              ".turbo/",
+              ".parcel-cache/",
+              ".nx/",
+              ".yarn/cache/",
+              ".pnpm-store/",
+              ".eslintcache"
+            ]
+          },
+          {
+            "reason": "MINIFIED_BUNDLE",
+            "patterns": [
+              "*.min.js",
+              "*.min.mjs",
+              "*.min.cjs",
+              "*.min.css"
+            ]
+          },
+          {
+            "reason": "SOURCE_MAP",
+            "patterns": [
+              "*.map"
+            ]
+          }
+        ],
+        "limitsHit": [],
+        "warnings": [],
+        "imports": {
+          "observed": 8,
+          "internal": 3,
+          "external": 2,
+          "builtin": 3,
+          "unresolved": 0,
+          "unsupported": 0,
+          "excludedTargets": 0
+        },
+        "parse": {
+          "parsed": 5,
+          "failed": 0,
+          "cacheHits": 0
+        },
+        "findings": {},
+        "cycles": 0,
+        "history": {
+          "status": "complete",
+          "boundary": "days",
+          "reason": null,
+          "commits": 1,
+          "window": {
+            "newest": "666df7c10035f7e26f27ec214fe5ae3173435f34",
+            "oldest": "666df7c10035f7e26f27ec214fe5ae3173435f34",
+            "oldestTime": "2026-09-18T19:26:11.000Z",
+            "newestTime": "2026-09-18T19:26:11.000Z"
+          },
+          "frames": {
+            "requested": 1,
+            "completed": 1,
+            "unavailable": []
+          },
+          "renames": 0,
+          "renameDetection": "complete",
+          "lineDiffs": "complete",
+          "coChange": "complete",
+          "lineages": 15
+        },
+        "sourceTextIncluded": false
+      },
+      "reasons": {},
+      "examples": {},
+      "digest": "21b17414bb1338290d946e8515081de12e31b8177e70088b2f373ce821d1a817",
+      "chunks": [
+        {
+          "path": "graphs/snap_6c6240167a0bdc68d2b5f279b6b78e892d57ec507d33151978a276be7c01f449.json.gz",
+          "sha256": "ab4a839afa8ac8b0194053f569dd16a54de4cebf85f92f534f5b0283351d9e75",
+          "uncompressedBytes": 18256,
+          "compressedBytes": 3675,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.indexed/1",
+          "encodedSha256": "49c273bd6291f432313dcd49f5929bc5f98ad0b6c3686084908cbca0805dd72c",
+          "decodedBytes": 27284
+        },
+        {
+          "path": "history/history.json.gz",
+          "sha256": "84f87d32195a2e93a45a31775d21b51643576e3b2b149b280cc59628eac51753",
+          "uncompressedBytes": 5415,
+          "compressedBytes": 1662,
+          "mediaType": "application/json",
+          "encoding": "atlas.history.compact/1",
+          "encodedSha256": "70cd1869714fd9c5e80ac7d9bf398e22a3f51fc1145cdc38d14617c5ac686c86",
+          "decodedBytes": 7912
+        },
+        {
+          "path": "layout/layout.json.gz",
+          "sha256": "2247d3b69c9b3554ce92278f56c0cc81b12b062c05e2ba49409f7d069f5a51d6",
+          "uncompressedBytes": 5658,
+          "compressedBytes": 1617,
+          "mediaType": "application/json",
+          "encoding": "atlas.layout.compact/1",
+          "encodedSha256": "375c44fb69b38244f06397b3a8286ea9bca2e9fe69e14752918b742133cd9f90",
+          "decodedBytes": 9485
+        }
+      ],
+      "milliseconds": [
+        1571.6470000000002,
+        1424.9366999999997,
+        1506.7703999999999,
+        1445.9312999999993,
+        1455.3945000000003
+      ],
+      "compressedBytes": 6954,
+      "exportVerified": true,
+      "deterministic": true,
+      "parseFailures": []
+    },
+    {
+      "owner": "vuejs",
+      "name": "core",
+      "numericId": "137078487",
+      "commit": "4ab865a848a1da3d10fb674f857e5fff13094644",
+      "category": "TypeScript workspace monorepo",
+      "checks": [
+        {
+          "type": "file",
+          "path": "packages/reactivity/src/ref.ts",
+          "role": "source",
+          "language": "typescript",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "file",
+          "path": "packages/reactivity/__tests__/ref.spec.ts",
+          "role": "test",
+          "language": "typescript",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "packages/reactivity/src/index.ts",
+          "specifier": "./ref",
+          "kind": "reexports-value",
+          "status": "resolved-internal",
+          "target": "packages/reactivity/src/ref.ts",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "packages/reactivity/src/ref.ts",
+          "specifier": "@vue/shared",
+          "kind": "imports-value",
+          "status": "resolved-internal",
+          "target": "packages/shared/src/index.ts",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "packages/reactivity/src/ref.ts",
+          "specifier": "./computed",
+          "kind": "imports-type",
+          "status": "resolved-internal",
+          "target": "packages/reactivity/src/computed.ts",
+          "passed": true
+        }
+      ],
+      "artifactPath": ".atlas-tmp/release-corpus/vuejs-core/artifact",
+      "analysisStatus": "complete",
+      "coverage": {
+        "tool": "atlas",
+        "analyzerVersion": "0.1.0-dev.5",
+        "repository": "vuejs/core",
+        "commit": "4ab865a848a1da3d10fb674f857e5fff13094644",
+        "status": "complete",
+        "scope": "committed-tree",
+        "files": {
+          "discovered": 702,
+          "included": 702,
+          "supported": 527,
+          "opaque": 175,
+          "excluded": 0,
+          "omitted": 0
+        },
+        "roles": {
+          "opaque": 106,
+          "asset": 36,
+          "config": 39,
+          "source": 297,
+          "declaration": 12,
+          "test": 212
+        },
+        "packages": [
+          {
+            "name": null,
+            "path": "",
+            "files": 64,
+            "workspace": true
+          },
+          {
+            "name": "dts-built-test",
+            "path": "packages-private/dts-built-test",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "dts-test",
+            "path": "packages-private/dts-test",
+            "files": 24,
+            "workspace": true
+          },
+          {
+            "name": "@vue/sfc-playground",
+            "path": "packages-private/sfc-playground",
+            "files": 26,
+            "workspace": true
+          },
+          {
+            "name": "@vue/template-explorer",
+            "path": "packages-private/template-explorer",
+            "files": 9,
+            "workspace": true
+          },
+          {
+            "name": "vite-debug",
+            "path": "packages-private/vite-debug",
+            "files": 7,
+            "workspace": true
+          },
+          {
+            "name": "@vue/compiler-core",
+            "path": "packages/compiler-core",
+            "files": 69,
+            "workspace": true
+          },
+          {
+            "name": "@vue/compiler-dom",
+            "path": "packages/compiler-dom",
+            "files": 38,
+            "workspace": true
+          },
+          {
+            "name": "@vue/compiler-sfc",
+            "path": "packages/compiler-sfc",
+            "files": 69,
+            "workspace": true
+          },
+          {
+            "name": "@vue/compiler-ssr",
+            "path": "packages/compiler-ssr",
+            "files": 36,
+            "workspace": true
+          },
+          {
+            "name": "@vue/reactivity",
+            "path": "packages/reactivity",
+            "files": 39,
+            "workspace": true
+          },
+          {
+            "name": "@vue/runtime-core",
+            "path": "packages/runtime-core",
+            "files": 116,
+            "workspace": true
+          },
+          {
+            "name": "@vue/runtime-dom",
+            "path": "packages/runtime-dom",
+            "files": 37,
+            "workspace": true
+          },
+          {
+            "name": "@vue/runtime-test",
+            "path": "packages/runtime-test",
+            "files": 10,
+            "workspace": true
+          },
+          {
+            "name": "@vue/server-renderer",
+            "path": "packages/server-renderer",
+            "files": 38,
+            "workspace": true
+          },
+          {
+            "name": "@vue/shared",
+            "path": "packages/shared",
+            "files": 27,
+            "workspace": true
+          },
+          {
+            "name": "vue",
+            "path": "packages/vue",
+            "files": 67,
+            "workspace": true
+          },
+          {
+            "name": "@vue/compat",
+            "path": "packages/vue-compat",
+            "files": 22,
+            "workspace": true
+          }
+        ],
+        "externalPackages": 70,
+        "exclusions": [
+          {
+            "reason": "LANGUAGE_UNSUPPORTED",
+            "count": 11
+          },
+          {
+            "reason": "LOCKFILE_STRUCTURAL",
+            "count": 1
+          }
+        ],
+        "excludedRoots": [],
+        "appliedBuiltinExclusions": [
+          {
+            "reason": "DEPENDENCY_DIRECTORY",
+            "patterns": [
+              "node_modules/",
+              "bower_components/",
+              "jspm_packages/",
+              "vendor/"
+            ]
+          },
+          {
+            "reason": "BUILD_OUTPUT",
+            "patterns": [
+              "dist/",
+              ".next/",
+              ".nuxt/",
+              ".svelte-kit/",
+              ".output/",
+              ".vercel/",
+              ".netlify/",
+              "storybook-static/",
+              ".docusaurus/",
+              ".expo/",
+              "coverage/"
+            ]
+          },
+          {
+            "reason": "CACHE_DIRECTORY",
+            "patterns": [
+              ".cache/",
+              ".turbo/",
+              ".parcel-cache/",
+              ".nx/",
+              ".yarn/cache/",
+              ".pnpm-store/",
+              ".eslintcache"
+            ]
+          },
+          {
+            "reason": "MINIFIED_BUNDLE",
+            "patterns": [
+              "*.min.js",
+              "*.min.mjs",
+              "*.min.cjs",
+              "*.min.css"
+            ]
+          },
+          {
+            "reason": "SOURCE_MAP",
+            "patterns": [
+              "*.map"
+            ]
+          }
+        ],
+        "limitsHit": [],
+        "warnings": [],
+        "imports": {
+          "observed": 2526,
+          "internal": 2267,
+          "external": 147,
+          "builtin": 76,
+          "unresolved": 35,
+          "unsupported": 1,
+          "excludedTargets": 0
+        },
+        "parse": {
+          "parsed": 527,
+          "failed": 0,
+          "cacheHits": 0
+        },
+        "findings": {
+          "ATLAS_LOCAL_IMPORT_UNRESOLVED": 34,
+          "ATLAS_STATIC_CYCLE": 6,
+          "ATLAS_COMPLEX_CALLABLE": 54,
+          "ATLAS_HIGH_FAN_IN": 15,
+          "ATLAS_LARGE_SOURCE_FILE": 22,
+          "ATLAS_RESOLUTION_CONTEXT_INCOMPLETE": 1
+        },
+        "cycles": 6,
+        "history": {
+          "status": "complete",
+          "boundary": "days",
+          "reason": null,
+          "commits": 119,
+          "window": {
+            "newest": "4ab865a848a1da3d10fb674f857e5fff13094644",
+            "oldest": "643aa27b85bfa3f9607e3833d01831fc5363db76",
+            "oldestTime": "2026-06-25T07:17:21.000Z",
+            "newestTime": "2026-09-18T02:59:51.000Z"
+          },
+          "frames": {
+            "requested": 12,
+            "completed": 12,
+            "unavailable": []
+          },
+          "renames": 0,
+          "renameDetection": "complete",
+          "lineDiffs": "complete",
+          "coChange": "complete",
+          "lineages": 705
+        },
+        "sourceTextIncluded": false
+      },
+      "reasons": {
+        "unresolved:LOCAL_TARGET_MISSING": 34,
+        "unresolved:GENERATED_TARGET_MISSING": 1,
+        "unsupported:NONLITERAL_DYNAMIC_IMPORT": 1
+      },
+      "examples": {
+        "unresolved:LOCAL_TARGET_MISSING": [
+          {
+            "source": "packages/runtime-test/index.js",
+            "specifier": "./dist/runtime-test.cjs.prod.js",
+            "kind": "requires-literal"
+          },
+          {
+            "source": "packages-private/sfc-playground/src/download/download.ts",
+            "specifier": "./template/main.js?raw",
+            "kind": "imports-value"
+          },
+          {
+            "source": "packages/compiler-sfc/src/compileTemplate.ts",
+            "specifier": "@vue/consolidate",
+            "kind": "imports-value"
+          }
+        ],
+        "unresolved:GENERATED_TARGET_MISSING": [
+          {
+            "source": "packages-private/sfc-playground/src/vue-dev-proxy-prod.ts",
+            "specifier": "vue/dist/vue.runtime.esm-browser.prod.js",
+            "kind": "reexports-value"
+          }
+        ],
+        "unsupported:NONLITERAL_DYNAMIC_IMPORT": [
+          {
+            "source": "scripts/size-report.js",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          }
+        ]
+      },
+      "digest": "80554100d4d4a6c71c0e76aa883f87ad6fb77465ae623fc1e33c72245ea78f9a",
+      "chunks": [
+        {
+          "path": "graphs/snap_3f2c5d5f945a6601c1ffb1d874e72419915796935a1da3b25efd0a442c9ca69d.json.gz",
+          "sha256": "f665e1aaa1d38e2c0e9f375b2910253b16d0a9fe0bc57ee3bb434744301d5493",
+          "uncompressedBytes": 93657,
+          "compressedBytes": 15250,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "36c9e597d4edecd55eb9385b0c37eb7afa0cffdbc4625953d36570d00ee750b8",
+          "decodedBytes": 3706702
+        },
+        {
+          "path": "graphs/snap_e99a51db3275eda99eb7396db69db8720d37988478fbd1f6f89b744764b9720e.json.gz",
+          "sha256": "6f1a53570f5eb701bcb3742999a17f18280a4281b474deadc1b6e6b2716c32bd",
+          "uncompressedBytes": 120602,
+          "compressedBytes": 19842,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "7ebe33f5406ea766cb267dcdd5249c85f13b0fb72b74c512f14cdafe6b6b62b6",
+          "decodedBytes": 3706905
+        },
+        {
+          "path": "graphs/snap_57051fd21c4c8a667d9ee4563fdf579730036600e28b3e2b3a8e7f9e685b4e17.json.gz",
+          "sha256": "d9c2a94533dcaca5e05fc9f812d684f683a21640867fc36610afd9b1c7a75785",
+          "uncompressedBytes": 468946,
+          "compressedBytes": 70539,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "18fd6dad0a95e7dbca80301274c37deeea244961b1be92e5eb6c1ba7cc74c844",
+          "decodedBytes": 3708843
+        },
+        {
+          "path": "graphs/snap_0e8bc347cc814c89fc9ce9b8335bdcacd32c0cd380329c22b227af9e299d174a.json.gz",
+          "sha256": "16de7629e4ae021c574031b2a37114487d8fe6b12f7eb76c830d8859143d28ab",
+          "uncompressedBytes": 207961,
+          "compressedBytes": 32295,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "167df6b6bec42e472a328a45dbc839311a88c193694ac7ae6c6e679579302e29",
+          "decodedBytes": 3716194
+        },
+        {
+          "path": "graphs/snap_166ea87d597bceecb59056ebf5902d6c40be45c51770c64929f4e59d1367a5ab.json.gz",
+          "sha256": "78803fab52b4c27b744b14e0b7292637922c47b188aec95f861a11977624b980",
+          "uncompressedBytes": 172045,
+          "compressedBytes": 27668,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "92e006988a0ace99f632a427a779a0d47d89bbb875e1c73f0f82e8862e0fca67",
+          "decodedBytes": 3716349
+        },
+        {
+          "path": "graphs/snap_50045a121c9de35953f929bbaa90fe27eec7da3c491528b1da552668768e9875.json.gz",
+          "sha256": "c90b533a17e38963cf1b18c21aa8c99474d671f8dd7c0253acd23c744f775d16",
+          "uncompressedBytes": 299953,
+          "compressedBytes": 47066,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "1b32b9f28127257921af00d69f6edc6c90b92b31022f77ea0db2fce10f9c7259",
+          "decodedBytes": 3717998
+        },
+        {
+          "path": "graphs/snap_f54f871c31653766b4b2d867d1b5fb1517a9cfec05efb6b49171c035dfa6c548.json.gz",
+          "sha256": "ffce54e876aa3c9e5222151d312bbff1c302af780639125c294d4dbcdec70e55",
+          "uncompressedBytes": 143231,
+          "compressedBytes": 23689,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "9a85282a53e0fce7d44d822dab4934dd8926243746e6b8696d1174cbac1cb94b",
+          "decodedBytes": 3727376
+        },
+        {
+          "path": "graphs/snap_508cb838856d4f022ed7cbb76180830241d786e9bb065ce8e50749c8c1fd2492.json.gz",
+          "sha256": "8fbd5e31f758147e94cf5198d3bb6f90241a032f39e88e390608f5cb0a3eea17",
+          "uncompressedBytes": 116291,
+          "compressedBytes": 19266,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "004cb109110d406a5c370190e93ea3f5c33ac53ac27b6eb9fdd8b9a3764d2a34",
+          "decodedBytes": 3733523
+        },
+        {
+          "path": "graphs/snap_05f0f234c9fc6dfb0acc1751a8bfd57298775e9a7f76ff086bbcdeb25458c2a2.json.gz",
+          "sha256": "42a66b4f44b3fcccf8a1ff4262be72a21524444163c3f3e76f5725cebd8c11ff",
+          "uncompressedBytes": 181531,
+          "compressedBytes": 29674,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "b517af9d5515e49c0f82b95e1473a889018d3be4f71bc760788bd6413742d0db",
+          "decodedBytes": 3736418
+        },
+        {
+          "path": "graphs/snap_3cdce55a992862d7153dda7155adffd8e5337e351c8f5fc3306b758d3be240ad.json.gz",
+          "sha256": "5d2bd30abbe1fab0a237295d976a3eb5fbd6e8b3d94321e6923cc2ead4e128bc",
+          "uncompressedBytes": 99905,
+          "compressedBytes": 16829,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "a9a8ef61d3d919c9c72d12947d5ed511b8c9b23a721243dbedae5b03a16ecae6",
+          "decodedBytes": 3736799
+        },
+        {
+          "path": "graphs/snap_6b27a3e7e2a2aad016478d4a2eefa56eb5425d7ec67500351625f81c11f1b84e.json.gz",
+          "sha256": "d1671c6a7d27c8bee2516d1e670515fdf1005c47774463619febefde72c7fe42",
+          "uncompressedBytes": 123247,
+          "compressedBytes": 20926,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "1643cc5d46d8065d28745ce6900155f1e813489d8406f0b13f9ebcae15e64c18",
+          "decodedBytes": 3736688
+        },
+        {
+          "path": "graphs/snap_17c408ac30c99f2ac4a03f488b2a370f78bbb3cccd22c95e3a8d53448bff2a2f.json.gz",
+          "sha256": "de4ae8cde68d53a26aae6fb92c10e94b8a4061e90d7c23b1af5743960ce44701",
+          "uncompressedBytes": 2192913,
+          "compressedBytes": 270216,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.indexed/1",
+          "encodedSha256": "0a0367a758c49e91c48080fab01780370d59915a0c9f02083bf680545168e704",
+          "decodedBytes": 3733736
+        },
+        {
+          "path": "history/history.json.gz",
+          "sha256": "aa8dfa3497dcc1c4924ffc86ca0da92a6f868bb2d58f964aab294c159a25c1d1",
+          "uncompressedBytes": 453513,
+          "compressedBytes": 74450,
+          "mediaType": "application/json",
+          "encoding": "atlas.history.compact/1",
+          "encodedSha256": "2c51fe38bd7cc21ea42a4551ae153e62823958408d5b56a9cb8e2e484bed5bdc",
+          "decodedBytes": 2263768
+        },
+        {
+          "path": "layout/layout.json.gz",
+          "sha256": "eae5d1508e93d7e491f8367dce78003fe1b794adcebbed4021058f4e72f7398c",
+          "uncompressedBytes": 490517,
+          "compressedBytes": 118405,
+          "mediaType": "application/json",
+          "encoding": "atlas.layout.compact/1",
+          "encodedSha256": "d51cd2f7d9e4216a5c8635eca07a3d9f4cf3bf9975eb548ecf3b9e57af955010",
+          "decodedBytes": 2830636
+        }
+      ],
+      "milliseconds": [
+        16642.6864,
+        15936.072400000001,
+        15686.912299999996,
+        15439.661999999997,
+        15382.715100000001
+      ],
+      "compressedBytes": 786115,
+      "exportVerified": true,
+      "deterministic": true,
+      "parseFailures": []
+    },
+    {
+      "owner": "vitejs",
+      "name": "vite",
+      "numericId": "257485422",
+      "commit": "3b72997d42e7dd2b31898d0e68461e3025e836b6",
+      "category": "mixed TypeScript/JavaScript workspace",
+      "checks": [
+        {
+          "type": "file",
+          "path": "packages/vite/src/node/index.ts",
+          "role": "source",
+          "language": "typescript",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "file",
+          "path": "playground/alias/vite.config.js",
+          "role": "config",
+          "language": "javascript",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "file",
+          "path": "playground/alias/dir/from-script-src.js",
+          "role": "source",
+          "language": "javascript",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "packages/vite/src/node/index.ts",
+          "specifier": "./config",
+          "kind": "reexports-value",
+          "status": "resolved-internal",
+          "target": "packages/vite/src/node/config.ts",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "playground/alias/vite.config.js",
+          "specifier": "node:path",
+          "kind": "imports-value",
+          "status": "builtin",
+          "target": "path",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "packages/vite/src/node/index.ts",
+          "specifier": "rolldown",
+          "kind": "imports-type",
+          "status": "resolved-external",
+          "target": "rolldown",
+          "passed": true
+        }
+      ],
+      "artifactPath": ".atlas-tmp/release-corpus/vitejs-vite/artifact",
+      "analysisStatus": "partial",
+      "coverage": {
+        "tool": "atlas",
+        "analyzerVersion": "0.1.0-dev.5",
+        "repository": "vitejs/vite",
+        "commit": "3b72997d42e7dd2b31898d0e68461e3025e836b6",
+        "status": "partial",
+        "scope": "committed-tree",
+        "files": {
+          "discovered": 2866,
+          "included": 2842,
+          "supported": 1595,
+          "opaque": 1247,
+          "excluded": 24,
+          "omitted": 0
+        },
+        "roles": {
+          "config": 488,
+          "opaque": 223,
+          "asset": 652,
+          "source": 1057,
+          "test": 390,
+          "declaration": 32
+        },
+        "packages": [
+          {
+            "name": "@vitejs/vite-monorepo",
+            "path": "",
+            "files": 60,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/monorepo-docs",
+            "path": "docs",
+            "files": 147,
+            "workspace": true
+          },
+          {
+            "name": "create-vite",
+            "path": "packages/create-vite",
+            "files": 246,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/plugin-legacy",
+            "path": "packages/plugin-legacy",
+            "files": 13,
+            "workspace": true
+          },
+          {
+            "name": "vite",
+            "path": "packages/vite",
+            "files": 424,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/cjs-ssr-dep",
+            "path": "packages/vite/src/node/__tests__/fixtures/cjs-ssr-dep",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/__tests__/fixtures/config/cjs-module-vars-in-esm",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vite/test-config-entry",
+            "path": "packages/vite/src/node/__tests__/fixtures/config/entry",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/__tests__/fixtures/config/import-meta",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-native-compat",
+            "path": "packages/vite/src/node/__tests__/fixtures/config/native-compat",
+            "files": 23,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-native-compat-commonjs",
+            "path": "packages/vite/src/node/__tests__/fixtures/config/native-compat/esm-in-commonjs-pkg",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-native-compat-mts",
+            "path": "packages/vite/src/node/__tests__/fixtures/config/native-compat/mts-config",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/__tests__/fixtures/config/native-import",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vite/test-config-plugin-module-condition",
+            "path": "packages/vite/src/node/__tests__/fixtures/config/plugin-module-condition",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/__tests__/fixtures/config/shebang",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/__tests__/fixtures/config/shebang-crlf",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vite/test-config-sibling",
+            "path": "packages/vite/src/node/__tests__/fixtures/config/siblings",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/__tests__/fixtures/file-url",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "scan-subpath-import-glob",
+            "path": "packages/vite/src/node/__tests__/fixtures/scan-subpath-import-glob",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-conditions",
+            "path": "packages/vite/src/node/__tests__/fixtures/test-dep-conditions",
+            "files": 8,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/__tests__/fixtures/watch-rebuild-manifest",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "named-testing-package",
+            "path": "packages/vite/src/node/__tests__/packages",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/child",
+            "path": "packages/vite/src/node/__tests__/packages/child",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "mylib",
+            "path": "packages/vite/src/node/__tests__/packages/module",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": "mylib",
+            "path": "packages/vite/src/node/__tests__/packages/name",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/__tests__/packages/noname",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/parent",
+            "path": "packages/vite/src/node/__tests__/packages/parent",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-license",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/license",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-licence-cc0",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/license/dep-licence-cc0",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-license-mit",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/license/dep-license-mit",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-license-type-marker",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/license/dep-license-type-marker",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-license-type-marker-devtools",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/license/dep-license-type-marker/build/devtools",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-license-type-marker",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/license/dep-license-type-marker/build/esm",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-nested-license-isc",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/license/dep-nested-license-isc",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/server/__tests__/fixtures/deno/nested",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/server/__tests__/fixtures/lerna/nested",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/server/__tests__/fixtures/none/nested",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/server/__tests__/fixtures/pnpm",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/server/__tests__/fixtures/pnpm/nested",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/server/__tests__/fixtures/watcher",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/server/__tests__/fixtures/yarn",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/server/__tests__/fixtures/yarn/nested",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/cjs-external",
+            "path": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/cjs-external",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/cyclic2",
+            "files": 27,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/esm-external",
+            "path": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/esm-external",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "test-dep-invalid-exports",
+            "path": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/invalid-package/deps/test-dep-invalid-exports",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/live-binding",
+            "files": 9,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-alias",
+            "path": "playground/alias",
+            "files": 10,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-aliased-module",
+            "path": "playground/alias/dir/module",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-assets",
+            "path": "playground/assets",
+            "files": 63,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-assets-sanitize",
+            "path": "playground/assets-sanitize",
+            "files": 8,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-backend-integration",
+            "path": "playground/backend-integration",
+            "files": 21,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-base",
+            "path": "playground/base",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-base-conflict",
+            "path": "playground/base-conflict",
+            "files": 7,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-build-old",
+            "path": "playground/build-old",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-chunk-importmap",
+            "path": "playground/chunk-importmap",
+            "files": 14,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-cli",
+            "path": "playground/cli",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-cli-module",
+            "path": "playground/cli-module",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-client-reload",
+            "path": "playground/client-reload",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-csp",
+            "path": "playground/csp",
+            "files": 9,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css",
+            "path": "playground/css",
+            "files": 133,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-codesplit",
+            "path": "playground/css-codesplit",
+            "files": 27,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-codesplit-cjs",
+            "path": "playground/css-codesplit-cjs",
+            "files": 8,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-dynamic-import",
+            "path": "playground/css-dynamic-import",
+            "files": 9,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-lightningcss",
+            "path": "playground/css-lightningcss",
+            "files": 21,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-lightningcss-proxy",
+            "path": "playground/css-lightningcss-proxy",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-lightningcss-root",
+            "path": "playground/css-lightningcss-root",
+            "files": 7,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-no-codesplit",
+            "path": "playground/css-no-codesplit",
+            "files": 9,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-sourcemap",
+            "path": "playground/css-sourcemap",
+            "files": 22,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-dep",
+            "path": "playground/css/css-dep",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-dep-exports",
+            "path": "playground/css/css-dep-exports",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-js-dep",
+            "path": "playground/css/css-js-dep",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-proxy-dep",
+            "path": "playground/css/css-proxy-dep",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-proxy-dep-nested",
+            "path": "playground/css/css-proxy-dep-nested",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-pkg-dep",
+            "path": "playground/css/pkg-dep",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-blue-app",
+            "path": "playground/css/postcss-caching/blue-app",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-green-app",
+            "path": "playground/css/postcss-caching/green-app",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-scss-proxy-dep",
+            "path": "playground/css/scss-proxy-dep",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-scss-proxy-dep-nested",
+            "path": "playground/css/scss-proxy-dep-nested",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-data-uri",
+            "path": "playground/data-uri",
+            "files": 9,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-define",
+            "path": "playground/define",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-commonjs-dep",
+            "path": "playground/define/commonjs-dep",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-devtools",
+            "path": "playground/devtools",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dynamic-import",
+            "path": "playground/dynamic-import",
+            "files": 31,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dynamic-import-inline",
+            "path": "playground/dynamic-import-inline",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-pkg",
+            "path": "playground/dynamic-import/pkg",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-env",
+            "path": "playground/env",
+            "files": 8,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-env-nested",
+            "path": "playground/env-nested",
+            "files": 7,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-environment-react-ssr",
+            "path": "playground/environment-react-ssr",
+            "files": 8,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-extensions",
+            "path": "playground/extensions",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-external",
+            "path": "playground/external",
+            "files": 7,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-that-imports",
+            "path": "playground/external/dep-that-imports",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-that-requires",
+            "path": "playground/external/dep-that-requires",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-forward-console",
+            "path": "playground/forward-console",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-forward-console-throw-dep",
+            "path": "playground/forward-console/fixtures/throw-dep",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-fs-serve",
+            "path": "playground/fs-serve",
+            "files": 30,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-import-context",
+            "path": "playground/glob-import",
+            "files": 37,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-import-meta-glob-pkg",
+            "path": "playground/glob-import/root/import-meta-glob-pkg",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-hmr",
+            "path": "playground/hmr",
+            "files": 107,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-hmr-full-bundle-mode",
+            "path": "playground/hmr-full-bundle-mode",
+            "files": 26,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-hmr-ssr",
+            "path": "playground/hmr-ssr",
+            "files": 84,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-html",
+            "path": "playground/html",
+            "files": 58,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-html-side-effects",
+            "path": "playground/html/side-effects",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-import-attribute",
+            "path": "playground/import-attribute",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-import-attribute-dep",
+            "path": "playground/import-attribute/import-attribute-dep",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-js-sourcemap",
+            "path": "playground/js-sourcemap",
+            "files": 23,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-class-field-sourcemap-babel",
+            "path": "playground/js-sourcemap/dep-class-field-sourcemap-babel",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-class-field-sourcemap-oxc",
+            "path": "playground/js-sourcemap/dep-class-field-sourcemap-oxc",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-malicious-sourcemap",
+            "path": "playground/js-sourcemap/dep-malicious-sourcemap",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-optimized-malicious",
+            "path": "playground/js-sourcemap/dep-optimized-malicious",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-importee-pkg",
+            "path": "playground/js-sourcemap/importee-pkg",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-json",
+            "path": "playground/json",
+            "files": 7,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/require",
+            "path": "playground/json/dep-json-require",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-json-module",
+            "path": "playground/json/json-module",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-lazy-compilation",
+            "path": "playground/lazy-compilation",
+            "files": 9,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-legacy",
+            "path": "playground/legacy",
+            "files": 41,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-my-lib",
+            "path": "playground/lib",
+            "files": 28,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-minify",
+            "path": "playground/minify",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-minify",
+            "path": "playground/minify/dir/module",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-hmr",
+            "path": "playground/module-graph",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-multiple-entrypoints",
+            "path": "playground/multiple-entrypoints",
+            "files": 35,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-nested-deps",
+            "path": "playground/nested-deps",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/self-referencing",
+            "path": "playground/nested-deps/self-referencing",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-package-a",
+            "path": "playground/nested-deps/test-package-a",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-package-b",
+            "path": "playground/nested-deps/test-package-b",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-package-c",
+            "path": "playground/nested-deps/test-package-c",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-package-d",
+            "path": "playground/nested-deps/test-package-d",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-package-d-nested",
+            "path": "playground/nested-deps/test-package-d/test-package-d-nested",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-package-e",
+            "path": "playground/nested-deps/test-package-e",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-package-e-excluded",
+            "path": "playground/nested-deps/test-package-e/test-package-e-excluded",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-package-e-included",
+            "path": "playground/nested-deps/test-package-e/test-package-e-included",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-package-f",
+            "path": "playground/nested-deps/test-package-f",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-object-hooks",
+            "path": "playground/object-hooks",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-optimize-deps",
+            "path": "playground/optimize-deps",
+            "files": 16,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-optimize-deps-no-discovery",
+            "path": "playground/optimize-deps-no-discovery",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-no-discovery",
+            "path": "playground/optimize-deps-no-discovery/dep-no-discovery",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-added-in-entries",
+            "path": "playground/optimize-deps/added-in-entries",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-optimize-deps-cjs-dynamic-importer-ambiguous",
+            "path": "playground/optimize-deps/cjs-dynamic-importer-ambiguous",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-optimize-deps-cjs-dynamic-importer-cjs",
+            "path": "playground/optimize-deps/cjs-dynamic-importer-cjs",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-alias-using-absolute-path",
+            "path": "playground/optimize-deps/dep-alias-using-absolute-path",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-browser-false",
+            "path": "playground/optimize-deps/dep-browser-false",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-browser-field",
+            "path": "playground/optimize-deps/dep-cjs-browser-field",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-browser-field-bare",
+            "path": "playground/optimize-deps/dep-cjs-browser-field-bare",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-compiled-from-cjs",
+            "path": "playground/optimize-deps/dep-cjs-compiled-from-cjs",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-compiled-from-esm",
+            "path": "playground/optimize-deps/dep-cjs-compiled-from-esm",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-css-main-field",
+            "path": "playground/optimize-deps/dep-cjs-css-main-field",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-external-package-omit-js-suffix",
+            "path": "playground/optimize-deps/dep-cjs-external-package-omit-js-suffix",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-for-injected-import",
+            "path": "playground/optimize-deps/dep-cjs-for-injected-import",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-require-css-main-field",
+            "path": "playground/optimize-deps/dep-cjs-require-css-main-field",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-with-assets",
+            "path": "playground/optimize-deps/dep-cjs-with-assets",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-with-es-module-flag",
+            "path": "playground/optimize-deps/dep-cjs-with-es-module-flag",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-cjs-with-external-deps",
+            "path": "playground/optimize-deps/dep-cjs-with-external-deps",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-css-require",
+            "path": "playground/optimize-deps/dep-css-require",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-esbuild-plugin-transform",
+            "path": "playground/optimize-deps/dep-esbuild-plugin-transform",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-esm-dummy-node-builtin",
+            "path": "playground/optimize-deps/dep-esm-dummy-node-builtin",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-esm-external",
+            "path": "playground/optimize-deps/dep-esm-external",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-incompatible",
+            "path": "playground/optimize-deps/dep-incompatible",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-linked",
+            "path": "playground/optimize-deps/dep-linked",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-linked-include",
+            "path": "playground/optimize-deps/dep-linked-include",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-lodash",
+            "path": "playground/optimize-deps/dep-lodash",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-lodash.clonedeep",
+            "path": "playground/optimize-deps/dep-lodash-clonedeep",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-lodash-es",
+            "path": "playground/optimize-deps/dep-lodash-es",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-node-env",
+            "path": "playground/optimize-deps/dep-node-env",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-non-optimized",
+            "path": "playground/optimize-deps/dep-non-optimized",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-not-js",
+            "path": "playground/optimize-deps/dep-not-js",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-optimize-exports-with-glob",
+            "path": "playground/optimize-deps/dep-optimize-exports-with-glob",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-optimize-exports-with-root-glob",
+            "path": "playground/optimize-deps/dep-optimize-exports-with-root-glob",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-optimize-with-glob",
+            "path": "playground/optimize-deps/dep-optimize-with-glob",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-relative-to-main",
+            "path": "playground/optimize-deps/dep-relative-to-main",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-source-map-no-sources",
+            "path": "playground/optimize-deps/dep-source-map-no-sources",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-asset-ext1.pdf",
+            "path": "playground/optimize-deps/dep-with-asset-ext/dep1",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-asset-ext2.pdf",
+            "path": "playground/optimize-deps/dep-with-asset-ext/dep2",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-assets",
+            "path": "playground/optimize-deps/dep-with-assets",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-builtin-module-cjs",
+            "path": "playground/optimize-deps/dep-with-builtin-module-cjs",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-builtin-module-esm",
+            "path": "playground/optimize-deps/dep-with-builtin-module-esm",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-dynamic-import",
+            "path": "playground/optimize-deps/dep-with-dynamic-import",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-excluded-optional-peer-dep-cjs",
+            "path": "playground/optimize-deps/dep-with-excluded-optional-peer-dep-cjs",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-injected-import",
+            "path": "playground/optimize-deps/dep-with-injected-import",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-optional-peer-dep",
+            "path": "playground/optimize-deps/dep-with-optional-peer-dep",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-optional-peer-dep-cjs",
+            "path": "playground/optimize-deps/dep-with-optional-peer-dep-cjs",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-optional-peer-dep-submodule",
+            "path": "playground/optimize-deps/dep-with-optional-peer-dep-submodule",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-with-plus-subpath",
+            "path": "playground/optimize-deps/dep-with-plus-subpath",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/longfilename-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "path": "playground/optimize-deps/longfilename",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-nested-exclude",
+            "path": "playground/optimize-deps/nested-exclude",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-nested-include",
+            "path": "playground/optimize-deps/nested-include",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-non-optimizable-include",
+            "path": "playground/optimize-deps/non-optimizable-include",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-optimize-missing-deps",
+            "path": "playground/optimize-missing-deps",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-missing-dep",
+            "path": "playground/optimize-missing-deps/missing-dep",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-multi-entry-dep",
+            "path": "playground/optimize-missing-deps/multi-entry-dep",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-preload",
+            "path": "playground/preload",
+            "files": 14,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-a",
+            "path": "playground/preload/dep-a",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-including-a",
+            "path": "playground/preload/dep-including-a",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-preserve-symlinks",
+            "path": "playground/preserve-symlinks",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-module-a",
+            "path": "playground/preserve-symlinks/module-a",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-proxy-bypass",
+            "path": "playground/proxy-bypass",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-proxy-hmr",
+            "path": "playground/proxy-hmr",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-other-app",
+            "path": "playground/proxy-hmr/other-app",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve",
+            "path": "playground/resolve",
+            "files": 45,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-linked",
+            "path": "playground/resolve-linked",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-tsconfig-paths",
+            "path": "playground/resolve-tsconfig-paths",
+            "files": 26,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-browser-field",
+            "path": "playground/resolve/browser-field",
+            "files": 9,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-browser-field-bare-import-fail",
+            "path": "playground/resolve/browser-field-bare-import-fail",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-browser-field-bare-import-success",
+            "path": "playground/resolve/browser-field-bare-import-success",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-browser-module-field1",
+            "path": "playground/resolve/browser-module-field1",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-custom-browser-main-field",
+            "path": "playground/resolve/custom-browser-main-field",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-custom-condition",
+            "path": "playground/resolve/custom-condition",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-custom-main-field",
+            "path": "playground/resolve/custom-main-field",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-exports-and-nested-scope",
+            "path": "playground/resolve/exports-and-nested-scope",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "playground/resolve/exports-and-nested-scope/nested-scope",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-exports-env",
+            "path": "playground/resolve/exports-env",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-exports-from-root",
+            "path": "playground/resolve/exports-from-root",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "playground/resolve/exports-from-root/nested",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-exports-legacy-fallback",
+            "path": "playground/resolve/exports-legacy-fallback",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "playground/resolve/exports-legacy-fallback/dir",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-exports-path",
+            "path": "playground/resolve/exports-path",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-exports-with-module",
+            "path": "playground/resolve/exports-with-module",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-exports-with-module-condition",
+            "path": "playground/resolve/exports-with-module-condition",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-exports-with-module-condition-required",
+            "path": "playground/resolve/exports-with-module-condition-required",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-imports-pkg",
+            "path": "playground/resolve/imports-path/other-pkg",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-inline-package",
+            "path": "playground/resolve/inline-package",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-sharp-dir",
+            "path": "playground/resolve/sharp-dir",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-sharp-dir-nested",
+            "path": "playground/resolve/sharp-dir-nested",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-side-effects-glob",
+            "path": "playground/resolve/side-effects-glob",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-utf8-bom-package",
+            "path": "playground/resolve/utf8-bom-package",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr",
+            "path": "playground/ssr",
+            "files": 29,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-html",
+            "path": "playground/ssr-alias",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-alias-original",
+            "path": "playground/ssr-alias/alias-original",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-conditions",
+            "path": "playground/ssr-conditions",
+            "files": 7,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-conditions-external",
+            "path": "playground/ssr-conditions/external",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-conditions-no-external",
+            "path": "playground/ssr-conditions/no-external",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-deps",
+            "path": "playground/ssr-deps",
+            "files": 9,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-css-lib",
+            "path": "playground/ssr-deps/css-lib",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-define-properties-exports",
+            "path": "playground/ssr-deps/define-properties-exports",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-define-property-exports",
+            "path": "playground/ssr-deps/define-property-exports",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-external-entry",
+            "path": "playground/ssr-deps/external-entry",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-external-using-external-entry",
+            "path": "playground/ssr-deps/external-using-external-entry",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-forwarded-export",
+            "path": "playground/ssr-deps/forwarded-export",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-import-builtin",
+            "path": "playground/ssr-deps/import-builtin-cjs",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-linked-no-external",
+            "path": "playground/ssr-deps/linked-no-external",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-module-condition",
+            "path": "playground/ssr-deps/module-condition",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-nested-exclude",
+            "path": "playground/ssr-deps/nested-exclude",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-nested-external",
+            "path": "playground/ssr-deps/nested-external",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-nested-external-cjs",
+            "path": "playground/ssr-deps/nested-external-cjs",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-nested-include",
+            "path": "playground/ssr-deps/nested-include",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-no-external-cjs",
+            "path": "playground/ssr-deps/no-external-cjs",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-no-external-css",
+            "path": "playground/ssr-deps/no-external-css",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-non-optimized-with-nested-external",
+            "path": "playground/ssr-deps/non-optimized-with-nested-external",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-object-assigned-exports",
+            "path": "playground/ssr-deps/object-assigned-exports",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-only-object-assigned-exports",
+            "path": "playground/ssr-deps/only-object-assigned-exports",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-optimized-cjs-with-nested-external",
+            "path": "playground/ssr-deps/optimized-cjs-with-nested-external",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-optimized-with-nested-external",
+            "path": "playground/ssr-deps/optimized-with-nested-external",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-pkg-exports",
+            "path": "playground/ssr-deps/pkg-exports",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-primitive-export",
+            "path": "playground/ssr-deps/primitive-export",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-read-file-content",
+            "path": "playground/ssr-deps/read-file-content",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-require-absolute",
+            "path": "playground/ssr-deps/require-absolute",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ts-transpiled-exports",
+            "path": "playground/ssr-deps/ts-transpiled-exports",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-html",
+            "path": "playground/ssr-html",
+            "files": 18,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-noexternal",
+            "path": "playground/ssr-noexternal",
+            "files": 7,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-external-cjs",
+            "path": "playground/ssr-noexternal/external-cjs",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-require-external-cjs",
+            "path": "playground/ssr-noexternal/require-external-cjs",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-pug",
+            "path": "playground/ssr-pug",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-resolve",
+            "path": "playground/ssr-resolve",
+            "files": 5,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-deep-import",
+            "path": "playground/ssr-resolve/deep-import",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "playground/ssr-resolve/deep-import/bar",
+            "files": 1,
+            "workspace": true
+          },
+          {
+            "name": null,
+            "path": "playground/ssr-resolve/deep-import/foo",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-entries",
+            "path": "playground/ssr-resolve/entries",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-resolve-pkg-exports",
+            "path": "playground/ssr-resolve/pkg-exports",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-module-sync",
+            "path": "playground/ssr-resolve/pkg-module-sync",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-wasm",
+            "path": "playground/ssr-wasm",
+            "files": 12,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-ssr-webworker",
+            "path": "playground/ssr-webworker",
+            "files": 7,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-browser-exports",
+            "path": "playground/ssr-webworker/browser-exports",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-worker-exports",
+            "path": "playground/ssr-webworker/worker-exports",
+            "files": 4,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-tailwind",
+            "path": "playground/tailwind",
+            "files": 10,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-tailwind-sourcemap",
+            "path": "playground/tailwind-sourcemap",
+            "files": 6,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-tailwind-v3",
+            "path": "playground/tailwind-v3",
+            "files": 10,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-transform-plugin",
+            "path": "playground/transform-plugin",
+            "files": 11,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-tsconfig-json",
+            "path": "playground/tsconfig-json",
+            "files": 13,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-tsconfig-json-load-error",
+            "path": "playground/tsconfig-json-load-error",
+            "files": 8,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-wasm",
+            "path": "playground/wasm",
+            "files": 13,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-worker",
+            "path": "playground/worker",
+            "files": 64,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-worker-dep-cjs",
+            "path": "playground/worker/dep-cjs",
+            "files": 2,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-self-reference-url-worker",
+            "path": "playground/worker/dep-self-reference-url-worker",
+            "files": 3,
+            "workspace": true
+          },
+          {
+            "name": "@vitejs/test-dep-to-optimize",
+            "path": "playground/worker/dep-to-optimize",
+            "files": 2,
+            "workspace": true
+          }
+        ],
+        "externalPackages": 185,
+        "exclusions": [
+          {
+            "reason": "DEPENDENCY_DIRECTORY",
+            "count": 14
+          },
+          {
+            "reason": "LANGUAGE_UNSUPPORTED",
+            "count": 33
+          },
+          {
+            "reason": "LOCKFILE_STRUCTURAL",
+            "count": 3
+          },
+          {
+            "reason": "PARSE_SYNTAX_ERROR",
+            "count": 2
+          },
+          {
+            "reason": "SOURCE_MAP",
+            "count": 5
+          },
+          {
+            "reason": "SYMLINK",
+            "count": 5
+          }
+        ],
+        "excludedRoots": [
+          {
+            "path": "packages/vite/src/node/__tests__/fixtures/glob-exports/node_modules",
+            "reason": "DEPENDENCY_DIRECTORY",
+            "files": 4
+          },
+          {
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/sass-package-resolution/node_modules",
+            "reason": "DEPENDENCY_DIRECTORY",
+            "files": 3
+          },
+          {
+            "path": "playground/nested-deps/test-package-b/node_modules",
+            "reason": "DEPENDENCY_DIRECTORY",
+            "files": 2
+          },
+          {
+            "path": "packages/vite/src/node/__tests__/fixtures/config/native-compat/json-named-import-bare/node_modules",
+            "reason": "DEPENDENCY_DIRECTORY",
+            "files": 1
+          },
+          {
+            "path": "packages/vite/src/node/__tests__/fixtures/config/native-compat/json-named-import-ok/node_modules",
+            "reason": "DEPENDENCY_DIRECTORY",
+            "files": 1
+          },
+          {
+            "path": "packages/vite/src/node/__tests__/optimizer/fixtures/lockfile-hash/yarn-state/node_modules",
+            "reason": "DEPENDENCY_DIRECTORY",
+            "files": 1
+          },
+          {
+            "path": "packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/node_modules",
+            "reason": "DEPENDENCY_DIRECTORY",
+            "files": 1
+          },
+          {
+            "path": "packages/vite/src/node/ssr/__tests__/fixtures/bundled-with-sourcemaps/bundle.js.map",
+            "reason": "SOURCE_MAP",
+            "files": 1
+          },
+          {
+            "path": "packages/vite/src/node/ssr/__tests__/fixtures/multi-source-sourcemaps/dist.js.map",
+            "reason": "SOURCE_MAP",
+            "files": 1
+          },
+          {
+            "path": "playground/css-sourcemap/input-map.css.map",
+            "reason": "SOURCE_MAP",
+            "files": 1
+          },
+          {
+            "path": "playground/fs-serve/unsafe.map",
+            "reason": "SOURCE_MAP",
+            "files": 1
+          },
+          {
+            "path": "playground/glob-import/root/dir/node_modules",
+            "reason": "DEPENDENCY_DIRECTORY",
+            "files": 1
+          },
+          {
+            "path": "playground/wasm/heavy.wasm.map",
+            "reason": "SOURCE_MAP",
+            "files": 1
+          }
+        ],
+        "appliedBuiltinExclusions": [
+          {
+            "reason": "DEPENDENCY_DIRECTORY",
+            "patterns": [
+              "node_modules/",
+              "bower_components/",
+              "jspm_packages/",
+              "vendor/"
+            ]
+          },
+          {
+            "reason": "BUILD_OUTPUT",
+            "patterns": [
+              "dist/",
+              ".next/",
+              ".nuxt/",
+              ".svelte-kit/",
+              ".output/",
+              ".vercel/",
+              ".netlify/",
+              "storybook-static/",
+              ".docusaurus/",
+              ".expo/",
+              "coverage/"
+            ]
+          },
+          {
+            "reason": "CACHE_DIRECTORY",
+            "patterns": [
+              ".cache/",
+              ".turbo/",
+              ".parcel-cache/",
+              ".nx/",
+              ".yarn/cache/",
+              ".pnpm-store/",
+              ".eslintcache"
+            ]
+          },
+          {
+            "reason": "MINIFIED_BUNDLE",
+            "patterns": [
+              "*.min.js",
+              "*.min.mjs",
+              "*.min.cjs",
+              "*.min.css"
+            ]
+          },
+          {
+            "reason": "SOURCE_MAP",
+            "patterns": [
+              "*.map"
+            ]
+          }
+        ],
+        "limitsHit": [],
+        "warnings": [
+          {
+            "code": "AMBIGUOUS_WORKSPACE_DEPENDENCY",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/license/package.json"
+          },
+          {
+            "code": "AMBIGUOUS_WORKSPACE_DEPENDENCY",
+            "path": "playground/optimize-deps/nested-exclude/package.json"
+          },
+          {
+            "code": "AMBIGUOUS_WORKSPACE_DEPENDENCY",
+            "path": "playground/optimize-deps/package.json"
+          },
+          {
+            "code": "AMBIGUOUS_WORKSPACE_DEPENDENCY",
+            "path": "playground/ssr-deps/nested-exclude/package.json"
+          },
+          {
+            "code": "AMBIGUOUS_WORKSPACE_DEPENDENCY",
+            "path": "playground/ssr-deps/package.json"
+          },
+          {
+            "code": "CONFIG_EXTENDS_EXTERNAL",
+            "path": "packages/create-vite/template-svelte-ts/tsconfig.app.json"
+          },
+          {
+            "code": "CONFIG_EXTENDS_EXTERNAL",
+            "path": "packages/create-vite/template-vue-ts/tsconfig.app.json"
+          },
+          {
+            "code": "CONFIG_PARSE_ERROR",
+            "path": "playground/tsconfig-json-load-error/has-error/tsconfig.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "packages/vite/src/node/__tests__/packages/module/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "packages/vite/src/node/__tests__/packages/name/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/license/dep-license-type-marker/build/esm/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/license/dep-license-type-marker/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "playground/hmr/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "playground/minify/dir/module/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "playground/minify/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "playground/module-graph/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "playground/optimize-deps/nested-exclude/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "playground/optimize-deps/nested-include/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "playground/ssr-alias/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "playground/ssr-deps/nested-exclude/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "playground/ssr-deps/nested-include/package.json"
+          },
+          {
+            "code": "DUPLICATE_WORKSPACE_PACKAGE_NAME",
+            "path": "playground/ssr-html/package.json"
+          },
+          {
+            "code": "EXCLUDED_DEPENDENCY_DIRECTORY",
+            "path": "packages/vite/src/node/__tests__/fixtures/config/native-compat/json-named-import-bare/node_modules"
+          },
+          {
+            "code": "EXCLUDED_DEPENDENCY_DIRECTORY",
+            "path": "packages/vite/src/node/__tests__/fixtures/config/native-compat/json-named-import-ok/node_modules"
+          },
+          {
+            "code": "EXCLUDED_DEPENDENCY_DIRECTORY",
+            "path": "packages/vite/src/node/__tests__/fixtures/glob-exports/node_modules"
+          },
+          {
+            "code": "EXCLUDED_DEPENDENCY_DIRECTORY",
+            "path": "packages/vite/src/node/__tests__/optimizer/fixtures/lockfile-hash/yarn-state/node_modules"
+          },
+          {
+            "code": "EXCLUDED_DEPENDENCY_DIRECTORY",
+            "path": "packages/vite/src/node/__tests__/plugins/fixtures/sass-package-resolution/node_modules"
+          },
+          {
+            "code": "EXCLUDED_DEPENDENCY_DIRECTORY",
+            "path": "packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/node_modules"
+          },
+          {
+            "code": "EXCLUDED_DEPENDENCY_DIRECTORY",
+            "path": "playground/glob-import/root/dir/node_modules"
+          },
+          {
+            "code": "EXCLUDED_DEPENDENCY_DIRECTORY",
+            "path": "playground/nested-deps/test-package-b/node_modules"
+          },
+          {
+            "code": "EXCLUDED_SOURCE_MAP",
+            "path": "packages/vite/src/node/ssr/__tests__/fixtures/bundled-with-sourcemaps/bundle.js.map"
+          },
+          {
+            "code": "EXCLUDED_SOURCE_MAP",
+            "path": "packages/vite/src/node/ssr/__tests__/fixtures/multi-source-sourcemaps/dist.js.map"
+          },
+          {
+            "code": "EXCLUDED_SOURCE_MAP",
+            "path": "playground/css-sourcemap/input-map.css.map"
+          },
+          {
+            "code": "EXCLUDED_SOURCE_MAP",
+            "path": "playground/fs-serve/unsafe.map"
+          },
+          {
+            "code": "EXCLUDED_SOURCE_MAP",
+            "path": "playground/wasm/heavy.wasm.map"
+          },
+          {
+            "code": "MULTIPLE_PROJECT_CONTEXTS",
+            "path": "packages/vite/src/types/alias.d.ts"
+          },
+          {
+            "code": "MULTIPLE_PROJECT_CONTEXTS",
+            "path": "packages/vite/src/types/anymatch.d.ts"
+          },
+          {
+            "code": "MULTIPLE_PROJECT_CONTEXTS",
+            "path": "packages/vite/src/types/chokidar.d.ts"
+          },
+          {
+            "code": "MULTIPLE_PROJECT_CONTEXTS",
+            "path": "packages/vite/src/types/commonjs.d.ts"
+          },
+          {
+            "code": "MULTIPLE_PROJECT_CONTEXTS",
+            "path": "packages/vite/src/types/connect.d.ts"
+          },
+          {
+            "code": "MULTIPLE_PROJECT_CONTEXTS",
+            "path": "packages/vite/src/types/dynamicImportVars.d.ts"
+          },
+          {
+            "code": "MULTIPLE_PROJECT_CONTEXTS",
+            "path": "packages/vite/src/types/shims.d.ts"
+          },
+          {
+            "code": "MULTIPLE_PROJECT_CONTEXTS",
+            "path": "packages/vite/src/types/ws.d.ts"
+          }
+        ],
+        "imports": {
+          "observed": 4039,
+          "internal": 2383,
+          "external": 774,
+          "builtin": 492,
+          "unresolved": 263,
+          "unsupported": 124,
+          "excludedTargets": 3
+        },
+        "parse": {
+          "parsed": 1593,
+          "failed": 2,
+          "cacheHits": 0
+        },
+        "findings": {
+          "ATLAS_LOCAL_IMPORT_UNRESOLVED": 55,
+          "ATLAS_RESOLUTION_CONTEXT_INCOMPLETE": 185,
+          "ATLAS_LARGE_SOURCE_FILE": 24,
+          "ATLAS_HIGH_FAN_IN": 11,
+          "ATLAS_STATIC_CYCLE": 28,
+          "ATLAS_PARSE_ERROR": 2,
+          "ATLAS_COMPLEX_CALLABLE": 27,
+          "ATLAS_CHANGE_CONCENTRATION": 2
+        },
+        "cycles": 28,
+        "history": {
+          "status": "complete",
+          "boundary": "commit-cap",
+          "reason": null,
+          "commits": 200,
+          "window": {
+            "newest": "3b72997d42e7dd2b31898d0e68461e3025e836b6",
+            "oldest": "5c1c6c609718303202832f706884192e1f1e9223",
+            "oldestTime": "2026-08-17T06:51:24.000Z",
+            "newestTime": "2026-10-09T16:29:11.000Z"
+          },
+          "frames": {
+            "requested": 12,
+            "completed": 12,
+            "unavailable": []
+          },
+          "renames": 1,
+          "renameDetection": "complete",
+          "lineDiffs": "complete",
+          "coChange": "complete",
+          "lineages": 2850
+        },
+        "sourceTextIncluded": false
+      },
+      "reasons": {
+        "unresolved:GENERATED_TARGET_MISSING": 198,
+        "unresolved:PACKAGE_EXPORT_UNSUPPORTED": 6,
+        "unsupported:NONLITERAL_DYNAMIC_IMPORT": 57,
+        "unsupported:IMPORT_META_GLOB_UNSUPPORTED": 50,
+        "unresolved:LOCAL_TARGET_MISSING": 55,
+        "unresolved:ALIAS_UNSUPPORTED": 1,
+        "unsupported:REQUIRE_RESOLVE_UNSUPPORTED": 2,
+        "unsupported:URL_IMPORT_UNSUPPORTED": 14,
+        "unresolved:AMBIGUOUS_WORKSPACE_PACKAGE": 3,
+        "excluded-target:TARGET_EXCLUDED": 3,
+        "unsupported:NONLITERAL_REQUIRE": 1
+      },
+      "examples": {
+        "unresolved:GENERATED_TARGET_MISSING": [
+          {
+            "source": "playground/hmr-ssr/__tests__/hmr-ssr.spec.ts",
+            "specifier": "vite/module-runner",
+            "kind": "imports-type"
+          },
+          {
+            "source": "playground/lib/__tests__/serve.ts",
+            "specifier": "vite",
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "playground/resolve/vite.config.js",
+            "specifier": "vite",
+            "kind": "imports-value"
+          }
+        ],
+        "unresolved:PACKAGE_EXPORT_UNSUPPORTED": [
+          {
+            "source": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/invalid-package/test.js",
+            "specifier": "test-dep-invalid-exports",
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "playground/backend-integration/frontend/entrypoints/main.ts",
+            "specifier": "vite/modulepreload-polyfill",
+            "kind": "imports-value"
+          },
+          {
+            "source": "playground/ssr-deps/src/app.js",
+            "specifier": "@vitejs/test-pkg-exports/virtual",
+            "kind": "imports-value"
+          }
+        ],
+        "unsupported:NONLITERAL_DYNAMIC_IMPORT": [
+          {
+            "source": "playground/ssr-wasm/__tests__/serve.ts",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "playground/legacy/__tests__/ssr/serve.ts",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "packages/vite/src/node/plugins/css.ts",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          }
+        ],
+        "unsupported:IMPORT_META_GLOB_UNSUPPORTED": [
+          {
+            "source": "playground/worker/importMetaGlob.worker.js",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/index.ts",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/index.ts",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          }
+        ],
+        "unresolved:LOCAL_TARGET_MISSING": [
+          {
+            "source": "packages/vite/bin/vite.js",
+            "specifier": "../dist/node/cli.js",
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "playground/css/main.js",
+            "specifier": "./inline.module.css?inline",
+            "kind": "imports-value"
+          },
+          {
+            "source": "packages/vite/src/node/__tests__/plugins/fixtures/worker-url/entry.js",
+            "specifier": "./worker?worker&url",
+            "kind": "imports-value"
+          }
+        ],
+        "unresolved:ALIAS_UNSUPPORTED": [
+          {
+            "source": "playground/resolve-tsconfig-paths/__tests__/resolve.spec.ts",
+            "specifier": "~utils",
+            "kind": "imports-value"
+          }
+        ],
+        "unsupported:REQUIRE_RESOLVE_UNSUPPORTED": [
+          {
+            "source": "playground/css/__tests__/tests.ts",
+            "specifier": null,
+            "kind": "requires-literal"
+          },
+          {
+            "source": "playground/json/__tests__/csr/json-csr.spec.ts",
+            "specifier": null,
+            "kind": "requires-literal"
+          }
+        ],
+        "unsupported:URL_IMPORT_UNSUPPORTED": [
+          {
+            "source": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/virtual.js",
+            "specifier": "virtual0:test",
+            "kind": "imports-value"
+          },
+          {
+            "source": "playground/transform-plugin/index.js",
+            "specifier": "virtual:/bar.json",
+            "kind": "imports-value"
+          },
+          {
+            "source": "playground/module-graph/imported-urls-order.js",
+            "specifier": "virtual:slow-module",
+            "kind": "imports-value"
+          }
+        ],
+        "unresolved:AMBIGUOUS_WORKSPACE_PACKAGE": [
+          {
+            "source": "playground/ssr-deps/nested-exclude/index.js",
+            "specifier": "@vitejs/test-nested-include",
+            "kind": "reexports-value"
+          },
+          {
+            "source": "playground/optimize-deps/nested-exclude/index.js",
+            "specifier": "@vitejs/test-nested-include",
+            "kind": "reexports-value"
+          },
+          {
+            "source": "playground/ssr-deps/src/app.js",
+            "specifier": "@vitejs/test-nested-exclude",
+            "kind": "imports-value"
+          }
+        ],
+        "excluded-target:TARGET_EXCLUDED": [
+          {
+            "source": "playground/ssr-wasm/src/direct-light.js",
+            "specifier": "./light-with-imports.wasm",
+            "kind": "imports-value"
+          },
+          {
+            "source": "playground/ssr-wasm/src/direct-light.js",
+            "specifier": "./imports.js",
+            "kind": "imports-value"
+          },
+          {
+            "source": "playground/ssr-wasm/src/direct-add.js",
+            "specifier": "./add.wasm",
+            "kind": "imports-value"
+          }
+        ],
+        "unsupported:NONLITERAL_REQUIRE": [
+          {
+            "source": "playground/ssr-deps/require-absolute/index.js",
+            "specifier": null,
+            "kind": "requires-literal"
+          }
+        ]
+      },
+      "digest": "2e300e11fa6c01058a11abeb6506c06d0bde3d1aac149971483196580448b7dd",
+      "chunks": [
+        {
+          "path": "graphs/snap_f4cfc9099168ce6247c5f6011663685995818eff98dd56521ce55cb812a314f5.json.gz",
+          "sha256": "6541055de84643ad3deb8c60286aa3c44224aa99386d3d650ea9a2b86efe1d92",
+          "uncompressedBytes": 241864,
+          "compressedBytes": 38058,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "9e015e10e5fa2a4d6b630c679f4b3baa0313f96dcb3880135b228716eaeae235",
+          "decodedBytes": 7794772
+        },
+        {
+          "path": "graphs/snap_9d183abb18e2222c4da957cf5950087303959a21df10876b39dce67a68c45af0.json.gz",
+          "sha256": "eb6da0bfc49a83ae54bed3b6c8cf549a22172ce7dab798cb88e4933ba894ee80",
+          "uncompressedBytes": 344193,
+          "compressedBytes": 50894,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "3f254a5ab8fcf8c6815880d7cbd18850b87acf5038968d3fd1ceabdc4cee618e",
+          "decodedBytes": 7813209
+        },
+        {
+          "path": "graphs/snap_f71b12a61740a717897381644328ce4bf8228b1535dcb389656faf5ad7c200de.json.gz",
+          "sha256": "8bdf4844414ba55e5d3d57d236771300238cf6e1d69aab869cfa13e3620218eb",
+          "uncompressedBytes": 1547286,
+          "compressedBytes": 200945,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "60bc24de18500d230bf8c754df5307a2a89ee38609cdea895da31b5f92b7e4d1",
+          "decodedBytes": 7838913
+        },
+        {
+          "path": "graphs/snap_9ebf08255e0674c4d0bcf046a1ab5d0a4b66cffc4c54bc7050698d036d59b040.json.gz",
+          "sha256": "5c6a5f14781be8389eaf89a7e4dc3d3f344fc0603c8f8dd2f5157505cb2180cd",
+          "uncompressedBytes": 197138,
+          "compressedBytes": 31440,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "f39b6e10904ef40fe8d9655092d4ccc851efc1d112342cff2783ec030b90c3a0",
+          "decodedBytes": 7844529
+        },
+        {
+          "path": "graphs/snap_67dc3bf1ec3c13631f8960f99ffca2ec6b7e8e244bde74d57a791924a601dace.json.gz",
+          "sha256": "2907c47790db670d6ef588eef98b0215e536461dd09ac8e1b2959b069d4b6f24",
+          "uncompressedBytes": 274809,
+          "compressedBytes": 44526,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "4ed7767a4dd7285207c08731f680b9bab67c08e955e3420731103844afdff914",
+          "decodedBytes": 7838577
+        },
+        {
+          "path": "graphs/snap_38aa3ef507817b40d4f3b609cb9b38bf367d0924e7e06f4693a34b122d0bd9b4.json.gz",
+          "sha256": "c30dd7d05588d4d9cdc3853bf56d52fcc7ee5bceda94554031d7b72ca286fb9c",
+          "uncompressedBytes": 742249,
+          "compressedBytes": 110481,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "3c4dc0b1b08496154db9067fb994f4178c0cd8b787b9c72d9db55a9e64304e54",
+          "decodedBytes": 7894826
+        },
+        {
+          "path": "graphs/snap_473e7bc3b462dfce53e03f94d4bff3a9f0af15c46974a10d9f6be19a9d22a481.json.gz",
+          "sha256": "e2a88dcad0d7432ba1deadbc9886bbea14b73d92824fdf30200a95fc4c26d27d",
+          "uncompressedBytes": 221562,
+          "compressedBytes": 35774,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "85d130189e5181387aeb85589f0f0cb6116c497a9364301f03feb2e28e5808ae",
+          "decodedBytes": 7899897
+        },
+        {
+          "path": "graphs/snap_262eb4417e485e35ca18d50260016fcac4a732620125050fe324d4dd668a5825.json.gz",
+          "sha256": "c2df157088ba00cba10f588d0ee26876d3502d05c9d586ba255c30ceccec4b02",
+          "uncompressedBytes": 268999,
+          "compressedBytes": 42529,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "d641e15c66150f79eb6115928d8182d453af0e3cb0c72238860d403e45775c7b",
+          "decodedBytes": 7901610
+        },
+        {
+          "path": "graphs/snap_fbc804012048b96c864b98dce6bee34f1e61117949d1e19431e70eb8d1a49959.json.gz",
+          "sha256": "24726827b180a388148f6f1942d910821058f8c3454f74136b680c654624ef6a",
+          "uncompressedBytes": 520595,
+          "compressedBytes": 78600,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "70a875b644f928f4eb51b178d6e2e9c2705e370d96e5b69dfce8598f6595db77",
+          "decodedBytes": 7919174
+        },
+        {
+          "path": "graphs/snap_2bbc9b164eaa9ab2b25807f907fbb1b4875f1cc3bbc4924e1fbdfb2785407cfd.json.gz",
+          "sha256": "9fd875e360e43eb4fc0a2455e9a91f2376dac5f68a0b9380cefcd44f611ae000",
+          "uncompressedBytes": 299862,
+          "compressedBytes": 47800,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "66de0ac6b8150fec5845c518a1d9785a5cfc25ebfa158b7db9930f0c1b16c4dd",
+          "decodedBytes": 7935520
+        },
+        {
+          "path": "graphs/snap_42375bdb98cde6d40c7d050c7c16740c2dcb8b8c8cacd9d5d9474ac8be8a24f3.json.gz",
+          "sha256": "e5bc288d9accb67eb28a11d691ac8fce31a88d6acc7cb730b30f8ff4dc0f38b6",
+          "uncompressedBytes": 305110,
+          "compressedBytes": 47402,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "115e795b9423c7fac78ea9ea40ba28f6d77ead72ff244466941c8fb7f4e9a400",
+          "decodedBytes": 7952869
+        },
+        {
+          "path": "graphs/snap_44b33294fa1d32ee8c15d1d1b157a29993b5b45df2d0d72da450f77a2d69df5c.json.gz",
+          "sha256": "8a340533d251894da392cde92745e694e166cb728ac82035b2acc4a469df29f1",
+          "uncompressedBytes": 5155747,
+          "compressedBytes": 696339,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.indexed/1",
+          "encodedSha256": "53864728138743cb820bf1b31b1c39957c1017e3256e7f61957cfdeab2620922",
+          "decodedBytes": 8003836
+        },
+        {
+          "path": "history/history.json.gz",
+          "sha256": "c567ed6f2ddeb0d1918876c814fb716178ba8d3115f103c3a8fe763b0a6ee407",
+          "uncompressedBytes": 1614854,
+          "compressedBytes": 268579,
+          "mediaType": "application/json",
+          "encoding": "atlas.history.compact/1",
+          "encodedSha256": "df37fec30eb64d978d8222b35e154a00956707e24663b06b6c116e0c61e6b116",
+          "decodedBytes": 8893592
+        },
+        {
+          "path": "layout/layout.json.gz",
+          "sha256": "58fe61df2cde9a6d3230e56e701a47d9b9f76420c8683995468304d0b1737118",
+          "uncompressedBytes": 3149260,
+          "compressedBytes": 1176721,
+          "mediaType": "application/json",
+          "encoding": "atlas.layout.compact/1",
+          "encodedSha256": "48767f9f33b147ff49f5c1384c96dfd69588e1acc16e3d331a6541457daf6257",
+          "decodedBytes": 12430894
+        }
+      ],
+      "milliseconds": [
+        31666.757199999993,
+        32560.2053,
+        31503.04859999998,
+        31462.210300000006,
+        31683.36069999999
+      ],
+      "compressedBytes": 2870088,
+      "exportVerified": true,
+      "deterministic": true,
+      "parseFailures": [
+        "packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.js",
+        "packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.ts"
+      ]
+    }
+  ]
+}

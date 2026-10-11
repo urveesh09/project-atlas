@@ -9,9 +9,12 @@ ATLAS turns the committed contents of a TypeScript/JavaScript repository into a 
 
 Every visual encoding has a legend, every finding has evidence, and every gap in the analysis is shown as coverage.
 
-> **Status:** Phase 5 adds the hosted public-GitHub service on top of the four local pillars. Repositories are acquired through a DNS-pinned, byte-counted egress broker and analyzed by the same analyzer in network-less containers. Verified results are published to private storage behind visibility, expiry and revocation checks, and opened in the same validating viewer. See [hosted operations](docs/hosted-operations.md), the [operator rehearsal](docs/benchmarks/phase5-rehearsal.md) and [implementation status](docs/implementation-status.md). A public deployment, reference-hardware capacity runs and human accessibility audits remain release (Phase 6) work. Runtime tracing stays deferred.
+> **Status:** All four pillars and the hosted public-GitHub implementation are available. Phase 6 adds pinned real-repository validation, repeated capacity measurements and a portable CLI candidate tested outside the development checkout. See the [candidate install/demo guide](docs/release/README.md), [release audit](docs/release/release-audit.md) and [implementation status](docs/implementation-status.md). G6 remains open for human usability/accessibility, reference-device and public-infrastructure acceptance. Runtime tracing stays deferred.
 
 ## Try it
+
+For a portable archive that needs only Node and Git after extraction, follow the
+[candidate guide](docs/release/README.md). To build from this checkout:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -47,7 +50,7 @@ Only committed files are analyzed. History is enabled by default: up to 90 days,
 
 Artifacts use a lossless indexed graph transport ([ADR-018](docs/adr/ADR-018-indexed-graph-transport.md)); decoded identities remain full SHA-256 IDs. Writers emit artifact 1.3 with lossless frame-delta graphs and compact history/layout ([ADR-026](docs/adr/ADR-026-frame-delta-and-compact-transports.md)). The 128 MiB cumulative cap counts stored JSON bytes; each reconstructed chunk is separately bounded and historical graphs are loaded on demand. Readers also accept 1.0, 1.1 and 1.2. The compressed limit stays 20 MiB. [ADR-024](docs/adr/ADR-024-decoded-artifact-capacity.md) explains the capacity decision and memory tradeoff. Layout 1.1 bounds external anchors without changing file plots or graph identity.
 
-## What V0.1 will do
+## V0.1 capabilities
 
 | Pillar | Capability |
 |---|---|

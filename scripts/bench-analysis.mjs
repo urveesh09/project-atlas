@@ -20,6 +20,10 @@ const arg = (name, fallback) => {
 };
 const FILES = arg('files', 3000);
 const RUNS = arg('runs', 20);
+const nameIndex = process.argv.indexOf('--report-name');
+const reportName = nameIndex < 0 ? 'phase2-analysis' : process.argv[nameIndex + 1];
+if (!/^[a-z0-9-]+$/.test(reportName ?? '')) throw new Error('Report name must be lowercase letters, digits and hyphens');
+if (!Number.isInteger(RUNS) || RUNS < 1 || RUNS > 100) throw new Error('Runs must be 1..100');
 const IMPORTS_PER_FILE = 10;
 const PACKAGES = 10;
 
@@ -109,16 +113,20 @@ const sorted = [...timings].sort((a, b) => a - b);
 const pct = (p) => sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)];
 const c = last.result.draft.graphs[0].coverage;
 const report = {
-  task: 'Gate G2 — medium HEAD analysis',
+  task: `HEAD analysis capacity — ${FILES > 3000 ? 'large' : 'medium'}`,
   recordedAt: new Date().toISOString(),
+  analyzerVersion: last.result.summary.analyzerVersion,
+  selectedCommit: head,
+  layoutId: last.result.draft.layout.layoutId,
+  rawSamplesMs: timings,
   environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length, memoryGiB: +(os.totalmem() / 2 ** 30).toFixed(1), node: process.version, git: version, parserWorkers: 2 },
   fixture: { files: c.includedFiles, parsed: c.parsedFiles, importStatements: c.observedImports, fileEdges: last.result.draft.graphs[0].edges.length, internalResolved: c.internalResolved },
   runs: timings.length,
   secondsP50: +(pct(0.5) / 1000).toFixed(2),
   secondsP95: +(pct(0.95) / 1000).toFixed(2),
   secondsMax: +(sorted.at(-1) / 1000).toFixed(2),
-  budgetSecondsP95: 15,
-  budgetArtifactBytes: 5 * 1024 * 1024,
+  budgetSecondsP95: FILES > 3000 ? 60 : 15,
+  budgetArtifactBytes: (FILES > 3000 ? 20 : 5) * 1024 * 1024,
   artifactVersion: last.packed.manifest.artifactVersion,
   artifactCompressedBytes: last.packed.manifest.chunks.reduce((a, ch) => a + ch.compressedBytes, 0),
 };
@@ -127,11 +135,11 @@ report.sizePass = report.artifactCompressedBytes <= report.budgetArtifactBytes;
 report.pass = report.timePass && report.sizePass;
 const outDir = path.join(root, 'docs/benchmarks');
 mkdirSync(outDir, { recursive: true });
-writeFileSync(path.join(outDir, 'phase2-analysis.json'), `${JSON.stringify(report, null, 2)}\n`);
+writeFileSync(path.join(outDir, `${reportName}.json`), `${JSON.stringify(report, null, 2)}\n`);
 writeFileSync(
-  path.join(outDir, 'phase2-analysis.md'),
+  path.join(outDir, `${reportName}.md`),
   [
-    '# Phase 2 HEAD analysis benchmark (Gate G2)',
+    `# ${report.task} (plan §15.2)`,
     '',
     `Recorded ${report.recordedAt} by \`node scripts/bench-analysis.mjs\`. ${report.runs} measured runs after one warm-up, each with a cold fact cache, so every file is parsed every time.`,
     '',
@@ -139,10 +147,10 @@ writeFileSync(
     '',
     ...Object.entries(report.environment).map(([k, v]) => `- **${k}:** ${v}`),
     '',
-    '## Fixture (synthetic "medium", deterministic)',
+    `## Fixture (synthetic "${FILES <= 3000 ? 'medium' : 'large'}", deterministic)`,
     '',
     `- ${report.fixture.files.toLocaleString('en-US')} files, ${report.fixture.parsed.toLocaleString('en-US')} parsed, ${report.fixture.importStatements.toLocaleString('en-US')} import statements, ${report.fixture.fileEdges.toLocaleString('en-US')} edges`,
-    `- Artifact: ${(report.artifactCompressedBytes / 1024).toFixed(0)} KiB compressed (medium budget 5 MiB)`,
+    `- Artifact: ${(report.artifactCompressedBytes / 1024).toFixed(0)} KiB compressed (budget ${report.budgetArtifactBytes / 2 ** 20} MiB)`,
     '',
     '## Result',
     '',
@@ -151,7 +159,7 @@ writeFileSync(
     `| p50 | ${report.secondsP50} s | |`,
     `| p95 | ${report.secondsP95} s | ≤ ${report.budgetSecondsP95} s |`,
     `| max | ${report.secondsMax} s | |`,
-    `| artifact | ${(report.artifactCompressedBytes / 1024 / 1024).toFixed(2)} MiB | ≤ 5 MiB |`,
+    `| artifact | ${(report.artifactCompressedBytes / 1024 / 1024).toFixed(2)} MiB | ≤ ${report.budgetArtifactBytes / 2 ** 20} MiB |`,
     '',
     `**${report.pass ? 'Pass' : 'Fail'}.** Time: ${report.timePass ? 'pass' : 'fail'}; artifact size: ${report.sizePass ? 'pass' : 'fail'}. Times cover the whole HEAD pipeline after acquisition (local objects) and include artifact packing, but not writing to disk. Format: ${report.artifactVersion}; indexed graph transport per ADR-018.`,
     '',

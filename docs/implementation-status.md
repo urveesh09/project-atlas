@@ -2,7 +2,7 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone:** Phase 5: the hosted public-GitHub service is implemented and its G5 controls pass, as detailed below. Public deployment is a Phase 6 release action. Human screen-reader and exact reference-device release audits remain open; runtime instrumentation remains deferred.
+**Current milestone:** Phase 6 candidate verification: Phase 5 implementation has been reviewed; pinned real-repository evidence, repeated HEAD capacity runs, portable distribution and release audit are prepared. G6 remains open for human usability/assistive review, exact reference-device capacity and operator infrastructure acceptance. Runtime instrumentation remains deferred.
 
 ## Phase 0: prove constraints and lock contracts
 
@@ -213,12 +213,68 @@ Decisions: [ADR-029](adr/ADR-029-hosted-admission-and-lease-foundation.md), [ADR
 
 ![Hosted landing page with the public-output notice](images/phase5-landing.png)
 
-## How to reproduce the evidence
+## Phase 6: release candidate verification
+
+**G6 remains open.** Candidate tooling and documentation are implemented while final
+human/reference-device/operator acceptance remains pending. See the [release audit](release/release-audit.md)
+for requirement traceability and owners/evidence needed; [ADR-035](adr/ADR-035-release-candidate-evidence-and-distribution.md)
+records the distribution and evidence decisions.
+
+| Task | Status | Deliverables and acceptance boundary |
+|---|---|---|
+| P6.1 Real-repository validation | Local evidence complete; independent CI repeats required | Three immutable numeric-ID/commit pins; 16 source-authored role/import checks; five cold offline repeats each with exact graph/history/layout canonical and wire hashes; verified source-free exports; [coverage report](release/real-repositories.md) |
+| P6.2 Capacity/reliability | Development-host evidence added; reference matrix open | Separate 20-run medium and near-limit large HEAD reports; existing 20-run medium history/combined worker heap; actual disk/OOM/timeout/lease/storage/container fault gates; exact dense/large temporal and reference-device measurements remain open |
+| P6.3 Usability/accessibility | Automated journeys pass; human reviews open | Existing keyboard/axe/motion/fallback tests and packaged screenshot; [five-developer and assistive-review protocol](release/manual-review.md), no fabricated participant results |
+| P6.4 Documentation/distribution | Candidate implemented; task dependencies open | Portable archive, every-file SHA-256 inventory, third-party notices; [relocated offline CLI/browser smoke](release/distribution-smoke.md), [install/demo/privacy guide](release/README.md), [candidate notes](release/release-notes.md); independent reviewer reproduction follows P6.2/P6.3 |
+| P6.5 Release audit | Prepared; sign-off open | [Requirements/evidence matrix and acceptance backlog](release/release-audit.md); runtime fully deferred; final no-P0/P1 and human/operator sign-off pending |
+
+The Phase 5 follow-up review adds exclusive same-database Docker-engine ownership
+before destructive reconciliation, connection-loss fencing, route-revision isolation,
+correct browser cleanup and a final acquisition disk-budget measurement. Windows cold
+historical loads are awaited independently of cached-frame performance. [ADR-034](adr/ADR-034-phase5-review-and-exclusive-engine-ownership.md)
+details these defects and regression evidence. The prior agent's reported 672-test run
+above is preserved as handoff evidence; this review records its own final measurements
+separately rather than treating that report as verification of later edits.
+
+**Final local verification (2026-10-11):** `pnpm verify` passed **675 tests across 40
+files, none skipped**, with PostgreSQL, S3-compatible storage, the freshly rebuilt sandbox
+image, offline Docker probe, Chromium and live GitHub gates enabled. Types, production
+viewer, dependency direction and all generated contracts passed. Duration: 250.71 s.
+No ATLAS sandbox container or network remained. File-level test concurrency is bounded
+to two; production budgets and functional deadlines remain unchanged. The first
+unbounded attempt's overwrite timeout and its successful isolated rerun are preserved
+in ADR-035 rather than hidden. Final cross-platform CI follows the pushed candidate.
+After the independent-suite bootstrap correction, the filtered historical deep-link
+regression also passed (1 selected test; the other 26 deliberately filtered), and strict
+types passed again. The full CI run checks the committed final test setup.
+
+The medium HEAD batch measures **6.81 s p95**, 1.85 MiB compressed, across twenty
+cold-fact-cache repeats. [Full report](benchmarks/phase6-head-capacity.md) includes every
+sample and identity. The separate [near-limit large HEAD batch](benchmarks/phase6-large-head-capacity.md)
+uses 9,992 files/98,500 import statements and does not claim exact dense temporal capacity.
+It passes at **20.59 s p95**, 6.07 MiB compressed, against 60 seconds/20 MiB.
+The host is Windows/i5-10400/16 GiB, not the four-core/2 GiB reference environment.
+
+The real corpus includes complete is-plain-obj and Vue results and a useful partial
+Vite result. Unresolved generated outputs, unsupported glob/URL/nonliteral observations
+and invalid fixtures are disclosed. Five-repeat equality proves determinism; independent
+examples cover their authored cases only. The portable CLI candidate extracts away
+from pnpm links and passes doctor/analyze/verify/inspect plus a loopback-only browser
+city/history/search/dependency journey. Registry audit currently returns zero production
+advisories, with its dated [scope and limits](release/dependency-audit.md).
+
+### Reproduce verification
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm --filter @atlas/web exec playwright install --with-deps chromium
 pnpm verify                                     # typecheck, viewer build, dependencies, contracts, tests
+pnpm verify:distribution                        # portable archive + relocated offline CLI/browser check
+pnpm fixtures:demo                              # prints a fresh authored Harbor repository path
+node scripts/validate-real-repositories.mjs --acquire
+node scripts/validate-real-repositories.mjs        # five cold offline repeats per immutable repo
+node scripts/bench-analysis.mjs --runs 20 --report-name phase6-head-capacity
+node scripts/bench-analysis.mjs --files 9850 --runs 20 --report-name phase6-large-head-capacity
 ATLAS_NETWORK_TESTS=1 pnpm exec vitest run packages/ingest/test/github.test.ts
 pnpm spike:render                           # writes docs/benchmarks/phase0-render-spike.{md,json}
 pnpm build && pnpm atlas analyze <repo> --out ./atlas-output && pnpm atlas inspect ./atlas-output

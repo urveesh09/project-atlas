@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "recordedOn": "2026-10-11",
+  "repositories": [
+    { "owner": "sindresorhus", "name": "is-plain-obj", "numericId": "38923193", "commit": "666df7c10035f7e26f27ec214fe5ae3173435f34", "category": "single-package JavaScript", "checks": {
+      "files": [
+        { "path": "index.js", "role": "source", "language": "javascript", "parseStatus": "parsed" },
+        { "path": "index.d.ts", "role": "declaration", "language": "typescript", "parseStatus": "parsed" }
+      ],
+      "imports": [
+        { "source": "test.js", "specifier": "./index.js", "kind": "imports-value", "status": "resolved-internal", "target": "index.d.ts" },
+        { "source": "test.js", "specifier": "node:vm", "kind": "imports-value", "status": "builtin", "target": "vm" },
+        { "source": "test.js", "specifier": "ava", "kind": "imports-value", "status": "resolved-external", "target": "ava" }
+      ]
+    } },
+    { "owner": "vuejs", "name": "core", "numericId": "137078487", "commit": "4ab865a848a1da3d10fb674f857e5fff13094644", "category": "TypeScript workspace monorepo", "checks": {
+      "files": [
+        { "path": "packages/reactivity/src/ref.ts", "role": "source", "language": "typescript", "parseStatus": "parsed" },
+        { "path": "packages/reactivity/__tests__/ref.spec.ts", "role": "test", "language": "typescript", "parseStatus": "parsed" }
+      ],
+      "imports": [
+        { "source": "packages/reactivity/src/index.ts", "specifier": "./ref", "kind": "reexports-value", "status": "resolved-internal", "target": "packages/reactivity/src/ref.ts" },
+        { "source": "packages/reactivity/src/ref.ts", "specifier": "@vue/shared", "kind": "imports-value", "status": "resolved-internal", "target": "packages/shared/src/index.ts" },
+        { "source": "packages/reactivity/src/ref.ts", "specifier": "./computed", "kind": "imports-type", "status": "resolved-internal", "target": "packages/reactivity/src/computed.ts" }
+      ]
+    } },
+    { "owner": "vitejs", "name": "vite", "numericId": "257485422", "commit": "3b72997d42e7dd2b31898d0e68461e3025e836b6", "category": "mixed TypeScript/JavaScript workspace", "checks": {
+      "files": [
+        { "path": "packages/vite/src/node/index.ts", "role": "source", "language": "typescript", "parseStatus": "parsed" },
+        { "path": "playground/alias/vite.config.js", "role": "config", "language": "javascript", "parseStatus": "parsed" },
+        { "path": "playground/alias/dir/from-script-src.js", "role": "source", "language": "javascript", "parseStatus": "parsed" }
+      ],
+      "imports": [
+        { "source": "packages/vite/src/node/index.ts", "specifier": "./config", "kind": "reexports-value", "status": "resolved-internal", "target": "packages/vite/src/node/config.ts" },
+        { "source": "playground/alias/vite.config.js", "specifier": "node:path", "kind": "imports-value", "status": "builtin", "target": "path" },
+        { "source": "packages/vite/src/node/index.ts", "specifier": "rolldown", "kind": "imports-type", "status": "resolved-external", "target": "rolldown" }
+      ]
+    } }
+  ]
+}
