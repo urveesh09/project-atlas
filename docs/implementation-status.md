@@ -263,6 +263,12 @@ from pnpm links and passes doctor/analyze/verify/inspect plus a loopback-only br
 city/history/search/dependency journey. Registry audit currently returns zero production
 advisories, with its dated [scope and limits](release/dependency-audit.md).
 
+The final local portable candidate was built from clean source commit `cabcef46a9c9aea933646f83b7f12699c3e32049`.
+All six relocated distribution stages passed; 1,488 files verified, archive 8,692,103
+bytes, SHA-256 `d7cddeb3a240fe6c886f6a9b4de9957a949e7f9d8ff0ebbf207b54f7b84cf271`.
+Its manifest records `workingTreeDirty: false`; the subsequent evidence commit changes
+reports/screenshot/status only. CI produces separate independently built OS candidates.
+
 ### Reproduce verification
 
 ```sh
