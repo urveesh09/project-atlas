@@ -232,6 +232,12 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
   let page: Page;
   beforeAll(async () => {
     page = await context.newPage();
+    if (!signedIn) {
+      await page.goto(server.sessionUrl);
+      signedIn = true;
+    }
+    // Session bootstrap redirects to the root and strips query parameters. Enable
+    // the test probe only after authorization, including when this suite runs alone.
     const url = new URL(server.url);
     url.searchParams.set('atlasBenchmark', '1');
     await page.goto(url.href);
@@ -461,6 +467,10 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     page = await context.newPage();
     errors = [];
     page.on('pageerror', (e) => errors.push(String(e)));
+    if (!signedIn) {
+      await page.goto(server.sessionUrl);
+      signedIn = true;
+    }
     const url = new URL(server.url);
     url.searchParams.set('atlasBenchmark', '1');
     await page.goto(url.href);
@@ -572,17 +582,18 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     const pricing = sixth.nodes.find((n) => n.kind === 'file' && n.path === 'src/server/pricing.ts')!;
     const fresh = await context.newPage();
     try {
-    await fresh.goto(`${server.url}#v=1&frame=${sixth.snapshotId}&file=${pricing.lineageId}&tab=history`);
-    // This is a cold page/worker/frame load, unlike cached stepping above. Wait for
-    // startup explicitly; the cached-frame performance budget is measured separately.
-    await fresh.locator('.topbar .repo-name').waitFor({ timeout: 60_000 });
-    await expect.poll(() => fresh.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label'), { timeout: 30_000 }).toMatch(/^Snapshot 6 of 12/);
-    await expect.poll(() => fresh.locator('#inspector-title').innerText()).toBe('pricing.ts');
-    expect(await fresh.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('History');
-    // An unknown frame is rejected rather than approximated.
-    await fresh.goto('about:blank');
-    await fresh.goto(`${server.url}#v=1&frame=snap_${'0'.repeat(64)}`);
-    await expect.poll(() => fresh.locator('[role="status"][aria-live="polite"]').innerText()).toContain('unsupported or invalid');
+      await fresh.goto(`${server.url}#v=1&frame=${sixth.snapshotId}&file=${pricing.lineageId}&tab=history`);
+      // Both navigations create a cold page/worker/frame load. Wait for startup;
+      // cached-frame performance has its own unchanged, separately measured budget.
+      await fresh.locator('.topbar .repo-name').waitFor({ timeout: 60_000 });
+      await expect.poll(() => fresh.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label'), { timeout: 30_000 }).toMatch(/^Snapshot 6 of 12/);
+      await expect.poll(() => fresh.locator('#inspector-title').innerText()).toBe('pricing.ts');
+      expect(await fresh.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('History');
+      // An unknown frame is rejected rather than approximated.
+      await fresh.goto('about:blank');
+      await fresh.goto(`${server.url}#v=1&frame=snap_${'0'.repeat(64)}`);
+      await fresh.locator('.topbar .repo-name').waitFor({ timeout: 60_000 });
+      await expect.poll(() => fresh.locator('[role="status"][aria-live="polite"]').innerText(), { timeout: 30_000 }).toContain('unsupported or invalid');
     } finally { await fresh.close(); }
   });
 
@@ -644,24 +655,24 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
     // A separate context: no session cookie, no server API, just static files.
     const isolated = await browser.newContext();
     try {
-    const page = await isolated.newPage();
-    const requests: { url: string; method: string }[] = [];
-    page.on('request', (r) => requests.push({ url: r.url(), method: r.method() }));
-    await page.goto(`${origin}/`);
-    await page.getByRole('button', { name: 'Open artifact folder…' }).waitFor();
-    const before = requests.length;
-    await page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out'));
-    await page.waitForSelector('#overview-title');
-    const after = requests.slice(before);
-    // Only the loader worker script itself may be fetched; no artifact bytes are sent.
-    expect(after.every((r) => r.method === 'GET' && r.url.startsWith(origin) && /\/assets\/.*\.js$/.test(r.url))).toBe(
-      true,
-    );
-    expect(requests.filter((r) => r.method !== 'GET')).toEqual([]);
-    const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
-    expect(await page.locator('#overview-title').innerText()).toBe(
-      loaded.ok ? loaded.bundle.manifest.repo.displayName : '?',
-    );
+      const page = await isolated.newPage();
+      const requests: { url: string; method: string }[] = [];
+      page.on('request', (r) => requests.push({ url: r.url(), method: r.method() }));
+      await page.goto(`${origin}/`);
+      await page.getByRole('button', { name: 'Open artifact folder…' }).waitFor();
+      const before = requests.length;
+      await page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out'));
+      await page.waitForSelector('#overview-title');
+      const after = requests.slice(before);
+      // Only the loader worker script itself may be fetched; no artifact bytes are sent.
+      expect(after.every((r) => r.method === 'GET' && r.url.startsWith(origin) && /\/assets\/.*\.js$/.test(r.url))).toBe(
+        true,
+      );
+      expect(requests.filter((r) => r.method !== 'GET')).toEqual([]);
+      const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
+      expect(await page.locator('#overview-title').innerText()).toBe(
+        loaded.ok ? loaded.bundle.manifest.repo.displayName : '?',
+      );
     } finally { await isolated.close(); }
   });
 });

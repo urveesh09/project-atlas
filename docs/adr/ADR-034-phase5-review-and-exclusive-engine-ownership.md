@@ -16,3 +16,17 @@ The review also fixes two browser lifecycle issues:
 Evidence: the PostgreSQL queue suite proves concurrent engine exclusion, independent engines, restart after unlock, and actual backend termination releasing the lock and notifying the owner. The hosted Chromium success journey delays a capabilities probe, opens an analysis, releases the probe, and asserts the city survives. Local targeted verification: **45 passing checks across three suites**. The pre-review full suite passed **594 checks**, with 78 hosted integrations explicitly disabled; full hosted and final CI evidence are recorded in implementation status after verification.
 
 This review does not substitute for the Phase 6 human accessibility, developer usability, reference-device or public infrastructure audits.
+
+Follow-up review found that a fast acquisition could finish before the first 200 ms
+watchdog poll and evade the disk-size check. A final owned-directory measurement now
+enforces the same budget after every successful acquisition. A deterministic test writes
+an oversized object payload during an immediate transport completion and verifies refusal.
+An already-aborted signal also fails before starting acquisition.
+
+Windows CI exposed two cold historical navigation assertions running while validation
+was still loading. Both now wait for the viewer's startup state before checking route
+semantics. The history suite authenticates independently when earlier journeys are
+filtered out; authorization precedes the benchmark query because session bootstrap
+redirects to the root. Its standalone deep-link regression passes without the earlier
+journeys. Cached-frame performance thresholds are unchanged. These corrections
+are covered by the final full suite and cross-platform CI recorded in status.
