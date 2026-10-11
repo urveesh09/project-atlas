@@ -16,6 +16,10 @@ export const Search = forwardRef<HTMLInputElement>(function Search(_props, ref) 
   const [resultQuery, setResultQuery] = useState('');
   const [error, setError] = useState('');
   const pendingChoice = useRef<string | null>(null);
+  // Closing on blur is deferred so a click on a result lands; refocusing cancels it, or a
+  // stale close would hide the list while the viewer types.
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => clearTimeout(blurTimer.current ?? undefined), []);
   useEffect(() => {
     let stale = false;
     setError('');
@@ -81,8 +85,13 @@ export const Search = forwardRef<HTMLInputElement>(function Search(_props, ref) 
           setOpen(true);
         }}
         onKeyDown={onKeyDown}
-        onBlur={() => setTimeout(() => setOpen(false), 120)}
-        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          blurTimer.current = setTimeout(() => setOpen(false), 120);
+        }}
+        onFocus={() => {
+          clearTimeout(blurTimer.current ?? undefined);
+          setOpen(true);
+        }}
       />
       <kbd className="search-hint" aria-hidden="true">
         /

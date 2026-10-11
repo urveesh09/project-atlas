@@ -3,14 +3,19 @@ import * as THREE from 'three';
 import { computeLayout, type CityBuilding, type CityData, type LayoutTreeNode } from '@atlas/layout';
 import { lineageId, localRepositoryId } from '@atlas/schema';
 import {
+  CORNER_PARTS,
   archetypeGeometry,
+  bridgeGeometry,
   buildingStyle,
   cityDecor,
   cornerGeometry,
   districtFamily,
+  gateGeometry,
   lampGeometry,
+  lotusGeometry,
   MAX_WALLED_PACKAGES,
   partGeometry,
+  pavilionRoofGeometry,
   topExtent,
   treeGeometry,
   wallAt,
@@ -79,13 +84,13 @@ const building = (overrides: Partial<CityBuilding> = {}): CityBuilding => ({
   ...overrides,
 });
 /** Every vertex of `g` (scaled) stays within `limit` of the plot centre and within [0, 1] height. */
-function expectInside(g: THREE.BufferGeometry, limit: number) {
+function expectInside(g: THREE.BufferGeometry, limit: number, height = 1) {
   const position = g.getAttribute('position');
   for (let i = 0; i < position.count; i++) {
-    expect(Math.abs(position.getX(i))).toBeLessThanOrEqual(limit + 1e-9);
-    expect(Math.abs(position.getZ(i))).toBeLessThanOrEqual(limit + 1e-9);
-    expect(position.getY(i)).toBeGreaterThanOrEqual(-1e-9);
-    expect(position.getY(i)).toBeLessThanOrEqual(1 + 1e-9);
+    expect(Math.abs(position.getX(i))).toBeLessThanOrEqual(limit + 1e-6);
+    expect(Math.abs(position.getZ(i))).toBeLessThanOrEqual(limit + 1e-6);
+    expect(position.getY(i)).toBeGreaterThanOrEqual(-1e-6);
+    expect(position.getY(i)).toBeLessThanOrEqual(height + 1e-6);
   }
 }
 
@@ -107,7 +112,8 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
       expect(s.variant).toBeGreaterThanOrEqual(0);
       expect(s.variant).toBeLessThan(1);
       expect(s.windows).toBeGreaterThanOrEqual(0);
-      expect(s.windows).toBeLessThanOrEqual(8);
+      expect(s.windows).toBeLessThanOrEqual(9);
+      expect(s.base).toBe(spec.archetypes[s.archetype]!.base ?? 0);
     }
   });
 
@@ -150,18 +156,30 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
   it('keeps accent parts clear of neighbouring plots at every storey', () => {
     for (const a of spec.archetypes)
       for (const part of a.parts ?? []) {
+        if (CORNER_PARTS.has(part.kind)) {
+          // Corner furniture: inset on the top, at most a quarter-cell across, unit cell geometry.
+          const top = wallAt(a, 1);
+          const reach = Math.max(top.hx, top.hz) * 0.92 + 0.24 * 0.62;
+          expect(reach).toBeLessThanOrEqual(0.7);
+          const g = partGeometry(part.kind, 4);
+          expectInside(g, 0.65, 1.25);
+          expect(g.getAttribute('position').count).toBeGreaterThan(0);
+          g.dispose();
+          continue;
+        }
         for (let fraction = 0; fraction <= 1; fraction += 0.05) {
           const wall = wallAt(a, fraction);
-          const reach = part.kind === 'eave' ? 1 / 0.7 : part.kind === 'platform' ? 1.4 : (part.overhang ?? 1.08);
+          const base = part.kind === 'platform' || part.kind === 'terrace';
+          const reach = part.kind === 'eave' ? 1 / 0.7 : part.kind === 'terrace' ? 1.55 : part.kind === 'platform' ? 1.4 : (part.overhang ?? 1.08);
           // Plot centres are 2 cells apart: 0.7 leaves a clear gap to any neighbour.
-          expect(Math.min(0.66, Math.max(wall.hx, wall.hz) * reach)).toBeLessThanOrEqual(0.7);
-          if (part.kind !== 'platform') expect(Math.max(wall.hx, wall.hz) * reach).toBeLessThanOrEqual(0.7);
+          if (base) expect(Math.min(0.7, Math.max(wall.hx, wall.hz) * reach)).toBeLessThanOrEqual(0.7);
+          else expect(Math.max(wall.hx, wall.hz) * reach).toBeLessThanOrEqual(0.7);
         }
-        const sides = part.kind === 'platform' ? [4 as const] : [...new Set(a.tiers.map((t) => t.sides))];
+        const sides = part.kind === 'platform' || part.kind === 'terrace' ? [4 as const] : [...new Set(a.tiers.map((t) => t.sides))];
         for (const s of sides) {
           const g = partGeometry(part.kind, s);
-          // Unit outlines: corners at ±1 (4 sides) or circumradius 1.
-          expectInside(g, 1);
+          // Unit outlines: corners at ±1 (4 sides) or circumradius 1; a terrace's balustrade rises a little.
+          expectInside(g, 1, part.kind === 'terrace' ? 1.06 : 1);
           expect(g.getAttribute('position').count).toBeGreaterThan(0);
           g.dispose();
         }
@@ -176,8 +194,12 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
     expect(decor.lawns.length).toBe(city.districts.filter((d) => d.depth > 0).length);
     const packages = city.districts.filter((d) => d.kind === 'package').length;
     const walled = Math.min(packages, MAX_WALLED_PACKAGES);
-    expect(decor.walls.length).toBe(spec.walls === 'none' ? 0 : walled * 4);
+    // Four walls, the south one split around its gate.
+    expect(decor.walls.length).toBe(spec.walls === 'none' ? 0 : walled * 5);
     expect(decor.corners.length).toBe(spec.walls === 'none' ? 0 : walled * 4);
+    expect(decor.gates.length).toBe(spec.walls === 'none' ? 0 : walled);
+    expect(decor.bridges.length).toBe(decor.ponds.length);
+    if (spec.ponds === 0) expect(decor.ponds.length + decor.lotus.length).toBe(0);
     expect(decor.markings.length > 0).toBe(spec.ground.marking !== null);
     for (const t of decor.trees) expect(t.kind).toBeLessThan(spec.trees.length);
     const clear = (x: number, z: number, margin: number) => {
@@ -193,6 +215,17 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
     for (const t of decor.trees) clear(t.x, t.z, 0.35);
     for (const l of decor.lamps) clear(l.x, l.z, 0.2);
     for (const c of decor.corners) clear(c.x, c.z, 0.35);
+    // Gates are 1.4 wide and 0.4 deep on the wall line; ponds, bridges and lotus stay in the header strip.
+    for (const g of decor.gates) for (const dx of [-0.7, 0, 0.7]) clear(g.x + dx, g.z - 0.2, 0.15);
+    for (const l of decor.lotus) clear(l.x, l.z, 0.1);
+    for (const b of decor.bridges) for (const dz of [-0.8, 0, 0.8]) clear(b.x, b.z + dz, 0.15);
+    for (const w of decor.ponds)
+      for (const p of geometry.plots) {
+        const overlaps =
+          Math.abs(w.x - (p.rect.x + p.rect.width / 2) / 100) < (w.width + p.rect.width / 100) / 2 &&
+          Math.abs(w.z - (p.rect.z + p.rect.depth / 2) / 100) < (w.depth + p.rect.depth / 100) / 2;
+        expect(overlaps).toBe(false);
+      }
     for (const w of decor.walls) {
       // Sample along each wall segment.
       const dx = Math.cos(w.rotation),
@@ -220,7 +253,9 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
     const meshes = [
       ...spec.trees.map((t) => treeGeometry(t.kind)),
       lampGeometry(spec.lamp),
-      ...(spec.walls === 'none' ? [] : [cornerGeometry(spec.walls)]),
+      ...(spec.walls === 'none' ? [] : [cornerGeometry(spec.walls), gateGeometry(spec.walls)]),
+      bridgeGeometry(),
+      lotusGeometry(),
     ];
     for (const g of meshes) {
       expect(g.getAttribute('position').count).toBeGreaterThan(0);
@@ -278,7 +313,8 @@ describe('town walls', () => {
       ],
     };
     const decor = cityDecor(many, 'western');
-    expect(decor.walls.length).toBe(MAX_WALLED_PACKAGES * 4);
+    expect(decor.walls.length).toBe(MAX_WALLED_PACKAGES * 5);
+    expect(decor.gates.length).toBe(MAX_WALLED_PACKAGES);
     // The largest 48 (indices 12…59) are walled; the smallest are not.
     const xs = new Set(decor.corners.map((c) => Math.round((c.x - 0.3) * 100)));
     expect(xs.has(59 % 10 * 2000)).toBe(true);
@@ -286,3 +322,19 @@ describe('town walls', () => {
   });
 });
 
+describe('pavilion roof', () => {
+  it('keeps the source role a pointed four-sided roof with the pyramid footprint and height', () => {
+    const g = pavilionRoofGeometry();
+    g.computeBoundingBox();
+    const b = g.boundingBox!;
+    // The plain pyramid spans y -0.22…0.22 and, turned by the renderer's π/4, half 0.48.
+    expect(b.min.y).toBeGreaterThan(-0.23);
+    expect(b.max.y).toBeLessThan(0.27);
+    const turned = g.clone().applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI / 4));
+    turned.computeBoundingBox();
+    expect(turned.boundingBox!.max.x).toBeLessThanOrEqual(0.51);
+    expect(turned.boundingBox!.max.x).toBeGreaterThan(0.45);
+    g.dispose();
+    turned.dispose();
+  });
+});

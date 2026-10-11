@@ -1,6 +1,7 @@
 # ADR-040: Cinematic perspective camera, shadows and atmosphere
 
-Date: 2026-10-11. Status: accepted. Builds on [ADR-038](ADR-038-decorative-city-architecture.md)
+Date: 2026-10-11. Status: accepted; decision 1 (two camera modes) superseded by
+[ADR-041](ADR-041-living-city.md), which made the city perspective-only. Builds on [ADR-038](ADR-038-decorative-city-architecture.md)
 and [ADR-039](ADR-039-city-styles.md); changes no contract, artifact byte, URL fragment or
 version.
 

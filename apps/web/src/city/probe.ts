@@ -10,7 +10,7 @@ export interface CityProbe {
     added: number;
     lens: string;
     theme: string;
-    view: string;
+    animated: boolean;
     cameraMoving: boolean;
     shadowDrawCalls: number;
     zoom: number;

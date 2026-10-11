@@ -5,7 +5,10 @@ import { districtColor, facadeColor, lensValue, type CityBuilding, type CityData
 import type { Rect } from '@atlas/schema';
 import { EDGE_COLORS, edgeClass, type OverlayResult } from './overlay';
 import {
+  CORNER_PARTS,
+  FIXED_PARTS,
   archetypeGeometry,
+  bridgeGeometry,
   buildingStyle,
   cityDecor,
   cornerGeometry,
@@ -13,15 +16,19 @@ import {
   districtFamily,
   facadeMaterial,
   gableGeometry,
+  gateGeometry,
   groundLevel,
   lampGeometry,
+  lotusGeometry,
   partGeometry,
+  pavilionRoofGeometry,
   topExtent,
   treeGeometry,
   wallAt,
 } from './architecture';
-import { THEMES, type Archetype, type CityTheme, type CityView, type PartKind, type ThemeSpec } from './themes';
-import { mistTexture, oceanMesh, sceneryGeometry, skyDome } from './atmosphere';
+import { THEMES, type Archetype, type CityTheme, type PartKind, type ThemeSpec } from './themes';
+import { mistTexture, sceneryGeometry, skyDome } from './atmosphere';
+import { cloudLayer, foliageMaterial, waterMaterial, type Clock } from './living';
 
 const center = (r: Rect) => new THREE.Vector3((r.x + r.width / 2) / 100, 0, (r.z + r.depth / 2) / 100);
 const color = new THREE.Color();
@@ -40,9 +47,28 @@ type Shadows = 'none' | 'cast' | 'receive' | 'both';
 
 const ROLES = ['source', 'test', 'declaration', 'config', 'asset', 'opaque'] as const;
 /** Accent parts take a darker shade of the lens colour, so a whole building reads as one hue. */
-const PART_SHADE: Record<Exclude<PartKind, 'platform'>, number> = { eave: 0.56, band: 0.8, crenel: 0.9 };
-/** World thickness of each accent part. */
-const PART_HEIGHT: Record<PartKind, number> = { eave: 0.26, band: 0.07, crenel: 0.3, platform: 0.2 };
+const PART_SHADE: Partial<Record<PartKind, number>> = { eave: 0.56, band: 0.8, crenel: 0.9, turret: 0.9, pinnacle: 0.85, chimney: 0.72 };
+/** World height of each accent part. */
+const PART_HEIGHT: Record<PartKind, number> = {
+  eave: 0.26,
+  band: 0.07,
+  crenel: 0.3,
+  platform: 0.2,
+  terrace: 0.36,
+  turret: 0.85,
+  pinnacle: 0.55,
+  chimney: 0.32,
+  rooftop: 0.15,
+};
+/** Corner parts: inset of the corner (fraction of the top half-extent), footprint and base below the top. */
+const CORNER_FIT: Partial<Record<PartKind, { inset: number; size: number; drop: number }>> = {
+  turret: { inset: 0.92, size: 0.24, drop: 0.62 },
+  pinnacle: { inset: 0.9, size: 0.12, drop: 0.06 },
+  chimney: { inset: 0.7, size: 0.1, drop: 0.04 },
+  rooftop: { inset: 0.8, size: 0.16, drop: 0.02 },
+};
+/** Ambient motion rate; camera interaction redraws at the display rate anyway. */
+const IDLE_FPS = 24;
 /** Most storey parts per building, so a 14-high tower stays bounded. */
 const MAX_STOREY_PARTS = 14;
 
@@ -52,6 +78,8 @@ interface Growable {
   material: THREE.Material;
   mesh: THREE.InstancedMesh;
   styled: boolean;
+  /** Recoloured from the lens (false for stone and metal parts with fixed colours). */
+  tinted: boolean;
   used: number;
 }
 
@@ -70,8 +98,7 @@ export interface CityGhost {
  */
 export class CityRenderer {
   readonly renderer: THREE.WebGLRenderer;
-  /** Perspective in the cinematic view; orthographic in the isometric plan view. */
-  readonly camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
+  readonly camera: THREE.PerspectiveCamera;
   readonly scene = new THREE.Scene();
   readonly controls: OrbitControls;
   readonly labels = document.createElement('canvas');
@@ -83,7 +110,6 @@ export class CityRenderer {
   private readonly spec: ThemeSpec;
   private readonly archetypes: readonly Archetype[];
   private readonly facade: THREE.Material;
-  private readonly platformMaterial: THREE.Material;
   private readonly bodies: Growable[] = [];
   /** Building index -> archetype batch and slot within it, rebuilt per frame. */
   private bodyBatch = new Uint8Array(0);
@@ -100,7 +126,18 @@ export class CityRenderer {
   private readonly decorations: THREE.InstancedMesh[] = [];
   private readonly sun: THREE.DirectionalLight;
   private readonly sky: THREE.Mesh | null = null;
-  private readonly cinematic: boolean;
+  /** Shared time for waves, clouds and foliage; advances only when ambient motion is allowed. */
+  private readonly clock: Clock = { value: 0 };
+  private readonly animated: boolean;
+  private ambientFrame = 0;
+  private lastAmbient = 0;
+  /** Ambient frames yield to the rest of the page until this time (ms). */
+  private uiBusyUntil = 0;
+  private terminalKey: string | null = null;
+  private terminalCity: CityData | null = null;
+  private visible = true;
+  private measuring = false;
+  private visibility: IntersectionObserver | null = null;
   private readonly reducedMotion: boolean;
   private readonly shadowsOn: boolean;
   /** The shadow map renders only when buildings change, never per camera move. */
@@ -141,7 +178,6 @@ export class CityRenderer {
   private filter: (b: CityBuilding) => boolean = () => true;
   private width = 1;
   private height = 1;
-  private baseZoom = 1;
   private frameTimes: number[] | null = null;
   private cancelMeasure: (() => void) | null = null;
   private readonly extent: number;
@@ -153,20 +189,18 @@ export class CityRenderer {
     readonly callbacks: { select(id: string): void; hover(id: string | null): void; fail(reason: string): void },
     readonly lowQuality: boolean,
     readonly theme: CityTheme = 'modern',
-    readonly view: CityView = 'cinematic',
   ) {
     this.city = initial;
     const city = initial;
     this.spec = THEMES[theme];
     this.archetypes = this.spec.archetypes;
-    this.cinematic = view === 'cinematic';
     this.reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.shadowsOn = !lowQuality;
     const ground = this.spec.ground;
     const capacity = Math.max(1, city.plotCount, city.buildings.length);
     this.renderer = new THREE.WebGLRenderer({ antialias: !lowQuality, alpha: false, powerPreference: 'low-power' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, lowQuality ? 1 : 1.5));
-    this.renderer.setClearColor(this.cinematic ? this.spec.sky.haze : '#e9e4d7');
+    this.renderer.setClearColor(this.spec.sky.haze);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     if (this.shadowsOn) {
       this.renderer.shadowMap.enabled = true;
@@ -181,31 +215,23 @@ export class CityRenderer {
     host.append(this.renderer.domElement, this.labels);
     this.extent = Math.max(city.root.width, city.root.depth) / 100 + 18;
     this.origin = center(city.root);
-    this.camera = this.cinematic
-      ? new THREE.PerspectiveCamera(FOV, 1, 0.1, 10_000)
-      : new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100_000);
+    this.camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 10_000);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.minPolarAngle = 0.12;
     this.controls.maxTargetRadius = this.extent;
     this.controls.cursor.copy(this.origin);
-    if (this.cinematic) {
-      // Smooth, map-like navigation: damped orbit, zoom towards the cursor, pan on the ground.
-      this.damping = !this.reducedMotion;
-      this.controls.enableDamping = this.damping;
-      this.controls.dampingFactor = 0.09;
-      this.controls.zoomToCursor = true;
-      this.controls.screenSpacePanning = false;
-      this.controls.maxPolarAngle = 1.36;
-      this.controls.minDistance = 1.5;
-      this.controls.maxDistance = this.extent * 2.8;
-      this.controls.zoomSpeed = 1.1;
-    } else {
-      this.controls.enableDamping = false;
-      this.controls.maxPolarAngle = Math.PI / 2.6;
-      this.controls.minZoom = 0.2;
-      this.controls.maxZoom = 100;
-    }
+    // Smooth, map-like navigation: damped orbit, zoom towards the cursor, pan on the ground.
+    this.damping = !this.reducedMotion;
+    this.controls.enableDamping = this.damping;
+    this.controls.dampingFactor = 0.09;
+    this.controls.zoomToCursor = true;
+    this.controls.screenSpacePanning = false;
+    this.controls.maxPolarAngle = 1.36;
+    this.controls.minDistance = 1.5;
+    this.controls.maxDistance = this.extent * 2.8;
+    this.controls.zoomSpeed = 1.1;
     this.controls.addEventListener('change', this.invalidate);
+    this.controls.addEventListener('change', this.noteInput);
     this.controls.addEventListener('start', () => this.flight?.cancel());
     this.scene.add(new THREE.HemisphereLight('#f6f8ff', '#9d9a8b', this.shadowsOn ? 2.05 : 1.9));
     this.sun = new THREE.DirectionalLight('#fff3df', 2.5);
@@ -233,8 +259,7 @@ export class CityRenderer {
     const plane = this.ownGeometry(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
     const matte = this.ownMaterial(new THREE.MeshLambertMaterial());
     // Ground in one mesh (plan §11.1 permits a decorative shoreline): beach, a green belt and
-    // the perimeter road, plus the diorama's earth and water in the isometric view. The
-    // cinematic view puts the island in an open sea under a sky, with distant scenery.
+    // the perimeter road. The island sits in an open sea under a sky, with distant scenery.
     const r = city.root;
     const slabs: THREE.BufferGeometry[] = [];
     const slab = (margin: number, top: number, thickness: number, tint: string) => {
@@ -248,11 +273,7 @@ export class CityRenderer {
       g.deleteAttribute('uv');
       slabs.push(g.setAttribute('color', new THREE.BufferAttribute(values, 3)));
     };
-    if (!this.cinematic) {
-      slab(12.4, -0.16, 1.2, ground.earth);
-      slab(12, -0.1, 0.06, ground.water);
-    }
-    slab(6.5, -0.02, this.cinematic ? 0.6 : 0.2, ground.beach);
+    slab(6.5, -0.02, 0.6, ground.beach);
     slab(5.5, 0.03, 0.2, ground.belt);
     slab(3, 0.07, 0.2, ground.road);
     const groundMesh = new THREE.Mesh(
@@ -262,33 +283,47 @@ export class CityRenderer {
     for (const g of slabs) g.dispose();
     groundMesh.receiveShadow = true;
     this.scene.add(groundMesh);
-    if (this.cinematic) {
-      this.scene.fog = new THREE.Fog(this.spec.sky.haze, this.extent * 3, this.extent * 9);
-      this.sky = skyDome(this.spec.sky, SUN);
-      this.ownGeometry(this.sky.geometry);
-      this.ownMaterial(this.sky.material as THREE.Material);
-      const ocean = oceanMesh(this.spec.sky, this.origin, this.extent * 14);
-      this.ownGeometry(ocean.geometry);
-      this.ownMaterial(ocean.material as THREE.Material);
-      const scenery = sceneryGeometry(this.spec, city, this.extent);
-      const backdrop = new THREE.Mesh(
-        this.ownGeometry(scenery.geometry),
-        this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true })),
+    // Ambient motion needs a GPU: software renderers (CI's SwiftShader) and low detail stay still.
+    const info = this.renderer.getContext().getExtension('WEBGL_debug_renderer_info');
+    const gpu = info ? String(this.renderer.getContext().getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+    this.animated = !lowQuality && !this.reducedMotion && !/swiftshader|llvmpipe|software|microsoft basic/i.test(gpu);
+    this.scene.fog = new THREE.Fog(this.spec.sky.haze, this.extent * 3, this.extent * 9);
+    this.sky = skyDome(this.spec.sky, SUN);
+    this.ownGeometry(this.sky.geometry);
+    this.ownMaterial(this.sky.material as THREE.Material);
+    // A wave-lit sea with turquoise shallows and foam along the beach line.
+    const beach = new THREE.Vector4(r.x / 100 - 6.5, r.z / 100 - 6.5, (r.x + r.width) / 100 + 6.5, (r.z + r.depth) / 100 + 6.5);
+    const ocean = new THREE.Mesh(
+      this.ownGeometry(new THREE.CircleGeometry(this.extent * 14, 96).rotateX(-Math.PI / 2)),
+      this.ownMaterial(waterMaterial(this.spec.sky, this.clock, SUN, { island: beach, foam: 1 })),
+    );
+    ocean.position.set(this.origin.x, -0.1, this.origin.z);
+    const scenery = sceneryGeometry(this.spec, city, this.extent);
+    const backdrop = new THREE.Mesh(
+      this.ownGeometry(scenery.geometry),
+      this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true })),
+    );
+    this.scene.add(this.sky, ocean, backdrop);
+    // Keep the camera inside the scenery ring so mountains never stand between it and the city.
+    this.controls.maxDistance = Math.min(this.controls.maxDistance, scenery.innerRadius);
+    if (scenery.mist.length) {
+      const texture = mistTexture();
+      this.textures.add(texture);
+      const mist = this.batch(
+        plane,
+        this.ownMaterial(new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, opacity: 0.75 })),
+        scenery.mist.length,
       );
-      this.scene.add(this.sky, ocean, backdrop);
-      // Keep the camera inside the scenery ring so mountains never stand between it and the city.
-      this.controls.maxDistance = Math.min(this.controls.maxDistance, scenery.innerRadius);
-      if (scenery.mist.length) {
-        const texture = mistTexture();
-        this.textures.add(texture);
-        const mist = this.batch(
-          plane,
-          this.ownMaterial(new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, opacity: 0.75 })),
-          scenery.mist.length,
-        );
-        scenery.mist.forEach((m, i) => mist.setMatrixAt(i, matrix.makeScale(m.size, 1, m.size * 0.6).setPosition(m.x, m.y, m.z)));
-        this.finish(mist);
-      }
+      scenery.mist.forEach((m, i) => mist.setMatrixAt(i, matrix.makeScale(m.size, 1, m.size * 0.6).setPosition(m.x, m.y, m.z)));
+      this.finish(mist);
+    }
+    if (!lowQuality) {
+      const clouds = cloudLayer(this.spec.clouds, this.origin, this.extent, this.clock, (r.width * 7919 + r.depth) >>> 0);
+      this.ownGeometry(clouds.mesh.geometry);
+      this.ownMaterial(clouds.mesh.material as THREE.Material);
+      this.textures.add(clouds.texture);
+      this.instances.add(clouds.mesh);
+      this.scene.add(clouds.mesh);
     }
     // Districts as kerbed blocks: a darker kerb, an inset surface, nested blocks stepping up.
     // The repository block reads as the street grid between packages.
@@ -326,9 +361,10 @@ export class CityRenderer {
       return mesh;
     };
     if (!lowQuality) {
+      const foliage = this.ownMaterial(foliageMaterial(this.clock));
       this.spec.trees.forEach((kind, k) => {
         const list = decor.trees.filter((t) => t.kind === k);
-        const mesh = this.batch(this.ownGeometry(treeGeometry(kind.kind)), coloured(), list.length, 'cast');
+        const mesh = this.batch(this.ownGeometry(treeGeometry(kind.kind)), foliage, list.length, 'cast');
         list.forEach((t, i) => {
           mesh.setMatrixAt(i, matrix.makeScale(t.scale, t.scale, t.scale).setPosition(t.x, t.y, t.z));
           mesh.setColorAt(i, color.set(kind.tints[t.tint]!));
@@ -337,6 +373,27 @@ export class CityRenderer {
         this.decorations.push(mesh);
       });
       this.decorations.push(place(this.batch(this.ownGeometry(lampGeometry(this.spec.lamp)), coloured(), decor.lamps.length, 'cast'), decor.lamps));
+    }
+    if (decor.ponds.length) {
+      // Lotus ponds: still jade water, arched bridges and floating pads.
+      const pond = this.ownMaterial(
+        waterMaterial(this.spec.sky, this.clock, SUN, {
+          island: new THREE.Vector4(1e6, 1e6, -1e6, -1e6),
+          foam: 0,
+          deep: '#3f7f6a',
+          shallow: '#5e9d80',
+          calm: 0.25,
+        }),
+      );
+      const ponds = this.batch(plane, pond, decor.ponds.length);
+      decor.ponds.forEach((w, i) => ponds.setMatrixAt(i, matrix.makeScale(w.width, 1, w.depth).setPosition(w.x, w.y, w.z)));
+      this.finish(ponds);
+      const bridges = this.batch(this.ownGeometry(bridgeGeometry()), coloured(), decor.bridges.length, 'both');
+      decor.bridges.forEach((b, i) =>
+        bridges.setMatrixAt(i, matrix.makeScale(1, 1, b.length).premultiply(rotation.makeRotationY(b.rotation)).setPosition(b.x, b.y, b.z)),
+      );
+      this.finish(bridges);
+      if (!lowQuality) place(this.batch(this.ownGeometry(lotusGeometry()), coloured(), decor.lotus.length), decor.lotus);
     }
     if (decor.markings.length && ground.marking) {
       const marks = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: ground.marking })), decor.markings.length, 'receive');
@@ -385,29 +442,36 @@ export class CityRenderer {
         this.finish(merlons);
       }
       place(this.batch(this.ownGeometry(cornerGeometry(this.spec.walls)), coloured(), decor.corners.length, 'both'), decor.corners);
+      place(this.batch(this.ownGeometry(gateGeometry(this.spec.walls)), coloured(), decor.gates.length, 'both'), decor.gates);
     }
     // Seeded archetype batches share one facade material; each grows on demand. Accent
     // parts share one lens-shaded material per kind and outline.
     this.facade = this.ownMaterial(facadeMaterial(!lowQuality));
-    for (const a of this.archetypes) this.bodies.push(this.growable(this.ownGeometry(archetypeGeometry(a)), this.facade, true, 'both'));
+    for (const a of this.archetypes) this.bodies.push(this.growable(this.ownGeometry(archetypeGeometry(a)), this.facade, true, 'both', true));
+    // Lens-shaded accents (eaves, bands, battlements; corner parts carry dark caps per vertex),
+    // stone bases and grey rooftop plant.
     const accent = this.ownMaterial(new THREE.MeshLambertMaterial({ flatShading: true }));
-    this.platformMaterial = this.ownMaterial(new THREE.MeshLambertMaterial({ color: this.spec.platform, flatShading: true }));
+    const capped = this.ownMaterial(new THREE.MeshLambertMaterial({ flatShading: true, vertexColors: true }));
+    const stone = this.ownMaterial(new THREE.MeshLambertMaterial({ color: this.spec.platform, flatShading: true }));
+    const plant = this.ownMaterial(new THREE.MeshLambertMaterial({ flatShading: true, vertexColors: true }));
     for (const a of this.archetypes)
-      for (const part of a.parts ?? [])
-        for (const sides of part.kind === 'platform' ? ([4] as const) : ([...new Set(a.tiers.map((t) => t.sides))] as const)) {
+      for (const part of a.parts ?? []) {
+        const single = FIXED_PARTS.has(part.kind) || CORNER_PARTS.has(part.kind);
+        for (const sides of single ? ([4] as const) : ([...new Set(a.tiers.map((t) => t.sides))] as const)) {
           const key = `${part.kind}-${sides}`;
-          if (!this.parts.has(key))
-            this.parts.set(
-              key,
-              this.growable(this.ownGeometry(partGeometry(part.kind, sides)), part.kind === 'platform' ? this.platformMaterial : accent, false, 'both'),
-            );
+          if (this.parts.has(key)) continue;
+          const material = part.kind === 'rooftop' ? plant : FIXED_PARTS.has(part.kind) ? stone : CORNER_PARTS.has(part.kind) ? capped : accent;
+          this.parts.set(key, this.growable(this.ownGeometry(partGeometry(part.kind, sides)), material, false, 'both', !FIXED_PARTS.has(part.kind)));
         }
+      }
     this.partList = [...this.parts.values()];
     // Role silhouettes share geometry; no per-building light, label or material.
     for (const role of ROLES) {
       const shape =
         role === 'source'
-          ? new THREE.ConeGeometry(0.68, 0.44, 4)
+          ? this.spec.sourceRoof === 'pavilion'
+            ? pavilionRoofGeometry()
+            : new THREE.ConeGeometry(0.68, 0.44, 4)
           : role === 'test'
             ? new THREE.CylinderGeometry(0.45, 0.45, 0.24, 6)
             : role === 'asset'
@@ -528,6 +592,19 @@ export class CityRenderer {
     document.addEventListener('visibilitychange', this.invalidate, { signal });
     this.resizeObserver = new ResizeObserver(this.resize);
     this.resizeObserver.observe(host);
+    for (const type of ['pointerdown', 'pointermove', 'wheel'] as const) canvas.addEventListener(type, this.noteInput, { signal, passive: true });
+    for (const type of ['keydown', 'pointerdown', 'input'] as const) document.addEventListener(type, this.notePage, { signal, capture: true, passive: true });
+    if (this.animated) {
+      // Pause when the city is scrolled away; the tab's own visibility is checked per frame.
+      if (typeof IntersectionObserver === 'function') {
+        this.visibility = new IntersectionObserver(([entry]) => {
+          this.visible = entry?.isIntersecting ?? true;
+          if (this.visible) this.invalidate();
+        });
+        this.visibility.observe(host);
+      }
+      this.ambientFrame = requestAnimationFrame(this.ambient);
+    }
     this.resize();
     this.reset();
   }
@@ -608,23 +685,28 @@ export class CityRenderer {
         .premultiply(rotation)
         .setPosition(p.x, BODY_BASE, p.z);
       body.mesh.setMatrixAt(slot, matrix);
-      (body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute).setXY(slot, style.windows, style.variant);
+      (body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute).setXYZ(slot, style.windows, style.variant, style.base);
       this.bodyBatch[i] = style.archetype;
       this.bodySlot[i] = slot;
       // Accent parts follow the wall outline at their storey and turn with the body.
       for (const part of placements[i]!) {
         const batch = this.parts.get(part.key)!,
           n = batch.used++;
+        // Corner parts sit at an offset on the top; it turns with the body.
+        const ox = part.ox * f,
+          oz = part.oz * f,
+          c = Math.cos(style.rotation),
+          sn = Math.sin(style.rotation);
         matrix
           .makeScale(part.hx * f, PART_HEIGHT[part.kind], part.hz * f)
           .premultiply(rotation)
-          .setPosition(p.x, part.y, p.z);
+          .setPosition(p.x + ox * c + oz * sn, part.y, p.z - ox * sn + oz * c);
         batch.mesh.setMatrixAt(n, matrix);
-        if (part.kind !== 'platform') {
+        if (batch.tinted) {
           this.partOwner[partCount] = i;
           this.partBatch[partCount] = batchIndex.get(batch)!;
           this.partSlot[partCount] = n;
-          this.partShade[partCount++] = PART_SHADE[part.kind];
+          this.partShade[partCount++] = PART_SHADE[part.kind] ?? 0.8;
         }
       }
       // The role roof is fitted to the archetype's top outline and turns with the body.
@@ -671,15 +753,35 @@ export class CityRenderer {
    */
   private storeyParts(b: CityBuilding, archetype: number) {
     const a = this.archetypes[archetype]!;
-    const list: { key: string; kind: PartKind; y: number; hx: number; hz: number }[] = [];
+    const list: { key: string; kind: PartKind; y: number; hx: number; hz: number; ox: number; oz: number }[] = [];
     if (!a.parts) return list;
     const top = 0.35 + b.height,
       span = top - BODY_BASE,
       ground = groundLevel(this.districtDepth.get(b.districtId) ?? 1);
     for (const part of a.parts) {
-      if (part.kind === 'platform') {
-        const wall = wallAt(a, 0);
-        list.push({ key: 'platform-4', kind: 'platform', y: ground - 0.02, hx: Math.min(0.66, wall.hx * 1.4), hz: Math.min(0.66, wall.hz * 1.4) });
+      if (part.kind === 'platform' || part.kind === 'terrace') {
+        const wall = wallAt(a, 0),
+          reach = part.kind === 'terrace' ? 1.55 : 1.4,
+          cap = part.kind === 'terrace' ? 0.7 : 0.66;
+        list.push({ key: `${part.kind}-4`, kind: part.kind, y: ground - 0.02, hx: Math.min(cap, wall.hx * reach), hz: Math.min(cap, wall.hz * reach), ox: 0, oz: 0 });
+        continue;
+      }
+      const fit = CORNER_FIT[part.kind];
+      if (fit) {
+        // Corner furniture needs a square top; a diagonal pair or all four corners.
+        const wall = wallAt(a, 1);
+        if (wall.sides !== 4) continue;
+        const corners = part.corners === 2 ? [[1, 1], [-1, -1]] : [[1, 1], [-1, 1], [-1, -1], [1, -1]];
+        for (const [sx, sz] of corners)
+          list.push({
+            key: `${part.kind}-4`,
+            kind: part.kind,
+            y: top - fit.drop,
+            hx: fit.size,
+            hz: fit.size,
+            ox: sx! * wall.hx * fit.inset,
+            oz: sz! * wall.hz * fit.inset,
+          });
         continue;
       }
       const heights: number[] = [];
@@ -691,16 +793,16 @@ export class CityRenderer {
         const wall = wallAt(a, (y - BODY_BASE) / span);
         // Eave outlines meet the wall at 0.7 of their reach; bands and crenels overhang slightly.
         const reach = part.kind === 'eave' ? 1 / 0.7 : (part.overhang ?? (part.kind === 'crenel' ? 1.04 : 1.08));
-        list.push({ key: `${part.kind}-${wall.sides}`, kind: part.kind, y, hx: wall.hx * reach, hz: wall.hz * reach });
+        list.push({ key: `${part.kind}-${wall.sides}`, kind: part.kind, y, hx: wall.hx * reach, hz: wall.hz * reach, ox: 0, oz: 0 });
       }
     }
     return list;
   }
 
-  private growable(geometry: THREE.BufferGeometry, material: THREE.Material, styled: boolean, shadows: Shadows): Growable {
+  private growable(geometry: THREE.BufferGeometry, material: THREE.Material, styled: boolean, shadows: Shadows, tinted: boolean): Growable {
     const mesh = this.batch(geometry, material, 1, shadows);
     mesh.count = 0;
-    return { geometry, material, mesh, styled, used: 0 };
+    return { geometry, material, mesh, styled, tinted, used: 0 };
   }
 
   /** Grow a batch (and a styled batch's per-instance style buffer) to hold `needed` instances. */
@@ -711,7 +813,7 @@ export class CityRenderer {
     if (g.styled) {
       // Disposing releases the old GPU buffers; the next render uploads the larger ones.
       g.geometry.dispose();
-      g.geometry.setAttribute('atlasStyle', new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2));
+      g.geometry.setAttribute('atlasStyle', new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3));
     }
     const shadows: Shadows = g.mesh.castShadow ? (g.mesh.receiveShadow ? 'both' : 'cast') : g.mesh.receiveShadow ? 'receive' : 'none';
     this.scene.remove(g.mesh);
@@ -750,6 +852,12 @@ export class CityRenderer {
 
   /** Harbour depots at the external terminals, each facing the island. */
   private placeTerminals(terminals: CityData['terminals']) {
+    // Depots cast shadows, so the shadow map re-renders only when the set shown changes,
+    // not on every selection's overlay.
+    const key = terminals.map((t) => t.nodeId).join('|');
+    if (key === this.terminalKey && this.city === this.terminalCity) return;
+    this.terminalKey = key;
+    this.terminalCity = this.city;
     const r = this.city.root;
     terminals.forEach((t, i) => {
       // North/south terminals face the island across z; east/west across x.
@@ -791,25 +899,36 @@ export class CityRenderer {
     this.renderer.setSize(this.width, this.height, false);
     this.labels.width = Math.round(this.width);
     this.labels.height = Math.round(this.height);
-    if (this.camera instanceof THREE.PerspectiveCamera) this.camera.aspect = this.width / this.height;
-    else {
-      this.camera.left = -this.width / 2;
-      this.camera.right = this.width / 2;
-      this.camera.top = this.height / 2;
-      this.camera.bottom = -this.height / 2;
-    }
+    this.camera.aspect = this.width / this.height;
     this.camera.updateProjectionMatrix();
     this.invalidate();
   };
-  /**
-   * Screen pixels per world unit at the orbit target: the orthographic zoom, or its
-   * perspective equivalent. Level of detail and overlay widths use it in both views.
-   */
+  /** Screen pixels per world unit at the orbit target; level of detail and overlay widths use it. */
   pixelsPerUnit(): number {
-    if (this.camera instanceof THREE.OrthographicCamera) return this.camera.zoom;
     const distance = this.camera.position.distanceTo(this.controls.target);
     return this.height / (2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2));
   }
+  /**
+   * Ambient motion (waves, clouds, foliage) at a calm rate. Camera motion already redraws
+   * every frame, so the scene stays alive while orbiting. It pauses while the city is hidden
+   * or measured, and yields to typing and clicking elsewhere on the page so search, selection
+   * and the inspector never wait on decorative frames.
+   */
+  private readonly ambient = (now: number) => {
+    if (this.disposed) return;
+    this.ambientFrame = requestAnimationFrame(this.ambient);
+    if (!this.visible || document.hidden || this.measuring || now < this.uiBusyUntil) return;
+    if (now - this.lastAmbient >= 1000 / IDLE_FPS) {
+      this.lastAmbient = now;
+      this.invalidate();
+    }
+  };
+  private readonly noteInput = () => {
+    this.lastAmbient = performance.now();
+  };
+  private readonly notePage = (event: Event) => {
+    if (event.target !== this.renderer.domElement) this.uiBusyUntil = performance.now() + 1500;
+  };
   readonly invalidate = () => {
     if (this.disposed || this.frame || document.hidden) return;
     this.frame = requestAnimationFrame(() => {
@@ -822,7 +941,8 @@ export class CityRenderer {
     this.settling = this.damping && this.controls.update();
     if (this.settling) this.invalidate();
     const ppu = this.pixelsPerUnit();
-    if (this.camera instanceof THREE.PerspectiveCamera) this.frameAtmosphere(this.camera);
+    if (this.animated) this.clock.value = performance.now() / 1000;
+    this.frameAtmosphere(this.camera);
     if (Math.abs(this.packageZoom - ppu) > ppu * 0.02) {
       const rotation = new THREE.Quaternion(),
         direction = new THREE.Vector3(),
@@ -845,7 +965,7 @@ export class CityRenderer {
       this.packageZoom = ppu;
     }
     // Perspective shows near roofs large even when the target is far, so it keeps them.
-    const near = this.cinematic ? ppu >= 2 : ppu >= 6;
+    const near = ppu >= 2;
     for (const roof of this.roofs.values()) roof.visible = near;
     // Below ~1.5 px per cell trees are speckle; the facade shader fades windows by itself.
     for (const mesh of this.decorations) mesh.visible = ppu >= 1.5;
@@ -934,7 +1054,7 @@ export class CityRenderer {
       this.lens !== lens ||
       this.filter !== filter ||
       this.styled !== this.city ||
-      [...this.bodies, ...this.partList].some((g) => g.mesh.count > 0 && !g.mesh.instanceColor && g.material !== this.platformMaterial);
+      [...this.bodies, ...this.partList].some((g) => g.mesh.count > 0 && !g.mesh.instanceColor && g.tinted);
     this.styled = this.city;
     this.lens = lens;
     this.selected = new Set(selected);
@@ -1065,61 +1185,29 @@ export class CityRenderer {
   reset(animate = false) {
     const maxHeight = this.city.buildings.reduce((max, b) => Math.max(max, b.height + 1.6), 1);
     const r = this.city.root;
-    if (this.camera instanceof THREE.PerspectiveCamera) {
-      // A low three-quarter view: the island fills the lower frame, the horizon and sky the top.
-      const radius = Math.hypot(r.width / 200 + 7, r.depth / 200 + 7, maxHeight / 2);
-      const polar = 1.25,
-        azimuth = Math.PI / 4;
-      const direction = new THREE.Vector3(Math.sin(polar) * Math.sin(azimuth), Math.cos(polar), Math.sin(polar) * Math.cos(azimuth));
-      const ground = new THREE.Vector3(direction.x, 0, direction.z).normalize();
-      const target = this.origin.clone().setY(Math.min(maxHeight * 0.2, 2)).addScaledVector(ground, -radius * 0.28);
-      // A bounding sphere fits loosely; trimming it frames the island without wasted margin.
-      const distance = Math.min(this.controls.maxDistance, this.fitDistance(radius) * 0.7);
-      this.setView(target.clone().addScaledVector(direction, distance), target, undefined, animate);
-      return;
-    }
-    const target = this.origin.clone().setY(maxHeight / 2);
-    const position = target.clone().add(new THREE.Vector3(this.extent, this.extent * 1.15, this.extent));
-    const camera = this.camera;
-    // Fit projected island bounds, rather than a square estimate that wastes the viewport on long repositories.
-    const probe = camera.clone();
-    probe.position.copy(position);
-    probe.lookAt(target);
-    probe.updateMatrixWorld();
-    const bounds = new THREE.Box3(
-      new THREE.Vector3(r.x / 100 - 11, 0, r.z / 100 - 11),
-      new THREE.Vector3((r.x + r.width) / 100 + 11, maxHeight, (r.z + r.depth) / 100 + 11),
-    );
-    const projected = bounds.clone().applyMatrix4(probe.matrixWorldInverse).getSize(new THREE.Vector3());
-    this.baseZoom = THREE.MathUtils.clamp(
-      Math.min(this.width / (projected.x * 1.15), this.height / (projected.y * 1.15)),
-      this.controls.minZoom,
-      this.controls.maxZoom,
-    );
-    this.setView(position, target, this.baseZoom, animate);
+    // A low three-quarter view: the island fills the lower frame, the horizon and sky the top.
+    const radius = Math.hypot(r.width / 200 + 7, r.depth / 200 + 7, maxHeight / 2);
+    const polar = 1.25,
+      azimuth = Math.PI / 4;
+    const direction = new THREE.Vector3(Math.sin(polar) * Math.sin(azimuth), Math.cos(polar), Math.sin(polar) * Math.cos(azimuth));
+    const ground = new THREE.Vector3(direction.x, 0, direction.z).normalize();
+    const target = this.origin.clone().setY(Math.min(maxHeight * 0.2, 2)).addScaledVector(ground, -radius * 0.28);
+    // A bounding sphere fits loosely; trimming it frames the island without wasted margin.
+    const distance = Math.min(this.controls.maxDistance, this.fitDistance(radius) * 0.7);
+    this.setView(target.clone().addScaledVector(direction, distance), target, animate);
   }
   zoom(factor: number) {
     this.flight?.cancel();
-    if (this.camera instanceof THREE.PerspectiveCamera) {
-      // Dolly towards the target; perspective zoom keeps depth natural.
-      const offset = this.camera.position.clone().sub(this.controls.target);
-      const distance = THREE.MathUtils.clamp(offset.length() / factor, this.controls.minDistance, this.controls.maxDistance);
-      this.camera.position.copy(this.controls.target).addScaledVector(offset.normalize(), distance);
-      this.controls.update();
-    } else {
-      this.camera.zoom = THREE.MathUtils.clamp(this.camera.zoom * factor, this.controls.minZoom, this.controls.maxZoom);
-      this.camera.updateProjectionMatrix();
-    }
+    // Dolly towards the target; perspective zoom keeps depth natural.
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const distance = THREE.MathUtils.clamp(offset.length() / factor, this.controls.minDistance, this.controls.maxDistance);
+    this.camera.position.copy(this.controls.target).addScaledVector(offset.normalize(), distance);
+    this.controls.update();
     this.invalidate();
   }
   north() {
     const distance = this.camera.position.distanceTo(this.controls.target);
-    this.setView(
-      this.controls.target.clone().add(new THREE.Vector3(0, distance * 0.9, distance * 0.4)),
-      this.controls.target.clone(),
-      undefined,
-      true,
-    );
+    this.setView(this.controls.target.clone().add(new THREE.Vector3(0, distance * 0.9, distance * 0.4)), this.controls.target.clone(), true);
   }
   fit(bounds?: THREE.Box3, animate = false) {
     if (!bounds) {
@@ -1129,26 +1217,20 @@ export class CityRenderer {
     const size = bounds.getSize(new THREE.Vector3()),
       target = bounds.getCenter(new THREE.Vector3());
     const direction = this.camera.position.clone().sub(this.controls.target).normalize();
-    if (this.camera instanceof THREE.PerspectiveCamera) {
-      // Architectural framing: keep the bearing, settle at a low but readable elevation.
-      const spherical = new THREE.Spherical().setFromVector3(direction);
-      spherical.phi = THREE.MathUtils.clamp(spherical.phi, 0.75, 1.12);
-      spherical.radius = 1;
-      const distance = THREE.MathUtils.clamp(
-        this.fitDistance(Math.max(2.5, size.length() / 2)) * 1.25,
-        this.controls.minDistance,
-        this.controls.maxDistance,
-      );
-      this.setView(target.clone().add(new THREE.Vector3().setFromSpherical(spherical).multiplyScalar(distance)), target, undefined, animate);
-      return;
-    }
-    const zoom = Math.min(60, Math.min(this.width, this.height) / Math.max(8, Math.max(size.x, size.y, size.z) * 2));
-    this.setView(target.clone().addScaledVector(direction, this.extent * 2), target, zoom, animate);
+    // Architectural framing: keep the bearing, settle at a low but readable elevation.
+    const spherical = new THREE.Spherical().setFromVector3(direction);
+    spherical.phi = THREE.MathUtils.clamp(spherical.phi, 0.75, 1.12);
+    spherical.radius = 1;
+    const distance = THREE.MathUtils.clamp(
+      this.fitDistance(Math.max(2.5, size.length() / 2)) * 1.25,
+      this.controls.minDistance,
+      this.controls.maxDistance,
+    );
+    this.setView(target.clone().add(new THREE.Vector3().setFromSpherical(spherical).multiplyScalar(distance)), target, animate);
   }
   /** Distance at which a sphere of `radius` fills the narrower field of view. */
   private fitDistance(radius: number) {
-    const camera = this.camera as THREE.PerspectiveCamera;
-    const vertical = THREE.MathUtils.degToRad(camera.fov);
+    const vertical = THREE.MathUtils.degToRad(this.camera.fov);
     const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * (this.width / this.height));
     return radius / Math.sin(Math.min(vertical, horizontal) / 2);
   }
@@ -1156,18 +1238,16 @@ export class CityRenderer {
    * Move the camera, gliding along an eased path unless the viewer asked for reduced motion
    * (plan §11.7). Any pointer interaction cancels a flight where it is.
    */
-  private setView(position: THREE.Vector3, target: THREE.Vector3, zoom: number | undefined, animate: boolean) {
+  private setView(position: THREE.Vector3, target: THREE.Vector3, animate: boolean) {
     this.flight?.cancel();
-    const apply = (t: number, from: { position: THREE.Vector3; target: THREE.Vector3; zoom: number }) => {
+    const apply = (t: number, from: { position: THREE.Vector3; target: THREE.Vector3 }) => {
       this.camera.position.lerpVectors(from.position, position, t);
       this.controls.target.lerpVectors(from.target, target, t);
-      if (zoom !== undefined) this.camera.zoom = from.zoom + (zoom - from.zoom) * t;
-      this.camera.updateProjectionMatrix();
       this.controls.update();
       this.camera.updateMatrixWorld();
       this.invalidate();
     };
-    const from = { position: this.camera.position.clone(), target: this.controls.target.clone(), zoom: this.camera.zoom };
+    const from = { position: this.camera.position.clone(), target: this.controls.target.clone() };
     if (!animate || this.reducedMotion || from.position.distanceTo(position) < 1e-6) {
       apply(1, from);
       return;
@@ -1239,7 +1319,7 @@ export class CityRenderer {
       added: this.addedMarkers.count,
       lens: this.lens,
       theme: this.theme,
-      view: this.view,
+      animated: this.animated,
       cameraMoving: this.flight !== null || this.settling,
       zoom: this.pixelsPerUnit(),
       renderer: ext ? String(ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'unknown',
@@ -1251,9 +1331,6 @@ export class CityRenderer {
     this.flight?.cancel();
     this.camera.position.fromArray(state.position);
     this.controls.target.fromArray(state.target);
-    if (this.camera instanceof THREE.OrthographicCamera)
-      this.camera.zoom = THREE.MathUtils.clamp(state.zoom, this.controls.minZoom, this.controls.maxZoom);
-    this.camera.updateProjectionMatrix();
     this.controls.update();
     this.invalidate();
   }
@@ -1263,6 +1340,8 @@ export class CityRenderer {
   measureFrames(count: number): Promise<number[]> {
     this.cancelMeasure?.();
     this.flight?.cancel();
+    // Ambient frames pause while measuring, so each sample is exactly one render.
+    this.measuring = true;
     return new Promise((resolve) => {
       const values: number[] = [];
       let last = 0,
@@ -1273,6 +1352,7 @@ export class CityRenderer {
         this.camera.position.copy(original);
         this.controls.update();
         this.cancelMeasure = null;
+        this.measuring = false;
         resolve(values);
       };
       this.cancelMeasure = finish;
@@ -1334,9 +1414,12 @@ export class CityRenderer {
     this.cancelMeasure?.();
     this.flight?.cancel();
     cancelAnimationFrame(this.frame);
+    cancelAnimationFrame(this.ambientFrame);
+    this.visibility?.disconnect();
     this.abort.abort();
     this.resizeObserver.disconnect();
     this.controls.removeEventListener('change', this.invalidate);
+    this.controls.removeEventListener('change', this.noteInput);
     this.controls.dispose();
     for (const g of this.arcGeometries) g.dispose();
     for (const mesh of this.instances) mesh.dispose();

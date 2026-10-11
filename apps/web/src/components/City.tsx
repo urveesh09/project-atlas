@@ -10,7 +10,7 @@ import type { CityHandle } from '../city/types';
 import type { CityGhost } from '../city/renderer';
 import { overlayKey, type OverlayResult } from '../city/overlay';
 import { addProvenance, downloadBlob, exportMetadata } from '../city/export';
-import { CITY_THEMES, CITY_THEME_LABEL, CITY_VIEWS, CITY_VIEW_LABEL, type CityTheme, type CityView } from '../city/themes';
+import { CITY_THEMES, CITY_THEME_LABEL, type CityTheme } from '../city/themes';
 import '../styles/city.css';
 
 const ThreeCity = lazy(() => import('../city/ThreeCity'));
@@ -67,8 +67,7 @@ function store(key: string, value: string) {
     // Storage may be blocked; the choice then lasts for this page only.
   }
 }
-const THEME_KEY = 'atlas.cityStyle',
-  VIEW_KEY = 'atlas.cityCamera';
+const THEME_KEY = 'atlas.cityStyle';
 
 export function City() {
   const { dataset, model, state, dispatch, select, queries, comparison } = useViewer();
@@ -82,8 +81,7 @@ export function City() {
   const ready = readyMode === state.mode;
   const [storedOverlay, setOverlay] = useState<OverlayResult>(EMPTY),
     [lowQuality, setLowQuality] = useState(model.city.buildings.length >= 10_000),
-    [theme, setTheme] = useState<CityTheme>(() => stored(THEME_KEY, CITY_THEMES, 'modern')),
-    [cameraView, setCameraView] = useState<CityView>(() => stored(VIEW_KEY, CITY_VIEWS, 'cinematic'));
+    [theme, setTheme] = useState<CityTheme>(() => stored(THEME_KEY, CITY_THEMES, 'modern'));
   const currentOverlayKey = `${model.frame}|` + overlayKey({
     selectedId: state.selectedId,
     direction: state.direction,
@@ -334,26 +332,6 @@ export function City() {
         )}
         {state.mode === '3d' && (
           <label>
-            Camera
-            <select
-              aria-label="Camera"
-              value={cameraView}
-              onChange={(e) => {
-                const next = e.target.value as CityView;
-                setCameraView(next);
-                store(VIEW_KEY, next);
-              }}
-            >
-              {CITY_VIEWS.map((v) => (
-                <option key={v} value={v}>
-                  {CITY_VIEW_LABEL[v]}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {state.mode === '3d' && (
-          <label>
             City style
             <select
               aria-label="City style"
@@ -383,10 +361,8 @@ export function City() {
         Height = code lines, on a logarithmic scale. △ source · ⬡ test · ▱ declaration · □ kiosk. × marks unavailable
         analysis. Roads separate folders; they are spacing. City style, building shapes, storeys, windows, walls,
         trees and the harbour are decorative and seeded per file; they carry no data. Roofs, eaves and battlements
-        share their building's lens colour.{' '}
-        {cameraView === 'cinematic' && state.mode === '3d'
-          ? 'Cinematic 3D uses perspective, so nearer buildings look larger; switch Camera to Isometric to compare heights exactly.'
-          : ''}
+        share their building's lens colour. The 3D city is in perspective, so nearer buildings look larger; the 2D
+        map and file table compare sizes exactly.
       </p>
       <div className="city-legend" aria-label="City lens legend">
         <strong>{LENS_LABEL[state.lens]}</strong>
@@ -456,7 +432,6 @@ export function City() {
                   focusNonce={state.focusNonce}
                   lowQuality={lowQuality}
                   theme={theme}
-                  view={cameraView}
                   select={(id) => select(id, { focusInspector: true })}
                   hover={setHoverId}
                   fail={fail}

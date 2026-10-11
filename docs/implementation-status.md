@@ -421,14 +421,55 @@ Evidence:
 - Viewer e2e: 27 tests pass with the cinematic default, inside `pnpm verify` and in seven
   standalone runs (one under concurrent test load). One standalone run straight after
   `pnpm verify` failed three consecutive tests in the miniature-city suite: overlays, PNG
-  export and context loss. Its log was not captured and it did not reproduce, so its cause
-  is unknown. It is recorded here, not dismissed.
+  export and context loss. It is followed up in the next section.
 
 Captures: [Modern](images/city-cinematic-modern.png),
 [Eastern](images/city-cinematic-eastern.png),
 [Eastern establishing shot](images/city-cinematic-eastern-establish.png),
 [Western](images/city-cinematic-western.png),
 [Western street](images/city-cinematic-western-street.png).
+
+### Living city (2026-10-11)
+
+At the owner's request the 3D city is perspective-only and more lifelike
+([ADR-041](adr/ADR-041-living-city.md); supersedes ADR-040's camera choice):
+- a noise-octave sea with Fresnel sky reflection, sun glitter, shallows and beach foam;
+- drifting clouds and swaying trees with soft clustered canopies;
+- Eastern palace halls on marble terraces, lotus ponds with arched bridges, paifang gates
+  and a curved pavilion source roof;
+- Western fortresses with turrets, manors with chimneys and shutters, pinnacled chapels and
+  gatehouses;
+- Modern glass lobbies and rooftop plant.
+
+Ambient motion runs only on hardware GPUs, outside low detail and reduced motion. It runs at
+24 fps when idle, pauses when hidden or measured, and yields for 1.5 s to typing and clicking
+elsewhere on the page.
+
+Evidence:
+- `pnpm verify`: 627 tests passed, 80 service-gated skips; the corpus baseline is exact.
+- Vite and the 10,000-file city: all 120-frame orbits per style at the 16.7 ms refresh cap,
+  also after 30 s of idle animation.
+- Draw calls: 21–42.
+- Snapshot change: p95 ≤ 46 ms.
+- Search-to-inspector selection: p95 37–38 ms (budget 100 ms).
+- Leak check: GPU resources stay constant over frame-swap cycles.
+
+The three-test e2e failure recurred with its log captured. Each time the test's search
+selection did not reach the inspector within its 1-second poll, and only in runs during or
+straight after `pnpm verify`: three of four such runs, and none of nine other full runs. Three
+causes of extra work were removed:
+- a selection's overlay re-rendered the whole shadow map;
+- ambient frames competed with page input;
+- the search box's deferred close could hide results while typing.
+
+Two consecutive `pnpm verify` runs, each followed by a standalone e2e run, then passed in
+full. No test, timeout or assertion changed. The evidence supports load-induced latency
+rather than a logic fault, but a slow host could still approach the 1-second poll.
+
+Captures: Eastern [ponds and pagodas](images/city-living-eastern-ponds.png) and
+[establishing shot](images/city-living-eastern-establish.png),
+[Western](images/city-living-western.png), [Western castle](images/city-living-western-castle.png),
+[Modern](images/city-living-modern.png).
 
 ### Reproduce verification
 

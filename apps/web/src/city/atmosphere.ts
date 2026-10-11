@@ -48,17 +48,6 @@ void main() {
   return mesh;
 }
 
-/** A broad sea whose specular glint moves with the viewer; fog fades it into the horizon. */
-export function oceanMesh(sky: ThemeSpec['sky'], centre: THREE.Vector3, radius: number): THREE.Mesh {
-  const mesh = new THREE.Mesh(
-    new THREE.CircleGeometry(radius, 64).rotateX(-Math.PI / 2),
-    new THREE.MeshPhongMaterial({ color: sky.ocean, specular: '#d9e6ee', shininess: 70 }),
-  );
-  mesh.position.set(centre.x, -0.1, centre.z);
-  mesh.receiveShadow = true;
-  return mesh;
-}
-
 type Paint = (y: number, height: number) => THREE.Color;
 
 /** Merge parts as flat triangle soup with per-vertex colour from a height-based paint. */
