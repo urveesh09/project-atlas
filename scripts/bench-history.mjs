@@ -9,6 +9,7 @@
  * frame-delta packing) with a cold fact cache. Writes docs/benchmarks/phase4-history.{json,md}.
  *
  *   node scripts/bench-history.mjs [--files 3000] [--runs 20] [--commits 40] [--keep <artifact-dir>]
+ *   node scripts/bench-history.mjs --fixture <prepared> --isolate-runs ...   (one process per run)
  */
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -59,118 +60,165 @@ const resourceUsage = () => resourceLimits ? {
   })),
 } : null;
 const { openLocalRepository, resolveLocalCommit, gitVersion } = await imp('packages/ingest/dist/index.js');
-const { analyzeCommit, ParserPool, MemoryFactCache } = await imp('packages/analyzer-core/dist/index.js');
-const { gzipDeterministic, writeArtifactDirectory } = await imp('packages/artifact/dist/node-entry.js');
-const { localRepositoryId } = await imp('packages/schema/dist/index.js');
-
-let fixture;
-if (fixturePath) {
-  console.error(`Reading prepared fixture at ${fixturePath}…`);
-  fixture = { dir: fixturePath, dispose() {} }; // Caller owns it; never delete it.
-} else {
-  const { buildMediumHistoryCommits } = await import(pathToFileURL(path.join(root, 'scripts/lib/medium-history.mjs')).href);
-  const { commits, baseFiles } = buildMediumHistoryCommits({ files: FILES, commits: COMMITS, packages: PACKAGES });
-  console.error(`Building ${baseFiles} files and ${COMMITS} commits…`);
-  const { createGitFixture } = await imp('packages/test-fixtures/dist/index.js');
-  fixture = createGitFixture(commits);
-}
-const { repo, git } = await openLocalRepository(fixture.dir);
-const head = await resolveLocalCommit(repo, git);
 const version = await gitVersion();
-const pool = new ParserPool({ workers: 2 });
+
+// --isolate-runs: like a production analysis sandbox, every run (warm-up included) is a
+// fresh Node process whose analysis owns, and closes, its parser pool. The orchestrator
+// only aggregates; it stays inside the same cgroup, so whole-job limits, peak memory and
+// OOM counters still cover every process. --child-run is that internal per-run mode.
+const isolateRuns = process.argv.includes('--isolate-runs');
+const childRun = process.argv.includes('--child-run');
+
+/** What the report needs from one result, so a child process can return it as JSON. */
+const factsOf = (result) => {
+  const m = result.packed.manifest;
+  const h = m.coverage.history;
+  const chunk = (prefix) => m.chunks.filter((c) => c.path.startsWith(prefix)).reduce((a, c) => a + c.compressedBytes, 0);
+  return {
+    status: result.status,
+    complete: result.status === 'complete' && h.status === 'complete' && h.framesCompleted === 12,
+    fixture: { headFiles: m.coverage.head.includedFiles, importStatements: m.coverage.head.observedImports, commits: h.commitsTraversed, frames: h.framesCompleted, boundary: h.boundary, renames: result.summary.history.renames, lineages: result.summary.history.lineages, historyStatus: h.status },
+    analyzer: m.analyzer,
+    selectedCommit: m.selectedCommit.oid,
+    layoutId: result.draft.layout.layoutId,
+    artifact: {
+      version: m.artifactVersion,
+      compressedBytes: m.chunks.reduce((a, c) => a + c.compressedBytes, 0),
+      headGraphBytes: m.frames.at(-1).graphChunk.compressedBytes,
+      historicalGraphBytes: chunk('graphs/') - m.frames.at(-1).graphChunk.compressedBytes,
+      historyBytes: chunk('history/'),
+      layoutBytes: chunk('layout/'),
+    },
+  };
+};
+
 const timings = [];
 const completeness = [];
-let last;
+let lastFacts;
 let warmupMs;
-try {
-  for (let runIndex = 0; runIndex < (diagnosticOnly ? 1 : RUNS + 1); runIndex++) {
-    // A production sandbox owns one dataset. Do not retain the preceding result
-    // throughout the next cold analysis just to publish the final sample later.
-    last = undefined;
-    const started = performance.now();
-    const result = await analyzeCommit({
-      git,
-      commitOid: head,
-      gitVersion: version,
-      repository: { repoId: localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f'), displayName: 'bench', sourceKind: 'local-git', remote: null, objectFormat: repo.objectFormat },
-      pool,
-      factCache: new MemoryFactCache(),
-      transport: gzipDeterministic,
-      onProgress: (event) => {
-        if (event.stage === 'layout' || event.stage === 'assemble')
-          console.error(`  run ${runIndex}: ${event.stage}`);
-        if (event.stage === 'frames' && event.done !== undefined)
-          console.error(`  run ${runIndex}: historical frames ${event.done}/${event.total}`);
-      },
-    });
-    const elapsed = performance.now() - started;
-    if (runIndex === 0) warmupMs = elapsed;
-    const coverage = result.packed.manifest.coverage;
-    const complete = result.status === 'complete' && coverage.history.status === 'complete' && coverage.history.framesCompleted === 12;
-    if (runIndex > 0) {
-      timings.push(elapsed);
-      completeness.push({ complete, status: result.status, frames: coverage.history.framesCompleted, historyStatus: coverage.history.status });
-    }
-    last = result;
-    console.error(`  run ${runIndex}${runIndex === 0 ? ' (warm-up)' : ''}: ${(elapsed / 1000).toFixed(2)} s`);
+const record = (runIndex, elapsed, facts) => {
+  if (runIndex === 0) warmupMs = elapsed;
+  else {
+    timings.push(elapsed);
+    completeness.push({ complete: facts.complete, status: facts.status, frames: facts.fixture.frames, historyStatus: facts.fixture.historyStatus });
   }
-  // --keep <dir>: also publish the last artifact (input for apps/web/scripts/bench-history-viewer.mjs).
-  const keep = process.argv.indexOf('--keep');
-  if (keep > -1) await writeArtifactDirectory(last.packed, path.resolve(process.argv[keep + 1]), { replace: true });
-} finally {
-  await pool.close();
-  await git.dispose();
-  fixture.dispose();
+  lastFacts = facts;
+  console.error(`  run ${runIndex}${runIndex === 0 ? ' (warm-up)' : ''}: ${(elapsed / 1000).toFixed(2)} s`);
+};
+
+let failedRun = null;
+if (isolateRuns) {
+  if (!fixturePath) throw new Error('--isolate-runs requires a prepared --fixture');
+  const { spawn } = await import('node:child_process');
+  const childArgs = process.argv.slice(2).filter((a) => a !== '--isolate-runs' && a !== '--diagnostic-once');
+  for (let runIndex = 0; runIndex < (diagnosticOnly ? 1 : RUNS + 1); runIndex++) {
+    const child = spawn(process.execPath, [...process.execArgv, fileURLToPath(import.meta.url), ...childArgs, '--child-run', '--run-index', String(runIndex)], { stdio: ['ignore', 'pipe', 'inherit'] });
+    let stdout = '';
+    child.stdout.setEncoding('utf8').on('data', (text) => (stdout += text));
+    const exit = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', (code, signal) => resolve({ code, signal })); });
+    const line = stdout.split('\n').find((l) => l.startsWith('ATLAS_SAMPLE '));
+    if (exit.code !== 0 || !line) {
+      // A killed or failed run is evidence, not a skipped sample: stop and report it.
+      failedRun = { runIndex, code: exit.code, signal: exit.signal };
+      console.error(`  run ${runIndex}: process failed (${JSON.stringify(failedRun)})`);
+      break;
+    }
+    const sample = JSON.parse(line.slice('ATLAS_SAMPLE '.length));
+    record(runIndex, sample.elapsedMs, sample.facts);
+  }
+} else {
+  const { analyzeCommit, ParserPool, MemoryFactCache } = await imp('packages/analyzer-core/dist/index.js');
+  const { gzipDeterministic, writeArtifactDirectory } = await imp('packages/artifact/dist/node-entry.js');
+  const { localRepositoryId } = await imp('packages/schema/dist/index.js');
+  let fixture;
+  if (fixturePath) {
+    console.error(`Reading prepared fixture at ${fixturePath}…`);
+    fixture = { dir: fixturePath, dispose() {} }; // Caller owns it; never delete it.
+  } else {
+    const { buildMediumHistoryCommits } = await import(pathToFileURL(path.join(root, 'scripts/lib/medium-history.mjs')).href);
+    const { commits, baseFiles } = buildMediumHistoryCommits({ files: FILES, commits: COMMITS, packages: PACKAGES });
+    console.error(`Building ${baseFiles} files and ${COMMITS} commits…`);
+    const { createGitFixture } = await imp('packages/test-fixtures/dist/index.js');
+    fixture = createGitFixture(commits);
+  }
+  const { repo, git } = await openLocalRepository(fixture.dir);
+  const head = await resolveLocalCommit(repo, git);
+  // A child run is one production-shaped analysis: analyzeCommit owns its parser pool.
+  const pool = childRun ? undefined : new ParserPool({ workers: 2 });
+  const indexArg = process.argv.indexOf('--run-index');
+  const firstIndex = childRun && indexArg > -1 ? Number(process.argv[indexArg + 1]) : 0;
+  let last;
+  try {
+    for (let runIndex = firstIndex; runIndex < (childRun ? firstIndex + 1 : diagnosticOnly ? 1 : RUNS + 1); runIndex++) {
+      // A production sandbox owns one dataset. Do not retain the preceding result
+      // throughout the next cold analysis just to publish the final sample later.
+      last = undefined;
+      const started = performance.now();
+      const result = await analyzeCommit({
+        git,
+        commitOid: head,
+        gitVersion: version,
+        repository: { repoId: localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f'), displayName: 'bench', sourceKind: 'local-git', remote: null, objectFormat: repo.objectFormat },
+        ...(pool ? { pool } : {}),
+        factCache: new MemoryFactCache(),
+        transport: gzipDeterministic,
+        onProgress: (event) => {
+          if (event.stage === 'layout' || event.stage === 'assemble')
+            console.error(`  run ${runIndex}: ${event.stage}`);
+          if (event.stage === 'frames' && event.done !== undefined)
+            console.error(`  run ${runIndex}: historical frames ${event.done}/${event.total}`);
+        },
+      });
+      const elapsed = performance.now() - started;
+      if (childRun) {
+        console.log(`ATLAS_SAMPLE ${JSON.stringify({ elapsedMs: elapsed, facts: factsOf(result) })}`);
+        break;
+      }
+      record(runIndex, elapsed, factsOf(result));
+      last = result;
+    }
+    // --keep <dir>: also publish the last artifact (input for apps/web/scripts/bench-history-viewer.mjs).
+    const keep = process.argv.indexOf('--keep');
+    if (keep > -1 && last) await writeArtifactDirectory(last.packed, path.resolve(process.argv[keep + 1]), { replace: true });
+  } finally {
+    await pool?.close();
+    await git.dispose();
+    fixture.dispose();
+  }
+  if (childRun) process.exit(0);
 }
 
 if (diagnosticOnly) {
-  console.log(JSON.stringify({ diagnosticOnly: true, warmupMs, status: last.status, frames: last.packed.manifest.frames.length, nodeFlags: process.execArgv, resourceLimits, resourceUsage: resourceUsage(), memoryAfter: process.memoryUsage() }));
-  process.exit(0);
+  console.log(JSON.stringify({ diagnosticOnly: true, isolateRuns, warmupMs, failedRun, status: lastFacts?.status, frames: lastFacts?.fixture.frames, nodeFlags: process.execArgv, resourceLimits, resourceUsage: resourceUsage(), memoryAfter: process.memoryUsage() }));
+  process.exit(failedRun ? 1 : 0);
 }
+if (!lastFacts) throw new Error(`No run completed (${JSON.stringify(failedRun)}); no report is written`);
 
 const sorted = [...timings].sort((a, b) => a - b);
-const pct = (p) => sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)];
-const m = last.packed.manifest;
-const h = m.coverage.history;
-const chunk = (prefix) => m.chunks.filter((c) => c.path.startsWith(prefix)).reduce((a, c) => a + c.compressedBytes, 0);
+const pct = (p) => (sorted.length === 0 ? NaN : sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)]);
 const report = {
   task: `Historical analysis capacity — ${tier}, 12 frames`,
   recordedAt: new Date().toISOString(),
-  environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length, memoryGiB: +(os.totalmem() / 2 ** 30).toFixed(1), node: process.version, nodeFlags: process.execArgv.join(' '), git: version, parserWorkers: 2, containerLimits: resourceLimits, runtimeImage: process.env.ATLAS_CAPACITY_IMAGE ?? null, sourceCommit: process.env.ATLAS_CAPACITY_SOURCE_COMMIT ?? null, benchmarkSourceCommit: process.env.ATLAS_CAPACITY_BENCHMARK_COMMIT ?? null, benchmarkWorkingTreeDirty: process.env.ATLAS_CAPACITY_BENCHMARK_DIRTY ?? null },
-  fixture: {
-    headFiles: m.coverage.head.includedFiles,
-    importStatements: m.coverage.head.observedImports,
-    commits: h.commitsTraversed,
-    frames: h.framesCompleted,
-    boundary: h.boundary,
-    renames: last.summary.history.renames,
-    lineages: last.summary.history.lineages,
-    historyStatus: h.status,
-  },
+  environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length, memoryGiB: +(os.totalmem() / 2 ** 30).toFixed(1), node: process.version, nodeFlags: process.execArgv.join(' '), git: version, parserWorkers: 2, processPerRun: isolateRuns, containerLimits: resourceLimits, runtimeImage: process.env.ATLAS_CAPACITY_IMAGE ?? null, sourceCommit: process.env.ATLAS_CAPACITY_SOURCE_COMMIT ?? null, benchmarkSourceCommit: process.env.ATLAS_CAPACITY_BENCHMARK_COMMIT ?? null, benchmarkWorkingTreeDirty: process.env.ATLAS_CAPACITY_BENCHMARK_DIRTY ?? null },
+  fixture: lastFacts.fixture,
   runs: timings.length,
+  warmupMs,
   rawSampleMs: timings,
   sampleCompleteness: completeness,
-  analyzer: m.analyzer,
-  selectedCommit: m.selectedCommit.oid,
-  layoutId: last.draft.layout.layoutId,
+  failedRun,
+  analyzer: lastFacts.analyzer,
+  selectedCommit: lastFacts.selectedCommit,
+  layoutId: lastFacts.layoutId,
   resourceUsage: resourceUsage(),
   secondsP50: +(pct(0.5) / 1000).toFixed(2),
   secondsP95: +(pct(0.95) / 1000).toFixed(2),
   secondsMax: +(sorted.at(-1) / 1000).toFixed(2),
   budgetSecondsP95: tier === 'large' ? 240 : 90,
-  artifact: {
-    version: m.artifactVersion,
-    compressedBytes: m.chunks.reduce((a, c) => a + c.compressedBytes, 0),
-    headGraphBytes: m.frames.at(-1).graphChunk.compressedBytes,
-    historicalGraphBytes: chunk('graphs/') - m.frames.at(-1).graphChunk.compressedBytes,
-    historyBytes: chunk('history/'),
-    layoutBytes: chunk('layout/'),
-    budgetBytes: (tier === 'large' ? 20 : 5) * 1024 * 1024,
-  },
+  artifact: { ...lastFacts.artifact, budgetBytes: (tier === 'large' ? 20 : 5) * 1024 * 1024 },
 };
 report.timePass = report.secondsP95 <= report.budgetSecondsP95;
 report.sizePass = report.artifact.compressedBytes <= report.artifact.budgetBytes;
-report.completenessPass = completeness.every((sample) => sample.complete);
+report.completenessPass = failedRun === null && completeness.every((sample) => sample.complete);
 report.sampleCountPass = timings.length >= 20;
 report.resourcePass = report.resourceUsage ? (report.resourceUsage.peakBytes <= resourceLimits.memoryBytes && report.resourceUsage.events.oom === 0 && report.resourceUsage.events.oom_kill === 0) : null;
 report.pass = report.timePass && report.sizePass && report.completenessPass && (report.resourcePass ?? true) && report.sampleCountPass;
@@ -183,7 +231,7 @@ writeFileSync(
   [
     `# ${report.task} (plan §15.2)`,
     '',
-    `Recorded ${report.recordedAt} by \`node scripts/bench-history.mjs\`. ${report.runs} measured runs after one warm-up; every run uses a cold fact cache and performs the whole pipeline: first-parent walk, rename-aware diffs, 12 frame graphs, churn, hotspots, union layout and frame-delta packing within the export limits.`,
+    `Recorded ${report.recordedAt} by \`node scripts/bench-history.mjs\`. ${report.runs} measured runs after one warm-up${report.environment.processPerRun ? ', each in a fresh process whose analysis owns and closes its parser pool, as in a production analysis sandbox' : ''}; every run uses a cold fact cache and performs the whole pipeline: first-parent walk, rename-aware diffs, 12 frame graphs, churn, hotspots, union layout and frame-delta packing within the export limits.`,
     '',
     '## Environment',
     '',
@@ -207,6 +255,7 @@ writeFileSync(
     `| — 11 historical frames (deltas) | ${mib(report.artifact.historicalGraphBytes)} | |`,
     `| — history / layout | ${mib(report.artifact.historyBytes)} / ${mib(report.artifact.layoutBytes)} | |`,
     '',
+    ...(report.failedRun ? [`Run ${report.failedRun.runIndex} did not complete (exit ${report.failedRun.code}, signal ${report.failedRun.signal}); no later runs were attempted.`, ''] : []),
     `**${report.pass ? 'Pass' : 'Fail'}.** Time: ${report.timePass ? 'pass' : 'fail'}; size: ${report.sizePass ? 'pass' : 'fail'}; all measured runs complete with 12 frames: ${report.completenessPass ? 'pass' : 'fail'}; twenty-sample minimum: ${report.sampleCountPass ? 'pass' : 'fail'}; resource gate: ${report.resourceUsage ? `${report.resourcePass ? 'pass' : 'fail'} (events ${JSON.stringify(report.resourceUsage.events)})` : 'unmeasured; no whole-job/reference-resource pass is claimed'}. Format ${report.artifact.version}; frame-delta transport per ADR-026.`,
     '',
   ].join('\n'),

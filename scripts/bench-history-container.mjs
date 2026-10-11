@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-/** Offline whole-job capacity: immutable production runtime, 4 CPUs, 2 GiB, no swap. */
+/**
+ * Offline whole-job capacity: immutable production runtime, 4 CPUs, 2 GiB, no swap.
+ * Each run is a fresh analysis process inside the one capped container, as in production.
+ */
 import { execFileSync, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, chmod, realpath, readFile, writeFile, copyFile } from 'node:fs/promises';
@@ -51,7 +54,7 @@ const args = ['run', '--rm', '--pull=never', '--name', name, '--label', `${label
   '--env', `ATLAS_CAPACITY_IMAGE=${image}`, '--env', `ATLAS_CAPACITY_SOURCE_COMMIT=${sourceCommit}`,
   '--env', `ATLAS_CAPACITY_BENCHMARK_COMMIT=${benchmarkSourceCommit}`, '--env', `ATLAS_CAPACITY_BENCHMARK_DIRTY=${benchmarkWorkingTreeDirty}`,
   image, 'node', '--max-old-space-size=1536', '/tools/scripts/bench-history.mjs',
-  '--fixture', '/fixture', '--runtime-root', '/atlas', '--report-dir', '/reports', '--require-container-limits',
+  '--fixture', '/fixture', '--runtime-root', '/atlas', '--report-dir', '/reports', '--require-container-limits', '--isolate-runs',
   '--files', String(files), '--runs', String(runs), '--out', out];
 if (process.argv.includes('--diagnostic-once')) args.push('--diagnostic-once');
 await writeFile(path.join(root, '.atlas-tmp', 'capacity-session.json'), JSON.stringify({ name, nonce, image, sourceCommit, benchmarkSourceCommit, benchmarkWorkingTreeDirty, fixture, reports, args }, null, 2));
