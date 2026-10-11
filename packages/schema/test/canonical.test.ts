@@ -25,6 +25,16 @@ describe('sha256Hex', () => {
 });
 
 describe('canonicalJson', () => {
+  it('reads object properties once, matching the existing canonical writer', () => {
+    let reads = 0;
+    const value = { get a() { return ++reads; } };
+    expect(canonicalJson(value)).toBe('{"a":1}');
+    expect(reads).toBe(1);
+    reads = 0;
+    expect([...canonicalJsonChunks(value)].join('')).toBe('{"a":1}');
+    expect(reads).toBe(1);
+  });
+
   it('streams exactly the same canonical UTF-8 across Unicode boundaries and large row arrays', async () => {
     const { createHash } = await import('node:crypto');
     const inputs: unknown[] = [null, -0, { '2': 2, '10': 10 }, ...[65533, 65534, 65535].map((n) => 'a'.repeat(n) + '😀é')];

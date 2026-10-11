@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Extract a locally built candidate away from the checkout and prove offline usability. */
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, mkdir, readdir, lstat, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, readdir, lstat, rm, access } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -43,7 +43,22 @@ try {
   }
   await verify(bundle);
   assert.equal(checked, expected.size);
-  stages.push({ stage: 'relocated-extraction-and-integrity', files: checked, passed: true });
+  let documentationLinks = 0;
+  for (const file of ['README.md', 'docs/cli.md', 'docs/capabilities.md', 'docs/metrics.md']) {
+    const full = path.join(bundle, file);
+    for (const match of (await readFile(full, 'utf8')).matchAll(/\]\(([^)]+)\)/g)) {
+      const target = match[1];
+      if (/^(?:[a-z][a-z0-9+.-]*:|#)/i.test(target)) {
+        if (target.startsWith('https://github.com/urveesh09/project-atlas/blob/')) assert(target.startsWith(`https://github.com/urveesh09/project-atlas/blob/${manifest.sourceCommit}/`));
+      } else {
+        const local = path.resolve(path.dirname(full), decodeURIComponent(target.split('#')[0]));
+        assert(local.startsWith(bundle + path.sep), `Documentation link leaves the archive: ${file}`);
+        await access(local);
+      }
+      documentationLinks++;
+    }
+  }
+  stages.push({ stage: 'relocated-extraction-and-integrity', files: checked, documentationLinks, passed: true });
   // Deny every outbound client socket in the CLI entry process. Browser requests are
   // checked independently below; parser-child resolver isolation has its own gate.
   const guard = path.join(work, 'offline-guard.cjs');

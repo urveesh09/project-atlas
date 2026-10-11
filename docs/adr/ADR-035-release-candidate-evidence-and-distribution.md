@@ -73,3 +73,21 @@ under file-level contention (674 other checks passed). Its isolated rerun passed
 19 CLI checks and the affected case in 10.91 s. Vitest file concurrency is now bounded
 to two because each file may create parser children or Docker jobs. Test deadlines and
 production performance budgets are unchanged; the final full run must still pass.
+
+Later Windows full runs observed a native test-worker exit in the hosted pipeline
+file and a 30 s timeout in the real 64 MiB kernel-OOM probe. Independent reruns pass
+all 22 pipeline checks and all seven sandbox checks (7.42 s for that sandbox file).
+These observations do not establish a native-crash root cause. Physical-gate mode
+(a real database, mandatory hosted tests or actual container tests) now runs **one
+test file worker**; normal unit/browser mode retains two. Intentional OS-resource
+faults do not compete with unrelated integration files. Queue, lease and engine-lock
+race tests retain their explicit concurrent clients/processes within each case.
+No assertion, hook/test deadline, cgroup limit or product performance budget changes.
+Final full verification still must pass; isolated retests alone are insufficient.
+
+Portable contract documents are flattened into the distribution. Their relative ADR
+links now point to the exact source commit on GitHub, and the relocated smoke checks
+every local documentation link and the source revision of repository links. Capturing
+source identity at package start and rejecting a changed HEAD prevents a build from
+being attributed to a commit that appeared partway through packaging. Dirty state is
+recorded at both ends. Local contract documents remain usable without internet access.

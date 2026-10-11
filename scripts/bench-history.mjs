@@ -51,6 +51,13 @@ if (resourceLimits) {
   const [quota, period] = resourceLimits.cpuMax.split(/\s+/).map(Number);
   if (resourceLimits.memoryBytes !== 2 * 1024 ** 3 || quota / period !== 4) throw new Error('Capacity container must enforce exactly 4 CPUs and 2 GiB total memory');
 }
+const resourceUsage = () => resourceLimits ? {
+  peakBytes: Number(readFileSync('/sys/fs/cgroup/memory.peak', 'utf8').trim()),
+  events: Object.fromEntries(readFileSync('/sys/fs/cgroup/memory.events', 'utf8').trim().split('\n').map((line) => {
+    const [key, value] = line.trim().split(/\s+/);
+    return [key, Number(value)];
+  })),
+} : null;
 const { openLocalRepository, resolveLocalCommit, gitVersion } = await imp('packages/ingest/dist/index.js');
 const { analyzeCommit, ParserPool, MemoryFactCache } = await imp('packages/analyzer-core/dist/index.js');
 const { gzipDeterministic, writeArtifactDirectory } = await imp('packages/artifact/dist/node-entry.js');
@@ -117,7 +124,7 @@ try {
 }
 
 if (diagnosticOnly) {
-  console.log(JSON.stringify({ diagnosticOnly: true, warmupMs, status: last.status, frames: last.packed.manifest.frames.length, nodeFlags: process.execArgv, resourceLimits, memoryAfter: process.memoryUsage() }));
+  console.log(JSON.stringify({ diagnosticOnly: true, warmupMs, status: last.status, frames: last.packed.manifest.frames.length, nodeFlags: process.execArgv, resourceLimits, resourceUsage: resourceUsage(), memoryAfter: process.memoryUsage() }));
   process.exit(0);
 }
 
@@ -129,7 +136,7 @@ const chunk = (prefix) => m.chunks.filter((c) => c.path.startsWith(prefix)).redu
 const report = {
   task: `Historical analysis capacity — ${tier}, 12 frames`,
   recordedAt: new Date().toISOString(),
-  environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length, memoryGiB: +(os.totalmem() / 2 ** 30).toFixed(1), node: process.version, nodeFlags: process.execArgv.join(' '), git: version, parserWorkers: 2, containerLimits: resourceLimits, runtimeImage: process.env.ATLAS_CAPACITY_IMAGE ?? null, sourceCommit: process.env.ATLAS_CAPACITY_SOURCE_COMMIT ?? null },
+  environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length, memoryGiB: +(os.totalmem() / 2 ** 30).toFixed(1), node: process.version, nodeFlags: process.execArgv.join(' '), git: version, parserWorkers: 2, containerLimits: resourceLimits, runtimeImage: process.env.ATLAS_CAPACITY_IMAGE ?? null, sourceCommit: process.env.ATLAS_CAPACITY_SOURCE_COMMIT ?? null, benchmarkSourceCommit: process.env.ATLAS_CAPACITY_BENCHMARK_COMMIT ?? null, benchmarkWorkingTreeDirty: process.env.ATLAS_CAPACITY_BENCHMARK_DIRTY ?? null },
   fixture: {
     headFiles: m.coverage.head.includedFiles,
     importStatements: m.coverage.head.observedImports,
@@ -146,6 +153,7 @@ const report = {
   analyzer: m.analyzer,
   selectedCommit: m.selectedCommit.oid,
   layoutId: last.draft.layout.layoutId,
+  resourceUsage: resourceUsage(),
   secondsP50: +(pct(0.5) / 1000).toFixed(2),
   secondsP95: +(pct(0.95) / 1000).toFixed(2),
   secondsMax: +(sorted.at(-1) / 1000).toFixed(2),
@@ -163,7 +171,9 @@ const report = {
 report.timePass = report.secondsP95 <= report.budgetSecondsP95;
 report.sizePass = report.artifact.compressedBytes <= report.artifact.budgetBytes;
 report.completenessPass = completeness.every((sample) => sample.complete);
-report.pass = report.timePass && report.sizePass && report.completenessPass;
+report.sampleCountPass = timings.length >= 20;
+report.resourcePass = report.resourceUsage ? (report.resourceUsage.peakBytes <= resourceLimits.memoryBytes && report.resourceUsage.events.oom === 0 && report.resourceUsage.events.oom_kill === 0) : null;
+report.pass = report.timePass && report.sizePass && report.completenessPass && (report.resourcePass ?? true) && report.sampleCountPass;
 const outDir = pathArg('report-dir') ?? path.join(root, 'docs/benchmarks');
 mkdirSync(outDir, { recursive: true });
 writeFileSync(path.join(outDir, `${out}.json`), `${JSON.stringify(report, null, 2)}\n`);
@@ -177,7 +187,7 @@ writeFileSync(
     '',
     '## Environment',
     '',
-    ...Object.entries(report.environment).map(([k, v]) => `- **${k}:** ${v}`),
+    ...Object.entries(report.environment).map(([k, v]) => `- **${k}:** ${typeof v === 'object' ? JSON.stringify(v) : v}`),
     '',
     `## Fixture (synthetic "${tier}" with history, deterministic)`,
     '',
@@ -192,11 +202,12 @@ writeFileSync(
     `| p95 | ${report.secondsP95} s | ≤ ${report.budgetSecondsP95} s |`,
     `| max | ${report.secondsMax} s | |`,
     `| artifact (all chunks) | ${mib(report.artifact.compressedBytes)} | ≤ ${mib(report.artifact.budgetBytes)} |`,
+    ...(report.resourceUsage ? [`| whole-job cgroup peak | ${mib(report.resourceUsage.peakBytes)} | ≤ ${mib(resourceLimits.memoryBytes)} |`] : []),
     `| — selected graph | ${mib(report.artifact.headGraphBytes)} | |`,
     `| — 11 historical frames (deltas) | ${mib(report.artifact.historicalGraphBytes)} | |`,
     `| — history / layout | ${mib(report.artifact.historyBytes)} / ${mib(report.artifact.layoutBytes)} | |`,
     '',
-    `**${report.pass ? 'Pass' : 'Fail'}.** Time: ${report.timePass ? 'pass' : 'fail'}; size: ${report.sizePass ? 'pass' : 'fail'}; all measured runs complete with 12 frames: ${report.completenessPass ? 'pass' : 'fail'}. Format ${report.artifact.version}; frame-delta transport per ADR-026.`,
+    `**${report.pass ? 'Pass' : 'Fail'}.** Time: ${report.timePass ? 'pass' : 'fail'}; size: ${report.sizePass ? 'pass' : 'fail'}; all measured runs complete with 12 frames: ${report.completenessPass ? 'pass' : 'fail'}; twenty-sample minimum: ${report.sampleCountPass ? 'pass' : 'fail'}; resource gate: ${report.resourceUsage ? `${report.resourcePass ? 'pass' : 'fail'} (events ${JSON.stringify(report.resourceUsage.events)})` : 'unmeasured; no whole-job/reference-resource pass is claimed'}. Format ${report.artifact.version}; frame-delta transport per ADR-026.`,
     '',
   ].join('\n'),
 );

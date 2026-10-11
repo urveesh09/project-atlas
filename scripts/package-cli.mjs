@@ -13,6 +13,9 @@ import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+const dirtyAtStart = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim().length > 0;
+const sourceUrl = `https://github.com/urveesh09/project-atlas/blob/${sourceCommit}/`;
 const releases = path.join(root, '.atlas-tmp/releases');
 await mkdir(releases, { recursive: true });
 const staging = await mkdtemp(path.join(releases, 'candidate-'));
@@ -92,13 +95,24 @@ await copyRuntime(workspace('@atlas/cli'));
 await collectNotices(workspace('@atlas/cli'));
 await cp(path.join(root, 'LICENSE'), path.join(bundle, 'LICENSE'));
 await mkdir(path.join(bundle, 'docs'), { recursive: true });
-for (const file of ['docs/contracts/cli.md', 'docs/contracts/capabilities.md', 'docs/contracts/metrics.md']) await cp(path.join(root, file), path.join(bundle, 'docs', path.basename(file)));
+for (const file of ['docs/contracts/cli.md', 'docs/contracts/capabilities.md', 'docs/contracts/metrics.md']) {
+  // These files are deliberately flattened in the portable archive. ADR links
+  // refer to their exact source revision, rather than nonexistent local folders.
+  const text = (await readFile(path.join(root, file), 'utf8')).replace(/\]\(([^)]+)\)/g, (whole, target) => {
+    if (/^(?:[a-z][a-z0-9+.-]*:|#)/i.test(target)) return whole;
+    const url = new URL(target, sourceUrl + file).href;
+    assert(url.startsWith(sourceUrl), `Documentation link leaves the source revision: ${file}: ${target}`);
+    return `](${url})`;
+  });
+  await writeFile(path.join(bundle, 'docs', path.basename(file)), text);
+}
 await writeFile(path.join(bundle, 'README.md'), [
   '# ATLAS CLI distribution candidate', '',
-  'Prerequisites: Node 24.15.x and Git >= 2.38 on PATH. No package manager or dependency install is needed after extraction. This candidate is not a signed-off V0.1 release; see the repository release audit.', '',
+  `Prerequisites: Node 24.15.x and Git >= 2.38 on PATH. No package manager or dependency install is needed after extraction. This candidate is not a signed-off V0.1 release; see the [repository release audit](${sourceUrl}docs/release/release-audit.md).`, '',
   '```sh', 'node bin/atlas.js doctor', 'node bin/atlas.js analyze /path/to/repository --out /path/to/artifact', 'node bin/atlas.js verify /path/to/artifact', 'node bin/atlas.js serve /path/to/artifact --repo /path/to/repository --no-open', '```', '',
   'Committed data only; local commands never upload or fetch. To analyze another historical commit, pass --ref <sha>. To skip history, pass --no-history. Exit 0 = complete, 2 = useful partial, 1 = failure, 64 = usage error, 130 = cancelled.', '',
   'Exported artifacts reveal relative paths, declaration/package names, metrics and commit IDs even though source is omitted. Share them explicitly. Runtime tracing is deferred. Third-party licenses are under third-party/.', '',
+  '[CLI contract](docs/cli.md), [capabilities](docs/capabilities.md), [metrics](docs/metrics.md). These local documents work offline; links to source decision records require an internet connection.', '',
 ].join('\n'));
 await writeFile(path.join(bundle, 'third-party.json'), `${JSON.stringify([...notices.values()].sort((a, b) => a.name.localeCompare(b.name)), null, 2)}\n`);
 const files = [];
@@ -117,11 +131,12 @@ await inventory(bundle);
 files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
 const manifest = {
   format: 'atlas.cli-distribution/1', candidate: '0.1.0-candidate.1', node: process.version,
-  sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
-  workingTreeDirty: execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim().length > 0,
+  sourceCommit,
+  workingTreeDirty: dirtyAtStart || execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim().length > 0,
   lockfileSha256: createHash('sha256').update(await readFile(path.join(root, 'pnpm-lock.yaml'))).digest('hex'),
   packages: [...copied].map(([name, version]) => ({ name, version })), files,
 };
+assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), sourceCommit, 'Source revision changed during packaging');
 await writeFile(path.join(bundle, 'distribution.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 const archive = path.join(staging, 'atlas-cli-candidate.tar.gz');
 execFileSync('tar', ['-czf', archive, '-C', staging, 'atlas-cli'], { windowsHide: true });

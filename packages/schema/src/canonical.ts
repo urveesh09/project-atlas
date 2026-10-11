@@ -126,13 +126,14 @@ export function* canonicalJsonChunks(value: unknown): Generator<string> {
     for (let i = 0; i < sorted.length; i++) {
       if (i > 0) yield ',';
       const key = sorted[i]!;
+      const value = (child as Record<string, unknown>)[key];
       const at = () => '$' + path.map((p) => typeof p === 'number' ? `[${p}]` : `.${p}`).join('');
       if (!key.isWellFormed()) throw new CanonicalJsonError('Ill-formed Unicode key', at());
-      if ((child as Record<string, unknown>)[key] === undefined) throw new CanonicalJsonError(`Undefined value for "${key}"`, at());
+      if (value === undefined) throw new CanonicalJsonError(`Undefined value for "${key}"`, at());
       yield write(key, path, stack, keys);
       yield ':';
       path.push(key);
-      yield* fragments((child as Record<string, unknown>)[key]);
+      yield* fragments(value);
       path.pop();
     }
     yield '}';

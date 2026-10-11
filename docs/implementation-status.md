@@ -263,7 +263,7 @@ from pnpm links and passes doctor/analyze/verify/inspect plus a loopback-only br
 city/history/search/dependency journey. Registry audit currently returns zero production
 advisories, with its dated [scope and limits](release/dependency-audit.md).
 
-The final local portable candidate was built from clean source commit `cabcef46a9c9aea933646f83b7f12699c3e32049`.
+The baseline local portable candidate was built from clean source commit `cabcef46a9c9aea933646f83b7f12699c3e32049`.
 All six relocated distribution stages passed; 1,488 files verified, archive 8,692,103
 bytes, SHA-256 `d7cddeb3a240fe6c886f6a9b4de9957a949e7f9d8ff0ebbf207b54f7b84cf271`.
 Its manifest records `workingTreeDirty: false`; the subsequent evidence commit changes
@@ -280,10 +280,22 @@ The subsequent large-history diagnostic found a cache-lifetime capacity issue: a
 20-run p95 measurement. [The preserved diagnostic](benchmarks/phase6-large-history-precache.md)
 and [ADR-036](adr/ADR-036-export-base-cache-lifetime.md) record the correction: discard
 derived adjacent-base export rows after their last use while retaining HEAD reuse.
-94 targeted artifact/schema/history checks and types pass; the new twenty-run batch
-and final verification remain pending. A 1,400 MiB parent V8 heap does not certify
-a whole-job cgroup or the exact reference hardware. The prior delivered CLI candidate
-is preserved as the baseline; a final candidate will bind the corrected code revision.
+The combined correction streams exact canonical equality/hash work, matches one base
+table against one target row at a time, defers indexed working rows and retains only
+small base-key projections. A [bounded-parent diagnostic](benchmarks/phase6-large-history-bounded-completion.md)
+now completes all twelve frames. Its contended 283.94 s observation is not a p95 pass;
+whole-job resource/timing acceptance remains open. No format, identity or budget changes.
+
+[CI 38115803254](https://github.com/urveesh09/project-atlas/actions/runs/38115803254)
+passes all eight jobs on `aa85c71`, including exact comparisons against the original
+committed corpus payloads on both OSes. The complete physical-gate local run passes
+**679 checks across forty files, none skipped**, in 471.48 s with one test-file worker.
+Prior parallel runs observed one native pipeline-worker exit and one kernel-OOM-probe
+timeout; isolated reruns pass all 22 pipeline and seven sandbox checks. [ADR-035](adr/ADR-035-release-candidate-evidence-and-distribution.md)
+records serial physical-gate execution without changing assertions/deadlines/budgets.
+An additional property-read regression for the streamed writer and **112 targeted
+checks across five files**, plus strict types, pass after that full run. A fresh
+candidate will bind the corrected code and distribution-link revision.
 
 ### Reproduce verification
 
