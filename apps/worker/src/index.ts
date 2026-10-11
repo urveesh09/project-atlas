@@ -7,5 +7,6 @@ export * from './runners.js';
 export * from './coordinator.js';
 export * from './service.js';
 export * from './main.js';
+export * from './engine-ownership.js';
 export * from './sandbox/spec.js';
 export * from './ops.js';

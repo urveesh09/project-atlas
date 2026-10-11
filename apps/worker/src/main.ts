@@ -2,7 +2,8 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { ConfigError, PublicationStore, databasePool, isDevelopment, loadFixtures, migrationsCurrent, required, resolverFromEnv, storageFromEnv, type Env } from '@atlas/control';
 import { Coordinator, type Logger } from './coordinator.js';
-import { reconcileSandboxes, type SandboxRuntime } from './containers.js';
+import { dockerControl, reconcileSandboxes, type SandboxRuntime } from './containers.js';
+import { acquireEngineOwnership } from './engine-ownership.js';
 import { JobQueue } from './queue.js';
 import { DockerStageRunners, ProcessStageRunners, type AcquisitionSource, type StageRunners } from './runners.js';
 import { WorkerService } from './service.js';
@@ -48,7 +49,17 @@ export async function startWorker(env: Env): Promise<void> {
   if (!(await store.ready())) throw new ConfigError('Object storage is not reachable');
   const resolver = resolverFromEnv(env, pool);
   const runners = runnersFromEnv(env);
-  if (runners instanceof DockerStageRunners) log('sandbox.reconciled', await reconcileSandboxes(runners.runtime));
+  let releaseEngine: (() => Promise<void>) | undefined;
+  if (runners instanceof DockerStageRunners) {
+    const engineId = (await dockerControl(runners.runtime, ['info', '--format', '{{.ID}}'])).stdout.toString('utf8').trim();
+    // Reconciliation can delete live sandboxes. Enforce ADR-031's single-coordinator
+    // engine ownership BEFORE any removal or claim, including during a rolling restart.
+    releaseEngine = await acquireEngineOwnership(pool, engineId, () => {
+      log('worker.engine-ownership-lost', {});
+      process.exit(1);
+    });
+    log('sandbox.reconciled', await reconcileSandboxes(runners.runtime));
+  }
   const workRoot = path.resolve(required(env, 'ATLAS_WORK_ROOT'));
   await mkdir(workRoot, { recursive: true, mode: 0o700 });
   const publications = new PublicationStore(pool, store, resolver);
@@ -60,6 +71,7 @@ export async function startWorker(env: Env): Promise<void> {
   const shutdown = async () => {
     log('worker.stopping', {});
     await service.stop();
+    await releaseEngine?.();
     await pool.end();
     process.exit(0);
   };

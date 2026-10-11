@@ -16,6 +16,7 @@ worker host (Docker engine) ── atlas-worker (uid 10001, role atlas_worker)
 
 - The API and the worker never share a host process. The API has no Docker access.
 - The worker host needs a Docker engine and a work directory, `ATLAS_WORK_ROOT`, on local disk. Sandboxes bind-mount job directories from it. Run the worker as uid 10001, the same user as the sandboxes, so it can always remove what they write.
+- Dedicate each Docker engine to one ATLAS service/database and one coordinator process. Startup acquires an engine-specific database lock before cleanup and refuses a second coordinator. Use slots within that process, or separate engines for horizontal scaling. Drain/stop the old coordinator before restarting on its engine (ADR-034).
 - At the network layer, allow only the broker containers' egress, TCP 443, to GitHub. Nothing else on the worker host needs outbound access except the database and storage. The application allowlist in the broker is not a substitute for this firewall.
 
 ## Configuration

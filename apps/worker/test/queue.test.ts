@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AdmissionStore, migrate } from '@atlas/api';
 import { JobQueue, LeaseLostError, type Lease } from '../src/queue.js';
+import { acquireEngineOwnership } from '../src/engine-ownership.js';
 
 const url = process.env['ATLAS_TEST_DATABASE_URL'];
 if (process.env['ATLAS_REQUIRE_HOSTED_TESTS'] === '1' && !url) throw new Error('Hosted queue tests require ATLAS_TEST_DATABASE_URL');
@@ -27,6 +28,42 @@ describe.runIf(!!url)('PostgreSQL worker fencing and recovery', () => {
   const claim = async (): Promise<Lease> => { await enqueue(); return (await queue.claim())!; };
   const expire = (lease: Lease) => pool.query("UPDATE jobs SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE id=$1", [lease.jobId]);
   const progress = (lease: Lease) => queue.progress(lease, { state: 'ANALYZING', stage: 'analyze', counts: { files: 3 }, warnings: [] });
+
+  it('excludes a second coordinator on the same engine before reconciliation and releases on stop', async () => {
+    const engine = `test-${randomUUID()}`;
+    const release = await acquireEngineOwnership(pool, engine, () => {});
+    let other: (() => Promise<void>) | undefined;
+    try {
+      await expect(acquireEngineOwnership(pool, engine, () => {})).rejects.toThrow('already owns');
+      other = await acquireEngineOwnership(pool, `${engine}-other`, () => {});
+      await release();
+      const restart = await acquireEngineOwnership(pool, engine, () => {});
+      await restart();
+      await restart();
+    } finally { await release(); await other?.(); }
+  });
+
+  it('fences the coordinator when the database session holding engine ownership dies', async () => {
+    const engine = `test-${randomUUID()}`;
+    let notify!: () => void;
+    const lost = new Promise<void>((resolve) => { notify = resolve; });
+    const release = await acquireEngineOwnership(pool, engine, notify);
+    try {
+      // Find only this test's advisory-lock session; terminating it proves crash cleanup.
+      const { rows } = await pool.query<{ pid: number }>(`SELECT pid FROM pg_stat_activity
+        WHERE datname=current_database() AND query='SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS acquired'
+          AND pid IN (SELECT pid FROM pg_locks WHERE locktype='advisory' AND granted)`);
+      // This suite owns one lock here; use the engine-specific hash to avoid other suites.
+      const hash = (await pool.query<{ value: string }>('SELECT hashtextextended($1,0)::text AS value', [`atlas.engine/1:${engine}`])).rows[0]!.value;
+      const target = (await pool.query<{ pid: number }>(`SELECT pid FROM pg_locks WHERE locktype='advisory'
+        AND classid=(($1::bigint >> 32) & 4294967295)::oid AND objid=($1::bigint & 4294967295)::oid AND objsubid=1`, [hash])).rows[0]!.pid;
+      expect(rows.some((r) => r.pid === target)).toBe(true);
+      await pool.query('SELECT pg_terminate_backend($1)', [target]);
+      await lost;
+      const restart = await acquireEngineOwnership(pool, engine, () => {});
+      await restart();
+    } finally { await release().catch(() => undefined); }
+  });
 
   it('claims each job once with concurrent workers and never shares a live lease', async () => {
     await Promise.all(Array.from({ length: 10 }, enqueue));

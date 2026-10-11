@@ -119,6 +119,33 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     expect(await page.locator('.topbar .repo-name').innerText()).toBe('atlas-demo/harbor');
     expect(await page.getByText(/^Public until/).isVisible()).toBe(true);
     await capture(page, 'result');
+    // A delayed home-page capability probe must not replace a newer analysis route.
+    const resultPath = new URL(page.url()).pathname;
+    let releaseProbe!: () => Promise<void>;
+    let probeReady!: () => void;
+    const ready = new Promise<void>((resolve) => { probeReady = resolve; });
+    await page.route('**/api/v1/capabilities', async (route) => {
+      const response = await route.fetch();
+      releaseProbe = () => route.fulfill({ response });
+      probeReady();
+    });
+    await page.evaluate(() => {
+      history.pushState(null, '', '/');
+      dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await ready;
+    await page.evaluate((path) => {
+      history.pushState(null, '', path);
+      dispatchEvent(new PopStateEvent('popstate'));
+    }, resultPath);
+    await page.locator('.topbar .repo-name').waitFor({ timeout: 60_000 });
+    const probeFinished = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/capabilities');
+    await releaseProbe();
+    await probeFinished;
+    // Wait for the browser to process the response and React to commit any stale state.
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    expect(await page.locator('.topbar .repo-name').innerText()).toBe('atlas-demo/harbor');
+    await page.unroute('**/api/v1/capabilities');
     // Reload: the immutable URL reopens the same validated analysis.
     await page.reload();
     await page.locator('.topbar .repo-name').waitFor({ timeout: 60_000 });

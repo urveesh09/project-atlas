@@ -628,11 +628,18 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
     await new Promise<void>((r) => staticServer.listen(0, '127.0.0.1', r));
     origin = `http://127.0.0.1:${(staticServer.address() as { port: number }).port}`;
   });
-  afterAll(() => new Promise<void>((r) => staticServer.close(() => r())));
+  afterAll(() => {
+    // Browser keep-alive connections must not hold the server open.
+    return new Promise<void>((r) => {
+      staticServer.close(() => r());
+      staticServer.closeAllConnections();
+    });
+  });
 
   it('validates picked files locally and sends nothing anywhere', async () => {
     // A separate context: no session cookie, no server API, just static files.
     const isolated = await browser.newContext();
+    try {
     const page = await isolated.newPage();
     const requests: { url: string; method: string }[] = [];
     page.on('request', (r) => requests.push({ url: r.url(), method: r.method() }));
@@ -651,5 +658,6 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
     expect(await page.locator('#overview-title').innerText()).toBe(
       loaded.ok ? loaded.bundle.manifest.repo.displayName : '?',
     );
+    } finally { await isolated.close(); }
   });
 });

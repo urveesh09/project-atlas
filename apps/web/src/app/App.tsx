@@ -97,7 +97,10 @@ export function App() {
 
   useEffect(() => {
     let disposed = false;
+    let routeRevision = 0;
     const route = async () => {
+      const revision = ++routeRevision;
+      const stale = () => disposed || revision !== routeRevision;
       const current = parseRoute(location.pathname);
       if (current.kind === 'job') {
         activeLoad.current?.abort();
@@ -112,10 +115,10 @@ export function App() {
       activeLoad.current?.abort();
       replaceDataset(null);
       const session = await detectLocalSession();
-      if (disposed) return;
+      if (stale()) return;
       if (session) return void run('Loading the served artifact', { kind: 'server', base: '/artifact/' }, session.source);
       const capabilities = await detectHostedService();
-      if (disposed) return;
+      if (stale()) return;
       if (capabilities && current.kind === 'home') setPhase({ kind: 'hosted-landing', capabilities });
       else if (capabilities) setPhase({ kind: 'unavailable', code: 'ARTIFACT_NOT_FOUND' });
       else setPhase({ kind: 'landing' });
