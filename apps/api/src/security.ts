@@ -1,11 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { type ErrorCode } from '@atlas/schema';
-
-export class ServiceError extends Error {
-  constructor(readonly code: ErrorCode, readonly status: number, message: string, readonly retryAfter?: number) {
-    super(message);
-  }
-}
+export { ServiceError } from '@atlas/control';
 export const opaqueId = (prefix: 'job' | 'req') => `${prefix}_${randomBytes(16).toString('hex')}`;
 export const newToken = () => randomBytes(32).toString('base64url');
 export const tokenHash = (token: string, domain: 'session' | 'management') => createHash('sha256').update(`${domain}\0${token}`).digest('hex');

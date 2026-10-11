@@ -2,7 +2,7 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone:** Phase 4 local implementation and measured G4 checks pass, including cross-platform CI and the unloaded 20-run history repeat. Phase 5 admission/queue/isolation foundations are implemented below. Human screen-reader and exact reference-device release audits remain open; runtime instrumentation remains deferred.
+**Current milestone:** Phase 5: the hosted public-GitHub service is implemented and its G5 controls pass, as detailed below. Public deployment is a Phase 6 release action. Human screen-reader and exact reference-device release audits remain open; runtime instrumentation remains deferred.
 
 ## Phase 0: prove constraints and lock contracts
 
@@ -142,22 +142,76 @@ Decisions: [ADR-025](adr/ADR-025-history-semantics.md), [ADR-026](adr/ADR-026-fr
 
 ![History comparison on fixed plots](images/phase4-compare.png)
 
-## Phase 5: hosted service foundation
+## Phase 5: hosted public GitHub service
 
-Phase 5 development has started. This is a loopback development control plane plus an independently tested offline container policy. No hosted analyzer coordinator or public artifact publication is enabled.
+The hosted service is implemented end to end. Analysis uses the same analyzer, contracts and viewer as the local route, and the mandatory hosted security gates pass on a real Linux container engine.
 
-| Task | Status | Implemented evidence | Remaining completion boundary |
+| Task | Status | Evidence | Checks |
 |---|---|---|---|
-| P5.1 API admission/auth | Foundation implemented | Exact GitHub-root validation/normalization, strict request/response contracts, sessions, one-time hashed capabilities, idempotency and transactional quotas; generated session OpenAPI route | Upstream numeric identity/visibility resolution and cache reuse |
-| P5.2 Queue/leases | Database implementation complete; coordinator pending | Additive checksummed migration, concurrent SKIP LOCKED claims, DB-time heartbeat/generation fences, cancellation, bounded events/SSE replay, one retry within original deadline; time rechecked before transaction commit | Actual acquisition/analysis orchestration, container termination on lost leases and cancellation |
-| P5.3 Isolation | Offline container spike passes | Real non-root/read-only/no-network cgroups, CPU/memory/PID/scratch enforcement, OOM/ENOSPC/PID faults and actual container/child cleanup | DNS-pinned acquisition broker, final analyzer image/object boundary, egress byte limits, repository sentinels, durable HEAD checkpoint and stage orchestration |
-| P5.4 Publication/storage | Pending | Private publication/object schema reserved; public routes return 503 | Validated private object storage, lease-fenced publication, cache ownership, visibility/expiry/revocation access gates and purge |
-| P5.5 Hosted flow | Pending | Management status/events/cancel API foundation | Landing/submission stages, reconnect/poll/cancel browser flows, immutable result URLs and existing viewer integration |
-| P5.6 Deploy/runbooks | Partial development documentation | [Dedicated database/container checks and recovery notes](hosted-development.md); required PostgreSQL/Docker CI job | Compose/deployment definitions, trusted proxy identity boundary, secrets/TLS/roles/backups and operator rehearsals |
+| P5.1 API admission and auth | Done | Exact GitHub-root validation; numeric identity, visibility and commit ancestry through the pinned, budgeted client; sessions and one-time hashed capabilities; idempotency (200 on a completed replay); quotas; queue position; `createdAt` | 21 admission integrations on PostgreSQL; live pinned-client checks |
+| P5.2 Queue and worker leases | Done | Database fencing (ADR-029), wired to the coordinator: 1 s cancellation poll, 10 s heartbeats, deadline stop, fenced completion, one retry, scratch sweeper | Queue races; coordinator cancellation at all four stages; crash and retry; cancellation winning over publication |
+| P5.3 Isolated acquisition and analysis | Done | Broker, acquisition and analysis containers from one pinned image; DNS-pinned CONNECT broker with byte budget; framed untrusted output with independent verification; durable HEAD checkpoint and PARTIAL fallback; reconciliation | Sentinel, network-isolation, lazy-fetch, live-broker and resource gates (ADR-030/031); 55 egress unit checks |
+| P5.4 Publication and storage | Done | Private filesystem and S3 (SigV4) stores; uploads before rows; read-back verification; content-keyed objects; complete-only cache; per-chunk access checks; 5-minute visibility; revocation, expiry, deletion, purge, garbage collection, reconciliation | Lifecycle suite under a simulated clock; real S3 gateway; token isolation; storage outage |
+| P5.5 Hosted flow and SSE | Done | Landing with a public-output notice; job page with stage counts, queue, elapsed time, warnings, cancellation and retry; SSE with polling fallback; immutable `/a/<id>`; owner deletion; lifecycle screens; same validating worker | Six Chromium journeys with WCAG 2.2 AA audits; no token or session in any URL |
+| P5.6 Deployment and runbooks | Done (development and rehearsal) | API and sandbox images; compose stack; `_FILE` secrets; least-privilege API and worker roles; trusted-proxy client identity; operator metrics endpoint; `atlas-ops`; [operations guide and runbooks](hosted-operations.md) | HTTP journey under least-privilege roles; [operator rehearsal](benchmarks/phase5-rehearsal.md) |
 
-Local final full verification passes **566 tests across 32 files**. The 31 admission/queue checks include 29 integrations against actual PostgreSQL 17 and two cryptographic unit checks. The seven sandbox checks include five actual Docker Engine 29.8.1 integrations and two policy checks. The two separately gated live-acquisition tests opt out locally and pass in their separate CI job. Strict source/test/viewer types, production build, generated contracts and dependency direction pass. Dedicated hosted CI requires the real database and containers; ordinary matrix runs explicitly opt out of integration checks when those runtimes are absent. [Final Windows/Linux/database/container/acquisition/render CI](https://github.com/urveesh09/project-atlas/actions/runs/38078215851) passes `34866b2`, including the shared UUID-header contract and all 38 hosted-foundation checks. Subsequent CI-evidence edits are documentation only.
+### Gate G5 assessment
 
-Decisions: [ADR-029](adr/ADR-029-hosted-admission-and-lease-foundation.md) and [ADR-030](adr/ADR-030-offline-container-isolation-spike.md). **G5 remains open.** The runtime fifth pillar remains deferred.
+**Same analyzer, contracts and viewer on both routes.** Sandboxes run `analyzeCommit` with the release profile. The browser loads hosted chunks through the validating worker used for local artifacts.
+
+**Mandatory hosted security gates (plan §16.3).**
+
+| Gate | Evidence |
+|---|---|
+| Repository scripts never run | Committed traps and an armed remote; no sentinel appears |
+| No outbound connectivity during analysis | Network `none`; probes; missing-blob lazy fetch fails explicitly with no new objects |
+| Adversarial URL, redirect, DNS and path inputs | URL corpus; broker host, port, IP-literal and private-DNS refusals; redirects never followed |
+| Enforced caps outside the analyzed process | cgroup memory, PID, CPU and scratch limits, OOM and deadline kills (ADR-030); the API stays a separate process |
+| No secrets or source traces | Published bytes, logs and job state carry no author identity, absolute or sandbox path, token or repository name |
+| Capability isolation | Capability A cannot delete B; a stale lease cannot publish; a private or revoked repository exposes neither manifest nor chunk |
+| Cross-origin and upload safety | Cross-origin mutations rejected; browser-only opening never uploads (Phase 2 test) |
+| Scratch, expiry and revocation | Checked under a simulated clock and a crash |
+
+No private-repository support and no automatic local upload were added.
+
+**Fixed during review.**
+
+- A missing blob became a zero-byte opaque file; it is now `LOCAL_OBJECT_MISSING`.
+- The pinned TLS socket was bypassed through `agent: false`.
+- The pinned client's byte accounting did not count TLS bytes.
+- Least-privilege admission was missing `UPDATE` on `sessions`.
+- The fixture `safe.directory` exception never reached `upload-pack`.
+- Files written by uid 10001 in job directories could not be removed by the worker.
+- The operator CLI tripped a Windows exit assertion.
+
+**Operator rehearsal.** The [rehearsal](benchmarks/phase5-rehearsal.md) ran in containers, against S3-compatible storage, with the processes under least-privilege roles. All 11 steps passed:
+
+- **Harbor journey:** 8.1 s end to end, all 12 frames verified through the public routes.
+- **Cached reuse:** 1.1 s.
+- **Medium repository** (3,252 files, 40 commits): READY in **162.2 s** end to end, against the 300 s deadline. The artifact is 4.69 MiB. Within that run, history analysis took 74.3 s and verification 35.2 s.
+- **Operator cancellation:** 5.5 s, with no sandbox left.
+- **Worker crash:** SIGKILL during HISTORY. The retry recovered from the checkpoint and the job reached READY.
+- **Operator purge:** the publication answers 410.
+- **Restore:** revocation was preserved.
+- **Rollback guard:** an older binary refuses a newer schema.
+
+The machine was the Windows 11 development host: 12 CPUs, Docker Desktop 29.8.1. These figures are not a reference-hardware capacity claim.
+
+**Fresh-environment demonstration.** The `deploy/compose.yaml` stack ran from newly generated secrets: PostgreSQL, the S3 gateway, the migration job with role provisioning, and the API image. Alongside it, the host worker ran in GitHub mode with Docker sandboxes. It analyzed the real public repository `sindresorhus/is-plain-obj` through the egress broker, and the job reached READY in 10.1 s with its manifest served by the containerized API. The stack was then torn down with its volumes.
+
+An earlier attempt in that session failed closed with `UPSTREAM_RATE_LIMITED`, as designed: the anonymous GitHub quota had been spent by the live tests.
+
+**Verification.** Local `pnpm verify` ran with every gate enabled: PostgreSQL, the S3 gateway, Docker containers, live GitHub and Chromium. **672 tests passed across 39 files, with none skipped.** No sandbox container or network remained afterwards. Without services, the integration suites skip explicitly (78 tests in the hosted packages). The `hosted` CI job runs the gated suites on Linux.
+
+**Still release work (P6).** G5's controls all pass in the development and CI environments. Public launch remains open:
+
+- deploying the service on operator infrastructure (domain, TLS, egress firewall);
+- reference-hardware capacity runs;
+- human assistive-technology audits.
+
+Decisions: [ADR-029](adr/ADR-029-hosted-admission-and-lease-foundation.md), [ADR-030](adr/ADR-030-offline-container-isolation-spike.md), [ADR-031](adr/ADR-031-hosted-acquisition-and-analysis-pipeline.md), [ADR-032](adr/ADR-032-publication-storage-and-lifecycle.md), [ADR-033](adr/ADR-033-hosted-flow-deployment-and-operations.md).
+
+![Hosted landing page with the public-output notice](images/phase5-landing.png)
 
 ## How to reproduce the evidence
 
@@ -176,6 +230,7 @@ node apps/web/scripts/bench-city.mjs --report-only # regenerate Markdown from re
 node apps/web/scripts/profile-city.mjs            # 20 CPU attribution runs using the dense exported fixture
 node scripts/bench-history.mjs --keep .atlas-tmp/medium-history # 20 complete cold-fact-cache history runs
 node apps/web/scripts/bench-history-viewer.mjs --artifact .atlas-tmp/medium-history # cached/first visits and joint heap
+# Hosted gates and rehearsal: see docs/hosted-development.md
 ```
 
 CI sets `ATLAS_REQUIRE_BROWSER_TESTS=1` so missing Chromium/viewer assets are failures rather than skipped journeys. Set `ATLAS_CAPTURE_VIEWER=1` for the browser E2E file to regenerate the three Phase 2 screenshots. PowerShell environment syntax is `$env:ATLAS_REQUIRE_BROWSER_TESTS = '1'`; the inline `VAR=1` examples above use POSIX shell syntax.

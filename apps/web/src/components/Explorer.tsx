@@ -10,9 +10,14 @@ import { City } from './City';
 import { ComparePanel } from './ComparePanel';
 import { Tombstone } from './HistoryPanel';
 import { Timeline } from './Timeline';
+import { ResultActions } from '../hosted/ResultActions';
 
-/** The functional explorer: tree, search, inspector and overview, all plain HTML. */
-export function Explorer({ onOpenOther }: { onOpenOther: () => void }) {
+/**
+ * The functional explorer: tree, search, inspector and overview, all plain HTML. A hosted
+ * publication adds its expiry, a new-analysis route and owner deletion; it never offers
+ * to upload anything.
+ */
+export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => void; hosted?: { analysisId: string; expiresAt: string | null } | null }) {
   const { model, state, select, dispatch } = useViewer();
   const searchRef = useRef<HTMLInputElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -64,9 +69,13 @@ export function Explorer({ onOpenOther }: { onOpenOther: () => void }) {
           <button type="button" className="button ghost" aria-expanded={helpOpen} aria-controls="shortcuts" onClick={() => setHelpOpen((o) => !o)}>
             Keys
           </button>
-          <button type="button" className="button ghost" onClick={onOpenOther}>
-            Open artifact…
-          </button>
+          {hosted ? (
+            <ResultActions analysisId={hosted.analysisId} expiresAt={hosted.expiresAt} />
+          ) : (
+            <button type="button" className="button ghost" onClick={onOpenOther}>
+              Open artifact…
+            </button>
+          )}
         </div>
       </header>
       {helpOpen && (

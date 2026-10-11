@@ -56,15 +56,16 @@ describe.runIf(!!url)('hosted admission on real PostgreSQL', () => {
     const response = await submit(); expect(response.status).toBe(202);
     return AnalysisAcceptedSchema.parse(await response.json());
   };
-  it('applies the migration once and rejects checksum drift', async () => {
-    expect((await pool.query('SELECT * FROM atlas_migrations')).rows).toHaveLength(1);
-    await pool.query("UPDATE atlas_migrations SET sha256='bad'");
+  it('applies every migration once, in order, and rejects checksum drift or unknown versions', async () => {
+    const { MIGRATIONS, migrationDigest } = await import('@atlas/control');
+    expect((await pool.query('SELECT version,sha256 FROM atlas_migrations ORDER BY version')).rows).toEqual(MIGRATIONS.map((m) => ({ version: m.version, sha256: migrationDigest(m.sql) })));
+    await pool.query("UPDATE atlas_migrations SET sha256='bad' WHERE version=1");
     await expect(migrate(pool)).rejects.toThrow('checksum');
-    await pool.query('DELETE FROM atlas_migrations');
-    // restore checksum without recreating tables
-    const { MIGRATION_001 } = await import('@atlas/api');
-    const { createHash } = await import('node:crypto');
-    await pool.query('INSERT INTO atlas_migrations VALUES(1,$1)', [createHash('sha256').update(MIGRATION_001).digest('hex')]);
+    await pool.query('UPDATE atlas_migrations SET sha256=$1 WHERE version=1', [migrationDigest(MIGRATIONS[0]!.sql)]);
+    await pool.query("INSERT INTO atlas_migrations VALUES(999,'future')");
+    await expect(migrate(pool)).rejects.toThrow('newer migration');
+    await pool.query('DELETE FROM atlas_migrations WHERE version=999');
+    await migrate(pool);
   });
   it('returns a capability once, persists hashes only, and exposes schema-valid status', async () => {
     const a = await accepted();
@@ -189,7 +190,7 @@ describe.runIf(!!url)('hosted admission on real PostgreSQL', () => {
     expect((await fetch(`${api.origin}${a.statusUrl}`, { headers: { Cookie: sessionCookie } })).status).toBe(403);
     expect((await fetch(`${api.origin}${a.statusUrl}`, { headers: { Authorization: `Bearer ${a.managementToken}` } })).status).toBe(200);
   });
-  it('keeps public artifact delivery closed until isolation/publication gates exist', async () => {
+  it('fails closed for public artifact delivery when publication is not configured', async () => {
     expect((await fetch(`${api.origin}/api/v1/analyses/analysis_${'0'.repeat(64)}`)).status).toBe(503);
   });
 });

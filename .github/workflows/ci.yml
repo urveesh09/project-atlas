@@ -14,10 +14,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  hosted-foundation:
-    name: hosted PostgreSQL and offline isolation foundation
+  hosted:
+    name: hosted service gates (PostgreSQL, S3, containers, browser)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 40
     services:
       postgres:
         image: postgres:17-alpine
@@ -36,16 +36,31 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Resolve the pinned offline probe image
+      - run: pnpm --filter @atlas/web exec playwright install --with-deps chromium
+      - name: Build packages and viewer (sandboxes run compiled entrypoints)
+        run: pnpm build && pnpm build:web
+      - name: Start the pinned S3-compatible gateway
         run: |
+          docker run --detach --name atlas-s3 --publish 127.0.0.1:7070:7070 --tmpfs /data             --env ROOT_ACCESS_KEY=atlas --env ROOT_SECRET_KEY=atlas-test-secret             versity/versitygw@sha256:605de57c0cdc297fc5bc905ece592965d542d8df70d6eedf755734c80f2eb797 --quiet posix /data
+      - name: Build the sandbox image and resolve the pinned offline probe image
+        run: |
+          docker build --file deploy/sandbox.Dockerfile --tag atlas-sandbox:ci .
+          echo "ATLAS_TEST_RUNTIME_IMAGE=$(docker image inspect atlas-sandbox:ci --format '{{.Id}}')" >> "$GITHUB_ENV"
           docker pull node@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d
-          taskImageId=$(docker image inspect node@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d --format '{{.Id}}')
-          echo "ATLAS_TEST_SANDBOX_IMAGE=$taskImageId" >> "$GITHUB_ENV"
-      - run: pnpm exec vitest run apps/api/test/hosted.test.ts apps/worker/test/queue.test.ts apps/worker/test/sandbox.test.ts
+          echo "ATLAS_TEST_SANDBOX_IMAGE=$(docker image inspect node@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d --format '{{.Id}}')" >> "$GITHUB_ENV"
+      - run: pnpm exec vitest run apps/api/test apps/worker/test packages/control/test packages/ingest/test/egress.test.ts packages/ingest/test/missing-objects.test.ts
         env:
           ATLAS_TEST_DATABASE_URL: postgres://postgres:atlas-ci-test@127.0.0.1:5432/atlas_test
+          ATLAS_TEST_S3_ENDPOINT: http://127.0.0.1:7070
           ATLAS_REQUIRE_HOSTED_TESTS: '1'
+          ATLAS_REQUIRE_BROWSER_TESTS: '1'
           ATLAS_CONTAINER_TESTS: '1'
+          ATLAS_NETWORK_TESTS: '1'
+      - name: No sandbox container or network may remain
+        if: always()
+        run: |
+          test -z "$(docker ps --all --filter label=atlas.sandbox --format '{{.Names}}')"
+          test -z "$(docker network ls --filter label=atlas.sandbox=network --format '{{.Name}}')"
 
   verify:
     name: verify (${{ matrix.os }})

@@ -6,7 +6,28 @@ import { IngestError } from './errors.js';
 import { runBounded, type BoundedRunResult } from './process.js';
 
 export type ObjectFormat = 'sha1' | 'sha256';
-export type NetworkPolicy = { kind: 'offline' } | { kind: 'https-github'; remoteUrl: string; promisor: boolean };
+/**
+ * `https-github` may name an HTTP CONNECT broker (`http://host:port`, plan §8.3); Git then
+ * reaches GitHub only through it. `local-fixture` fetches from a trusted local bare
+ * repository over the `file` protocol only: authored demos and acquisition tests.
+ */
+export type NetworkPolicy =
+  | { kind: 'offline' }
+  | { kind: 'https-github'; remoteUrl: string; promisor: boolean; proxy?: string }
+  | { kind: 'local-fixture'; remotePath: string };
+
+const PROXY_PATTERN = /^http:\/\/[a-z0-9][a-z0-9.-]{0,252}:\d{1,5}$/;
+const REMOTE_PATTERN = /^https:\/\/github\.com\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}\.git$/;
+
+function checkedNetwork(network: NetworkPolicy): void {
+  if (network.kind === 'https-github') {
+    if (!REMOTE_PATTERN.test(network.remoteUrl)) throw new IngestError('INVALID_REPOSITORY_URL', 'Remote URLs are constructed from validated GitHub owner/name only');
+    if (network.proxy !== undefined && !PROXY_PATTERN.test(network.proxy)) throw new IngestError('GIT_FAILED', 'Invalid egress broker address');
+  }
+  if (network.kind === 'local-fixture' && (!path.isAbsolute(network.remotePath) || /["\n\r\0]/.test(network.remotePath))) {
+    throw new IngestError('GIT_FAILED', 'Fixture remotes must be absolute local paths');
+  }
+}
 
 export interface SafeGitOptions {
   /** Trusted Git executable (resolved by the CLI/worker, never from repository data). */
@@ -17,6 +38,12 @@ export interface SafeGitOptions {
   network: NetworkPolicy;
   /** Parent directory for ATLAS-owned scratch (defaults to the OS temp dir). */
   scratchRoot?: string;
+  /**
+   * Reuse this exact ATLAS scratch directory (a later acquisition stage deepening the same
+   * bare repository). Configuration, HEAD and hook directories are regenerated, so nothing
+   * written by an earlier process is trusted.
+   */
+  scratchDir?: string;
   defaultTimeoutMs?: number;
 }
 
@@ -49,9 +76,15 @@ function hardeningConfig(emptyDir: string, emptyFile: string, network: NetworkPo
     ['submodule.recurse', 'false'],
     ['transfer.fsckObjects', 'true'],
     ['http.followRedirects', 'false'],
+    // Keep fetched packs packed, so bytes on disk track transferred bytes closely.
+    ['fetch.unpackLimit', '1'],
+    ['transfer.unpackLimit', '1'],
     ['protocol.allow', 'never'],
   ];
-  if (network.kind === 'https-github') pairs.push(['protocol.https.allow', 'always']);
+  if (network.kind === 'https-github') {
+    pairs.push(['protocol.https.allow', 'always'], ['http.proxy', network.proxy ?? ''], ['http.sslVerify', 'true']);
+  }
+  if (network.kind === 'local-fixture') pairs.push(['protocol.file.allow', 'always']);
   return pairs.flatMap(([k, v]) => ['-c', `${k}=${v}`]);
 }
 
@@ -76,6 +109,7 @@ function generatedConfig(format: ObjectFormat, network: NetworkPolicy, emptyDir:
     lines.push('[remote "origin"]', `\turl = ${network.remoteUrl}`);
     if (network.promisor) lines.push('\tpromisor = true', '\tpartialclonefilter = blob:none');
   }
+  if (network.kind === 'local-fixture') lines.push('[remote "origin"]', `\turl = "${network.remotePath.replaceAll('\\', '/')}"`);
   return `${lines.join('\n')}\n`;
 }
 
@@ -102,7 +136,15 @@ export class SafeGit {
   ) {}
 
   static async create(options: SafeGitOptions): Promise<SafeGit> {
-    const scratch = await mkdtemp(path.join(options.scratchRoot ?? tmpdir(), 'atlas-git-'));
+    checkedNetwork(options.network);
+    const scratch = options.scratchDir ?? (await mkdtemp(path.join(options.scratchRoot ?? tmpdir(), 'atlas-git-')));
+    if (options.scratchDir) {
+      await mkdir(scratch, { recursive: true });
+      // Regenerate everything but the object store and shallow list on reuse.
+      for (const stale of ['empty', 'empty-config', 'global-config', 'home', 'tmp', 'meta.git/hooks', 'meta.git/info', 'meta.git/config', 'meta.git/objects/info/alternates', 'meta.git/objects/info/http-alternates']) {
+        await rm(path.join(scratch, ...stale.split('/')), { recursive: true, force: true });
+      }
+    }
     const gitDir = path.join(scratch, 'meta.git');
     const emptyDir = path.join(scratch, 'empty');
     const emptyFile = path.join(scratch, 'empty-config');
@@ -117,6 +159,14 @@ export class SafeGit {
       mkdir(tmp, { recursive: true }),
     ]);
     await writeFile(emptyFile, '');
+    // A trusted fixture remote may be owned by another user (a read-only container mount).
+    // Git strips command-line config from a local upload-pack, so this one exception lives
+    // in a generated global file naming exactly that path; nothing else is ever in it.
+    const globalConfig = path.join(scratch, 'global-config');
+    if (options.network.kind === 'local-fixture') {
+      const remote = options.network.remotePath.replaceAll('\\', '/');
+      await writeFile(globalConfig, `[safe]\n\tdirectory = ${remote}\n\tdirectory = ${remote}/.git\n`);
+    }
     await writeFile(path.join(gitDir, 'HEAD'), 'ref: refs/heads/atlas\n');
     await writeFile(path.join(gitDir, 'config'), generatedConfig(options.objectFormat, options.network, emptyDir));
 
@@ -124,14 +174,14 @@ export class SafeGit {
       GIT_DIR: gitDir,
       GIT_CONFIG_NOSYSTEM: '1',
       GIT_CONFIG_SYSTEM: emptyFile,
-      GIT_CONFIG_GLOBAL: emptyFile,
+      GIT_CONFIG_GLOBAL: options.network.kind === 'local-fixture' ? globalConfig : emptyFile,
       GIT_ATTR_NOSYSTEM: '1',
       GIT_NO_REPLACE_OBJECTS: '1',
       GIT_TERMINAL_PROMPT: '0',
       GIT_OPTIONAL_LOCKS: '0',
       GIT_ADVICE: '0',
       GIT_PROTOCOL_FROM_USER: '0',
-      GIT_ALLOW_PROTOCOL: options.network.kind === 'offline' ? '' : 'https',
+      GIT_ALLOW_PROTOCOL: options.network.kind === 'offline' ? '' : options.network.kind === 'local-fixture' ? 'file' : 'https',
       GIT_NO_LAZY_FETCH: '1',
       HOME: home,
       XDG_CONFIG_HOME: home,

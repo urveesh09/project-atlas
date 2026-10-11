@@ -9,3 +9,7 @@ playwright-report/
 # Generated fixture repositories and analysis output live outside the source tree.
 .atlas-tmp/
 atlas-output/
+
+# Development deployment secrets (deploy/dev-secrets.mjs)
+deploy/secrets/
+deploy/.env

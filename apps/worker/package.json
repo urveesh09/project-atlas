@@ -17,12 +17,17 @@
   "dependencies": {
     "@atlas/analyzer-core": "workspace:*",
     "@atlas/artifact": "workspace:*",
+    "@atlas/control": "workspace:*",
     "@atlas/ingest": "workspace:*",
     "@atlas/schema": "workspace:*",
-    "pg": "8.23.1"
+    "pg": "8.23.1",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@atlas/api": "workspace:*",
-    "@types/pg": "8.23.1"
+    "@atlas/test-fixtures": "workspace:*",
+    "@axe-core/playwright": "4.13.0",
+    "@types/pg": "8.23.1",
+    "playwright": "1.64.0"
   }
 }

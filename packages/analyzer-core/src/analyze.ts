@@ -80,6 +80,12 @@ export interface AnalyzeCommitInput {
    * the selected commit alone exceeding them fails with `ARTIFACT_SIZE`.
    */
   transport?: Compressor;
+  /**
+   * History was requested but its objects were deliberately not acquired (the hosted
+   * HEAD checkpoint, plan §8.3). The result records history as unavailable at a resource
+   * boundary with this code, never as disabled and never as a shallow repository.
+   */
+  historyUnavailable?: { code: 'HISTORY_NOT_ACQUIRED' };
 }
 
 export interface AnalysisResult {
@@ -167,7 +173,9 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
   // 1. History plan: commits, diffs and lineage (no blob expansion beyond Git's diff).
   let plan: HistoryPlan | null = null;
   let historyFailure: { boundary: HistoryCoverage['boundary']; code: string } | null = null;
-  if (options.history.enabled) {
+  if (options.history.enabled && input.historyUnavailable) {
+    historyFailure = { boundary: 'resource-cap', code: input.historyUnavailable.code };
+  } else if (options.history.enabled) {
     progress({ stage: 'history' });
     const planDeadline = AbortSignal.timeout(Math.max(1, Math.ceil(Math.min(remaining() / 3, 120_000))));
     try {

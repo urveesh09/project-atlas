@@ -22,7 +22,9 @@ export const ERROR_CODES = [
   'UNSUPPORTED_SCHEMA',
   'ARTIFACT_INVALID',
   'JOB_CANCELLED',
+  'ARTIFACT_NOT_FOUND',
   'ARTIFACT_EXPIRED',
+  'ARTIFACT_DELETED',
   'ARTIFACT_REVOKED',
   'FORBIDDEN',
   'VALIDATION_FAILED',
@@ -93,6 +95,8 @@ export const JobStatusSchema = z.strictObject({
   warnings: z.array(z.strictObject({ code: z.string().max(64), count: CountSchema })).max(64),
   analysisId: AnalysisIdSchema.nullable(),
   error: ErrorEnvelopeSchema.shape.error.nullable(),
+  /** Submission time: elapsed time is shown from here, including time in the queue. */
+  createdAt: IsoUtcSchema,
   updatedAt: IsoUtcSchema,
 });
 
@@ -115,6 +119,8 @@ export const CapabilitiesSchema = z.strictObject({
   ),
   limits: z.record(z.string(), z.number()),
   repositorySources: z.array(z.enum(['public-github'])),
+  /** An operator-maintained publication of the authored demo, when one is live. */
+  demoAnalysisId: AnalysisIdSchema.nullable(),
 });
 
 export type ErrorEnvelope = z.infer<typeof ErrorEnvelopeSchema>;

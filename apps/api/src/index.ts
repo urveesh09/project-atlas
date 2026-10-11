@@ -3,3 +3,4 @@ export * from './security.js';
 export * from './store.js';
 export * from './migrate.js';
 export * from './server.js';
+export * from './main.js';

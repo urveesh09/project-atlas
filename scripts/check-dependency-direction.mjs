@@ -24,8 +24,10 @@ const ALLOWED = {
   '@atlas/test-fixtures': ['@atlas/schema'],
   // The viewer consumes artifacts, schema, graph queries and layout output only.
   '@atlas/web': ['@atlas/schema', '@atlas/artifact', '@atlas/graph', '@atlas/layout'],
-  '@atlas/api': ['@atlas/schema', '@atlas/ingest', '@atlas/artifact'],
-  '@atlas/worker': ['@atlas/schema', '@atlas/ingest', '@atlas/analyzer-core', '@atlas/artifact'],
+  // Hosted control plane shared by the API and workers; it never analyzes source.
+  '@atlas/control': ['@atlas/schema', '@atlas/ingest', '@atlas/artifact'],
+  '@atlas/api': ['@atlas/schema', '@atlas/ingest', '@atlas/artifact', '@atlas/control'],
+  '@atlas/worker': ['@atlas/schema', '@atlas/ingest', '@atlas/analyzer-core', '@atlas/artifact', '@atlas/control'],
 };
 const DEV_ALLOWED = ['@atlas/test-fixtures'];
 // Worker integration fixtures use the API's real migration/admission against Postgres;

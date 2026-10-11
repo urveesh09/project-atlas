@@ -1,14 +1,19 @@
+import { readFile, realpath, stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { type AddressInfo } from 'node:net';
+import { isIP, type AddressInfo } from 'node:net';
+import nodePath from 'node:path';
+import { migrationsCurrent, operatorMetrics, type ObjectStore, type PublicationStore } from '@atlas/control';
 import { parseGithubRepositoryUrl } from '@atlas/ingest';
 import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, API_REQUEST_BODY_LIMIT, ARTIFACT_VERSION, CapabilitiesSchema, ErrorEnvelopeSchema, GRAPH_SCHEMA_VERSION, IdempotencyKeySchema, JobIdSchema, LAYOUT_VERSION, LIMITS, METRIC_DEFINITION_VERSION, RELEASE_PROFILE, SessionStatusSchema } from '@atlas/schema';
+import type { Pool } from 'pg';
 import { AdmissionStore, type Credentials } from './store.js';
 import { clientBucket, opaqueId, ServiceError, terminal } from './security.js';
 
-const capabilities = CapabilitiesSchema.parse({ service: 'atlas', apiVersion: 'v1',
+const serviceCapabilities = (demoAnalysisId: string | null) => CapabilitiesSchema.parse({ service: 'atlas', apiVersion: 'v1',
   schemaVersions: { artifact: ARTIFACT_VERSION, graph: GRAPH_SCHEMA_VERSION, layout: LAYOUT_VERSION, metrics: METRIC_DEFINITION_VERSION },
   profiles: [RELEASE_PROFILE], repositorySources: ['public-github'], limits: LIMITS,
   languages: [{ id: 'typescript-javascript', extensions: ['.ts','.tsx','.mts','.cts','.js','.jsx','.mjs','.cjs'], capabilities: ['syntax','imports','declarations','complexity'] }],
+  demoAnalysisId,
 });
 function json(res: ServerResponse, status: number, value: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
@@ -30,10 +35,75 @@ function cookie(req: IncomingMessage, name: string): string | null {
   const matches = (req.headers.cookie ?? '').split(';').map((s) => s.trim()).filter((s) => s.startsWith(`${name}=`));
   return matches.length === 1 ? matches[0]!.slice(name.length + 1) : null;
 }
-/** Preview control plane only. No repository executes here; publication routes stay closed until P5.4. */
-export async function startApi(options: {
-  store: AdmissionStore; quotaSecret: string; origin?: string; port?: number; developmentLoopback?: boolean;
-}) {
+
+/**
+ * Client identity for quotas (P5.6). Only a configured reverse proxy's own address may
+ * supply a forwarded client address, and only its last hop (the address the proxy itself
+ * saw) is used: anything a client prepends is ignored. Without a trusted proxy the socket
+ * address is the identity.
+ */
+export interface TrustedProxy { addresses: readonly string[] }
+export function clientAddress(req: IncomingMessage, proxy?: TrustedProxy): string {
+  const peer = req.socket.remoteAddress ?? 'unknown';
+  if (!proxy || !proxy.addresses.includes(peer)) return peer;
+  const header = req.headers['x-forwarded-for'];
+  const hops = (Array.isArray(header) ? header.join(',') : header ?? '').split(',').map((h) => h.trim()).filter(Boolean);
+  const last = hops.at(-1);
+  return last && isIP(last) ? last : peer;
+}
+
+const STATIC_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.json': 'application/json',
+};
+/** The viewer's CSP: same-origin scripts, workers and connections only (plan §8.6). */
+const VIEWER_CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+/** Client routes that render the single-page viewer (no server-side state in the path). */
+const VIEWER_ROUTES = /^\/(?:|a\/analysis_[0-9a-f]{64}|jobs\/job_[0-9a-f]{32})$/;
+
+async function serveStatic(res: ServerResponse, root: string, pathname: string): Promise<boolean> {
+  const relative = VIEWER_ROUTES.test(pathname) ? 'index.html' : pathname.startsWith('/assets/') ? pathname.slice(1) : null;
+  if (!relative || relative.split('/').some((s) => s === '..' || s === '' || s.startsWith('.'))) return false;
+  const full = nodePath.resolve(root, ...relative.split('/'));
+  if (!full.startsWith(root + nodePath.sep)) return false;
+  const info = await stat(full).catch(() => null);
+  if (!info?.isFile() || (await realpath(full)) !== full) return false;
+  const bytes = await readFile(full);
+  res.writeHead(200, {
+    'Content-Type': STATIC_TYPES[nodePath.extname(full)] ?? 'application/octet-stream',
+    'Content-Length': bytes.length,
+    'Content-Security-Policy': VIEWER_CSP,
+    'X-Content-Type-Options': 'nosniff',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'X-Frame-Options': 'DENY',
+    // Hashed asset names are immutable; the HTML shell is never cached.
+    'Cache-Control': relative === 'index.html' ? 'no-store' : 'public, max-age=31536000, immutable',
+  });
+  res.end(bytes);
+  return true;
+}
+
+export interface ApiOptions {
+  store: AdmissionStore;
+  quotaSecret: string;
+  origin?: string;
+  port?: number;
+  /** Listen address; loopback unless a deployment puts the API behind its proxy network. */
+  host?: string;
+  developmentLoopback?: boolean;
+  /** Publication lifecycle; without it public artifact routes fail closed (503). */
+  publications?: PublicationStore;
+  /** Object storage readiness, reported by /health/ready. */
+  storage?: ObjectStore;
+  /** Built viewer directory (index.html, assets/) served same-origin. */
+  webRoot?: string;
+  trustedProxy?: TrustedProxy;
+  /** Publication of the authored demo shown on the landing page (operator-maintained). */
+  demoAnalysisId?: string;
+}
+
+/** Hosted HTTP surface (plan §13). No repository executes here; analysis runs only in worker sandboxes. */
+export async function startApi(options: ApiOptions) {
   if (Buffer.byteLength(options.quotaSecret) < 32) throw new Error('Quota secret must contain at least 32 bytes');
   if (!options.origin && !options.developmentLoopback) throw new Error('An HTTPS public origin is required');
   let origin = options.origin ?? '';
@@ -41,6 +111,8 @@ export async function startApi(options: {
     const parsed = new URL(origin);
     if (parsed.origin !== origin || parsed.protocol !== 'https:') throw new Error('Public origin must be an HTTPS origin without a path');
   }
+  const webRoot = options.webRoot ? await realpath(options.webRoot) : null;
+  const capabilities = serviceCapabilities(options.demoAnalysisId ?? null);
   const cookieName = options.developmentLoopback ? 'atlas_session' : '__Host-atlas-session';
   const streams = new Set<ServerResponse>();
   const streamsPerJob = new Map<string, number>();
@@ -62,17 +134,41 @@ export async function startApi(options: {
       if (declaredBytes > API_REQUEST_BODY_LIMIT) throw new ServiceError('VALIDATION_FAILED', 413, 'Request body exceeds the limit.');
       if (!(req.method === 'POST' && path === '/api/v1/analyses') && (declaredBytes > 0 || req.headers['transfer-encoding']))
         throw new ServiceError('VALIDATION_FAILED', 400, 'This route accepts no request body.');
+      if (req.method === 'GET' && webRoot && !path.startsWith('/api/') && (await serveStatic(res, webRoot, path))) return;
+      // The shared viewer probes this path to detect `atlas serve`; answering it here keeps
+      // that bootstrap quiet and tells the viewer it is on the hosted service instead.
+      if (req.method === 'GET' && path === '/api/session') return json(res, 200, { mode: 'hosted' });
       if (req.method === 'GET' && path === '/api/v1/health/live') return json(res, 200, { live: true });
       if (req.method === 'GET' && path === '/api/v1/health/ready') {
-        const migration = await options.store.pool.query('SELECT version FROM atlas_migrations WHERE version=1');
-        return json(res, closing || !migration.rowCount ? 503 : 200, { ready: !closing && migration.rowCount === 1 });
+        // Readiness covers admission (database + exact migrations) and, when configured,
+        // private storage. GitHub availability never fails liveness or readiness.
+        const ready = !closing && (await migrationsCurrent(options.store.pool).catch(() => false)) && (!options.storage || (await options.storage.ready().catch(() => false)));
+        return json(res, ready ? 200 : 503, { ready });
       }
       if (req.method === 'GET' && path === '/api/v1/capabilities') return json(res, 200, capabilities);
-      const bucket = clientBucket(req.socket.remoteAddress ?? 'unknown', options.quotaSecret, new Date());
+
+      const analysis = /^\/api\/v1\/analyses\/(analysis_[0-9a-f]{64})(?:\/chunks\/([a-z0-9_]{1,80}))?$/.exec(path);
+      if (analysis && req.method === 'GET') {
+        if (!options.publications) throw new ServiceError('UPSTREAM_UNAVAILABLE', 503, 'Public publication is not enabled on this service.');
+        if (!analysis[2]) return json(res, 200, await options.publications.manifest(analysis[1]!));
+        const bytes = await options.publications.chunk(analysis[1]!, analysis[2]);
+        res.writeHead(200, { 'Content-Type': 'application/gzip', 'Content-Length': bytes.length, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Cross-Origin-Resource-Policy': 'same-origin' });
+        res.end(bytes);
+        return;
+      }
+
+      const bucket = clientBucket(clientAddress(req, options.trustedProxy), options.quotaSecret, new Date());
       const sessionHash = await options.store.session(cookie(req, cookieName));
       const authorization = req.headers.authorization;
       if (authorization && !/^Bearer [A-Za-z0-9_-]{43}$/.test(authorization)) throw new ServiceError('FORBIDDEN', 403, 'Invalid management authorization.');
       const credentials: Credentials = { sessionHash, bearer: authorization?.slice(7) ?? null };
+      if (analysis && req.method === 'DELETE' && !analysis[2]) {
+        if (!options.publications) throw new ServiceError('UPSTREAM_UNAVAILABLE', 503, 'Public publication is not enabled on this service.');
+        await options.publications.remove(analysis[1]!, (jobId) => options.store.authorize(jobId, credentials));
+        res.writeHead(204, { 'Cache-Control': 'no-store' });
+        res.end();
+        return;
+      }
       if (req.method === 'POST' && path === '/api/v1/session') {
         if (sessionHash) return json(res, 200, SessionStatusSchema.parse({ session: 'active' }));
         const token = await options.store.createSession(bucket);
@@ -90,7 +186,8 @@ export async function startApi(options: {
         catch { throw new ServiceError('INVALID_REPOSITORY_URL', 400, 'Use a public GitHub repository root URL.'); }
         const input = { ...parsed.data, repositoryUrl: `https://github.com/${ref.owner.toLowerCase()}/${ref.name.toLowerCase()}` };
         const result = await options.store.admit(input, sessionHash, bucket, key.data);
-        return json(res, 202, AnalysisAcceptedSchema.parse(result.accepted));
+        // A replay of a job that already published returns its result directly (plan §13.1).
+        return json(res, result.repeated && result.accepted.analysisId ? 200 : 202, AnalysisAcceptedSchema.parse(result.accepted));
       }
       const match = /^\/api\/v1\/jobs\/([^/]+)(?:\/(events|cancel))?$/.exec(path);
       if (match) {
@@ -138,18 +235,38 @@ export async function startApi(options: {
           await send(); return;
         }
       }
-      if (path.startsWith('/api/v1/analyses/')) throw new ServiceError('UPSTREAM_UNAVAILABLE', 503, 'Public publication is not enabled in this preview.');
       throw new ServiceError('VALIDATION_FAILED', 404, 'Route not found.');
     } catch (error) {
       if (res.headersSent) { res.end(); return; }
       const failure = error instanceof ServiceError ? error : new ServiceError('INTERNAL_ERROR', 503, 'The service is temporarily unavailable.');
       if (failure.retryAfter) res.setHeader('Retry-After', failure.retryAfter);
-      json(res, failure.status, ErrorEnvelopeSchema.parse({ error: { code: failure.code, message: failure.message, retryable: failure.status >= 500 || failure.status === 429, details: {}, requestId } }));
+      json(res, failure.status, ErrorEnvelopeSchema.parse({ error: { code: failure.code, message: failure.message, retryable: failure.status >= 500 || failure.status === 429, details: { ...failure.details }, requestId } }));
     }
   };
   const server = createServer({ maxHeaderSize: 8192, requestTimeout: 10_000, headersTimeout: 10_000, keepAliveTimeout: 5000 }, (req, res) => { void handler(req, res); });
   server.maxConnections = 256;
-  await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(options.port ?? 0, '127.0.0.1', resolve); });
+  await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(options.port ?? 0, options.host ?? '127.0.0.1', resolve); });
   if (!origin) origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   return { origin, server, close: async () => { closing = true; for (const stream of streams) stream.end(); server.closeIdleConnections(); await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); } };
+}
+
+/**
+ * Operator endpoint (plan §15.4) on its own loopback listener: aggregate metrics and
+ * readiness for dashboards and runbooks. It is never exposed through the public origin.
+ */
+export async function startOperatorServer(options: { pool: Pool; port?: number; host?: string }) {
+  const server = createServer((req, res) => {
+    void (async () => {
+      try {
+        if (req.method !== 'GET') return json(res, 405, { error: 'method' });
+        if (req.url === '/metrics') return json(res, 200, await operatorMetrics(options.pool));
+        if (req.url === '/ready') return json(res, 200, { migrations: await migrationsCurrent(options.pool) });
+        return json(res, 404, { error: 'not found' });
+      } catch {
+        return json(res, 503, { error: 'unavailable' });
+      }
+    })();
+  });
+  await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(options.port ?? 0, options.host ?? '127.0.0.1', resolve); });
+  return { port: (server.address() as AddressInfo).port, close: () => new Promise<void>((resolve) => server.close(() => resolve())) };
 }

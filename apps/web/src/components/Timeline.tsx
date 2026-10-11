@@ -59,8 +59,8 @@ export function Timeline() {
         </h2>
         <p className="timeline-summary">
           {coverage.boundary === 'none' && coverage.requestedCommitCap === 0
-            ? 'Not analyzed for this artifact (--no-history). Churn and hotspot scores are absent, never zero.'
-            : 'Unavailable for this artifact. Churn and hotspot scores are absent, never zero.'}
+            ? 'Not requested for this analysis (history disabled). Churn and hotspot scores are absent, never zero.'
+            : `Requested but unavailable: ${BOUNDARY[coverage.boundary] ?? 'not analyzed'}. Only the selected commit is shown; churn and hotspot scores are absent, never zero.`}
         </p>
       </section>
     );

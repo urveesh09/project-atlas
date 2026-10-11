@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LoadResult } from '@atlas/artifact';
-import { ARTIFACT_VERSION } from '@atlas/schema';
+import { ARTIFACT_VERSION, type Capabilities } from '@atlas/schema';
 import { Explorer } from '../components/Explorer';
-import { detectLocalSession, filesFromInput, loadInWorker, type SourceStatus } from '../data/load';
+import { PublicationUnavailableError, detectLocalSession, filesFromInput, loadInWorker, type SourceStatus } from '../data/load';
+import { detectHostedService } from '../hosted/api';
+import { HostedLanding } from '../hosted/HostedLanding';
+import { JobPage } from '../hosted/JobPage';
+import { Unavailable } from '../hosted/Unavailable';
+import { onNavigate, parseRoute } from '../hosted/route';
 import { ViewerProvider } from './context';
 import { ViewerDataset, ViewerModel } from './model';
 import { parseFragment } from './state';
@@ -17,12 +22,16 @@ type Phase =
         | Extract<LoadResult, { ok: false }>
         | { code: 'LOAD_FAILED'; issues: { code: string; path: string; message: string }[] };
     }
-  | { kind: 'ready'; head: ViewerModel; source: SourceStatus | null };
+  | { kind: 'ready'; head: ViewerModel; source: SourceStatus | null; hosted: { analysisId: string } | null }
+  | { kind: 'hosted-landing'; capabilities: Capabilities }
+  | { kind: 'job'; jobId: string }
+  | { kind: 'unavailable'; code: string };
 
 /**
- * Loads one artifact — from `atlas serve` or from files the user picks — through the
- * validating worker, then hands an immutable model to the explorer. Picked files are
- * read locally and never uploaded (plan §14.3).
+ * Loads one artifact — from `atlas serve`, from a hosted publication, or from files the
+ * user picks — through the same validating worker, then hands an immutable model to the
+ * explorer. Picked files are read locally and never uploaded (plan §14.3). On a hosted
+ * service it also routes the landing page, job progress and lifecycle screens (§3.1).
  */
 export function App() {
   const [phase, setPhase] = useState<Phase>({ kind: 'starting' });
@@ -36,7 +45,7 @@ export function App() {
   };
 
   const run = useCallback(
-    async (label: string, request: Parameters<typeof loadInWorker>[0], source: SourceStatus | null) => {
+    async (label: string, request: Parameters<typeof loadInWorker>[0], source: SourceStatus | null, hosted: { analysisId: string } | null = null) => {
       activeLoad.current?.abort();
       const controller = new AbortController();
       activeLoad.current = controller;
@@ -62,13 +71,18 @@ export function App() {
         if (result.ok) {
           const next = new ViewerDataset(result.core, result.head, result.queryWorker);
           replaceDataset(next);
-          setPhase({ kind: 'ready', head: new ViewerModel(next, next.headIndex, result.head, result.prepared, result.city), source });
+          setPhase({ kind: 'ready', head: new ViewerModel(next, next.headIndex, result.head, result.prepared, result.city), source, hosted });
         } else {
           replaceDataset(null);
           setPhase({ kind: 'failed', result });
         }
       } catch (error) {
         if (controller.signal.aborted) return;
+        if (error instanceof PublicationUnavailableError) {
+          replaceDataset(null);
+          setPhase({ kind: 'unavailable', code: error.code });
+          return;
+        }
         setPhase({
           kind: 'failed',
           result: {
@@ -83,13 +97,34 @@ export function App() {
 
   useEffect(() => {
     let disposed = false;
-    void detectLocalSession().then((session) => {
+    const route = async () => {
+      const current = parseRoute(location.pathname);
+      if (current.kind === 'job') {
+        activeLoad.current?.abort();
+        replaceDataset(null);
+        setPhase({ kind: 'job', jobId: current.jobId });
+        return;
+      }
+      if (current.kind === 'analysis') {
+        void run('Loading the published analysis', { kind: 'hosted', analysisId: current.analysisId }, null, { analysisId: current.analysisId });
+        return;
+      }
+      activeLoad.current?.abort();
+      replaceDataset(null);
+      const session = await detectLocalSession();
       if (disposed) return;
-      if (session) void run('Loading the served artifact', { kind: 'server', base: '/artifact/' }, session.source);
+      if (session) return void run('Loading the served artifact', { kind: 'server', base: '/artifact/' }, session.source);
+      const capabilities = await detectHostedService();
+      if (disposed) return;
+      if (capabilities && current.kind === 'home') setPhase({ kind: 'hosted-landing', capabilities });
+      else if (capabilities) setPhase({ kind: 'unavailable', code: 'ARTIFACT_NOT_FOUND' });
       else setPhase({ kind: 'landing' });
-    });
+    };
+    void route();
+    const stop = onNavigate(() => void route());
     return () => {
       disposed = true;
+      stop();
       activeLoad.current?.abort();
       replaceDataset(null);
     };
@@ -119,11 +154,21 @@ export function App() {
       <>
         {picker}
         <ViewerProvider key={phase.head.manifest.analysisId} head={phase.head} source={phase.source}>
-          <Explorer onOpenOther={openPicker} />
+          <Explorer onOpenOther={openPicker} hosted={phase.hosted ? { analysisId: phase.hosted.analysisId, expiresAt: phase.head.manifest.expiresAt } : null} />
         </ViewerProvider>
       </>
     );
   }
+  if (phase.kind === 'hosted-landing') {
+    return (
+      <>
+        {picker}
+        <HostedLanding capabilities={phase.capabilities} onOpenFolder={openPicker} />
+      </>
+    );
+  }
+  if (phase.kind === 'job') return <JobPage key={phase.jobId} jobId={phase.jobId} />;
+  if (phase.kind === 'unavailable') return <Unavailable code={phase.code} />;
   return (
     <main className="gate">
       {picker}

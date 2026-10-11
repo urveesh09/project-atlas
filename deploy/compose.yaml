@@ -1,0 +1,88 @@
+# ATLAS hosted development / rehearsal environment (P5.6).
+#
+#   docker build -f deploy/api.Dockerfile -t atlas-api:dev .
+#   docker build -f deploy/sandbox.Dockerfile -t atlas-sandbox:dev .
+#   node deploy/dev-secrets.mjs            # writes deploy/secrets/* and deploy/.env (gitignored)
+#   docker compose -f deploy/compose.yaml --env-file deploy/.env up -d
+#
+# PostgreSQL and the S3-compatible store are private to the compose network; only the
+# API is published, on loopback. The worker coordinator runs on the host next to the
+# Docker engine (it creates sandbox containers and bind-mounts its job directories), see
+# docs/hosted-operations.md. Never expose this development profile publicly: it uses a
+# loopback HTTP origin and development credentials.
+name: atlas-dev
+
+services:
+  postgres:
+    image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    environment:
+      POSTGRES_DB: atlas
+      POSTGRES_USER: atlas_owner
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: ["postgres:/var/lib/postgresql/data"]
+    ports: ["127.0.0.1:55433:5432"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "atlas_owner", "-d", "atlas"]
+      interval: 5s
+      retries: 12
+
+  storage:
+    image: versity/versitygw@sha256:605de57c0cdc297fc5bc905ece592965d542d8df70d6eedf755734c80f2eb797
+    command: ["--quiet", "posix", "/data"]
+    environment:
+      ROOT_ACCESS_KEY: atlas
+      # The gateway reads its secret from the environment only; keep it in the env file.
+      ROOT_SECRET_KEY: ${ATLAS_STORAGE_SECRET:?set ATLAS_STORAGE_SECRET in deploy/.env}
+    volumes: ["storage:/data"]
+    ports: ["127.0.0.1:7071:7070"]
+
+  migrate:
+    image: atlas-api:dev
+    command: ["migrate"]
+    environment:
+      ATLAS_DATABASE_URL_FILE: /run/secrets/migration_url
+      ATLAS_API_ROLE_PASSWORD_FILE: /run/secrets/api_role_password
+      ATLAS_WORKER_ROLE_PASSWORD_FILE: /run/secrets/worker_role_password
+    secrets: [migration_url, api_role_password, worker_role_password]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    image: atlas-api:dev
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      storage: { condition: service_started }
+    environment:
+      ATLAS_DEVELOPMENT: "1"
+      ATLAS_DATABASE_URL_FILE: /run/secrets/api_database_url
+      ATLAS_QUOTA_SECRET_FILE: /run/secrets/quota_secret
+      ATLAS_STORAGE: s3
+      ATLAS_S3_ENDPOINT: http://storage:7070
+      ATLAS_S3_BUCKET: atlas-artifacts
+      ATLAS_S3_ACCESS_KEY_ID: atlas
+      ATLAS_S3_SECRET_ACCESS_KEY_FILE: /run/secrets/storage_secret
+      ATLAS_ACQUISITION: ${ATLAS_ACQUISITION:-github}
+      ATLAS_OPERATOR_PORT: "9090"
+      # The development origin is http://127.0.0.1:<port>: container and host ports must match.
+      ATLAS_PORT: ${ATLAS_HTTP_PORT:-8080}
+    secrets: [api_database_url, quota_secret, storage_secret]
+    ports: ["127.0.0.1:${ATLAS_HTTP_PORT:-8080}:${ATLAS_HTTP_PORT:-8080}"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  postgres: {}
+  storage: {}
+
+secrets:
+  postgres_password: { file: ./secrets/postgres_password }
+  migration_url: { file: ./secrets/migration_url }
+  api_database_url: { file: ./secrets/api_database_url }
+  quota_secret: { file: ./secrets/quota_secret }
+  storage_secret: { file: ./secrets/storage_secret }
+  api_role_password: { file: ./secrets/api_role_password }
+  worker_role_password: { file: ./secrets/worker_role_password }

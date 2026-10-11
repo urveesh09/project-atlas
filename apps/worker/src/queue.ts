@@ -2,7 +2,12 @@ import { randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { JobStatusSchema, type AnalysisSubmission, type JobStatus } from '@atlas/schema';
 
-export interface Lease { jobId: string; owner: string; generation: number; attempt: number; deadline: Date; input: AnalysisSubmission }
+export interface Lease {
+  jobId: string; owner: string; generation: number; attempt: number; deadline: Date; input: AnalysisSubmission;
+  /** Milliseconds left before the deadline by database time at claim; local timers derive from it. */
+  remainingMs: number;
+}
+export type TerminalOutcome = { state: 'READY' | 'PARTIAL'; counts: JobStatus['counts']; warnings: JobStatus['warnings']; metrics: Record<string, unknown> };
 const stages = ['ACQUIRING', 'ANALYZING', 'HISTORY', 'LAYOUT', 'VALIDATING'] as const;
 export class LeaseLostError extends Error { constructor() { super('Job lease is no longer current'); } }
 /** Leases use DB time and a fencing generation, never process-local timer authority. */
@@ -12,7 +17,7 @@ export class JobQueue {
   }
   async claim(): Promise<Lease | null> {
     const row = (await this.pool.query<{
-      id: string; generation: number; attempt: number; deadline: Date; input: AnalysisSubmission;
+      id: string; generation: number; attempt: number; deadline: Date; input: AnalysisSubmission; remaining_ms: number;
     }>(`WITH next AS (
       SELECT id FROM jobs WHERE state='QUEUED' AND (deadline IS NULL OR deadline>clock_timestamp())
       ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1
@@ -24,8 +29,8 @@ export class JobQueue {
       FROM next WHERE jobs.id=next.id RETURNING jobs.*
     ), event AS (
       INSERT INTO job_events SELECT id,revision,'state',jsonb_build_object('jobId',id,'revision',revision,'state',state) FROM claimed
-    ) SELECT id,generation,attempt,deadline,input FROM claimed`, [this.owner])).rows[0];
-    return row ? { jobId: row.id, owner: this.owner, generation: row.generation, attempt: row.attempt, deadline: row.deadline, input: row.input } : null;
+    ) SELECT id,generation,attempt,deadline,input,(extract(epoch FROM deadline-clock_timestamp())*1000)::float8 AS remaining_ms FROM claimed`, [this.owner])).rows[0];
+    return row ? { jobId: row.id, owner: this.owner, generation: row.generation, attempt: row.attempt, deadline: row.deadline, input: row.input, remainingMs: Math.max(0, row.remaining_ms) } : null;
   }
   async heartbeat(lease: Lease): Promise<boolean> {
     const result = await this.pool.query(`UPDATE jobs SET lease_expires_at=clock_timestamp()+interval '30 seconds'
@@ -53,7 +58,7 @@ export class JobQueue {
         // Explicit terminal methods clear and fence ownership inside this same
         // transaction; their authority was checked before making that transition.
         const fenced = await client.query(`SELECT id FROM jobs WHERE id=$1 AND lease_owner IS NULL
-          AND generation=$2 AND state IN ('FAILED'${allowCancel ? ",'CANCELLED'" : ''})
+          AND generation=$2 AND state IN ('FAILED','READY','PARTIAL'${allowCancel ? ",'CANCELLED'" : ''})
           AND deadline>clock_timestamp() AND clock_timestamp()<$3`, [lease.jobId, lease.generation + 1, row.lease_expires_at]);
         if (!fenced.rowCount) throw new LeaseLostError();
       }
@@ -77,6 +82,58 @@ export class JobQueue {
       await recordEvent(client, lease.jobId, 'progress');
     });
   }
+  /**
+   * The lease's current authority without extending it: `live` while this generation still
+   * owns an unexpired lease in an active state. Coordinators poll this to stop work
+   * promptly on cancellation instead of waiting for the next heartbeat.
+   */
+  async leaseState(lease: Lease): Promise<{ state: string | null; live: boolean }> {
+    const row = (await this.pool.query<{ state: string; live: boolean }>(`SELECT state,
+        (lease_owner=$2 AND generation=$3 AND lease_expires_at>clock_timestamp() AND deadline>clock_timestamp()) AS live
+      FROM jobs WHERE id=$1`, [lease.jobId, lease.owner, lease.generation])).rows[0];
+    return { state: row?.state ?? null, live: row?.live === true };
+  }
+  /** Record the resolved immutable identity (repository numeric ID, commit) under the lease. */
+  async recordRepository(lease: Lease, repo: { numericId: string; owner: string; name: string; commitOid: string }): Promise<void> {
+    await this.withLease(lease, async (client) => {
+      // A repository that is public again may be analyzed anew; earlier publications keep
+      // their own revocation (plan §8.6).
+      await client.query(`INSERT INTO repositories(github_id,canonical_name,visibility,visibility_checked_at) VALUES($1,$2,'public',clock_timestamp())
+        ON CONFLICT(github_id) DO UPDATE SET canonical_name=EXCLUDED.canonical_name,visibility='public',visibility_checked_at=clock_timestamp(),revoked_at=NULL`, [repo.numericId, `${repo.owner}/${repo.name}`]);
+      await client.query('UPDATE jobs SET github_id=$2,commit_oid=$3 WHERE id=$1', [lease.jobId, repo.numericId, repo.commitOid]);
+    });
+  }
+  /** The durable HEAD checkpoint of this job, from this or an earlier attempt. */
+  async checkpoint(jobId: string): Promise<{ uploadId: string; contentKey: string } | null> {
+    const row = (await this.pool.query<{ upload_id: string; content_key: string }>(`SELECT c.upload_id,c.content_key FROM job_checkpoints c JOIN uploads u ON u.id=c.upload_id
+      WHERE c.job_id=$1 AND u.state IN ('pending','live')`, [jobId])).rows[0];
+    return row ? { uploadId: row.upload_id, contentKey: row.content_key } : null;
+  }
+  async recordCheckpoint(lease: Lease, checkpoint: { uploadId: string; contentKey: string }): Promise<void> {
+    await this.withLease(lease, async (client) => {
+      await client.query('INSERT INTO job_checkpoints(job_id,upload_id,content_key) VALUES($1,$2,$3) ON CONFLICT(job_id) DO UPDATE SET upload_id=EXCLUDED.upload_id,content_key=EXCLUDED.content_key,created_at=clock_timestamp()',
+        [lease.jobId, checkpoint.uploadId, checkpoint.contentKey]);
+    });
+  }
+  /**
+   * Publish and terminalize in one lease-fenced transaction (plan §13.3): `publish` runs
+   * under the job row lock, so cancellation and a stale or expired lease cannot interleave.
+   */
+  async complete(lease: Lease, outcome: TerminalOutcome, publish: (client: PoolClient) => Promise<string>): Promise<string> {
+    const parsed = JobStatusSchema.pick({ counts: true, warnings: true }).parse({ counts: outcome.counts, warnings: outcome.warnings });
+    return this.withLease(lease, async (client) => {
+      const analysisId = await publish(client);
+      await client.query(`UPDATE jobs SET state=$2,stage=NULL,analysis_id=$3,counts=$4,warnings=$5,metrics=$6,lease_owner=NULL,lease_expires_at=NULL,
+        generation=generation+1,revision=revision+1,updated_at=clock_timestamp() WHERE id=$1`,
+      [lease.jobId, outcome.state, analysisId, parsed.counts, JSON.stringify(parsed.warnings), outcome.metrics]);
+      await recordEvent(client, lease.jobId, 'terminal');
+      return analysisId;
+    });
+  }
+  /** Attempt measurements for operators; never user-visible and never source-derived text. */
+  async recordMetrics(lease: Lease, metrics: Record<string, unknown>): Promise<void> {
+    await this.pool.query('UPDATE jobs SET metrics=$4 WHERE id=$1 AND lease_owner=$2 AND generation=$3', [lease.jobId, lease.owner, lease.generation, metrics]);
+  }
   async cancelled(lease: Lease): Promise<void> {
     await this.withLease(lease, async (client, state) => {
       if (state !== 'CANCEL_REQUESTED') throw new Error('Cancellation was not requested');
@@ -84,10 +141,10 @@ export class JobQueue {
       await recordEvent(client, lease.jobId, 'terminal');
     }, true);
   }
-  async fail(lease: Lease, error: NonNullable<JobStatus['error']>): Promise<void> {
+  async fail(lease: Lease, error: NonNullable<JobStatus['error']>, metrics: Record<string, unknown> = {}): Promise<void> {
     JobStatusSchema.shape.error.parse(error);
     await this.withLease(lease, async (client) => {
-      await client.query("UPDATE jobs SET state='FAILED',stage=NULL,error=$2,lease_owner=NULL,lease_expires_at=NULL,generation=generation+1,revision=revision+1,updated_at=clock_timestamp() WHERE id=$1", [lease.jobId, error]);
+      await client.query("UPDATE jobs SET state='FAILED',stage=NULL,error=$2,metrics=metrics||$3::jsonb,lease_owner=NULL,lease_expires_at=NULL,generation=generation+1,revision=revision+1,updated_at=clock_timestamp() WHERE id=$1", [lease.jobId, error, metrics]);
       await recordEvent(client, lease.jobId, 'terminal');
     });
   }

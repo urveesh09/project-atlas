@@ -1,0 +1,13 @@
+# Build contexts carry sources and lockfiles only; never local state or secrets.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+.git
+.atlas-tmp
+atlas-output
+docs
+coverage
+test-results
+playwright-report
+**/.env
+**/*.pem

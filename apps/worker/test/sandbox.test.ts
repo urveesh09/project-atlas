@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { expect, it, describe } from 'vitest';
 import { runBounded } from '@atlas/ingest';
 import { analysisContainerArgs, runOfflineProbe, type SandboxRuntime } from '../src/sandbox.js';
@@ -76,8 +77,10 @@ describe.runIf(enabled)('actual Linux container isolation spike (partial P5.3)',
     expect(result.exitCode).toBe(0); expect(JSON.parse(result.stdout).failed).toBeGreaterThan(0);
   });
   it('kills the container and descendants when the coordinator deadline expires', async () => {
-    await expect(runOfflineProbe(runtime, `require('node:child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)']);setInterval(()=>{},1000);`, { deadlineMs: 700 })).rejects.toMatchObject({ code: 'TIMEOUT' });
-    const containers = await runBounded(runtime.docker, ['ps','--all','--filter','label=atlas.sandbox=analysis','--format','{{.Names}}'], { cwd: runtime.cwd, env: runtime.env, timeoutMs: 5000, maxStdoutBytes: 4096 });
+    // Labelled with this test's own job ID: other suites may run sandboxes concurrently.
+    const jobId = `job_${randomBytes(16).toString('hex')}`;
+    await expect(runOfflineProbe(runtime, `require('node:child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)']);setInterval(()=>{},1000);`, { deadlineMs: 700, jobId })).rejects.toMatchObject({ code: 'TIMEOUT' });
+    const containers = await runBounded(runtime.docker, ['ps','--all','--filter',`label=atlas.job=${jobId}`,'--format','{{.Names}}'], { cwd: runtime.cwd, env: runtime.env, timeoutMs: 5000, maxStdoutBytes: 4096 });
     expect(containers.stdout.toString('utf8').trim()).toBe('');
   });
 });

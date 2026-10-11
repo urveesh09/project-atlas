@@ -1,7 +1,11 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import {
+  ByteMeter,
   SafeGit,
   acquireGithubCommit,
+  githubVisibility,
+  pinnedFetch,
+  verifyCommitOnDefaultBranch,
   batchCheck,
   fetchBlobs,
   listTree,
@@ -135,7 +139,7 @@ describe.runIf(process.env['ATLAS_NETWORK_TESTS'] === '1')('live filtered acquis
     const offline = await SafeGit.create({ objectDirectory: acquired.objectsDir, objectFormat: 'sha1', network: { kind: 'offline' } });
     disposers.push(() => offline.dispose());
     const commit = await readCommit(offline, info.headOid);
-    const tree = await listTree(offline, commit.tree, { maxEntries: 1000 });
+    const tree = await listTree(offline, commit.tree, { maxEntries: 1000, sizes: false });
     const blobs = tree.entries.filter((e) => e.kind === 'blob');
     expect(blobs.length).toBeGreaterThan(0);
     const before = await batchCheck(offline, blobs.map((b) => b.oid));
@@ -145,6 +149,19 @@ describe.runIf(process.env['ATLAS_NETWORK_TESTS'] === '1')('live filtered acquis
     const after = await batchCheck(offline, blobs.map((b) => b.oid));
     expect(after.every((b) => b.type === 'blob')).toBe(true);
     console.info(`[P0.3 evidence] acquired ${info.owner}/${info.name}@${info.headOid.slice(0, 12)}: ${acquired.bytesOnDisk} bytes before blobs, ${blobs.length} blob(s) fetched on request`);
+  });
+
+  it('resolves identity, visibility and commit ancestry through the pinned, budgeted client', async () => {
+    const budget = new ByteMeter(4 * 1024 * 1024);
+    const fetch = pinnedFetch({ budget });
+    const info = await resolveGithubRepository(parseGithubRepositoryUrl('https://github.com/octocat/Hello-World'), { fetch });
+    expect(info).toMatchObject({ numericId: '1296269', owner: 'octocat', name: 'Hello-World', visibility: 'public' });
+    expect(await githubVisibility('1296269', { fetch })).toEqual({ state: 'public', owner: 'octocat', name: 'Hello-World' });
+    // The root commit is an ancestor of the default branch; a fork-only SHA is not.
+    await verifyCommitOnDefaultBranch(info, '553c2077f0edc3d5dc5d17262f6aa498e69d6f8e', { fetch });
+    await expect(verifyCommitOnDefaultBranch(info, 'f'.repeat(40), { fetch })).rejects.toMatchObject({ code: 'COMMIT_NOT_ACCESSIBLE' });
+    expect(await githubVisibility('99999999999', { fetch })).toEqual({ state: 'unavailable' });
+    expect(budget.bytes).toBeGreaterThan(1000);
   });
 
   it('kills acquisition that exceeds the byte budget', async () => {

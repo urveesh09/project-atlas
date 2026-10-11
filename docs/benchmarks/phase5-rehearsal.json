@@ -1,0 +1,171 @@
+{
+  "started": "2026-10-11T02:55:07.689Z",
+  "environment": {
+    "os": "Windows_NT 10.0.26200",
+    "cpus": 12,
+    "memoryGiB": 16,
+    "node": "v24.15.0",
+    "git": "git version 2.55.0.windows.3",
+    "docker": "29.8.1",
+    "isolation": "container",
+    "storage": "S3-compatible (Versity gateway)",
+    "sandboxImage": "sha256:47ad3cf42bbd516e1c0dbb997b06a0fa113b66ec00d0302c656a2adbb65f59e1"
+  },
+  "steps": [
+    {
+      "name": "fresh database, migrations and least-privilege roles",
+      "ok": true,
+      "ms": 459,
+      "detail": {
+        "database": "fresh",
+        "roles": [
+          "api",
+          "worker"
+        ]
+      }
+    },
+    {
+      "name": "API and worker start under their own roles; ready and metrics answer",
+      "ok": true,
+      "ms": 599,
+      "detail": {
+        "ready": true,
+        "queued": 0
+      }
+    },
+    {
+      "name": "public journey: Harbor demo with history, verified through the public routes",
+      "ok": true,
+      "ms": 8057,
+      "detail": {
+        "jobId": "job_aae9e2ad2a393e3d1c2641d213b6951a",
+        "analysisId": "analysis_bcfa5fcf735bd8c42dc9c837926ee64032925769f72e51fb6e7e59c486f360b0",
+        "seconds": 7.754,
+        "frames": 12,
+        "files": 26,
+        "compressedBytes": 37364
+      }
+    },
+    {
+      "name": "cached reuse: identical submission becomes a new publication without analysis",
+      "ok": true,
+      "ms": 1055,
+      "detail": {
+        "seconds": 1.055
+      }
+    },
+    {
+      "name": "medium repository end to end (3,252 files at HEAD, 40 commits, history)",
+      "ok": true,
+      "ms": 162213,
+      "detail": {
+        "state": "READY",
+        "endToEndSeconds": 162.207,
+        "warnings": [],
+        "frames": 12,
+        "files": 3252,
+        "compressedBytes": 4919707
+      }
+    },
+    {
+      "name": "operator cancellation during analysis stops the sandbox; nothing is published",
+      "ok": true,
+      "ms": 5499,
+      "detail": {
+        "requested": "CANCEL_REQUESTED",
+        "final": "CANCELLED",
+        "analysisId": null,
+        "sandboxesLeft": 0
+      }
+    },
+    {
+      "name": "worker crash after the HEAD checkpoint: SIGKILL, lease expiry, reap, retry from the checkpoint",
+      "ok": true,
+      "ms": 158735,
+      "detail": {
+        "stateAtCrash": "HISTORY",
+        "final": "READY",
+        "recoverySeconds": 145.22,
+        "warnings": [
+          {
+            "code": "CHECKPOINT_RECOVERED",
+            "count": 1
+          }
+        ],
+        "sandboxesLeft": 0
+      }
+    },
+    {
+      "name": "operator purge revokes one publication and its storage",
+      "ok": true,
+      "ms": 360,
+      "detail": {
+        "purged": true,
+        "status": 410,
+        "code": "ARTIFACT_REVOKED"
+      }
+    },
+    {
+      "name": "backup and restore preserve publication lifecycle state",
+      "ok": true,
+      "ms": 490,
+      "detail": {
+        "dumpBytes": 30913,
+        "publications": 4,
+        "revokedPreserved": 1,
+        "migrations": 2
+      }
+    },
+    {
+      "name": "rollback guard: a database newer than the binary refuses to serve",
+      "ok": true,
+      "ms": 568,
+      "detail": {
+        "apiExit": 1,
+        "migrateExit": 1,
+        "reason": "{\"time\":\"2026-10-11T03:01:22.811Z\",\"service\":\"api\",\"event\":\"api.fatal\",\"error\":\"Database migrations are not current; run the migration job first\"}"
+      }
+    },
+    {
+      "name": "final operator metrics",
+      "ok": true,
+      "ms": 287,
+      "detail": {
+        "outcomes24h": {
+          "CANCELLED": 1,
+          "READY": 4
+        },
+        "stageMsP95": {
+          "acquireHead": 2620,
+          "acquireHistory": 3699,
+          "analyzeHead": 7144,
+          "analyzeHistory": 74321,
+          "upload": 216,
+          "uploadHead": 81,
+          "validate": 0,
+          "verify": 35169,
+          "verifyHead": 2189
+        },
+        "publications": {
+          "live": 3,
+          "expired": 0,
+          "deleted": 0,
+          "revoked": 1,
+          "awaitingPurge": 0
+        },
+        "storage": {
+          "liveObjects": 3,
+          "liveBytes": 9826086,
+          "pendingUploads": 0,
+          "purgingUploads": 0
+        },
+        "leases": {
+          "live": 0,
+          "expired": 0
+        }
+      }
+    }
+  ],
+  "finished": "2026-10-11T03:01:24.907Z",
+  "ok": true
+}

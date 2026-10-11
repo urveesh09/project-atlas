@@ -8,7 +8,7 @@ interface JobRow {
   id: string; state: string; revision: number; stage: string | null;
   session_hash: string | null; capability_hash: string;
   counts: JobStatus['counts']; warnings: JobStatus['warnings'];
-  analysis_id: string | null; error: JobStatus['error']; updated_at: Date;
+  analysis_id: string | null; error: JobStatus['error']; created_at: Date; updated_at: Date;
 }
 
 /** Postgres admission and management. No source acquisition runs in the API. */
@@ -79,9 +79,17 @@ export class AdmissionStore {
     if (!job || (!bearerOK && !sessionOK)) throw new ServiceError('FORBIDDEN', 403, 'Job access is not authorized.');
     return job;
   }
+  /** Management access to one job: its session or its capability (publication deletion). */
+  async authorize(id: string, credentials: Credentials): Promise<void> {
+    await this.authorized(this.pool, id, credentials);
+  }
   async status(id: string, credentials: Credentials): Promise<JobStatus> {
     const row = await this.authorized(this.pool, id, credentials);
-    return JobStatusSchema.parse({ jobId: row.id, revision: row.revision, state: row.state, stage: row.stage, queuePosition: null, counts: row.counts, warnings: row.warnings, analysisId: row.analysis_id, error: row.error, updatedAt: row.updated_at.toISOString() });
+    // Queue position is known only while queued: jobs ahead in claim order, plus this one.
+    const queuePosition = row.state === 'QUEUED'
+      ? Number((await this.pool.query<{ position: string }>("SELECT count(*) AS position FROM jobs WHERE state='QUEUED' AND (created_at,id)<=(SELECT created_at,id FROM jobs WHERE id=$1)", [id])).rows[0]!.position)
+      : null;
+    return JobStatusSchema.parse({ jobId: row.id, revision: row.revision, state: row.state, stage: row.stage, queuePosition, counts: row.counts, warnings: row.warnings, analysisId: row.analysis_id, error: row.error, createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() });
   }
   async cancel(id: string, credentials: Credentials): Promise<boolean> {
     const client = await this.pool.connect();

@@ -9,7 +9,7 @@ ATLAS turns the committed contents of a TypeScript/JavaScript repository into a 
 
 Every visual encoding has a legend, every finding has evidence, and every gap in the analysis is shown as coverage.
 
-> **Status:** Phase 4 implements all four local pillars: structure, static dependencies, evidence-backed diagnostics/hotspots, and bounded Git evolution. The city keeps fixed plots while you change sampled snapshots, follow renames, inspect absent files and compare A → B. [History analysis](docs/benchmarks/phase4-history.md), [viewer measurements](docs/benchmarks/phase4-history-viewer.md) and [implementation status](docs/implementation-status.md) record verification and pending human/reference-device release audits. Phase 5 has started with a [PostgreSQL admission/queue foundation and offline container spike](docs/hosted-development.md); hosted acquisition/publication and deployment remain unfinished. Runtime tracing stays deferred.
+> **Status:** Phase 5 adds the hosted public-GitHub service on top of the four local pillars. Repositories are acquired through a DNS-pinned, byte-counted egress broker and analyzed by the same analyzer in network-less containers. Verified results are published to private storage behind visibility, expiry and revocation checks, and opened in the same validating viewer. See [hosted operations](docs/hosted-operations.md), the [operator rehearsal](docs/benchmarks/phase5-rehearsal.md) and [implementation status](docs/implementation-status.md). A public deployment, reference-hardware capacity runs and human accessibility audits remain release (Phase 6) work. Runtime tracing stays deferred.
 
 ## Try it
 
@@ -58,9 +58,35 @@ Artifacts use a lossless indexed graph transport ([ADR-018](docs/adr/ADR-018-ind
 
 It runs two ways: a local CLI (`atlas analyze`, then `atlas serve`) that never uploads anything, and a hosted service for public GitHub repositories. Runtime tracing is explicitly out of scope ([ADR-012](docs/adr/ADR-012-runtime-pillar-deferred-in-full.md)).
 
+## Hosted service
+
+The hosted service analyzes public GitHub repositories and publishes each result for 7 days, at an immutable link. Submission works like this:
+
+1. Paste a repository root URL.
+2. Accept the public-output notice.
+3. Follow the stages; you can cancel at any point.
+4. Open the city.
+
+Each analysis takes these steps:
+
+- Acquisition runs Git in a container whose only route out is an egress broker. The broker allows only GitHub, pins validated public addresses and counts every byte.
+- Analysis runs the CLI's analyzer in a container with no network.
+- A verified HEAD checkpoint is kept, so failures while analyzing history still publish the latest commit as PARTIAL.
+
+The viewer reads published chunks only after the service has checked the repository's visibility, the result's expiry and that it has not been deleted. The submitting browser session can delete a result. Local analysis never uploads anything.
+
+```sh
+ATLAS_DATABASE_URL=postgres://... node scripts/hosted-dev.mjs          # development processes, Harbor fixture
+ATLAS_DATABASE_URL=postgres://... node scripts/hosted-dev.mjs --docker <sandbox image id> [--github]
+```
+
+See [hosted development](docs/hosted-development.md) and [operations](docs/hosted-operations.md).
+
 ## Safety model in one paragraph
 
 Repository contents are data, never instructions. ATLAS reads committed Git objects through an ATLAS-generated Git directory with a scrubbed environment. It never checks out, installs, builds or runs hooks, filters, helpers or repository configuration, and analysis has no network access. These properties are tested: the trap suite arms every Git execution hook and proves none fire ([ADR-016](docs/adr/ADR-016-safe-git-acquisition-spike-results.md)).
+
+The hosted service repeats these properties inside containers. A sentinel suite covers committed scripts, plugins, filters and submodules, and the pipeline is also tested for network isolation and missing-blob lazy fetch ([ADR-031](docs/adr/ADR-031-hosted-acquisition-and-analysis-pipeline.md)).
 
 ## Developing
 
@@ -89,8 +115,10 @@ pnpm --filter @atlas/web dev   # viewer shell and the instancing spike at /spike
 
 ```text
 apps/web/                 shared viewer (React, Vite, imperative Three.js production city; R3F spike)
-apps/api/                 hosted HTTP surface (Phase 5)
-apps/worker/              sandbox coordinator and publication (Phase 5)
+apps/api/                 hosted HTTP API: admission, status/SSE, publications, viewer serving
+apps/worker/              coordinator, sandbox entrypoints (broker, acquisition, analysis), sweepers, atlas-ops
+packages/control/         hosted control plane: migrations, roles, private storage, GitHub budget, publication lifecycle
+deploy/                   sandbox and API images, development compose stack
 packages/schema/          canonical contracts, IDs, canonical JSON, validators, generated JSON Schema
 packages/ingest/          sanitized local Git reader, GitHub admission and filtered acquisition
 packages/analyzer-ts/     TS/JS syntax facts and virtual-filesystem module resolution
@@ -111,6 +139,7 @@ The dependency direction is enforced in CI: schema is foundational, analyzers ne
 - [V0.1 master plan](docs/plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md): the specification
 - [Implementation status](docs/implementation-status.md): tasks, evidence and the next step
 - [Architecture decision records](docs/adr/)
+- Hosted service: [development](docs/hosted-development.md), [operations and runbooks](docs/hosted-operations.md), [operator rehearsal](docs/benchmarks/phase5-rehearsal.md)
 - Contracts: [identity](docs/contracts/identity.md), [metrics](docs/contracts/metrics.md), [capabilities](docs/contracts/capabilities.md), [CLI](docs/contracts/cli.md), [OpenAPI](docs/api/openapi.json), [JSON Schemas](packages/schema/generated/)
 - [Phase 0 rendering benchmark](docs/benchmarks/phase0-render-spike.md)
 - [Phase 2 analysis benchmark](docs/benchmarks/phase2-analysis.md), [transport decision](docs/adr/ADR-018-indexed-graph-transport.md), [Phase 2 decisions and gate](docs/adr/ADR-019-phase2-static-analysis-and-viewer.md)

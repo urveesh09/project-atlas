@@ -176,12 +176,17 @@ export interface TreeListing {
 export async function listTree(
   git: SafeGit,
   treeOid: string,
-  options: { maxEntries: number; recursive?: boolean; signal?: AbortSignal },
+  /**
+   * `sizes: false` lists names and IDs only (no blob reads): used to choose blobs for an
+   * explicit acquisition request. Analysis always lists with sizes.
+   */
+  options: { maxEntries: number; recursive?: boolean; signal?: AbortSignal; sizes?: boolean },
 ): Promise<TreeListing> {
   git.assertOid(treeOid);
+  const sizes = options.sizes !== false;
   let result;
   try {
-    result = await git.run(['ls-tree', ...(options.recursive === false ? [] : ['-r']), '-l', '-z', '--full-tree', treeOid], {
+    result = await git.run(['ls-tree', ...(options.recursive === false ? [] : ['-r']), ...(sizes ? ['-l'] : []), '-z', '--full-tree', treeOid], {
       maxStdoutBytes: options.maxEntries * 4_400 + 4096,
       ...(options.signal ? { signal: options.signal } : {}),
     });
@@ -213,6 +218,11 @@ export async function listTree(
     if (type === 'commit' && mode === '160000') kind = 'submodule';
     else if (type === 'blob' && mode === '120000') kind = 'symlink';
     else if (type === 'blob' && (mode === '100644' || mode === '100755')) kind = 'blob';
+    // Git prints "BAD" (or "-") as the size of a blob absent from the object store. A
+    // missing object is an explicit failure, never a file of unknown or zero size.
+    if (sizes && type === 'blob' && (sizeText === undefined || !/^\d{1,15}$/.test(sizeText))) {
+      throw new IngestError('LOCAL_OBJECT_MISSING', 'A required Git object is missing', { oid: oid ?? '' });
+    }
     entries.push({
       path: decodeStrictUtf8(rawPath),
       rawPath,

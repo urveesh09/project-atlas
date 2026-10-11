@@ -8,6 +8,7 @@
     { "path": "packages/history" },
     { "path": "packages/layout" },
     { "path": "packages/artifact" },
+    { "path": "packages/control" },
     { "path": "packages/analyzer-core" },
     { "path": "packages/cli" },
     { "path": "packages/test-fixtures" },

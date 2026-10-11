@@ -1,6 +1,14 @@
 import type { LoadResult, PickedFile } from '@atlas/artifact';
 import type { LoaderRequest, LoaderResponse, ViewerLoadResult } from './loader.worker';
 
+/** A hosted publication that is gone or unavailable (404/410/503 with a public code). */
+export class PublicationUnavailableError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+    this.name = 'PublicationUnavailableError';
+  }
+}
+
 /** Run one artifact load in a dedicated worker and resolve with its validated result. */
 export function loadInWorker(
   request: LoaderRequest,
@@ -30,6 +38,7 @@ export function loadInWorker(
         else {
           worker.terminate();
           if (message.type === 'done') resolve(message.result);
+          else if (message.type === 'unavailable') reject(new PublicationUnavailableError(message.code));
           else reject(new Error(message.message));
         }
       }

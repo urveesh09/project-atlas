@@ -9,7 +9,7 @@ import { FrameStore, initializeQueries, handleQuery, type QueryRequest } from '.
  * decompression with caps, hash and canonical-form checks, then full bundle invariants.
  * Files picked locally are read in this worker and never leave the browser.
  */
-export type LoaderRequest = ({ kind: 'server'; base: string } | { kind: 'files'; files: PickedFile[] }) & {
+export type LoaderRequest = ({ kind: 'server'; base: string } | { kind: 'hosted'; analysisId: string } | { kind: 'files'; files: PickedFile[] }) & {
   measure?: boolean;
 };
 /**
@@ -31,7 +31,15 @@ export type ViewerLoadResult =
 export type LoaderResponse =
   | { type: 'progress'; path: string }
   | { type: 'done'; result: ViewerLoadResult }
+  | { type: 'unavailable'; code: string }
   | { type: 'crash'; message: string };
+
+/** A hosted publication that answered 404/410 (or failed closed): shown as a lifecycle screen, never as a broken graph. */
+class PublicationUnavailable extends Error {
+  constructor(readonly code: string) {
+    super(code);
+  }
+}
 
 /** The worker scope, typed minimally so this file compiles alongside the DOM library. */
 const scope = self as unknown as {
@@ -39,11 +47,28 @@ const scope = self as unknown as {
   onmessage: ((event: MessageEvent<LoaderRequest>) => void) | null;
 };
 
-function serverSource(base: string, onRead: (path: string) => void): ArtifactSource {
+/**
+ * Hosted publication routes (plan §13.1): the manifest and each chunk by opaque ID. Every
+ * request repeats the service's visibility and expiry checks; the bytes then pass the
+ * same validation as a local artifact.
+ */
+function hostedPath(analysisId: string, path: string): string {
+  if (path === 'manifest.json') return `/api/v1/analyses/${analysisId}`;
+  const chunk = path === 'history/history.json.gz' ? 'history' : path === 'layout/layout.json.gz' ? 'layout' : /^graphs\/(snap_[0-9a-f]{64})\.json\.gz$/.exec(path)?.[1];
+  if (!chunk) throw new Error('Unexpected artifact path');
+  return `/api/v1/analyses/${analysisId}/chunks/${chunk}`;
+}
+
+function serverSource(url: (path: string) => string, onRead: (path: string) => void, hosted = false): ArtifactSource {
   return {
     async read(path, maxBytes) {
       onRead(path);
-      const response = await fetch(`${base}${path}`, { credentials: 'same-origin', cache: 'no-store' });
+      const response = await fetch(url(path), { credentials: 'same-origin', cache: 'no-store' });
+      if (hosted && (response.status === 404 || response.status === 410 || response.status === 503)) {
+        const body = (await response.json().catch(() => null)) as { error?: { code?: unknown } } | null;
+        const code = typeof body?.error?.code === 'string' && /^[A-Z_]{1,64}$/.test(body.error.code) ? body.error.code : 'INTERNAL_ERROR';
+        throw new PublicationUnavailable(code);
+      }
       if (response.status === 404) return null;
       if (!response.ok || !response.body) throw new Error(`Artifact request failed (${response.status})`);
       // Read at most maxBytes + 1 so an oversized file is detected without buffering it.
@@ -82,7 +107,11 @@ scope.onmessage = async (event: MessageEvent<LoaderRequest | QueryRequest>) => {
   const report = (path: string) => scope.postMessage({ type: 'progress', path } satisfies LoaderResponse);
   try {
     const originalSource =
-      request.kind === 'server' ? serverSource(request.base, report) : pickedFilesSource(request.files);
+      request.kind === 'server'
+        ? serverSource((path) => `${request.base}${path}`, report)
+        : request.kind === 'hosted'
+          ? serverSource((path) => hostedPath(request.analysisId, path), report, true)
+          : pickedFilesSource(request.files);
     let requiredChunksAvailableAt = 0;
     const source: ArtifactSource = {
       async read(path, maxBytes) {
@@ -117,6 +146,10 @@ scope.onmessage = async (event: MessageEvent<LoaderRequest | QueryRequest>) => {
       });
     } else scope.postMessage({ type: 'done', result: opened });
   } catch (error) {
+    if (error instanceof PublicationUnavailable) {
+      scope.postMessage({ type: 'unavailable', code: error.code } satisfies LoaderResponse);
+      return;
+    }
     scope.postMessage({
       type: 'crash',
       message: error instanceof Error ? error.message : 'Unknown error',

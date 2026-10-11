@@ -271,7 +271,9 @@
                       "UNSUPPORTED_SCHEMA",
                       "ARTIFACT_INVALID",
                       "JOB_CANCELLED",
+                      "ARTIFACT_NOT_FOUND",
                       "ARTIFACT_EXPIRED",
+                      "ARTIFACT_DELETED",
                       "ARTIFACT_REVOKED",
                       "FORBIDDEN",
                       "VALIDATION_FAILED",
@@ -327,6 +329,10 @@
               }
             ]
           },
+          "createdAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+          },
           "updatedAt": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
@@ -342,6 +348,7 @@
           "warnings",
           "analysisId",
           "error",
+          "createdAt",
           "updatedAt"
         ],
         "additionalProperties": false
@@ -368,7 +375,9 @@
                   "UNSUPPORTED_SCHEMA",
                   "ARTIFACT_INVALID",
                   "JOB_CANCELLED",
+                  "ARTIFACT_NOT_FOUND",
                   "ARTIFACT_EXPIRED",
+                  "ARTIFACT_DELETED",
                   "ARTIFACT_REVOKED",
                   "FORBIDDEN",
                   "VALIDATION_FAILED",
@@ -519,6 +528,17 @@
                 "public-github"
               ]
             }
+          },
+          "demoAnalysisId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^analysis_[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -528,7 +548,8 @@
           "profiles",
           "languages",
           "limits",
-          "repositorySources"
+          "repositorySources",
+          "demoAnalysisId"
         ],
         "additionalProperties": false
       }

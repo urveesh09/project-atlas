@@ -1,0 +1,27 @@
+{
+  "name": "@atlas/control",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "Hosted control plane shared by the API and workers: migrations, private object storage, GitHub budget and publication lifecycle (Phase 5).",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@atlas/artifact": "workspace:*",
+    "@atlas/ingest": "workspace:*",
+    "@atlas/schema": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}
