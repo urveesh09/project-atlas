@@ -33,7 +33,7 @@ recorded in [implementation status](../implementation-status.md).
 | Publication privacy/lifecycle (§5/13) | Consent/TTL/private storage, per-chunk visibility, management token, expiry/revocation/purge/reconcile tests; operator restore/rollback rehearsal | Seven-day lifecycle implemented; cannot recall already downloaded copies |
 | P6.1 empirical corpus (§17) | [Pins](repository-corpus.json), [report](real-repositories.md), reproducible offline 5-run scripts and source-free exports | Done; five repeats on both OSes, independent comparison and exact original-payload baseline checks pass in CI |
 | HEAD capacity (§15.2/P6.2) | [20-run medium](../benchmarks/phase6-head-capacity.md), [20-run near-limit large](../benchmarks/phase6-large-head-capacity.md) | Development host only; exact reference hardware and exact dense large fixture pending |
-| Historical capacity (§15.2/P6.2) | [20-run medium history](../benchmarks/phase4-history.md), [viewer history/heap](../benchmarks/phase4-history-viewer.md) | Medium dev.5 evidence retained; large 12-frame/20,000-union 20-repeat matrix pending |
+| Historical capacity (§15.2/P6.2) | [20-run medium history](../benchmarks/phase4-history.md), [viewer history/heap](../benchmarks/phase4-history-viewer.md), [20-run large history under 4 CPU/2 GiB](../benchmarks/phase6-large-history-container.md) | Large 12-frame passes: p95 202.37 s ≤ 240 s, peak 1.79 GiB, no OOM (dev host with enforced limits, [ADR-037](../adr/ADR-037-export-hashing-and-structural-proofs.md)); reference machine and exact 20,000-union fixture pending |
 | Render/search/response/heap (§15.2) | Phase 3 city/profile reports; selected-edge/draw-call/heap gates; CI software rendering | Exact integrated-GPU Chromium/Firefox, 10 Mbps/100 ms RTT and first-use acceptance pending |
 | P6.3 task/assistive review (§1.5/17) | [Uncoached task cards and manual results template](manual-review.md) | Pending ≥5 developers, ≥4 successes/task, keyboard fallback and two assistive platforms |
 | P6.4 distribution/docs (§17) | Portable CLI, every-file inventory/third-party notices; [relocated offline smoke](distribution-smoke.md); [fresh-install/demo/privacy guide](README.md), [notes](release-notes.md) | Tooling/docs prepared; P6.2/P6.3 dependencies and independent reviewer sign-off pending |
@@ -55,7 +55,9 @@ The large-history [diagnostic](../benchmarks/phase6-large-history-precache.md) s
 observed excessive export working data; [ADR-036](../adr/ADR-036-export-base-cache-lifetime.md)
 records cache lifetime, streamed exact canonical text, one-table matching and deferred
 indexed working rows. The [bounded-parent diagnostic](../benchmarks/phase6-large-history-bounded-completion.md)
-completes all twelve frames, while whole-job resource/timing verification remains open.
+completes all twelve frames. After [ADR-037](../adr/ADR-037-export-hashing-and-structural-proofs.md),
+the [20-sample whole-job report](../benchmarks/phase6-large-history-container.md) passes
+inside four CPUs, 2 GiB and no swap: p95 202.37 s, peak 1,919,053,824 bytes, zero OOM events.
 R6-01 includes verifying this observed issue
 as well as the missing reference measurements. A warm-up is not a 20-run p95 result.
 Other open rows are acceptance gaps, not invented measured failures. Automated checks cannot

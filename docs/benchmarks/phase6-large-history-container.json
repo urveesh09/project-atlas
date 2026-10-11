@@ -1,0 +1,217 @@
+{
+  "task": "Historical analysis capacity — large, 12 frames",
+  "recordedAt": "2026-10-11T09:06:21.638Z",
+  "environment": {
+    "os": "Linux 6.18.33.2-microsoft-standard-WSL2 x64",
+    "cpu": "Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz",
+    "cpuCount": 12,
+    "memoryGiB": 7.7,
+    "node": "v24.15.0",
+    "nodeFlags": "--max-old-space-size=1536",
+    "git": "2.47.3",
+    "parserWorkers": 2,
+    "processPerRun": true,
+    "containerLimits": {
+      "memoryBytes": 2147483648,
+      "cpuMax": "400000 100000"
+    },
+    "runtimeImage": "sha256:efdc0f7840372236e408c3ae5dd4b7b7d4a5bc1f699789f873e6bd137c38c271",
+    "sourceCommit": "2a70452e8fc1a2ec6d5978dabbdf03c8d72d5637",
+    "benchmarkSourceCommit": "8d14a54fdb3d3490b64c4842c5da9f36a997eead",
+    "benchmarkWorkingTreeDirty": "false"
+  },
+  "fixture": {
+    "headFiles": 9992,
+    "importStatements": 98500,
+    "commits": 40,
+    "frames": 12,
+    "boundary": "root",
+    "renames": 7,
+    "lineages": 9999,
+    "historyStatus": "complete"
+  },
+  "runs": 20,
+  "warmupMs": 209165.36318999997,
+  "rawSampleMs": [
+    208004.105411,
+    196915.532727,
+    202304.780493,
+    194386.675247,
+    202373.68211700002,
+    196762.967286,
+    192603.850748,
+    195171.117112,
+    194259.76535899998,
+    196746.407901,
+    193412.69966800002,
+    194549.878492,
+    192742.146697,
+    193566.64929,
+    195768.549806,
+    196259.52733399998,
+    196500.845046,
+    196555.571419,
+    196755.783192,
+    201004.070014
+  ],
+  "sampleCompleteness": [
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 12,
+      "historyStatus": "complete"
+    }
+  ],
+  "failedRun": null,
+  "analyzer": {
+    "version": "0.1.0-dev.5",
+    "parserVersion": "typescript@6.0.3",
+    "gitVersion": "2.47.3"
+  },
+  "selectedCommit": "43d5b0a23786ed81507a61504722b757fec4bdee",
+  "layoutId": "layout_b51a930481690ddaaeedf1a49408cb21bdeb0c744b8eaebcd4d614a770eb3d02",
+  "resourceUsage": {
+    "peakBytes": 1919053824,
+    "events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0
+    }
+  },
+  "secondsP50": 196.26,
+  "secondsP95": 202.37,
+  "secondsMax": 208,
+  "budgetSecondsP95": 240,
+  "artifact": {
+    "version": "atlas.artifact/1.3.0",
+    "compressedBytes": 10937173,
+    "headGraphBytes": 4616783,
+    "historicalGraphBytes": 4055045,
+    "historyBytes": 1244675,
+    "layoutBytes": 1020670,
+    "budgetBytes": 20971520
+  },
+  "timePass": true,
+  "sizePass": true,
+  "completenessPass": true,
+  "sampleCountPass": true,
+  "resourcePass": true,
+  "pass": true
+}

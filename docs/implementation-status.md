@@ -303,6 +303,18 @@ All six relocated stages pass, including ten documentation-link checks, complete
 history, keyboard dependency inspection and zero browser errors/outbound requests.
 The previous candidate's identity remains recorded above as baseline evidence.
 
+**Large-history whole-job capacity passes under enforced job limits.** On `277f593` the
+constrained one-shot diagnostic took 329.24 s (cgroup peak 99.1%). [ADR-037](adr/ADR-037-export-hashing-and-structural-proofs.md)
+replaces portable ID hashing with native SHA-256 in Node, and matches and proves delta
+rows structurally instead of rendering canonical text. Exact equality is kept, and the
+real-corpus payloads stay byte-identical (CI [38122325539](https://github.com/urveesh09/project-atlas/actions/runs/38122325539)).
+The [20-sample report](benchmarks/phase6-large-history-container.md) ran inside four CPUs,
+2 GiB and no swap, with each run as a fresh production-shaped process. All runs were
+complete with twelve frames: **p95 202.37 s** against 240 s; peak 1,919,053,824 bytes,
+zero OOM events; 10.43 MiB. A first batch that reused one process and parser pool across
+samples was OOM-killed in its second run; it is recorded in ADR-037, not hidden. The
+host is the development i5-10400, not the reference machine.
+
 ### Reproduce verification
 
 ```sh

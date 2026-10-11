@@ -1,6 +1,6 @@
 # ADR-036: Bound derived export lifetimes and stream canonical graph text
 
-Date: 2026-10-11. Status: accepted implementation correction; capacity verification pending.
+Date: 2026-10-11. Status: accepted; capacity verified after [ADR-037](ADR-037-export-hashing-and-structural-proofs.md).
 
 ## Evidence and cause
 
