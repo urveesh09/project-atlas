@@ -26,6 +26,8 @@ export const LENS_STOPS = {
   attention: [0, 20, 40, 60, 80],
 } as const;
 export type MetricLens = keyof typeof LENS_STOPS;
+/** Structure-lens colour of a layout district (stable by ID). */
+export const districtColor = (id: string): string => DISTRICT_PALETTE[parseInt(id.slice(-8), 16) % DISTRICT_PALETTE.length]!;
 
 export interface CityBuilding {
   nodeId: string;
@@ -90,7 +92,6 @@ export function prepareCity(graph: GraphSnapshot, layout: LayoutArtifact, option
     for (const key of chain) packageOf.set(key, pkg);
     return pkg;
   };
-  const colorOf = (id: string) => DISTRICT_PALETTE[parseInt(id.slice(-8), 16) % DISTRICT_PALETTE.length]!;
   const buildings = frame.files
     .map((file): CityBuilding => {
       const node = nodes.get(file.nodeId);
@@ -108,7 +109,7 @@ export function prepareCity(graph: GraphSnapshot, layout: LayoutArtifact, option
         height: file.height,
         seed: plot.seed,
         packageId,
-        packageColor: colorOf((packageId && districtOf.get(packageId)) || plot.districtId),
+        packageColor: districtColor((packageId && districtOf.get(packageId)) || plot.districtId),
         metric: metrics.get(node.id) ?? null,
         attention: options.attention?.(node, metrics.get(node.id)) ?? null,
       };

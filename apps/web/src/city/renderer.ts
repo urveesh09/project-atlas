@@ -1,13 +1,33 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { facadeColor, lensValue, type CityBuilding, type CityData, type CityLens } from '@atlas/layout';
+import { districtColor, facadeColor, lensValue, type CityBuilding, type CityData, type CityLens } from '@atlas/layout';
 import type { Rect } from '@atlas/schema';
 import { EDGE_COLORS, edgeClass, type OverlayResult } from './overlay';
+import {
+  ARCHETYPES,
+  TREE_TINTS,
+  archetypeGeometry,
+  buildingStyle,
+  cityDecor,
+  districtFamily,
+  facadeMaterial,
+  gableGeometry,
+  groundLevel,
+  topExtent,
+  treeGeometry,
+} from './architecture';
 
 const center = (r: Rect) => new THREE.Vector3((r.x + r.width / 2) / 100, 0, (r.z + r.depth / 2) / 100);
 const color = new THREE.Color();
 const matrix = new THREE.Matrix4();
+const rotation = new THREE.Matrix4();
+const scaling = new THREE.Matrix4();
 const white = new THREE.Color('#e9e4d7');
+/** Bodies start inside the plinth so no block step leaves a gap; tops stay at 0.35 + height. */
+const BODY_BASE = 0.06;
+/** Key light direction; ground shadows fall along it, so they agree with the shading. */
+const SUN = new THREE.Vector3(-30, 80, 50);
+const SHADOW = { x: -SUN.x / SUN.y, z: -SUN.z / SUN.y };
 
 const ROLES = ['source', 'test', 'declaration', 'config', 'asset', 'opaque'] as const;
 
@@ -34,12 +54,19 @@ export class CityRenderer {
   private readonly materials = new Set<THREE.Material>();
   private readonly instances = new Set<THREE.InstancedMesh>();
   private readonly roofs = new Map<(typeof ROLES)[number], THREE.InstancedMesh>();
-  private readonly bodies: THREE.InstancedMesh;
-  private readonly windows: THREE.InstancedMesh;
+  private readonly facade: THREE.Material;
+  private readonly bodies: { geometry: THREE.BufferGeometry; mesh: THREE.InstancedMesh; top: [number, number] }[] = [];
+  /** Building index -> archetype batch and slot within it, rebuilt per frame. */
+  private bodyBatch = new Uint8Array(0);
+  private bodySlot = new Int32Array(0);
+  private readonly families = new Map<string, number>();
+  private readonly districtDepth: Map<string, number>;
+  private readonly shadows: THREE.InstancedMesh | null;
+  private readonly trees: THREE.InstancedMesh[] = [];
   private readonly missing: THREE.InstancedMesh;
   private readonly selection: THREE.InstancedMesh;
   private readonly marker: THREE.Mesh;
-  private readonly terminals: THREE.InstancedMesh;
+  private readonly terminals: [THREE.InstancedMesh, THREE.InstancedMesh, THREE.InstancedMesh];
   private readonly packageLines: THREE.InstancedMesh;
   private packageSegments: { a: THREE.Vector3; b: THREE.Vector3; width: number }[] = [];
   private packageZoom = -1;
@@ -102,30 +129,96 @@ export class CityRenderer {
     this.controls.maxTargetRadius = this.extent;
     this.controls.cursor.copy(this.origin);
     this.controls.addEventListener('change', this.invalidate);
-    this.scene.add(new THREE.HemisphereLight('#ffffff', '#a0a39b', 2.1));
-    const light = new THREE.DirectionalLight('#fff6e2', 2.2);
-    light.position.set(-30, 80, 50);
+    this.scene.add(new THREE.HemisphereLight('#f6f8ff', '#9d9a8b', 1.9));
+    const light = new THREE.DirectionalLight('#fff3df', 2.5);
+    light.position.copy(SUN);
     this.scene.add(light);
-    const box = this.ownGeometry(new THREE.BoxGeometry(1, 1, 1));
+    const fill = new THREE.DirectionalLight('#d9e6ff', 0.45);
+    fill.position.set(40, 30, -20);
+    this.scene.add(fill);
+    // Base-anchored unit box: y spans [0, 1], so scale.y is a top height.
+    const box = this.ownGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0));
     const matte = this.ownMaterial(new THREE.MeshLambertMaterial());
-    const shore = new THREE.Mesh(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#789c9f' })));
-    shore.scale.set(city.root.width / 100 + 14, 0.7, city.root.depth / 100 + 14);
-    shore.position.copy(this.origin).setY(-0.5);
-    this.scene.add(shore);
-    const base = new THREE.Mesh(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#bac1ac' })));
-    base.scale.set(city.root.width / 100 + 6, 0.3, city.root.depth / 100 + 6);
-    base.position.copy(this.origin).setY(-0.02);
-    this.scene.add(base);
-    const districtMesh = this.batch(box, matte, city.districts.length);
+    // Diorama ground (plan §11.1 permits a decorative shoreline): earth, water, beach, a
+    // green belt and the perimeter road, each a slab whose top sits at a fixed height.
+    const r = city.root;
+    const slab = (margin: number, top: number, thickness: number, tint: string) => {
+      const mesh = new THREE.Mesh(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: tint })));
+      mesh.scale.set(r.width / 100 + margin * 2, thickness, r.depth / 100 + margin * 2);
+      mesh.position.copy(this.origin).setY(top - thickness);
+      this.scene.add(mesh);
+    };
+    slab(12.4, -0.16, 1.2, '#8a8070');
+    slab(12, -0.1, 0.06, '#8fbac1');
+    slab(6.5, -0.02, 0.2, '#e3d4ab');
+    slab(5.5, 0.03, 0.2, '#a9be8c');
+    slab(3, 0.07, 0.2, '#bcb8aa');
+    // Districts as kerbed blocks: a darker kerb, an inset surface, nested blocks stepping up.
+    // The repository block reads as the street grid between packages.
+    const districtMesh = this.batch(box, matte, city.districts.length * 2);
     city.districts.forEach((d, i) => {
-      matrix
-        .makeScale(d.rect.width / 100, 0.04, d.rect.depth / 100)
-        .setPosition(center(d.rect).setY(0.16 + Math.min(d.depth, 20) * 0.015));
-      districtMesh.setMatrixAt(i, matrix);
-      districtMesh.setColorAt(i, color.set(d.kind === 'package' ? '#d1d0bc' : d.depth % 2 ? '#e4dec9' : '#d8d5c2'));
+      const top = groundLevel(d.depth),
+        c = center(d.rect),
+        w = d.rect.width / 100,
+        dep = d.rect.depth / 100;
+      const root = d.depth === 0,
+        pkg = d.kind === 'package';
+      matrix.makeScale(w, top, dep).setPosition(c.x, 0, c.z);
+      districtMesh.setMatrixAt(i * 2, matrix);
+      districtMesh.setColorAt(i * 2, color.set(root ? '#a9a598' : pkg ? '#bab29c' : '#c9c2ac'));
+      matrix.makeScale(Math.max(0.1, w - 0.24), top + 0.015, Math.max(0.1, dep - 0.24)).setPosition(c.x, 0, c.z);
+      districtMesh.setMatrixAt(i * 2 + 1, matrix);
+      districtMesh.setColorAt(i * 2 + 1, color.set(root ? '#c2beb0' : pkg ? '#e8e1cd' : d.depth % 2 ? '#ece6d4' : '#dfd8c4'));
     });
     this.finish(districtMesh);
-    this.bodies = this.batch(box, matte, capacity);
+    this.districtDepth = new Map(city.districts.map((d) => [d.id, d.depth]));
+    const decor = cityDecor(city);
+    const plane = this.ownGeometry(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
+    const lawns = this.batch(plane, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#b3c795' })), decor.lawns.length);
+    decor.lawns.forEach((l, i) => {
+      matrix.makeScale(Math.max(0.1, l.width), 1, l.depth).setPosition(l.x, l.y, l.z);
+      lawns.setMatrixAt(i, matrix);
+    });
+    this.finish(lawns);
+    if (!lowQuality)
+      for (const kind of [0, 1] as const) {
+        const list = decor.trees.filter((t) => t.kind === kind);
+        const mesh = this.batch(
+          this.ownGeometry(treeGeometry(kind)),
+          this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true })),
+          list.length,
+        );
+        list.forEach((t, i) => {
+          matrix.makeScale(t.scale, t.scale, t.scale).setPosition(t.x, t.y, t.z);
+          mesh.setMatrixAt(i, matrix);
+          mesh.setColorAt(i, color.set(TREE_TINTS[t.tint]!));
+        });
+        this.finish(mesh);
+        this.trees.push(mesh);
+      }
+    // Soft contact shadows: one translucent ground quad per building along the sun direction.
+    this.shadows = lowQuality
+      ? null
+      : this.batch(
+          plane,
+          this.ownMaterial(
+            new THREE.MeshBasicMaterial({
+              color: '#26303d',
+              transparent: true,
+              opacity: 0.13,
+              depthWrite: false,
+              polygonOffset: true,
+              polygonOffsetFactor: -2,
+            }),
+          ),
+          capacity,
+        );
+    // Seeded archetype batches share one facade material; each grows on demand.
+    this.facade = this.ownMaterial(facadeMaterial(!lowQuality));
+    ARCHETYPES.forEach((_, k) => {
+      const geometry = this.ownGeometry(archetypeGeometry(k));
+      this.bodies.push({ geometry, mesh: this.batch(geometry, this.facade, 1), top: topExtent(k) });
+    });
     // Role silhouettes share geometry; no per-building light, label or material.
     for (const role of ROLES) {
       const shape =
@@ -142,20 +235,20 @@ export class CityRenderer {
                 );
       const roof = this.batch(
         this.ownGeometry(shape),
-        this.ownMaterial(new THREE.MeshLambertMaterial({ color: role === 'test' ? '#456471' : '#626d75' })),
+        this.ownMaterial(new THREE.MeshLambertMaterial({ color: role === 'test' ? '#456471' : '#5e6971' })),
         capacity,
       );
       roof.count = 0;
       this.roofs.set(role, roof);
     }
-    const glass = this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#f1deaa' }));
-    this.windows = this.batch(box, glass, capacity * 2);
-    this.missing = this.batch(box, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#242d38' })), capacity * 2);
+    // Evidence marks keep the centred unit box they were positioned for.
+    const centred = this.ownGeometry(new THREE.BoxGeometry(1, 1, 1));
+    this.missing = this.batch(centred, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#242d38' })), capacity * 2);
     const wire = this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#174664', wireframe: true, depthTest: false }));
-    this.selection = this.batch(box, wire, capacity);
+    this.selection = this.batch(centred, wire, capacity);
     this.selection.count = 0;
     // Compare marks: deleted plots as outlined ghosts, added files with a raised marker.
-    this.ghosts = this.batch(box, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#7a4f2a', wireframe: true })), capacity);
+    this.ghosts = this.batch(centred, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#7a4f2a', wireframe: true })), capacity);
     this.ghosts.count = 0;
     this.addedMarkers = this.batch(
       this.ownGeometry(new THREE.OctahedronGeometry(0.32)),
@@ -170,8 +263,13 @@ export class CityRenderer {
     this.marker.rotation.z = Math.PI;
     this.marker.visible = false;
     this.scene.add(this.marker, this.overlayGroup);
-    // Terminal anchors are fixed; which packages a frame imports decides which are shown.
-    this.terminals = this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#687e85' })), 51);
+    // Terminal anchors are fixed harbour depots; which packages a frame imports decides
+    // which are shown.
+    this.terminals = [
+      this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#8c7660' })), 51),
+      this.batch(box, this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#c3b49a' })), 51),
+      this.batch(this.ownGeometry(gableGeometry()), this.ownMaterial(new THREE.MeshLambertMaterial({ color: '#687e85' })), 51),
+    ];
     this.packageLines = this.batch(
       this.ownGeometry(new THREE.CylinderGeometry(1, 1, 1, 6)),
       this.ownMaterial(new THREE.MeshBasicMaterial({ color: EDGE_COLORS.package, depthTest: false })),
@@ -281,16 +379,60 @@ export class CityRenderer {
     this.invalidate();
   }
 
-  /** Per-frame instance data: bodies, roofs, windows, terminals and the pick index. */
+  /** Per-frame instance data: bodies, roofs, shadows, terminals and the pick index. */
   private layoutBuildings() {
     const { buildings } = this.city;
     this.buildingIndex = new Map(buildings.map((b, i) => [b.nodeId, i]));
     this.pickCells.clear();
+    const styles = buildings.map((b) => {
+      let family = this.families.get(b.districtId);
+      if (family === undefined) this.families.set(b.districtId, (family = districtFamily(b.districtId)));
+      return buildingStyle(b, family);
+    });
+    const used = this.bodies.map(() => 0);
+    for (const style of styles) used[style.archetype]!++;
+    used.forEach((n, k) => {
+      this.ensureBodies(k, n);
+      used[k] = 0;
+    });
+    this.bodyBatch = new Uint8Array(buildings.length);
+    this.bodySlot = new Int32Array(buildings.length);
+    const roofCounts = new Map<string, number>();
     this.boxes = buildings.map((b, i) => {
       const p = center(b.rect);
-      const h = b.height;
-      matrix.makeScale(0.88, h, 0.88).setPosition(p.x, 0.35 + h / 2, p.z);
-      this.bodies.setMatrixAt(i, matrix);
+      const h = b.height,
+        style = styles[i]!,
+        body = this.bodies[style.archetype]!,
+        slot = used[style.archetype]!++,
+        f = style.footprint;
+      rotation.makeRotationY(style.rotation);
+      matrix
+        .makeScale(f, 0.35 + h - BODY_BASE, f)
+        .premultiply(rotation)
+        .setPosition(p.x, BODY_BASE, p.z);
+      body.mesh.setMatrixAt(slot, matrix);
+      (body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute).setXY(slot, style.windows, style.variant);
+      this.bodyBatch[i] = style.archetype;
+      this.bodySlot[i] = slot;
+      // The role roof is fitted to the archetype's top outline and turns with the body.
+      const roof = this.roofs.get(b.role)!;
+      const n = roofCounts.get(b.role) ?? 0;
+      matrix
+        .makeRotationY(b.role === 'source' ? Math.PI / 4 : ((b.seed % 4) * Math.PI) / 2)
+        .premultiply(scaling.makeScale((body.top[0] * f) / 0.44, 1, (body.top[1] * f) / 0.44))
+        .premultiply(rotation)
+        .setPosition(p.x, h + 0.45, p.z);
+      roof.setMatrixAt(n, matrix);
+      roofCounts.set(b.role, n + 1);
+      if (this.shadows) {
+        const length = h * Math.hypot(SHADOW.x, SHADOW.z);
+        const ground = groundLevel(this.districtDepth.get(b.districtId) ?? 1) + 0.045;
+        matrix
+          .makeScale(length + 0.84 * f, 1, 0.84 * f)
+          .premultiply(rotation.makeRotationY(Math.atan2(-SHADOW.z, SHADOW.x)))
+          .setPosition(p.x + (SHADOW.x * h) / 2, ground, p.z + (SHADOW.z * h) / 2);
+        this.shadows.setMatrixAt(i, matrix);
+      }
       const bounds = new THREE.Box3(new THREE.Vector3(p.x - 0.44, 0.35, p.z - 0.44), new THREE.Vector3(p.x + 0.44, h + 0.8, p.z + 0.44));
       const key = `${Math.floor(p.x / 8)}:${Math.floor(p.z / 8)}`;
       let cell = this.pickCells.get(key);
@@ -302,36 +444,55 @@ export class CityRenderer {
       cell.indices.push(i);
       return bounds;
     });
-    this.bodies.count = buildings.length;
-    this.finish(this.bodies);
-    const roofCounts = new Map<string, number>();
-    for (const b of buildings) {
-      const roof = this.roofs.get(b.role)!;
-      const n = roofCounts.get(b.role) ?? 0;
-      const p = center(b.rect);
-      matrix.makeRotationY(b.role === 'source' ? Math.PI / 4 : ((b.seed % 4) * Math.PI) / 2).setPosition(p.x, b.height + 0.45, p.z);
-      roof.setMatrixAt(n, matrix);
-      roofCounts.set(b.role, n + 1);
-    }
+    this.bodies.forEach((body, k) => {
+      body.mesh.count = used[k]!;
+      (body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute).needsUpdate = true;
+      this.finish(body.mesh);
+    });
     for (const [role, roof] of this.roofs) {
       roof.count = roofCounts.get(role) ?? 0;
       this.finish(roof);
     }
-    buildings.forEach((b, i) => {
-      const p = center(b.rect);
-      for (let w = 0; w < 2; w++) {
-        matrix.makeScale(0.15, Math.min(0.35, b.height * 0.3), 0.012).setPosition(p.x + (w ? 0.2 : -0.2), 0.45 + b.height * 0.58, p.z + 0.445);
-        this.windows.setMatrixAt(i * 2 + w, matrix);
-      }
+    if (this.shadows) {
+      this.shadows.count = buildings.length;
+      this.finish(this.shadows);
+    }
+    this.placeTerminals(this.city.terminals);
+  }
+
+  /** Grow an archetype batch and its per-instance style buffer to hold `needed` bodies. */
+  private ensureBodies(k: number, needed: number) {
+    const body = this.bodies[k]!;
+    const existing = body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute | undefined;
+    if (existing && existing.count >= needed) return;
+    const capacity = Math.max(16, Math.ceil(needed * 1.25));
+    // Disposing releases the old GPU buffers; the next render uploads the larger ones.
+    body.geometry.dispose();
+    body.geometry.setAttribute('atlasStyle', new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2));
+    this.scene.remove(body.mesh);
+    this.instances.delete(body.mesh);
+    body.mesh.dispose();
+    body.mesh = this.batch(body.geometry, this.facade, capacity);
+    body.mesh.count = 0;
+  }
+
+  /** Harbour depots: a pier reaching into the water, a shed and a gable roof per terminal. */
+  private placeTerminals(terminals: CityData['terminals']) {
+    const r = this.city.root;
+    const [piers, sheds, gables] = this.terminals;
+    terminals.forEach((t, i) => {
+      // North/south terminals face the island across z; east/west across x.
+      rotation.makeRotationY(t.z < r.z || t.z > r.z + r.depth ? 0 : Math.PI / 2);
+      const x = t.x / 100,
+        z = t.z / 100;
+      piers.setMatrixAt(i, matrix.makeScale(1.4, 0.14, 1.9).premultiply(rotation).setPosition(x, -0.12, z));
+      sheds.setMatrixAt(i, matrix.makeScale(1.15, 0.5, 0.8).premultiply(rotation).setPosition(x, 0.02, z));
+      gables.setMatrixAt(i, matrix.makeScale(1.25, 0.3, 0.9).premultiply(rotation).setPosition(x, 0.52, z));
     });
-    this.windows.count = buildings.length * 2;
-    this.finish(this.windows);
-    this.city.terminals.forEach((t, i) => {
-      matrix.makeScale(1.3, 0.8, 1.3).setPosition(t.x / 100, 0.45, t.z / 100);
-      this.terminals.setMatrixAt(i, matrix);
-    });
-    this.terminals.count = this.city.terminals.length;
-    this.finish(this.terminals);
+    for (const mesh of this.terminals) {
+      mesh.count = terminals.length;
+      this.finish(mesh);
+    }
   }
 
   private ownGeometry<T extends THREE.BufferGeometry>(g: T): T {
@@ -400,7 +561,8 @@ export class CityRenderer {
     }
     const near = this.camera.zoom >= 6;
     for (const roof of this.roofs.values()) roof.visible = near;
-    this.windows.visible = near && !this.lowQuality && this.camera.zoom >= 12;
+    // Below ~1.5 px per cell trees are speckle; the facade shader fades windows by itself.
+    for (const tree of this.trees) tree.visible = this.camera.zoom >= 1.5;
     this.renderer.render(this.scene, this.camera);
     this.drawLabels(this.labels, this.camera, this.width, this.height);
   }
@@ -410,21 +572,42 @@ export class CityRenderer {
     ctx.clearRect(0, 0, width, height);
     ctx.font = '600 12px system-ui';
     ctx.textAlign = 'center';
-    const label = (text: string, p: THREE.Vector3) => {
+    const label = (text: string, p: THREE.Vector3, swatch: string | null = null) => {
       const v = p.project(camera);
       if (v.z < -1 || v.z > 1) return;
       const x = ((v.x + 1) / 2) * width,
         y = ((1 - v.y) / 2) * height;
       if (x < 0 || x > width || y < 0 || y > height) return;
       const safe = text.length > 42 ? `${text.slice(0, 39)}…` : text;
-      const w = ctx.measureText(safe).width + 14;
-      ctx.fillStyle = '#f9f7f0';
-      ctx.fillRect(x - w / 2, y - 12, w, 20);
+      const inset = swatch ? 12 : 0;
+      const w = ctx.measureText(safe).width + 18 + inset;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x - w / 2, y - 12, w, 21, 10.5);
+      else ctx.rect(x - w / 2, y - 12, w, 21);
+      ctx.fillStyle = 'rgba(249, 247, 240, 0.94)';
+      ctx.shadowColor = 'rgba(24, 35, 49, 0.18)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 1;
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = 'rgba(38, 51, 68, 0.16)';
+      ctx.stroke();
+      if (swatch) {
+        ctx.beginPath();
+        ctx.arc(x - w / 2 + 12, y - 1.5, 4, 0, Math.PI * 2);
+        ctx.fillStyle = swatch;
+        ctx.fill();
+      }
       ctx.fillStyle = '#263344';
-      ctx.fillText(safe, x, y + 2);
+      ctx.fillText(safe, x + inset / 2, y + 3);
     };
+    // The swatch repeats the facade colour only while the structure lens shows package colour.
     for (const d of this.city.districts.filter((d) => d.kind === 'package').slice(0, 20))
-      label(d.label, new THREE.Vector3((d.rect.x + d.rect.width / 2) / 100, 0.35, (d.rect.z + 70) / 100));
+      label(
+        d.label,
+        new THREE.Vector3((d.rect.x + d.rect.width / 2) / 100, groundLevel(d.depth), (d.rect.z + 70) / 100),
+        this.lens === 'structure' ? districtColor(d.id) : null,
+      );
     const b = this.city.buildings.find(
       (b) =>
         b.nodeId === this.hoverId || (this.hoverId === null && this.selected.size === 1 && this.selected.has(b.nodeId)),
@@ -432,7 +615,11 @@ export class CityRenderer {
     if (b) label(b.path, center(b.rect).setY(b.height + 1.6));
   }
   applyStyle(lens: CityLens, selected: ReadonlySet<string>, filter: (b: CityBuilding) => boolean) {
-    const recolor = this.lens !== lens || this.filter !== filter || this.styled !== this.city || !this.bodies.instanceColor;
+    const recolor =
+      this.lens !== lens ||
+      this.filter !== filter ||
+      this.styled !== this.city ||
+      this.bodies.some((body) => body.mesh.count > 0 && !body.mesh.instanceColor);
     this.styled = this.city;
     this.lens = lens;
     this.selected = new Set(selected);
@@ -443,7 +630,7 @@ export class CityRenderer {
       this.city.buildings.forEach((b, i) => {
         color.set(facadeColor(b, lens));
         if (!filter(b)) color.lerp(white, 0.8);
-        this.bodies.setColorAt(i, color);
+        this.bodies[this.bodyBatch[i]!]!.mesh.setColorAt(this.bodySlot[i]!, color);
         const p = center(b.rect);
         if ((lens !== 'structure' && lensValue(b, lens) === null) || b.parseStatus !== 'parsed') {
           for (const angle of [Math.PI / 4, -Math.PI / 4]) {
@@ -463,7 +650,7 @@ export class CityRenderer {
       matrix.makeScale(1.04, b.height + 0.5, 1.04).setPosition(p.x, 0.35 + b.height / 2, p.z);
       this.selection.setMatrixAt(count++, matrix);
     }
-    if (recolor) this.bodies.instanceColor!.needsUpdate = true;
+    if (recolor) for (const body of this.bodies) if (body.mesh.instanceColor) body.mesh.instanceColor.needsUpdate = true;
     this.selection.count = count;
     this.finish(this.selection);
     if (recolor) {
@@ -483,12 +670,7 @@ export class CityRenderer {
     const terminals = result.promotedTerminal
       ? [...this.city.terminals.slice(0, 49), result.promotedTerminal]
       : this.city.terminals;
-    terminals.forEach((t, i) => {
-      matrix.makeScale(1.3, 0.8, 1.3).setPosition(t.x / 100, 0.45, t.z / 100);
-      this.terminals.setMatrixAt(i, matrix);
-    });
-    this.terminals.count = terminals.length;
-    this.finish(this.terminals);
+    this.placeTerminals(terminals);
     for (const g of this.arcGeometries) g.dispose();
     this.arcGeometries.length = 0;
     // One line/arrow batch per kind: bounded draw calls even for a dense selection.
@@ -562,8 +744,8 @@ export class CityRenderer {
     // Fit projected island bounds, rather than a square estimate that wastes the viewport on long repositories.
     const r = this.city.root,
       bounds = new THREE.Box3(
-        new THREE.Vector3(r.x / 100 - 7, 0, r.z / 100 - 7),
-        new THREE.Vector3((r.x + r.width) / 100 + 7, maxHeight, (r.z + r.depth) / 100 + 7),
+        new THREE.Vector3(r.x / 100 - 11, 0, r.z / 100 - 11),
+        new THREE.Vector3((r.x + r.width) / 100 + 11, maxHeight, (r.z + r.depth) / 100 + 11),
       );
     const projected = bounds.clone().applyMatrix4(this.camera.matrixWorldInverse).getSize(new THREE.Vector3());
     this.baseZoom = THREE.MathUtils.clamp(

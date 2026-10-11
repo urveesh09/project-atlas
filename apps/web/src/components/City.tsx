@@ -319,7 +319,8 @@ export function City() {
       </div>
       <p className="city-note">
         Height = code lines, on a logarithmic scale. △ source · ⬡ test · ▱ declaration · □ kiosk. × marks unavailable
-        analysis. Roads separate folders; they are spacing.
+        analysis. Roads separate folders; they are spacing. Building styles, windows, trees and the harbour are
+        decorative and seeded per file; they carry no data.
       </p>
       <div className="city-legend" aria-label="City lens legend">
         <strong>{LENS_LABEL[state.lens]}</strong>

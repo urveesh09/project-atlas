@@ -339,6 +339,33 @@ R6-01, describe the runner's recorded dirty state accurately, and explain stoppi
 the fixture coordinator before switching hosted modes. These corrections do not
 claim G6 sign-off or introduce scope beyond V0.1.
 
+### City visual refresh (2026-10-11)
+
+At the owner's request the 3D city gained seeded decorative architecture
+([ADR-038](adr/ADR-038-decorative-city-architecture.md)):
+- eight building archetypes with neighbourhood style families per district;
+- procedural windows that fade to the exact lens colour at distance;
+- kerbed, stepped blocks, header-strip lawns and trees;
+- contact shadows, a diorama shoreline and harbour depots for external terminals;
+- rounded package labels with a structure-lens swatch.
+
+Height, lens colour, role roofs, picking, selection and overlays keep their meaning;
+the city note and PNG metadata say styling carries no data.
+
+Evidence:
+- `pnpm verify`: 37 files, 608 tests passed, 80 service-gated skips, including 4 new
+  architecture tests.
+- `check-repository-baseline.mjs`: exact for is-plain-obj, Vue and Vite.
+- Draw calls: 22–31 for Vue and 16–18 for the 10,000-file city.
+- Frame p95: 16.7 ms at the refresh cap.
+- Leak check: GPU geometry stays constant across 10 forced-growth frame-swap cycles.
+
+Captures: [overview](images/city-refresh-overview.png),
+[quarter](images/city-refresh-quarter.png), [close-up](images/city-refresh-closeup.png).
+The 20-run [phase 3 report](benchmarks/phase3-city.md) and its reference images predate
+this change and need a rerun of `apps/web/scripts/bench-city.mjs`; P3.6's pending
+reference-device audit is unchanged.
+
 ### Reproduce verification
 
 ```sh

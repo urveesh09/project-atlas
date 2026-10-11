@@ -29,7 +29,7 @@ export function exportMetadata(model: ViewerModel, state: ViewState, overlay: Ov
     visibleExternalTerminals: model.city.terminals.length,
     omittedExternalTerminals: model.city.terminalOmitted,
     camera,
-    note: 'Static repository structure. Height is code lines; roads are spacing. Use the artifact/table for accessible evidence.',
+    note: 'Static repository structure. Height is code lines; roads are spacing; building styles and greenery are decorative. Use the artifact/table for accessible evidence.',
   };
 }
 export function downloadBlob(blob: Blob, filename: string) {
