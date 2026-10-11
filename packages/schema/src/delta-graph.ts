@@ -109,24 +109,28 @@ function diagnosticIdFrom(snapshot: string, d: { id: string; ruleId: string; sub
   return null;
 }
 
-function naturals(graph: GraphSnapshot): GraphNaturals {
-  const nodeKeyById = new Map(graph.nodes.map((n) => [n.id, nodeKey(n)]));
+function* naturalMap<Row, N extends Natural>(rows: readonly Row[], make: (row: Row, index: number) => N): Generator<N> {
+  for (let i = 0; i < rows.length; i++) yield make(rows[i]!, i);
+}
+
+/** Keys live across tables; full forms are generated only for the active table/row. */
+function naturalRows(graph: GraphSnapshot, keys = baseKeys(graph)) {
+  const nodeKeyById = new Map(graph.nodes.map((n, i) => [n.id, keys.nodeKeys[i]!]));
   const nk = (id: string | null): string | null => {
     if (id === null) return null;
     const key = nodeKeyById.get(id);
     if (key === undefined) throw new TypeError('Graph reference is dangling');
     return key;
   };
-  const nodes = graph.nodes.map((n): Natural => {
+  const nodes = () => naturalMap(graph.nodes, (n): Natural => {
     const { id: _id, parentId, ...rest } = n;
     const form = rest.kind === 'external-package' ? { ...rest, declaredRanges: rest.declaredRanges.map((r) => ({ ...r, packageNodeId: nk(r.packageNodeId) })) } : rest;
     return { key: nodeKeyById.get(n.id)!, form: canonicalJson({ ...form, parentId: nk(parentId) }) };
   });
-  const observationKeyById = new Map<string, string>();
-  const observations = graph.importObservations.map((o): Natural => {
-    const { id, sourceId, targetId, ...rest } = o;
-    const key = canonicalJson([nk(sourceId), o.kind, o.range.startOffset, o.range.endOffset, o.specifier]);
-    observationKeyById.set(id, key);
+  const observationKeyById = new Map(graph.importObservations.map((o, i) => [o.id, keys.observationKeys[i]!]));
+  const observations = () => naturalMap(graph.importObservations, (o, i): Natural => {
+    const { id: _id, sourceId, targetId, ...rest } = o;
+    const key = keys.observationKeys[i]!;
     return { key, form: canonicalJson({ ...rest, sourceId: nk(sourceId), targetId: nk(targetId) }) };
   });
   const ok = (id: string): string => {
@@ -134,29 +138,41 @@ function naturals(graph: GraphSnapshot): GraphNaturals {
     if (key === undefined) throw new TypeError('Graph evidence reference is dangling');
     return key;
   };
-  const edges = graph.edges.map((e): Natural => {
+  const edges = () => naturalMap(graph.edges, (e): Natural => {
     const { id: _id, sourceId, targetId, evidenceIds, ...rest } = e;
     return {
       key: canonicalJson([nk(sourceId), nk(targetId), e.kind, e.confidence]),
       form: canonicalJson({ ...rest, sourceId: nk(sourceId), targetId: nk(targetId), evidenceIds: evidenceIds.map(ok) }),
     };
   });
-  const metrics = graph.metrics.map((m): Natural => {
+  const metrics = () => naturalMap(graph.metrics, (m): Natural => {
     const { nodeId: id, ...rest } = m;
     return { key: nk(id)!, form: canonicalJson({ ...rest, nodeId: nk(id) }) };
   });
   // Diagnostics are keyed by their whole natural form (plus an ordinal among identical
   // forms); only derivable ones can ever be kept.
-  const seen = new Map<string, number>();
-  const diagnostics = graph.diagnostics.map((d) => {
-    const { id: _id, subjectIds, evidenceIds, ...rest } = d;
-    const idFrom = diagnosticIdFrom(graph.snapshotId, d);
-    const form = canonicalJson({ ...rest, subjectIds: subjectIds.map((s) => nk(s)), evidenceIds: evidenceIds.map(ok), idFrom });
-    const ordinal = seen.get(form) ?? 0;
-    seen.set(form, ordinal + 1);
-    return { key: idFrom === null ? `literal:${d.id}` : `${form}#${ordinal}`, form, idFrom };
-  });
-  return { nodeKeys: graph.nodes.map((n) => nodeKeyById.get(n.id)!), observationKeys: observations.map((o) => o.key), nodes, observations, edges, metrics, diagnostics };
+  const diagnostics = () => {
+    const seen = new Map<string, number>();
+    return naturalMap(graph.diagnostics, (d, i) => {
+      const { id: _id, subjectIds, evidenceIds, ...rest } = d;
+      const idFrom = keys.diagnosticIdFrom[i]!;
+      const form = canonicalJson({ ...rest, subjectIds: subjectIds.map((s) => nk(s)), evidenceIds: evidenceIds.map(ok), idFrom });
+      const ordinal = seen.get(form) ?? 0;
+      seen.set(form, ordinal + 1);
+      return { key: idFrom === null ? `literal:${d.id}` : `${form}#${ordinal}`, form, idFrom };
+    });
+  };
+  return { ...keys, nodes, observations, edges, metrics, diagnostics };
+}
+
+/** Optional full materialization for callers explicitly requesting the legacy cache. */
+function naturals(graph: GraphSnapshot): GraphNaturals {
+  const rows = naturalRows(graph);
+  return {
+    nodeKeys: rows.nodeKeys, observationKeys: rows.observationKeys,
+    nodes: [...rows.nodes()], observations: [...rows.observations()], edges: [...rows.edges()],
+    metrics: [...rows.metrics()], diagnostics: [...rows.diagnostics()],
+  };
 }
 
 // ---------------------------------------------------------------------------------------
@@ -174,15 +190,19 @@ function toRuns(indices: readonly number[]): number[] {
 }
 
 /** Rows of `target` equal to a `base` row are kept by base position; the rest are added. */
-function split(base: readonly Natural[], target: readonly Natural[]): { keep: number[]; added: number[] } {
-  const baseByKey = new Map(base.map((row, i) => [row.key, i]));
+function split(base: Iterable<Natural>, target: Iterable<Natural>): { keep: number[]; added: number[] } {
+  const baseByKey = new Map<string, { index: number; form: string }>();
+  let position = 0;
+  for (const row of base) baseByKey.set(row.key, { index: position++, form: row.form });
   const kept: number[] = [];
   const added: number[] = [];
-  target.forEach((row, i) => {
+  position = 0;
+  for (const row of target) {
     const b = baseByKey.get(row.key);
-    if (b !== undefined && base[b]!.form === row.form) kept.push(b);
-    else added.push(i);
-  });
+    if (b !== undefined && b.form === row.form) kept.push(b.index);
+    else added.push(position);
+    position++;
+  }
   kept.sort((x, y) => x - y);
   return { keep: toRuns(kept), added };
 }
@@ -192,18 +212,21 @@ function split(base: readonly Natural[], target: readonly Natural[]): { keep: nu
  * Added rows use the indexed wire shape with references as positions in the frame's own
  * canonical arrays, exactly like `atlas.graph.indexed/1`.
  */
-export function encodeDeltaGraph(graph: GraphSnapshot, base: GraphSnapshot, indexed: z.infer<typeof IndexedGraphSchema>, baseNaturals?: GraphNaturalsCache): DeltaGraph {
-  const b = baseNaturals?.get(base) ?? naturals(base);
-  const t = naturals(graph);
-  const nodes = split(b.nodes, t.nodes);
-  const observations = split(b.observations, t.observations);
-  const edges = split(b.edges, t.edges);
-  const metrics = split(b.metrics, t.metrics);
+export function encodeDeltaGraph(graph: GraphSnapshot, base: GraphSnapshot, indexedInput: z.infer<typeof IndexedGraphSchema> | (() => z.infer<typeof IndexedGraphSchema>), baseNaturals?: GraphNaturalsCache): DeltaGraph {
+  const b = naturalRows(base, baseNaturals?.keys(base));
+  const t = naturalRows(graph);
+  const nodes = split(b.nodes(), t.nodes());
+  const observations = split(b.observations(), t.observations());
+  const edges = split(b.edges(), t.edges());
+  const metrics = split(b.metrics(), t.metrics());
   // A literal (non-derivable) ID is snapshot-specific, so such a diagnostic is never kept.
-  const diagnostics = split(
-    b.diagnostics.map((d) => (d.idFrom === null ? { ...d, key: `base:${d.key}` } : d)),
-    t.diagnostics,
-  );
+  function* keepableDiagnostics() {
+    for (const d of b.diagnostics()) yield d.idFrom === null ? { ...d, key: `base:${d.key}` } : d;
+  }
+  const diagnostics = split(keepableDiagnostics(), t.diagnostics());
+  // Do not overlap all indexed rows with matching's base forms. Existing callers
+  // can still provide an eager indexed graph; the exporter provides this factory.
+  const indexed = typeof indexedInput === 'function' ? indexedInput() : indexedInput;
   return {
     encoding: DELTA_GRAPH_ENCODING,
     baseSnapshotId: base.snapshotId,
@@ -220,7 +243,7 @@ export function encodeDeltaGraph(graph: GraphSnapshot, base: GraphSnapshot, inde
       keep: diagnostics.keep,
       add: diagnostics.added.map((i) => {
         const { id, ...row } = indexed.diagnostics[i]!;
-        const idFrom = t.diagnostics[i]!.idFrom;
+        const idFrom = t.diagnosticIdFrom[i]!;
         return idFrom === null ? { ...row, id, idFrom } : { ...row, idFrom };
       }),
     },
@@ -248,9 +271,10 @@ export class GraphNaturalsCache {
   private readonly cache = new WeakMap<GraphSnapshot, GraphNaturals>();
   private readonly keyCache = new WeakMap<GraphSnapshot, BaseKeys>();
   /** Release derived rows after a caller's last use of a still-retained graph. */
-  forget(graph: GraphSnapshot): void {
+  forget(graph: GraphSnapshot, options: { keepDecodingKeys?: boolean } = {}): void {
+    if (options.keepDecodingKeys) this.keys(graph);
     this.cache.delete(graph);
-    this.keyCache.delete(graph);
+    if (!options.keepDecodingKeys) this.keyCache.delete(graph);
   }
   /** Keys only (cheap): enough to decode a delta against `graph`. */
   keys(graph: GraphSnapshot): BaseKeys {

@@ -8,7 +8,9 @@ import {
   verifyCompactRoundTrip,
   GraphNaturalsCache,
   INDEXED_GRAPH_ENCODING,
-  canonicalJson,
+  canonicalJsonChunks,
+  canonicalJsonDigest,
+  canonicalJsonEqual,
   decodeDeltaGraph,
   encodeDeltaGraph,
   encodeIndexedGraph,
@@ -53,7 +55,13 @@ export class ArtifactPackError extends Error {
 }
 
 export function encodeCanonical(value: unknown): { bytes: Uint8Array; sha256: string } {
-  const bytes = utf8Bytes(canonicalJson(value));
+  const blocks = Array.from(canonicalJsonChunks(value), utf8Bytes);
+  const bytes = new Uint8Array(blocks.reduce((total, block) => total + block.length, 0));
+  let offset = 0;
+  for (const block of blocks) {
+    bytes.set(block, offset);
+    offset += block.length;
+  }
   return { bytes, sha256: sha256Hex(bytes) };
 }
 
@@ -72,6 +80,12 @@ export const KEYFRAME_INTERVAL = 3;
 export function deltaBaseIndex(index: number, frames: number): number {
   const distance = frames - 1 - index;
   return distance % KEYFRAME_INTERVAL === 0 ? frames - 1 : index + 1;
+}
+
+/** Do not retain the validator's deep copy across encoding/decoding allocations. */
+function checkGraphForExport(graph: GraphSnapshot, objectFormat: 'sha1' | 'sha256', verifyIds: boolean): void {
+  const valid = validateGraphSnapshot(graph, { objectFormat, verifyIds });
+  if (!valid.ok) throw new ArtifactPackError(valid.issues);
 }
 
 export function packArtifact(
@@ -96,31 +110,28 @@ export function packArtifact(
     const delta = encoding === 'delta' && !isHead && head !== undefined;
     // A delta frame's IDs are re-derived by the round trip below and compared byte for
     // byte, which proves them; every other graph has its IDs re-derived here.
-    const valid = validateGraphSnapshot(graph, { objectFormat: input.manifest.repo.objectFormat, verifyIds: !delta });
-    if (!valid.ok) throw new ArtifactPackError(valid.issues);
-    const text = encoding === 'plain' ? '' : canonicalJson(graph);
+    checkGraphForExport(graph, input.manifest.repo.objectFormat, !delta);
+    const canonical = encoding === 'plain' ? null : canonicalJsonDigest(graph);
     let wire: unknown = graph;
     if (encoding !== 'plain') {
-      const indexed = encodeIndexedGraph(graph);
       const base = (delta ? input.graphs[deltaBaseIndex(i, input.manifest.frames.length)] : head)!;
-      wire = delta ? encodeDeltaGraph(graph, base, indexed, naturals) : indexed;
-      if (delta && canonicalJson(decodeDeltaGraph(wire, base, naturals)) !== text) {
+      // The full indexed working graph is only an encoder input. Keep it out of
+      // this scope so it is collectible before the mandatory decoder round trip.
+      wire = delta ? encodeDeltaGraph(graph, base, () => encodeIndexedGraph(graph), naturals) : encodeIndexedGraph(graph);
+      if (delta && !canonicalJsonEqual(graph, decodeDeltaGraph(wire, base, naturals))) {
         // Lossless by construction, and proven here: a codec defect fails the export.
         throw new ArtifactPackError([{ code: 'CHUNK_ENCODING', path: `graphs/${graph.snapshotId}`, message: 'Frame delta did not reproduce its graph' }]);
       }
-      // Adjacent historical bases are used once in this packing order. Input graphs
-      // stay alive in the bundle, so WeakMap keys alone cannot release their large
-      // derived row strings. Only HEAD is reused by later keyframe intervals.
+      // Adjacent bases are used once. Release their decoder-key projections while
+      // input graphs stay alive in the bundle; only HEAD keys are reused later.
       if (delta && base !== head) naturals.forget(base);
     }
     const graphChunk = ref(`graphs/${graph.snapshotId}.json.gz`, wire);
     if (encoding !== 'plain') {
-      const bytes = utf8Bytes(text);
-      const canonical = { bytes, sha256: sha256Hex(bytes) };
       graphChunk.encoding = delta ? DELTA_GRAPH_ENCODING : INDEXED_GRAPH_ENCODING;
       graphChunk.encodedSha256 = graphChunk.sha256;
-      graphChunk.sha256 = canonical.sha256;
-      graphChunk.decodedBytes = canonical.bytes.length;
+      graphChunk.sha256 = canonical!.sha256;
+      graphChunk.decodedBytes = canonical!.byteLength;
     }
     return { ...frame, graphChunk };
   });

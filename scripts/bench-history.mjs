@@ -10,7 +10,8 @@
  *
  *   node scripts/bench-history.mjs [--files 3000] [--runs 20] [--commits 40] [--keep <artifact-dir>]
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -28,19 +29,44 @@ const out = process.argv.includes('--out') ? process.argv[process.argv.indexOf('
 if (!/^[a-z0-9-]+$/.test(out ?? '')) throw new Error('Report name must be lowercase letters, digits and hyphens');
 if (!Number.isInteger(RUNS) || RUNS < 1 || RUNS > 100) throw new Error('Runs must be 1..100');
 const tier = FILES > 3000 ? 'large' : 'medium';
+const diagnosticOnly = process.argv.includes('--diagnostic-once');
 
-const imp = (p) => import(pathToFileURL(path.join(root, p)).href);
-const { createGitFixture } = await imp('packages/test-fixtures/dist/index.js');
+const pathArg = (name) => {
+  const i = process.argv.indexOf(`--${name}`);
+  if (i < 0) return undefined;
+  if (!process.argv[i + 1] || process.argv[i + 1].startsWith('--')) throw new Error(`Missing --${name} path`);
+  return path.resolve(process.argv[i + 1]);
+};
+const fixturePath = pathArg('fixture');
+const runtimeRoot = pathArg('runtime-root');
+const runtimeRequire = runtimeRoot ? createRequire(path.join(runtimeRoot, 'package.json')) : null;
+const imp = (p) => import(pathToFileURL(runtimeRequire
+  ? runtimeRequire.resolve(`@atlas/${p.split('/')[1]}${p.endsWith('node-entry.js') ? '/node' : ''}`)
+  : path.join(root, p)).href);
+const resourceLimits = process.argv.includes('--require-container-limits') ? {
+  memoryBytes: Number(readFileSync('/sys/fs/cgroup/memory.max', 'utf8').trim()),
+  cpuMax: readFileSync('/sys/fs/cgroup/cpu.max', 'utf8').trim(),
+} : null;
+if (resourceLimits) {
+  const [quota, period] = resourceLimits.cpuMax.split(/\s+/).map(Number);
+  if (resourceLimits.memoryBytes !== 2 * 1024 ** 3 || quota / period !== 4) throw new Error('Capacity container must enforce exactly 4 CPUs and 2 GiB total memory');
+}
 const { openLocalRepository, resolveLocalCommit, gitVersion } = await imp('packages/ingest/dist/index.js');
 const { analyzeCommit, ParserPool, MemoryFactCache } = await imp('packages/analyzer-core/dist/index.js');
 const { gzipDeterministic, writeArtifactDirectory } = await imp('packages/artifact/dist/node-entry.js');
 const { localRepositoryId } = await imp('packages/schema/dist/index.js');
 
-const { buildMediumHistoryCommits } = await import(pathToFileURL(path.join(root, 'scripts/lib/medium-history.mjs')).href);
-const { commits, baseFiles } = buildMediumHistoryCommits({ files: FILES, commits: COMMITS, packages: PACKAGES });
-
-console.error(`Building ${baseFiles} files and ${COMMITS} commits…`);
-const fixture = createGitFixture(commits);
+let fixture;
+if (fixturePath) {
+  console.error(`Reading prepared fixture at ${fixturePath}…`);
+  fixture = { dir: fixturePath, dispose() {} }; // Caller owns it; never delete it.
+} else {
+  const { buildMediumHistoryCommits } = await import(pathToFileURL(path.join(root, 'scripts/lib/medium-history.mjs')).href);
+  const { commits, baseFiles } = buildMediumHistoryCommits({ files: FILES, commits: COMMITS, packages: PACKAGES });
+  console.error(`Building ${baseFiles} files and ${COMMITS} commits…`);
+  const { createGitFixture } = await imp('packages/test-fixtures/dist/index.js');
+  fixture = createGitFixture(commits);
+}
 const { repo, git } = await openLocalRepository(fixture.dir);
 const head = await resolveLocalCommit(repo, git);
 const version = await gitVersion();
@@ -48,8 +74,9 @@ const pool = new ParserPool({ workers: 2 });
 const timings = [];
 const completeness = [];
 let last;
+let warmupMs;
 try {
-  for (let runIndex = 0; runIndex < RUNS + 1; runIndex++) {
+  for (let runIndex = 0; runIndex < (diagnosticOnly ? 1 : RUNS + 1); runIndex++) {
     // A production sandbox owns one dataset. Do not retain the preceding result
     // throughout the next cold analysis just to publish the final sample later.
     last = undefined;
@@ -63,11 +90,14 @@ try {
       factCache: new MemoryFactCache(),
       transport: gzipDeterministic,
       onProgress: (event) => {
+        if (event.stage === 'layout' || event.stage === 'assemble')
+          console.error(`  run ${runIndex}: ${event.stage}`);
         if (event.stage === 'frames' && event.done !== undefined)
           console.error(`  run ${runIndex}: historical frames ${event.done}/${event.total}`);
       },
     });
     const elapsed = performance.now() - started;
+    if (runIndex === 0) warmupMs = elapsed;
     const coverage = result.packed.manifest.coverage;
     const complete = result.status === 'complete' && coverage.history.status === 'complete' && coverage.history.framesCompleted === 12;
     if (runIndex > 0) {
@@ -86,6 +116,11 @@ try {
   fixture.dispose();
 }
 
+if (diagnosticOnly) {
+  console.log(JSON.stringify({ diagnosticOnly: true, warmupMs, status: last.status, frames: last.packed.manifest.frames.length, nodeFlags: process.execArgv, resourceLimits, memoryAfter: process.memoryUsage() }));
+  process.exit(0);
+}
+
 const sorted = [...timings].sort((a, b) => a - b);
 const pct = (p) => sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)];
 const m = last.packed.manifest;
@@ -94,7 +129,7 @@ const chunk = (prefix) => m.chunks.filter((c) => c.path.startsWith(prefix)).redu
 const report = {
   task: `Historical analysis capacity — ${tier}, 12 frames`,
   recordedAt: new Date().toISOString(),
-  environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length, memoryGiB: +(os.totalmem() / 2 ** 30).toFixed(1), node: process.version, nodeFlags: process.execArgv.join(' '), git: version, parserWorkers: 2 },
+  environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length, memoryGiB: +(os.totalmem() / 2 ** 30).toFixed(1), node: process.version, nodeFlags: process.execArgv.join(' '), git: version, parserWorkers: 2, containerLimits: resourceLimits, runtimeImage: process.env.ATLAS_CAPACITY_IMAGE ?? null, sourceCommit: process.env.ATLAS_CAPACITY_SOURCE_COMMIT ?? null },
   fixture: {
     headFiles: m.coverage.head.includedFiles,
     importStatements: m.coverage.head.observedImports,
@@ -129,7 +164,7 @@ report.timePass = report.secondsP95 <= report.budgetSecondsP95;
 report.sizePass = report.artifact.compressedBytes <= report.artifact.budgetBytes;
 report.completenessPass = completeness.every((sample) => sample.complete);
 report.pass = report.timePass && report.sizePass && report.completenessPass;
-const outDir = path.join(root, 'docs/benchmarks');
+const outDir = pathArg('report-dir') ?? path.join(root, 'docs/benchmarks');
 mkdirSync(outDir, { recursive: true });
 writeFileSync(path.join(outDir, `${out}.json`), `${JSON.stringify(report, null, 2)}\n`);
 const mib = (b) => `${(b / 1024 / 1024).toFixed(2)} MiB`;

@@ -71,6 +71,10 @@ describe('indexed graph transport (ADR-018)', () => {
     const keys = cache.keys(graph);
     expect(cache.get(graph)).toBe(rows);
     expect(cache.keys(graph)).toBe(keys);
+    cache.forget(graph, { keepDecodingKeys: true });
+    expect(cache.keys(graph)).toBe(keys);
+    expect(cache.get(graph)).not.toBe(rows);
+    expect(cache.get(graph)).toEqual(rows);
     cache.forget(graph);
     expect(cache.get(graph)).not.toBe(rows);
     expect(cache.keys(graph)).not.toBe(keys);

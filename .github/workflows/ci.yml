@@ -116,6 +116,8 @@ jobs:
         run: node scripts/validate-real-repositories.mjs --acquire
       - name: Five offline cold runs and independent source checks
         run: node scripts/validate-real-repositories.mjs
+      - name: Preserve the committed canonical and wire corpus bytes
+        run: node scripts/check-repository-baseline.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: repository-corpus-${{ matrix.os }}

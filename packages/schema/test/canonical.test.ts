@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   canonicalJson,
+  canonicalJsonChunks,
+  canonicalJsonDigest,
+  canonicalJsonEqual,
   checkRepoPath,
   compareUtf8,
   hashFields,
@@ -8,10 +11,49 @@ import {
   makeId,
   nodeId,
   repoExtension,
+  sha256Hex,
   utf8ByteLength,
 } from '@atlas/schema';
 
+describe('sha256Hex', () => {
+  it('matches independent SHA-256 for empty, Unicode, binary and varied identity inputs', async () => {
+    const { createHash } = await import('node:crypto');
+    const inputs: (string | Uint8Array)[] = ['', 'abc', 'é😀\u0000', Uint8Array.from({ length: 256 }, (_, i) => i)];
+    for (let i = 0; i < 256; i++) inputs.push(`atlas.id/1:obs:${i}:src/module-${i}.ts`);
+    for (const input of inputs) expect(sha256Hex(input)).toBe(createHash('sha256').update(input).digest('hex'));
+  });
+});
+
 describe('canonicalJson', () => {
+  it('streams exactly the same canonical UTF-8 across Unicode boundaries and large row arrays', async () => {
+    const { createHash } = await import('node:crypto');
+    const inputs: unknown[] = [null, -0, { '2': 2, '10': 10 }, ...[65533, 65534, 65535].map((n) => 'a'.repeat(n) + '😀é')];
+    inputs.push({ rows: Array.from({ length: 3000 }, (_, i) => ({ b: ['é😀', i], a: { '10': 0, '2': true } })), coverage: { z: null } });
+    for (const input of inputs) {
+      const text = canonicalJson(input);
+      const chunks = [...canonicalJsonChunks(input)];
+      expect(chunks.join('')).toBe(text);
+      expect(Buffer.concat(chunks.map((s) => Buffer.from(s)))).toEqual(Buffer.from(text));
+      expect(chunks.every((s) => s.length <= 65536 && s.isWellFormed())).toBe(true);
+      expect(canonicalJsonDigest(input)).toEqual({ sha256: createHash('sha256').update(text).digest('hex'), byteLength: Buffer.byteLength(text) });
+    }
+    const rows = Array.from({ length: 3000 }, (_, i) => ({ b: '😀', a: i }));
+    expect(canonicalJsonEqual({ rows, x: null }, { x: null, rows: rows.map(({ a, b }) => ({ a, b })) })).toBe(true);
+    const changed = structuredClone(rows);
+    changed.at(-1)!.a++;
+    expect(canonicalJsonEqual({ rows }, { rows: changed })).toBe(false);
+  });
+
+  it('preserves canonical rejection of invalid values and ancestor cycles when streaming', () => {
+    const cycle: unknown[] = [];
+    cycle.push({ back: cycle });
+    for (const input of [cycle, { a: undefined }, { a: NaN }, { a: new Date() }, { '\ud800': 1 }, ['\ud800'], [() => 1]]) {
+      expect(() => canonicalJson(input)).toThrow();
+      expect(() => [...canonicalJsonChunks(input)]).toThrow();
+      expect(() => canonicalJsonDigest(input)).toThrow();
+    }
+  });
+
   it('sorts keys, drops whitespace and normalizes -0', () => {
     expect(canonicalJson({ b: 1, a: [true, null, -0, 1.5], c: 'x' })).toBe('{"a":[true,null,0,1.5],"b":1,"c":"x"}');
   });
