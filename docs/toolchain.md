@@ -16,7 +16,7 @@ Recorded 10 October 2026. Rationale lives in [ADR-013](adr/ADR-013-pin-typescrip
 |---|---|---|
 | typescript | 6.0.3 | analyzer parser/resolver; workspace type checking |
 | zod | 4.6.5 | runtime contracts, JSON Schema/OpenAPI generation |
-| @noble/hashes | 2.4.0 | SHA-256 for IDs and canonical hashes (Node and browser) |
+| @noble/hashes | 2.4.0 | SHA-256 for IDs and canonical hashes in the browser; Node uses its identical native SHA-256 ([ADR-037](adr/ADR-037-export-hashing-and-structural-proofs.md)) |
 | react / react-dom | 19.3.0 | viewer |
 | three | 0.186.1 | viewer 3D layer |
 | @react-three/fiber | 9.8.1 | viewer 3D layer |
