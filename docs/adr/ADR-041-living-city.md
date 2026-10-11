@@ -81,6 +81,21 @@ bits picked "lit" at random per pixel.
      two draw calls.
    - No test bound changed.
 
+8. **Selection never steals focus back.** CI run
+   [38161310296](https://github.com/urveesh09/project-atlas/actions/runs/38161310296)
+   failed `verify (ubuntu-latest)`. The search selection did not reach the inspector, and
+   the history test stopped at snapshot 9 after 3 of 7 ArrowLeft presses. The timeline moves
+   focus synchronously, so a slow machine would still reach snapshot 5. Stopping at 9 means
+   focus left mid-sequence.
+
+   The cause is old code: selecting with `focusInspector` focused the inspector heading on
+   the next animation frame. When frames are late (a heavier scene, software rendering,
+   load), that callback can land after the viewer, or a test, has focused something else.
+   It then takes focus back and swallows the following keys. The same race explains the
+   earlier local failures during `pnpm verify`.
+
+   The deferred focus now applies only if focus has not moved since the selection.
+
 ## Verification
 
 - GPU timer queries on Vite (2,842 files): the wave shader cost 2.5 ms per frame at first and

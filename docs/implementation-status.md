@@ -478,6 +478,13 @@ changes:
 
 No test bound changed.
 
+The next CI run (38161310296) failed on Ubuntu, and its log located the earlier e2e failures
+too. The history test stopped at snapshot 9 after 3 of 7 key presses. The timeline moves focus
+synchronously, so lost keys mean focus was taken away. The inspector's deferred focus after
+a selection fired late, on a slow frame, and took focus back from wherever the viewer had
+moved it. It now applies only if focus has not moved since the selection. The viewer e2e
+suite passes 27 of 27 on both the GPU and SwiftShader (`CI=1`).
+
 Captures: Eastern [ponds and pagodas](images/city-living-eastern-ponds.png) and
 [establishing shot](images/city-living-eastern-establish.png),
 [Western](images/city-living-western.png), [Western castle](images/city-living-western-castle.png),

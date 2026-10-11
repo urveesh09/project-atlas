@@ -103,7 +103,16 @@ export function ViewerProvider({ head, source, children }: { head: ViewerModel; 
       ancestors: node ? current.index.ancestors(node.id).map((n) => n.id) : [],
       announce: node ? `Selected ${current.title(node)}` : 'Showing repository overview',
     });
-    if (options.focusInspector) requestAnimationFrame(() => document.getElementById('inspector-title')?.focus());
+    if (options.focusInspector) {
+      // Focus waits a frame for the inspector to render. Frames can be late (heavy scenes,
+      // software rendering), so never steal focus the viewer has since moved elsewhere.
+      const from = document.activeElement;
+      requestAnimationFrame(() => {
+        const now = document.activeElement;
+        if (now !== from && now !== document.body && now !== null) return;
+        document.getElementById('inspector-title')?.focus();
+      });
+    }
   }, []);
 
   const loadFrame = useCallback(
