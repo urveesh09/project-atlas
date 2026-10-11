@@ -348,6 +348,7 @@ async function withSizeWatchdog<T>(git: SafeGit, options: AcquisitionOptions, wo
   const linked = options.signal;
   const onAbort = () => controller.abort();
   linked?.addEventListener('abort', onAbort, { once: true });
+  if (linked?.aborted) controller.abort();
   const poll = (async () => {
     while (running) {
       await new Promise((r) => setTimeout(r, 200));
@@ -360,7 +361,13 @@ async function withSizeWatchdog<T>(git: SafeGit, options: AcquisitionOptions, wo
     }
   })();
   try {
-    return await work(controller.signal);
+    const result = await work(controller.signal);
+    // A fast fetch can finish before the first polling tick. Check the final stored
+    // size before returning success; the polling watchdog alone leaves a gap.
+    if (exceeded || (await directorySize(git.gitDir, options.maxBytes)) > options.maxBytes) {
+      throw new IngestError('REPOSITORY_TOO_LARGE', 'Repository acquisition exceeded the transfer limit', { limitBytes: options.maxBytes });
+    }
+    return result;
   } catch (error) {
     if (exceeded) throw new IngestError('REPOSITORY_TOO_LARGE', 'Repository acquisition exceeded the transfer limit', { limitBytes: options.maxBytes });
     throw error;

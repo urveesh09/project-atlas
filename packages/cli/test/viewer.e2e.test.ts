@@ -571,15 +571,19 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     const sixth = loaded.bundle.graphs[5]!;
     const pricing = sixth.nodes.find((n) => n.kind === 'file' && n.path === 'src/server/pricing.ts')!;
     const fresh = await context.newPage();
+    try {
     await fresh.goto(`${server.url}#v=1&frame=${sixth.snapshotId}&file=${pricing.lineageId}&tab=history`);
-    await expect.poll(() => fresh.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toMatch(/^Snapshot 6 of 12/);
+    // This is a cold page/worker/frame load, unlike cached stepping above. Wait for
+    // startup explicitly; the cached-frame performance budget is measured separately.
+    await fresh.locator('.topbar .repo-name').waitFor({ timeout: 60_000 });
+    await expect.poll(() => fresh.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label'), { timeout: 30_000 }).toMatch(/^Snapshot 6 of 12/);
     await expect.poll(() => fresh.locator('#inspector-title').innerText()).toBe('pricing.ts');
     expect(await fresh.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('History');
     // An unknown frame is rejected rather than approximated.
     await fresh.goto('about:blank');
     await fresh.goto(`${server.url}#v=1&frame=snap_${'0'.repeat(64)}`);
     await expect.poll(() => fresh.locator('[role="status"][aria-live="polite"]').innerText()).toContain('unsupported or invalid');
-    await fresh.close();
+    } finally { await fresh.close(); }
   });
 
   it('never autoplays; reduced motion removes stepping; 320px reflows', async () => {
