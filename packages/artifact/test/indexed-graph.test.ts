@@ -14,6 +14,7 @@ import {
   canonicalJson,
   decodeIndexedGraph,
   encodeIndexedGraph,
+  GraphNaturalsCache,
   sha256Hex,
   utf8Bytes,
   validateGraphSnapshot,
@@ -62,6 +63,21 @@ const failures = async (p: PackedArtifact) => {
 };
 
 describe('indexed graph transport (ADR-018)', () => {
+  it('releases both derived-row and decoding-key caches for a still-retained graph', () => {
+    const graph = buildHandcraftedArtifact().graph;
+    const original = canonicalJson(graph);
+    const cache = new GraphNaturalsCache();
+    const rows = cache.get(graph);
+    const keys = cache.keys(graph);
+    expect(cache.get(graph)).toBe(rows);
+    expect(cache.keys(graph)).toBe(keys);
+    cache.forget(graph);
+    expect(cache.get(graph)).not.toBe(rows);
+    expect(cache.keys(graph)).not.toBe(keys);
+    expect(cache.get(graph)).toEqual(rows);
+    expect(cache.keys(graph)).toEqual(keys);
+    expect(canonicalJson(graph)).toBe(original);
+  });
   it('retains the exact full-ID graph, independent fixture facts and canonical hash', () => {
     const graph = buildHandcraftedArtifact().graph;
     const wire = encodeIndexedGraph(graph);

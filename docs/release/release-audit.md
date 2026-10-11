@@ -51,7 +51,11 @@ recorded in [implementation status](../implementation-status.md).
 | R6-06 | Deployment operator | Domain/TLS, network firewall and least-privilege roles, dated image/Git/OS audit, backup/restore/revocation/rollback, live canaries, leak/metrics/alert checks | Public launch blocked until verified |
 | R6-07 | Release owner | Review CI/reports, triage every known defect, no unresolved P0/P1, lock final code/archive identities and sign off §18 definition of done | G6 open |
 
-These are acceptance gaps, not invented measured failures. Automated checks cannot
+The large-history [diagnostic](../benchmarks/phase6-large-history-precache.md) subsequently
+observed a capacity issue in the export cache; [ADR-036](../adr/ADR-036-export-base-cache-lifetime.md)
+records the fix and pending verification. R6-01 includes verifying this observed issue
+as well as the missing reference measurements. A warm-up is not a 20-run p95 result.
+Other open rows are acceptance gaps, not invented measured failures. Automated checks cannot
 replace participants, screen readers or hardware that has not been used. There is no
 authorization or infrastructure configuration here for creating an actual public service.
 

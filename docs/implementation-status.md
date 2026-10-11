@@ -269,6 +269,22 @@ bytes, SHA-256 `d7cddeb3a240fe6c886f6a9b4de9957a949e7f9d8ff0ebbf207b54f7b84cf271
 Its manifest records `workingTreeDirty: false`; the subsequent evidence commit changes
 reports/screenshot/status only. CI produces separate independently built OS candidates.
 
+[Candidate CI 38112425011](https://github.com/urveesh09/project-atlas/actions/runs/38112425011)
+passed all eight jobs on `7395fb8`: Windows/Linux full verification and relocated CLI
+distribution, mandatory hosted gates, live acquisition, render behavior and five cold
+corpus repeats on each OS. The independent comparison matches all three complete
+canonical/wire chunk digests and all sixteen source-authored examples across platforms.
+
+The subsequent large-history diagnostic found a cache-lifetime capacity issue: a
+260.41 s warm-up and a 3,475.10 MiB parent working-set observation. This is not a
+20-run p95 measurement. [The preserved diagnostic](benchmarks/phase6-large-history-precache.md)
+and [ADR-036](adr/ADR-036-export-base-cache-lifetime.md) record the correction: discard
+derived adjacent-base export rows after their last use while retaining HEAD reuse.
+94 targeted artifact/schema/history checks and types pass; the new twenty-run batch
+and final verification remain pending. A 1,400 MiB parent V8 heap does not certify
+a whole-job cgroup or the exact reference hardware. The prior delivered CLI candidate
+is preserved as the baseline; a final candidate will bind the corrected code revision.
+
 ### Reproduce verification
 
 ```sh

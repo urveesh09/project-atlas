@@ -247,6 +247,11 @@ function baseKeys(graph: GraphSnapshot): BaseKeys {
 export class GraphNaturalsCache {
   private readonly cache = new WeakMap<GraphSnapshot, GraphNaturals>();
   private readonly keyCache = new WeakMap<GraphSnapshot, BaseKeys>();
+  /** Release derived rows after a caller's last use of a still-retained graph. */
+  forget(graph: GraphSnapshot): void {
+    this.cache.delete(graph);
+    this.keyCache.delete(graph);
+  }
   /** Keys only (cheap): enough to decode a delta against `graph`. */
   keys(graph: GraphSnapshot): BaseKeys {
     let value = this.keyCache.get(graph);

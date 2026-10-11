@@ -108,6 +108,10 @@ export function packArtifact(
         // Lossless by construction, and proven here: a codec defect fails the export.
         throw new ArtifactPackError([{ code: 'CHUNK_ENCODING', path: `graphs/${graph.snapshotId}`, message: 'Frame delta did not reproduce its graph' }]);
       }
+      // Adjacent historical bases are used once in this packing order. Input graphs
+      // stay alive in the bundle, so WeakMap keys alone cannot release their large
+      // derived row strings. Only HEAD is reused by later keyframe intervals.
+      if (delta && base !== head) naturals.forget(base);
     }
     const graphChunk = ref(`graphs/${graph.snapshotId}.json.gz`, wire);
     if (encoding !== 'plain') {
