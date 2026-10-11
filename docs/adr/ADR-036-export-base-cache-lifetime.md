@@ -73,8 +73,12 @@ run overlapped a build change and saw mixed module versions; it is not final-bui
 evidence and is rerun after freezing the build.
 The frozen chunked-export build subsequently passes **679 checks across forty suites,
 none skipped**, with real hosted/storage/container/network gates enabled. Its later
-table-at-a-time encoder passes the **111 targeted checks** and strict types; final-build
-full verification and complete capacity measurements are still required.
+table-at-a-time encoder passes the **111 targeted checks** and strict types. The full
+physical-gate run subsequently passes **679 checks across forty suites, none skipped**
+in 471.48 s. The additional property-read regression and **112 targeted checks**, plus
+strict types, pass on `277f593`. Eight-job CI on `aa85c71` independently preserves the
+original canonical/wire corpus digests on Windows and Linux. Complete capacity
+measurements and final release acceptance are still required.
 
 `bench-history.mjs --fixture` uses prepared trusted synthetic Git objects read-only;
 the caller retains ownership and the benchmark never removes that fixture. Its

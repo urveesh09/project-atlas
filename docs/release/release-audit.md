@@ -31,7 +31,7 @@ recorded in [implementation status](../implementation-status.md).
 | Frontend interactions/equivalents (§3/12/16) | Real browser keyboard, deep-link/tombstone/compare/partial, reduced motion/320px, map/table/fallback, axe tests | Automated journeys; five developers/manual assistive use pending |
 | Cancellation/partial/resource recovery (§13/15/16) | Queue claim/fence/retry; heartbeat/deadline cancellation; checkpoint fallback; disk/OOM/timeout/network/storage faults; no-container/network leak checks | Local/CI isolation gates; production-host recovery requires rehearsal |
 | Publication privacy/lifecycle (§5/13) | Consent/TTL/private storage, per-chunk visibility, management token, expiry/revocation/purge/reconcile tests; operator restore/rollback rehearsal | Seven-day lifecycle implemented; cannot recall already downloaded copies |
-| P6.1 empirical corpus (§17) | [Pins](repository-corpus.json), [report](real-repositories.md), reproducible offline 5-run scripts and source-free exports | Local evidence recorded; mandatory independent CI repeat comparison |
+| P6.1 empirical corpus (§17) | [Pins](repository-corpus.json), [report](real-repositories.md), reproducible offline 5-run scripts and source-free exports | Done; five repeats on both OSes, independent comparison and exact original-payload baseline checks pass in CI |
 | HEAD capacity (§15.2/P6.2) | [20-run medium](../benchmarks/phase6-head-capacity.md), [20-run near-limit large](../benchmarks/phase6-large-head-capacity.md) | Development host only; exact reference hardware and exact dense large fixture pending |
 | Historical capacity (§15.2/P6.2) | [20-run medium history](../benchmarks/phase4-history.md), [viewer history/heap](../benchmarks/phase4-history-viewer.md) | Medium dev.5 evidence retained; large 12-frame/20,000-union 20-repeat matrix pending |
 | Render/search/response/heap (§15.2) | Phase 3 city/profile reports; selected-edge/draw-call/heap gates; CI software rendering | Exact integrated-GPU Chromium/Firefox, 10 Mbps/100 ms RTT and first-use acceptance pending |
@@ -52,8 +52,11 @@ recorded in [implementation status](../implementation-status.md).
 | R6-07 | Release owner | Review CI/reports, triage every known defect, no unresolved P0/P1, lock final code/archive identities and sign off §18 definition of done | G6 open |
 
 The large-history [diagnostic](../benchmarks/phase6-large-history-precache.md) subsequently
-observed a capacity issue in the export cache; [ADR-036](../adr/ADR-036-export-base-cache-lifetime.md)
-records the fix and pending verification. R6-01 includes verifying this observed issue
+observed excessive export working data; [ADR-036](../adr/ADR-036-export-base-cache-lifetime.md)
+records cache lifetime, streamed exact canonical text, one-table matching and deferred
+indexed working rows. The [bounded-parent diagnostic](../benchmarks/phase6-large-history-bounded-completion.md)
+completes all twelve frames, while whole-job resource/timing verification remains open.
+R6-01 includes verifying this observed issue
 as well as the missing reference measurements. A warm-up is not a 20-run p95 result.
 Other open rows are acceptance gaps, not invented measured failures. Automated checks cannot
 replace participants, screen readers or hardware that has not been used. There is no

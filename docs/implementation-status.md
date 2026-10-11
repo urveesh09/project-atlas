@@ -222,7 +222,7 @@ records the distribution and evidence decisions.
 
 | Task | Status | Deliverables and acceptance boundary |
 |---|---|---|
-| P6.1 Real-repository validation | Local evidence complete; independent CI repeats required | Three immutable numeric-ID/commit pins; 16 source-authored role/import checks; five cold offline repeats each with exact graph/history/layout canonical and wire hashes; verified source-free exports; [coverage report](release/real-repositories.md) |
+| P6.1 Real-repository validation | Done, including independent Windows/Linux CI repeats | Three immutable numeric-ID/commit pins; 16 source-authored role/import checks; five cold offline repeats each with exact graph/history/layout canonical and wire hashes; verified source-free exports; [coverage report](release/real-repositories.md); CI compares both OS reports and each against the original committed payload digests |
 | P6.2 Capacity/reliability | Development-host evidence added; reference matrix open | Separate 20-run medium and near-limit large HEAD reports; existing 20-run medium history/combined worker heap; actual disk/OOM/timeout/lease/storage/container fault gates; exact dense/large temporal and reference-device measurements remain open |
 | P6.3 Usability/accessibility | Automated journeys pass; human reviews open | Existing keyboard/axe/motion/fallback tests and packaged screenshot; [five-developer and assistive-review protocol](release/manual-review.md), no fabricated participant results |
 | P6.4 Documentation/distribution | Candidate implemented; task dependencies open | Portable archive, every-file SHA-256 inventory, third-party notices; [relocated offline CLI/browser smoke](release/distribution-smoke.md), [install/demo/privacy guide](release/README.md), [candidate notes](release/release-notes.md); independent reviewer reproduction follows P6.2/P6.3 |
@@ -294,8 +294,14 @@ Prior parallel runs observed one native pipeline-worker exit and one kernel-OOM-
 timeout; isolated reruns pass all 22 pipeline and seven sandbox checks. [ADR-035](adr/ADR-035-release-candidate-evidence-and-distribution.md)
 records serial physical-gate execution without changing assertions/deadlines/budgets.
 An additional property-read regression for the streamed writer and **112 targeted
-checks across five files**, plus strict types, pass after that full run. A fresh
-candidate will bind the corrected code and distribution-link revision.
+checks across five files**, plus strict types, pass after that full run.
+
+The refreshed local portable candidate binds clean source `277f59301b6b3b6ad0f166de38b644720d04f82c`:
+**8,700,660 bytes**, 1,488 inventoried files, SHA-256
+`233f2f883c7ab04bec6cb596aa835a18a1d7105272d9524fedd4f471700477c5`.
+All six relocated stages pass, including ten documentation-link checks, complete Harbor
+history, keyboard dependency inspection and zero browser errors/outbound requests.
+The previous candidate's identity remains recorded above as baseline evidence.
 
 ### Reproduce verification
 
