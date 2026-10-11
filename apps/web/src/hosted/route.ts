@@ -13,17 +13,19 @@ export function parseRoute(pathname: string): HostedRoute {
   return { kind: 'unknown' };
 }
 
-const listeners = new Set<() => void>();
+/** `explicit` is true for in-app navigation (always re-route), false for browser history. */
+const listeners = new Set<(explicit: boolean) => void>();
 export function navigate(path: string, replace = false): void {
   if (replace) history.replaceState(null, '', path);
   else history.pushState(null, '', path);
-  for (const listener of listeners) listener();
+  for (const listener of listeners) listener(true);
 }
-export function onNavigate(listener: () => void): () => void {
+export function onNavigate(listener: (explicit: boolean) => void): () => void {
+  const onPop = () => listener(false);
   listeners.add(listener);
-  window.addEventListener('popstate', listener);
+  window.addEventListener('popstate', onPop);
   return () => {
     listeners.delete(listener);
-    window.removeEventListener('popstate', listener);
+    window.removeEventListener('popstate', onPop);
   };
 }

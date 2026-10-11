@@ -121,7 +121,14 @@ export function App() {
       else setPhase({ kind: 'landing' });
     };
     void route();
-    const stop = onNavigate(() => void route());
+    // Browsers also fire popstate for fragment-only changes; viewer state lives in the
+    // fragment and is handled by the viewer, so history moves re-route only on a new path.
+    let routedPath = location.pathname;
+    const stop = onNavigate((explicit) => {
+      if (!explicit && location.pathname === routedPath) return;
+      routedPath = location.pathname;
+      void route();
+    });
     return () => {
       disposed = true;
       stop();
