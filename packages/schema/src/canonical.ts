@@ -1,7 +1,12 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 
 const encoder = new TextEncoder();
-const hexPairs = Array.from({ length: 256 }, (_, byte) => byte.toString(16).padStart(2, '0'));
+const hexCodes = new Uint16Array(512);
+for (let byte = 0; byte < 256; byte++) {
+  const pair = byte.toString(16).padStart(2, '0');
+  hexCodes[byte * 2] = pair.charCodeAt(0);
+  hexCodes[byte * 2 + 1] = pair.charCodeAt(1);
+}
 
 export function utf8Bytes(value: string): Uint8Array {
   return encoder.encode(value);
@@ -30,15 +35,56 @@ export function utf8ByteLength(value: string): number {
   return bytes;
 }
 
-export function sha256Hex(data: Uint8Array | string): string {
-  // Joining bounded pairs produces a flat digest. Repeated concatenation can retain
-  // a rope of intermediate strings for each of millions of graph IDs (ADR-036).
-  const digest = sha256(typeof data === 'string' ? utf8Bytes(data) : data);
-  return digestHex(digest);
+/**
+ * SHA-256 is a fixed standard, so Node's native implementation and the portable
+ * `@noble/hashes` one produce identical digests. Analysis hashes millions of IDs, so
+ * Node uses its native hash when available (obtained synchronously, without a static
+ * `node:` import the viewer bundle could not resolve); browsers use the portable one.
+ * Tests pin both paths to each other, including lone surrogates (both encoders
+ * substitute U+FFFD).
+ */
+type NodeCrypto = typeof import('node:crypto');
+const nodeCrypto = ((globalThis as { process?: { getBuiltinModule?: (id: string) => unknown } }).process?.getBuiltinModule?.('node:crypto') ?? null) as NodeCrypto | null;
+
+interface IncrementalSha256 {
+  update(data: Uint8Array | string): void;
+  hex(): string;
 }
 
+function createSha256(native = nodeCrypto): IncrementalSha256 {
+  if (native) {
+    const hash = native.createHash('sha256');
+    return { update: (data) => void (typeof data === 'string' ? hash.update(data, 'utf8') : hash.update(data)), hex: () => hash.digest('hex') };
+  }
+  const hash = sha256.create();
+  return { update: (data) => void hash.update(typeof data === 'string' ? utf8Bytes(data) : data), hex: () => digestHex(hash.digest()) };
+}
+
+const nativeOneShot = typeof nodeCrypto?.hash === 'function' ? nodeCrypto.hash : null;
+
+export function sha256Hex(data: Uint8Array | string): string {
+  if (nativeOneShot) return nativeOneShot('sha256', data, 'hex');
+  if (nodeCrypto) return nodeCrypto.createHash('sha256').update(data).digest('hex');
+  return portableSha256Hex(data);
+}
+
+/** The browser path, exported so tests can prove it equals the native digest. */
+export function portableSha256Hex(data: Uint8Array | string): string {
+  return digestHex(sha256(typeof data === 'string' ? utf8Bytes(data) : data));
+}
+
+/**
+ * One flat string per digest: repeated concatenation can retain a rope of intermediate
+ * strings for each of millions of graph IDs (ADR-036), and mapping through an array
+ * allocates per byte.
+ */
 function digestHex(digest: Uint8Array): string {
-  return Array.from(digest, (byte) => hexPairs[byte]!).join('');
+  const codes = new Uint16Array(digest.length * 2);
+  for (let i = 0; i < digest.length; i++) {
+    codes[i * 2] = hexCodes[digest[i]! * 2]!;
+    codes[i * 2 + 1] = hexCodes[digest[i]! * 2 + 1]!;
+  }
+  return String.fromCharCode.apply(null, codes as unknown as number[]);
 }
 
 /**
@@ -167,36 +213,116 @@ export function canonicalJsonEqual(a: unknown, b: unknown): boolean {
 }
 
 export function canonicalJsonDigest(value: unknown): { sha256: string; byteLength: number } {
-  const hash = sha256.create();
-  let byteLength = 0;
-  for (const chunk of canonicalJsonChunks(value)) {
-    const bytes = utf8Bytes(chunk);
-    hash.update(bytes);
-    byteLength += bytes.length;
+  return digestChunks(canonicalJsonChunks(value), null)!;
+}
+
+/**
+ * Whether `other` has exactly `value`'s canonical JSON text, decided without building
+ * it: the same plain-JSON shape, key sets and scalars. `===` matches canonical number
+ * text, which writes -0 as 0. A value without a canonical form (undefined, NaN,
+ * ill-formed strings, functions, non-plain objects, holes) is equal to nothing, not
+ * even itself, so the result is true exactly when both texts exist and are identical.
+ * Callers compare acyclic graphs; a cycle overflows the stack rather than looping.
+ */
+export function canonicalValueEqual(value: unknown, other: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return value === other && canonicalScalar(value);
+  if (typeof other !== 'object' || other === null) return false;
+  if (value === other) return plainJsonTree(value);
+  if (Array.isArray(value)) {
+    if (!Array.isArray(other) || value.length !== other.length) return false;
+    for (let i = 0; i < value.length; i++) if (!Object.hasOwn(value, i) || !Object.hasOwn(other, i) || !canonicalValueEqual(value[i], other[i])) return false;
+    return true;
   }
-  return { sha256: digestHex(hash.digest()), byteLength };
+  if (Array.isArray(other) || !isPlainObject(value) || !isPlainObject(other)) return false;
+  const keys = Object.keys(value);
+  if (keys.length !== Object.keys(other).length) return false;
+  for (const key of keys) {
+    if (!Object.hasOwn(other, key) || !canonicalValueEqual((value as Record<string, unknown>)[key], (other as Record<string, unknown>)[key])) return false;
+  }
+  return true;
+}
+
+/** null, booleans, finite numbers and well-formed strings: the canonical scalars. */
+function canonicalScalar(value: unknown): boolean {
+  switch (typeof value) {
+    case 'boolean':
+      return true;
+    case 'number':
+      return Number.isFinite(value);
+    case 'string':
+      return value.isWellFormed();
+    default:
+      return value === null;
+  }
+}
+
+/** The same object on both sides is equal to itself only when it is plain JSON. */
+function plainJsonTree(value: object): boolean {
+  const child = (v: unknown) => (typeof v === 'object' && v !== null ? plainJsonTree(v) : canonicalScalar(v));
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) if (!Object.hasOwn(value, i) || !child(value[i])) return false;
+    return true;
+  }
+  return isPlainObject(value) && Object.values(value).every(child);
+}
+
+function isPlainObject(value: object): boolean {
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * The digest of `value`'s canonical text, or null when `other`'s canonical text differs.
+ * Serializing `value` for its digest also rejects any value without a canonical form;
+ * equality is then proven structurally (exactly, with no collision assumption) instead
+ * of serializing `other` too.
+ */
+export function canonicalJsonDigestIfEqual(value: unknown, other: unknown): { sha256: string; byteLength: number } | null {
+  const digest = canonicalJsonDigest(value);
+  return canonicalValueEqual(value, other) ? digest : null;
+}
+
+/** Exposed for tests: the portable incremental path must equal the native one. */
+export function canonicalJsonDigestWith(value: unknown, implementation: 'native' | 'portable'): { sha256: string; byteLength: number } {
+  return digestChunks(canonicalJsonChunks(value), null, implementation === 'native' ? nodeCrypto : null)!;
+}
+
+function digestChunks(chunks: Iterator<string>, other: Iterator<string> | null, native = nodeCrypto): { sha256: string; byteLength: number } | null {
+  const hash = createSha256(native);
+  let byteLength = 0;
+  for (;;) {
+    const x = chunks.next();
+    if (other) {
+      const y = other.next();
+      if (x.done !== y.done || x.value !== y.value) return null;
+    }
+    if (x.done) break;
+    hash.update(x.value);
+    byteLength += utf8ByteLength(x.value);
+  }
+  return { sha256: hash.hex(), byteLength };
 }
 
 /** Join complete child values, rather than retaining millions of punctuation tokens. */
 function write(value: unknown, path: (string | number)[], stack: Set<object>, keys: Map<string, string>): string {
-  const at = () => '$' + path.map((part) => (typeof part === 'number' ? `[${part}]` : `.${part}`)).join('');
+  // Runs for every value in a graph: error paths are formatted only on failure.
   if (value === null) return 'null';
   switch (typeof value) {
     case 'boolean':
       return value ? 'true' : 'false';
     case 'number':
-      if (!Number.isFinite(value)) throw new CanonicalJsonError('Non-finite number', at());
+      if (!Number.isFinite(value)) throw new CanonicalJsonError('Non-finite number', pathText(path));
       return String(value);
     case 'string':
-      if (!value.isWellFormed()) throw new CanonicalJsonError('Ill-formed Unicode string', at());
+      if (!value.isWellFormed()) throw new CanonicalJsonError('Ill-formed Unicode string', pathText(path));
       return JSON.stringify(value);
     case 'object':
       break;
     default:
-      throw new CanonicalJsonError(`Unsupported ${typeof value} value`, at());
+      throw new CanonicalJsonError(`Unsupported ${typeof value} value`, pathText(path));
   }
   const object = value as object;
-  if (stack.has(object)) throw new CanonicalJsonError('Cyclic structure', at());
+  if (stack.has(object)) throw new CanonicalJsonError('Cyclic structure', pathText(path));
   stack.add(object);
   const parts: string[] = [];
   let result: string;
@@ -209,13 +335,13 @@ function write(value: unknown, path: (string | number)[], stack: Set<object>, ke
     result = '[' + parts.join(',') + ']';
   } else {
     const proto = Object.getPrototypeOf(object);
-    if (proto !== Object.prototype && proto !== null) throw new CanonicalJsonError('Non-plain object', at());
+    if (proto !== Object.prototype && proto !== null) throw new CanonicalJsonError('Non-plain object', pathText(path));
     for (const key of Object.keys(object).sort()) {
       const child = (object as Record<string, unknown>)[key];
-      if (child === undefined) throw new CanonicalJsonError(`Undefined value for "${key}"`, at());
+      if (child === undefined) throw new CanonicalJsonError(`Undefined value for "${key}"`, pathText(path));
       let quoted = keys.get(key);
       if (quoted === undefined) {
-        if (!key.isWellFormed()) throw new CanonicalJsonError('Ill-formed Unicode key', at());
+        if (!key.isWellFormed()) throw new CanonicalJsonError('Ill-formed Unicode key', pathText(path));
         quoted = JSON.stringify(key);
         if (keys.size < 512) keys.set(key, quoted);
       }
@@ -228,6 +354,11 @@ function write(value: unknown, path: (string | number)[], stack: Set<object>, ke
   stack.delete(object);
   return result;
 }
+
+function pathText(path: readonly (string | number)[]): string {
+  return '$' + path.map((part) => (typeof part === 'number' ? `[${part}]` : `.${part}`)).join('');
+}
+
 export function canonicalJsonSha256(value: unknown): string {
   return sha256Hex(canonicalJson(value));
 }

@@ -10,7 +10,7 @@ import {
   INDEXED_GRAPH_ENCODING,
   canonicalJsonChunks,
   canonicalJsonDigest,
-  canonicalJsonEqual,
+  canonicalJsonDigestIfEqual,
   decodeDeltaGraph,
   encodeDeltaGraph,
   encodeIndexedGraph,
@@ -111,20 +111,24 @@ export function packArtifact(
     // A delta frame's IDs are re-derived by the round trip below and compared byte for
     // byte, which proves them; every other graph has its IDs re-derived here.
     checkGraphForExport(graph, input.manifest.repo.objectFormat, !delta);
-    const canonical = encoding === 'plain' ? null : canonicalJsonDigest(graph);
+    let canonical: { sha256: string; byteLength: number } | null = null;
     let wire: unknown = graph;
-    if (encoding !== 'plain') {
-      const base = (delta ? input.graphs[deltaBaseIndex(i, input.manifest.frames.length)] : head)!;
+    if (encoding !== 'plain' && !delta) {
+      canonical = canonicalJsonDigest(graph);
+      wire = encodeIndexedGraph(graph);
+    } else if (delta) {
+      const base = input.graphs[deltaBaseIndex(i, input.manifest.frames.length)]!;
       // The full indexed working graph is only an encoder input. Keep it out of
       // this scope so it is collectible before the mandatory decoder round trip.
-      wire = delta ? encodeDeltaGraph(graph, base, () => encodeIndexedGraph(graph), naturals) : encodeIndexedGraph(graph);
-      if (delta && !canonicalJsonEqual(graph, decodeDeltaGraph(wire, base, naturals))) {
-        // Lossless by construction, and proven here: a codec defect fails the export.
+      wire = encodeDeltaGraph(graph, base, () => encodeIndexedGraph(graph), naturals);
+      // Lossless by construction, and proven here: a codec defect fails the export.
+      // One exact (collision-free) comparison of canonical text also yields the digest.
+      canonical = canonicalJsonDigestIfEqual(graph, decodeDeltaGraph(wire, base, naturals));
+      if (canonical === null)
         throw new ArtifactPackError([{ code: 'CHUNK_ENCODING', path: `graphs/${graph.snapshotId}`, message: 'Frame delta did not reproduce its graph' }]);
-      }
       // Adjacent bases are used once. Release their decoder-key projections while
       // input graphs stay alive in the bundle; only HEAD keys are reused later.
-      if (delta && base !== head) naturals.forget(base);
+      if (base !== head) naturals.forget(base);
     }
     const graphChunk = ref(`graphs/${graph.snapshotId}.json.gz`, wire);
     if (encoding !== 'plain') {

@@ -83,7 +83,7 @@ try {
     owned = JSON.parse(execFileSync('docker', ['inspect', name], { encoding: 'utf8', windowsHide: true, timeout: 15_000, stdio: ['ignore', 'pipe', 'pipe'] }))[0];
   } catch (error) {
     const message = error.stderr?.toString() ?? '';
-    if (!message.includes(`No such object: ${name}`) && !message.includes(`No such container: ${name}`))
+    if (!new RegExp(`no such (?:object|container): ${name}`, 'i').test(message))
       throw new Error('Capacity cleanup could not be verified; engine reconciliation is required', { cause: error });
   }
   if (owned) {

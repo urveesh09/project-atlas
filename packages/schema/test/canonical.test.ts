@@ -3,13 +3,17 @@ import {
   canonicalJson,
   canonicalJsonChunks,
   canonicalJsonDigest,
+  canonicalJsonDigestIfEqual,
+  canonicalJsonDigestWith,
   canonicalJsonEqual,
+  canonicalValueEqual,
   checkRepoPath,
   compareUtf8,
   hashFields,
   isCompatibleContractVersion,
   makeId,
   nodeId,
+  portableSha256Hex,
   repoExtension,
   sha256Hex,
   utf8ByteLength,
@@ -21,6 +25,16 @@ describe('sha256Hex', () => {
     const inputs: (string | Uint8Array)[] = ['', 'abc', 'é😀\u0000', Uint8Array.from({ length: 256 }, (_, i) => i)];
     for (let i = 0; i < 256; i++) inputs.push(`atlas.id/1:obs:${i}:src/module-${i}.ts`);
     for (const input of inputs) expect(sha256Hex(input)).toBe(createHash('sha256').update(input).digest('hex'));
+  });
+
+  it('uses a portable browser path identical to the native digest, including lone surrogates', async () => {
+    const { createHash } = await import('node:crypto');
+    const inputs: (string | Uint8Array)[] = ['', 'abc', 'é😀', 'lone \ud800 high', 'lone \udfff low', 'x'.repeat(1000), new Uint8Array(0), Uint8Array.from({ length: 300 }, (_, i) => (i * 7) & 255)];
+    for (const input of inputs) {
+      const expected = createHash('sha256').update(typeof input === 'string' ? Buffer.from(input, 'utf8') : input).digest('hex');
+      expect(portableSha256Hex(input)).toBe(expected);
+      expect(sha256Hex(input)).toBe(expected);
+    }
   });
 });
 
@@ -52,6 +66,45 @@ describe('canonicalJson', () => {
     const changed = structuredClone(rows);
     changed.at(-1)!.a++;
     expect(canonicalJsonEqual({ rows }, { rows: changed })).toBe(false);
+  });
+
+  it('proves exact equality and digests in one pass, on native and portable hashes alike', async () => {
+    const { createHash } = await import('node:crypto');
+    const rows = Array.from({ length: 6000 }, (_, i) => ({ b: ['é😀', i] as unknown[], a: { '10': 0, '2': true } }));
+    const value = { rows, coverage: { z: null } };
+    const text = canonicalJson(value);
+    const expected = { sha256: createHash('sha256').update(text).digest('hex'), byteLength: Buffer.byteLength(text) };
+    expect(text.length).toBeGreaterThan(3 * 65536);
+    expect(canonicalJsonDigestIfEqual(value, structuredClone(value))).toEqual(expected);
+    expect(canonicalJsonDigestWith(value, 'native')).toEqual(expected);
+    expect(canonicalJsonDigestWith(value, 'portable')).toEqual(expected);
+    // A difference in the first chunk, in a later chunk, or in length is refused.
+    const mutations: ((c: typeof rows) => void)[] = [(c) => c[0]!.b.push(0), (c) => (c[5000]!.a['2'] = false), (c) => c.pop()];
+    for (const mutate of mutations) {
+      const changed = structuredClone(rows);
+      mutate(changed);
+      expect(canonicalJsonDigestIfEqual(value, { rows: changed, coverage: { z: null } })).toBeNull();
+    }
+    expect(canonicalJsonDigestIfEqual(value, { ...value, extra: 1 })).toBeNull();
+  });
+
+  it('decides structural equality exactly as canonical text equality would', () => {
+    const text = (v: unknown) => { try { return canonicalJson(v); } catch { return null; } };
+    const values: unknown[] = [
+      null, true, false, 0, -0, 1, 1.5, 'a', 'é😀', '', [], {}, [1, 2], [2, 1], [[]], [{}], { a: 1 }, { a: 1, b: 2 }, { b: 2, a: 1 },
+      { a: [1, { c: null }] }, { a: [1, { c: false }] }, { '10': 1, '2': 2 }, Object.assign(Object.create(null), { a: 1 }),
+      [null], ['null'], { a: '1' }, { a: 1n === 1n ? 1 : 0 },
+    ];
+    for (const a of values) for (const b of values) {
+      const expected = text(a) !== null && text(a) === text(b);
+      expect(canonicalValueEqual(a, b), `${text(a)} vs ${text(b)}`).toBe(expected);
+    }
+    // Values with no canonical form are never equal, even to themselves.
+    const dated = { at: new Date(0) };
+    for (const bad of [NaN, { a: NaN }, dated, { a: new Map() }, [() => 1]]) expect(canonicalValueEqual(bad, bad)).toBe(false);
+    expect(canonicalValueEqual({}, new Map())).toBe(false);
+    expect(canonicalValueEqual([1, , 3], [1, undefined, 3])).toBe(false);
+    expect(canonicalValueEqual({ a: 1 }, { a: 1, b: undefined })).toBe(false);
   });
 
   it('preserves canonical rejection of invalid values and ancestor cycles when streaming', () => {

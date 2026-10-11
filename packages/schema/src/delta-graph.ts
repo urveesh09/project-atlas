@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { canonicalJson, compareAscii } from './canonical.js';
+import { canonicalJson, canonicalValueEqual, compareAscii } from './canonical.js';
 import { SnapshotCoverageSchema } from './coverage.js';
 import type { GraphNode, GraphSnapshot, NodeMetrics } from './graph.js';
 import { GraphSnapshotSchema } from './graph.js';
@@ -207,18 +207,115 @@ function split(base: Iterable<Natural>, target: Iterable<Natural>): { keep: numb
   return { keep: toRuns(kept), added };
 }
 
+/** Natural form of a row's reference fields; the snapshot-specific `id` is omitted. */
+type NaturalRefs<Row> = { readonly [field: string]: (row: Row) => unknown };
+
+/**
+ * `canonicalValueEqual` of two rows' natural forms (see `naturalRows`): every field except
+ * `id` compared directly, reference fields compared through their natural keys.
+ */
+function sameNaturalForm<Row extends object>(b: Row, bRefs: NaturalRefs<Row>, t: Row, tRefs: NaturalRefs<Row>): boolean {
+  const keys = Object.keys(b);
+  if (keys.length !== Object.keys(t).length) return false;
+  for (const key of keys) {
+    if (!Object.hasOwn(t, key)) return false;
+    if (key === 'id') continue;
+    const bRef = bRefs[key];
+    const same = bRef ? canonicalValueEqual(bRef(b), tRefs[key]!(t)) : canonicalValueEqual((b as Record<string, unknown>)[key], (t as Record<string, unknown>)[key]);
+    if (!same) return false;
+  }
+  return true;
+}
+
+interface MatchTable<Row> {
+  rows: readonly Row[];
+  key: (row: Row, index: number) => string;
+  refs: NaturalRefs<Row>;
+}
+
+/**
+ * The same decision as `split` over natural forms, without materializing a canonical
+ * form string per row of both graphs: a target row is kept when a base row has its
+ * natural key and an equal natural form.
+ */
+function splitTable<Row extends object>(base: MatchTable<Row>, target: MatchTable<Row>): { keep: number[]; added: number[] } {
+  const baseByKey = new Map<string, number>();
+  for (let i = 0; i < base.rows.length; i++) baseByKey.set(base.key(base.rows[i]!, i), i);
+  const kept: number[] = [];
+  const added: number[] = [];
+  for (let i = 0; i < target.rows.length; i++) {
+    const row = target.rows[i]!;
+    const index = baseByKey.get(target.key(row, i));
+    if (index !== undefined && sameNaturalForm(base.rows[index]!, base.refs, row, target.refs)) kept.push(index);
+    else added.push(i);
+  }
+  kept.sort((x, y) => x - y);
+  return { keep: toRuns(kept), added };
+}
+
+/** Match tables for nodes, observations, edges and metrics; mirrors `naturalRows`. */
+function matchTables(graph: GraphSnapshot, keys: BaseKeys) {
+  const nodeKeyById = new Map(graph.nodes.map((n, i) => [n.id, keys.nodeKeys[i]!]));
+  const nk = (id: string | null): string | null => {
+    if (id === null) return null;
+    const key = nodeKeyById.get(id);
+    if (key === undefined) throw new TypeError('Graph reference is dangling');
+    return key;
+  };
+  const observationKeyById = new Map(graph.importObservations.map((o, i) => [o.id, keys.observationKeys[i]!]));
+  const ok = (id: string): string => {
+    const key = observationKeyById.get(id);
+    if (key === undefined) throw new TypeError('Graph evidence reference is dangling');
+    return key;
+  };
+  const nodes: MatchTable<GraphNode> = {
+    rows: graph.nodes,
+    key: (_n, i) => keys.nodeKeys[i]!,
+    refs: {
+      parentId: (n) => nk(n.parentId),
+      declaredRanges: (n) => (n.kind === 'external-package' ? n.declaredRanges.map((r) => ({ ...r, packageNodeId: nk(r.packageNodeId) })) : (n as { declaredRanges?: unknown }).declaredRanges),
+    },
+  };
+  type Observation = GraphSnapshot['importObservations'][number];
+  const observations: MatchTable<Observation> = {
+    rows: graph.importObservations,
+    key: (_o, i) => keys.observationKeys[i]!,
+    refs: { sourceId: (o) => nk(o.sourceId), targetId: (o) => nk(o.targetId) },
+  };
+  type Edge = GraphSnapshot['edges'][number];
+  const edges: MatchTable<Edge> = {
+    rows: graph.edges,
+    // An internal matching key only: any injective encoding works, and JSON.stringify of
+    // these well-formed strings equals their canonical JSON.
+    key: (e) => JSON.stringify([nk(e.sourceId), nk(e.targetId), e.kind, e.confidence]),
+    refs: { sourceId: (e) => nk(e.sourceId), targetId: (e) => nk(e.targetId), evidenceIds: (e) => e.evidenceIds.map(ok) },
+  };
+  type Metric = GraphSnapshot['metrics'][number];
+  const metrics: MatchTable<Metric> = {
+    rows: graph.metrics,
+    key: (m) => nk(m.nodeId)!,
+    refs: { nodeId: (m) => nk(m.nodeId) },
+  };
+  return { nodes, observations, edges, metrics };
+}
+
 /**
  * Encode a validated canonical frame graph against the validated canonical base graph.
  * Added rows use the indexed wire shape with references as positions in the frame's own
  * canonical arrays, exactly like `atlas.graph.indexed/1`.
  */
 export function encodeDeltaGraph(graph: GraphSnapshot, base: GraphSnapshot, indexedInput: z.infer<typeof IndexedGraphSchema> | (() => z.infer<typeof IndexedGraphSchema>), baseNaturals?: GraphNaturalsCache): DeltaGraph {
-  const b = naturalRows(base, baseNaturals?.keys(base));
+  const baseKeysValue = baseNaturals?.keys(base) ?? baseKeys(base);
+  const b = naturalRows(base, baseKeysValue);
   const t = naturalRows(graph);
-  const nodes = split(b.nodes(), t.nodes());
-  const observations = split(b.observations(), t.observations());
-  const edges = split(b.edges(), t.edges());
-  const metrics = split(b.metrics(), t.metrics());
+  // Row tables compare natural forms structurally; only diagnostics, whose keys are
+  // their forms, still build canonical form text.
+  const bm = matchTables(base, baseKeysValue);
+  const tm = matchTables(graph, t);
+  const nodes = splitTable(bm.nodes, tm.nodes);
+  const observations = splitTable(bm.observations, tm.observations);
+  const edges = splitTable(bm.edges, tm.edges);
+  const metrics = splitTable(bm.metrics, tm.metrics);
   // A literal (non-derivable) ID is snapshot-specific, so such a diagnostic is never kept.
   function* keepableDiagnostics() {
     for (const d of b.diagnostics()) yield d.idFrom === null ? { ...d, key: `base:${d.key}` } : d;
