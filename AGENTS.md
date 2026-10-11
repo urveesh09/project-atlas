@@ -13,8 +13,10 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
 4. [docs/adr/](docs/adr/): ADR-001…ADR-037. Every non-obvious design choice lives here.
    Check for an ADR before "fixing" something that looks odd.
 
-**Current state (2026-10-11):** plan phases 0–6 are implemented; the plan has no Phase 7.
-Gate G6 stays open only on human, reference-hardware and deployment acceptance (R6-01…R6-07).
+**Current state (2026-10-11):** the four pillars and Phase 6 candidate tooling are
+implemented; the plan has no Phase 7.
+Gate G6 stays open on the exact capacity-fixture matrix, human, reference-hardware and
+deployment acceptance (R6-01…R6-07).
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime
 tracing, more languages or private hosted repositories, needs the owner's direction and
 an ADR first.
@@ -94,8 +96,9 @@ render spike. All must be green before a change counts as verified.
   audit when a gate's evidence changes. Use absolute dates.
 - Benchmarks write reports to `docs/benchmarks/`. The capacity runner
   (`scripts/bench-history-container.mjs`) requires an image labelled
-  `org.opencontainers.image.revision=<commit>` and a clean working tree, and runs each
-  sample in a fresh process (ADR-037).
+  `org.opencontainers.image.revision=<commit>` and records the working-tree state. Run
+  acceptance measurements from a clean working tree; each sample uses a fresh process
+  (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
 - Commit messages explain why. Never skip hooks.

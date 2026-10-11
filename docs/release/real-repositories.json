@@ -1,6 +1,6 @@
 {
   "task": "P6.1 pinned public repository validation",
-  "recordedAt": "2026-10-11T04:11:13.128Z",
+  "recordedAt": "2026-10-11T12:22:22.429Z",
   "analyzerVersion": "0.1.0-dev.5",
   "runs": 5,
   "environment": {
@@ -195,6 +195,7 @@
       },
       "reasons": {},
       "examples": {},
+      "parseFailures": [],
       "digest": "21b17414bb1338290d946e8515081de12e31b8177e70088b2f373ce821d1a817",
       "chunks": [
         {
@@ -229,16 +230,15 @@
         }
       ],
       "milliseconds": [
-        1571.6470000000002,
-        1424.9366999999997,
-        1506.7703999999999,
-        1445.9312999999993,
-        1455.3945000000003
+        1584.2849,
+        1512.6695,
+        1474.4197999999997,
+        1482.6304,
+        1496.1481999999996
       ],
       "compressedBytes": 6954,
       "exportVerified": true,
-      "deterministic": true,
-      "parseFailures": []
+      "deterministic": true
     },
     {
       "owner": "vuejs",
@@ -579,6 +579,7 @@
           }
         ]
       },
+      "parseFailures": [],
       "digest": "80554100d4d4a6c71c0e76aa883f87ad6fb77465ae623fc1e33c72245ea78f9a",
       "chunks": [
         {
@@ -723,16 +724,15 @@
         }
       ],
       "milliseconds": [
-        16642.6864,
-        15936.072400000001,
-        15686.912299999996,
-        15439.661999999997,
-        15382.715100000001
+        13378.0534,
+        13019.487300000004,
+        12895.765500000001,
+        13231.013599999998,
+        12933.577099999995
       ],
       "compressedBytes": 786115,
       "exportVerified": true,
-      "deterministic": true,
-      "parseFailures": []
+      "deterministic": true
     },
     {
       "owner": "vitejs",
@@ -3067,6 +3067,10 @@
           }
         ]
       },
+      "parseFailures": [
+        "packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.js",
+        "packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.ts"
+      ],
       "digest": "2e300e11fa6c01058a11abeb6506c06d0bde3d1aac149971483196580448b7dd",
       "chunks": [
         {
@@ -3211,19 +3215,15 @@
         }
       ],
       "milliseconds": [
-        31666.757199999993,
-        32560.2053,
-        31503.04859999998,
-        31462.210300000006,
-        31683.36069999999
+        26431.3364,
+        26276.428799999994,
+        26907.122299999988,
+        26016.33190000002,
+        26299.53939999998
       ],
       "compressedBytes": 2870088,
       "exportVerified": true,
-      "deterministic": true,
-      "parseFailures": [
-        "packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.js",
-        "packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.ts"
-      ]
+      "deterministic": true
     }
   ]
 }

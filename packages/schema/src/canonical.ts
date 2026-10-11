@@ -237,7 +237,7 @@ export function canonicalValueEqual(value: unknown, other: unknown): boolean {
   const keys = Object.keys(value);
   if (keys.length !== Object.keys(other).length) return false;
   for (const key of keys) {
-    if (!Object.hasOwn(other, key) || !canonicalValueEqual((value as Record<string, unknown>)[key], (other as Record<string, unknown>)[key])) return false;
+    if (!key.isWellFormed() || !Object.hasOwn(other, key) || !canonicalValueEqual((value as Record<string, unknown>)[key], (other as Record<string, unknown>)[key])) return false;
   }
   return true;
 }
@@ -263,7 +263,11 @@ function plainJsonTree(value: object): boolean {
     for (let i = 0; i < value.length; i++) if (!Object.hasOwn(value, i) || !child(value[i])) return false;
     return true;
   }
-  return isPlainObject(value) && Object.values(value).every(child);
+  if (!isPlainObject(value)) return false;
+  for (const key of Object.keys(value)) {
+    if (!key.isWellFormed() || !child((value as Record<string, unknown>)[key])) return false;
+  }
+  return true;
 }
 
 function isPlainObject(value: object): boolean {

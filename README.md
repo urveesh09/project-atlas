@@ -9,7 +9,7 @@ ATLAS turns the committed contents of a TypeScript/JavaScript repository into a 
 
 Every visual encoding has a legend, every finding has evidence, and every gap in the analysis is shown as coverage.
 
-> **Status:** All four pillars and the hosted public-GitHub implementation are available. Phase 6 adds pinned real-repository validation, repeated capacity measurements and a portable CLI candidate tested outside the development checkout. See the [candidate install/demo guide](docs/release/README.md), [release audit](docs/release/release-audit.md) and [implementation status](docs/implementation-status.md). G6 remains open for human usability/accessibility, reference-device and public-infrastructure acceptance. Runtime tracing stays deferred.
+> **Status:** All four pillars and the hosted public-GitHub implementation are available. Phase 6 adds pinned real-repository validation, repeated capacity measurements and a portable CLI candidate tested outside the development checkout. See the [candidate install/demo guide](docs/release/README.md), [release audit](docs/release/release-audit.md) and [implementation status](docs/implementation-status.md). G6 remains open for the exact capacity-fixture matrix, human usability/accessibility, reference-device and public-infrastructure acceptance. Runtime tracing stays deferred.
 
 **New here? Read [Start here](docs/START_HERE.md)** for setup, every way to run ATLAS, and the remaining release steps.
 

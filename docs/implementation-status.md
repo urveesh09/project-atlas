@@ -2,7 +2,7 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-11):** all plan phases 0–6 are implemented and CI is green. Phase 6 code-side evidence is complete, including the real corpus, the portable CLI candidate and the 20-sample large-history capacity gate under 4 CPU/2 GiB (p95 202.37 s, [ADR-037](adr/ADR-037-export-hashing-and-structural-proofs.md)). G6 remains open only for the human, reference-hardware and deployment acceptance items R6-01…R6-07 in the [release audit](release/release-audit.md). Runtime instrumentation remains deferred. Agents: read [AGENTS.md](../AGENTS.md).
+**Current milestone (2026-10-11):** the four product pillars and Phase 6 candidate tooling are implemented. Evidence includes the real corpus, the portable CLI candidate and the 20-sample near-limit large-history gate under 4 CPU/2 GiB (p95 202.37 s, [ADR-037](adr/ADR-037-export-hashing-and-structural-proofs.md)). All eight CI jobs pass on `7480ad6`. G6 remains open for the exact dense/temporal capacity-fixture matrix, human, reference-hardware and deployment acceptance items R6-01…R6-07 in the [release audit](release/release-audit.md). Runtime instrumentation remains deferred. Agents: read [AGENTS.md](../AGENTS.md).
 
 ## Phase 0: prove constraints and lock contracts
 
@@ -314,6 +314,30 @@ complete with twelve frames: **p95 202.37 s** against 240 s; peak 1,919,053,824 
 zero OOM events; 10.43 MiB. A first batch that reused one process and parser pool across
 samples was OOM-killed in its second run; it is recorded in ADR-037, not hidden. The
 host is the development i5-10400, not the reference machine.
+
+### Verification review after the agent-guide handoff (2026-10-11)
+
+All eight CI jobs on `7480ad6` were independently checked. Review found that
+`canonicalValueEqual` accepted an object with an ill-formed Unicode property key,
+including when comparing it with itself, although the canonical writer rejected it.
+Both structural paths now check keys; regressions cover lone high/low surrogates,
+nested/shared objects and arrays, while retaining valid Unicode keys. This restores
+ADR-037's existing invalid-input contract; it changes no valid artifact semantics or
+version. The canonical suite passes all **44 checks**.
+
+The final `pnpm verify` run passes **684 checks across forty files, none skipped**, in
+**472.31 s**, with real PostgreSQL, S3-compatible storage, freshly rebuilt analysis
+sandboxes, offline Docker probes, Chromium and live GitHub gates enabled. Strict
+types, production build, dependency direction and generated contracts also pass.
+Five fresh offline repeats for each of is-plain-obj, Vue and Vite pass all sixteen
+independent examples and reproduce the exact committed canonical/wire payload digests;
+`check-repository-baseline.mjs` passes for all three. Vite's documented partial
+coverage remains explicit; determinism does not relabel it complete.
+No ATLAS job container or network remains. All 77 Markdown files have valid local
+file links. The guides now retain the exact dense/temporal capacity-fixture work in
+R6-01, describe the runner's recorded dirty state accurately, and explain stopping
+the fixture coordinator before switching hosted modes. These corrections do not
+claim G6 sign-off or introduce scope beyond V0.1.
 
 ### Reproduce verification
 

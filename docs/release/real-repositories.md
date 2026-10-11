@@ -1,6 +1,6 @@
 # P6.1: pinned real-repository validation
 
-Recorded 2026-10-11T04:11:13.128Z; analyzer 0.1.0-dev.5, 5 cold repeats per repository.
+Recorded 2026-10-11T12:22:22.429Z; analyzer 0.1.0-dev.5, 5 cold repeats per repository.
 
 Unfiltered depth-201 acquisition capped at 256 MiB; offline SafeGit reads; cold parser facts per repeat; canonical and compressed chunk hashes include every frame. Envelope IDs/time excluded. Authored examples check facts, repeat hashes check determinism only. Timings are corpus observations, not the synthetic capacity gate.
 
@@ -26,6 +26,8 @@ Canonical/wire chunk digest: `21b17414bb1338290d946e8515081de12e31b8177e70088b2f
 - `test.js` → `node:vm` (imports-value): builtin → `vm`.
 - `test.js` → `ava` (imports-value): resolved-external → `ava`.
 
+HEAD parsing: 5 parsed, 0 failed. No parse failures.
+
 Unresolved/unsupported/excluded categories (all counts and representative observations are in the JSON):
 
 - None observed in this bounded corpus.
@@ -41,6 +43,8 @@ Canonical/wire chunk digest: `80554100d4d4a6c71c0e76aa883f87ad6fb77465ae623fc1e3
 - `packages/reactivity/src/index.ts` → `./ref` (reexports-value): resolved-internal → `packages/reactivity/src/ref.ts`.
 - `packages/reactivity/src/ref.ts` → `@vue/shared` (imports-value): resolved-internal → `packages/shared/src/index.ts`.
 - `packages/reactivity/src/ref.ts` → `./computed` (imports-type): resolved-internal → `packages/reactivity/src/computed.ts`.
+
+HEAD parsing: 527 parsed, 0 failed. No parse failures.
 
 Unresolved/unsupported/excluded categories (all counts and representative observations are in the JSON):
 
@@ -61,6 +65,8 @@ Canonical/wire chunk digest: `2e300e11fa6c01058a11abeb6506c06d0bde3d1aac14997148
 - `playground/alias/vite.config.js` → `node:path` (imports-value): builtin → `path`.
 - `packages/vite/src/node/index.ts` → `rolldown` (imports-type): resolved-external → `rolldown`.
 
+HEAD parsing: 1593 parsed, 2 failed. Failed paths: `packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.js`, `packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.ts`.
+
 Unresolved/unsupported/excluded categories (all counts and representative observations are in the JSON):
 
 - unresolved:GENERATED_TARGET_MISSING: 198; e.g. `playground/hmr-ssr/__tests__/hmr-ssr.spec.ts` → `vite/module-runner`, `playground/lib/__tests__/serve.ts` → `vite`, `playground/resolve/vite.config.js` → `vite`.
@@ -74,8 +80,6 @@ Unresolved/unsupported/excluded categories (all counts and representative observ
 - unresolved:AMBIGUOUS_WORKSPACE_PACKAGE: 3; e.g. `playground/ssr-deps/nested-exclude/index.js` → `@vitejs/test-nested-include`, `playground/optimize-deps/nested-exclude/index.js` → `@vitejs/test-nested-include`, `playground/ssr-deps/src/app.js` → `@vitejs/test-nested-exclude`.
 - excluded-target:TARGET_EXCLUDED: 3; e.g. `playground/ssr-wasm/src/direct-light.js` → `./light-with-imports.wasm`, `playground/ssr-wasm/src/direct-light.js` → `./imports.js`, `playground/ssr-wasm/src/direct-add.js` → `./add.wasm`.
 - unsupported:NONLITERAL_REQUIRE: 1; e.g. `playground/ssr-deps/require-absolute/index.js` → `(nonliteral)`.
-
-HEAD parsing: 1,593 parsed, 2 failed. Failed paths: `packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.js`, `packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.ts`. Reading their pinned blobs independently shows both contain `invalid code`; partial status correctly preserves these deliberately invalid error fixtures.
 
 History: complete, 200 commits, 12 frames; boundary commit-cap.
 

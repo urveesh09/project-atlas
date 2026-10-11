@@ -89,6 +89,14 @@ to match a guessed example. Vite's partial status and role heuristics are disclo
 [Registry audit](dependency-audit.md) returned zero advisories on its recorded date;
 that does not sign off deployed images or all runtime dependencies forever.
 
+The 2026-10-11 handoff review corrects structural equality's rejection of ill-formed
+Unicode property keys, matching the serializer's existing contract. Its regression
+and complete physical-gate verification pass (684 checks, none skipped); exact
+verification evidence is recorded in [implementation status](../implementation-status.md).
+Valid artifact identities and versions are preserved. The agent/start guides now
+explicitly retain the exact capacity-fixture matrix in R6-01 rather than describing
+all remaining work as human or infrastructure acceptance.
+
 ## Release identity and approval record
 
 Candidate internal package version: `0.1.0-dev`; analyzer: `0.1.0-dev.5`; artifact:

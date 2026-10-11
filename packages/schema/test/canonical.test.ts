@@ -107,6 +107,20 @@ describe('canonicalJson', () => {
     expect(canonicalValueEqual({ a: 1 }, { a: 1, b: undefined })).toBe(false);
   });
 
+  it('rejects ill-formed Unicode object keys in structural comparisons too', () => {
+    for (const key of ['\ud800', '\udfff', 'prefix\ud800suffix']) {
+      const invalid = { [key]: 1 };
+      expect(() => canonicalJson(invalid)).toThrow('Ill-formed Unicode key');
+      expect(canonicalValueEqual(invalid, invalid)).toBe(false);
+      expect(canonicalValueEqual(invalid, { [key]: 1 })).toBe(false);
+      expect(canonicalValueEqual({ nested: invalid }, { nested: invalid })).toBe(false);
+      expect(canonicalValueEqual([invalid], [invalid])).toBe(false);
+    }
+    const valid = { 'é😀': 1 };
+    expect(canonicalValueEqual(valid, valid)).toBe(true);
+    expect(canonicalValueEqual(valid, { 'é😀': 1 })).toBe(true);
+  });
+
   it('preserves canonical rejection of invalid values and ancestor cycles when streaming', () => {
     const cycle: unknown[] = [];
     cycle.push({ back: cycle });

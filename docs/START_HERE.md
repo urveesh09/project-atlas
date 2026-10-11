@@ -9,11 +9,11 @@ variables with `export NAME=value`.
 
 | Thing | Where | State |
 |---|---|---|
-| Source code | <https://github.com/urveesh09/project-atlas> (branch `main`) | All plan phases 0–6 implemented; CI green |
+| Source code | <https://github.com/urveesh09/project-atlas> (branch `main`) | Four pillars and candidate tooling implemented; CI green |
 | Local CLI + browser city | Runs on your machine | Works now (section 2) |
 | Hosted service (public GitHub repos) | Code in `apps/api`, `apps/worker`, `deploy/` | Runs **locally**; **not deployed to the internet** |
 | Portable CLI archive | Built by `pnpm verify:distribution` | Candidate; not a signed release |
-| Release sign-off (gate G6) | [release audit](release/release-audit.md) | Open: needs the human checks in section 6 |
+| Release sign-off (gate G6) | [release audit](release/release-audit.md) | Open: needs the capacity, human and deployment checks in section 6 |
 
 There is no public website yet. Nothing is live until someone deploys the hosted service
 (section 6, R6-06). The GitHub link is the code repository.
@@ -90,6 +90,9 @@ Open <http://127.0.0.1:8080/>, submit `https://github.com/atlas-demo/harbor` (se
 locally as a fixture), accept the public-output notice, and watch the stages.
 
 **4b. Real sandboxes and real GitHub repositories.**
+Keep the PostgreSQL container and `ATLAS_DATABASE_URL` setup from 4a. Stop the 4a
+server with Ctrl+C before starting this mode; only one coordinator may own the engine.
+
 ```powershell
 docker build -f deploy/sandbox.Dockerfile -t atlas-sandbox:dev .
 $img = docker image inspect atlas-sandbox:dev --format '{{.Id}}'
@@ -119,13 +122,16 @@ CI runs everything on each push: <https://github.com/urveesh09/project-atlas/act
 
 ## 6. What is left before V0.1 release, and how to do each
 
-Code work for every phase is done. These seven items need **people, hardware or
-infrastructure**. Each one records its evidence in the file named, and none may be
-marked done without real results.
+The four product pillars and candidate tooling are implemented. These seven items
+include the exact capacity-fixture matrix as well as **people, hardware and infrastructure**
+acceptance. Each one records its evidence in the file named, and none may be marked
+done without real results. The passing large-history report uses 9,992 HEAD files,
+98,500 imports and 9,999 lineages; it does not cover the plan's exact dense
+10,000-file/100,000-edge or 20,000-lineage temporal fixtures.
 
 | ID | What | Who | How | Record in |
 |---|---|---|---|---|
-| R6-01 | Capacity on the **reference machine** (4-core, 2 GiB job, SSD) | You or an operator | On that machine, rerun `node scripts/bench-analysis.mjs --runs 20` and the history container gate: `node scripts/build-history-fixture.mjs`, then `node scripts/bench-history-container.mjs --image <labelled sandbox image> --fixture <printed dir>` | `docs/benchmarks/` (reports are written automatically) |
+| R6-01 | Exact dense/temporal fixture matrix and capacity on the **reference machine** (4-core, 2 GiB job, SSD) | Maintainer and performance reviewer | Add and independently verify the exact §15.1 dense/20,000-lineage fixtures; run 20 measured samples for each tier. Existing near-limit reproduction: `node scripts/build-history-fixture.mjs`, then `node scripts/bench-history-container.mjs --image <immutable image ID labelled with source commit> --fixture <printed dir>`. Also repeat HEAD and medium history under the required job limits | `docs/benchmarks/` (reports are written automatically) |
 | R6-02 | Viewer performance on a **reference laptop** (integrated GPU, 8 GiB, 1920×1080), Chromium and Firefox | Device reviewer | `node apps/web/scripts/bench-city.mjs --firefox` on that laptop; also check first load over a throttled 10 Mbps/100 ms network | `docs/benchmarks/` |
 | R6-03 | **Five developers** try five tasks without coaching | You recruit; you observe | Follow the [task cards](release/manual-review.md); need ≥ 4 of 5 successes per task | Results table in [manual review](release/manual-review.md) |
 | R6-04 | **Screen-reader** audit (NVDA on Windows, plus VoiceOver on Mac) | Accessibility reviewer | Work through the checklist in [manual review](release/manual-review.md#manual-accessibilitydevice-audit) | Same file |
