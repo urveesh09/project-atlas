@@ -593,6 +593,25 @@ Evidence:
 Owner settings are pending: Pages source, private vulnerability reporting, Dependabot alerts
 and a `main` ruleset. No release has been tagged.
 
+### Pointer picks, keyboard driving and dependency strokes (2026-10-12)
+
+From the owner's beta demo ([ADR-045](adr/ADR-045-pointer-picks-keyboard-driving-and-dependency-strokes.md)):
+- **Clicking a building no longer jumps the page.** The pick kept moving focus to the
+  inspector heading, which scrolled the page. Pointer picks now keep focus on the city, and
+  the inspector is sticky beside it. The scroll position stayed at 248 before and after a
+  click.
+- **Keyboard driving.** Click the city, then use the arrows or W A S D to move, Q and E (or
+  Shift with left and right) to turn, Shift with up and down to tilt, and + or − to zoom,
+  with eased movement. The first speed overshot the island from far away; it is now
+  capped.
+- **Dependency lines.** They are now 3.4 px strokes with arrowheads at the targets and
+  midway. Rings mark connected buildings, and the nearest 16 are named with
+  `→`, `←` or `↔`.
+
+Evidence:
+- Orbits stay at the 16.7 ms cap, with or without the overlay.
+- `pnpm verify`: 635 passed. Viewer e2e: 27 of 27 on the GPU and with `CI=1`.
+
 ### Reproduce verification
 
 ```sh

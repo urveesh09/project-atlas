@@ -104,6 +104,52 @@ interface GpuTimer {
   pixels: number;
 }
 
+/** Dependency overlay sizes in screen pixels: stroke width, arrowhead at the target, midway chevron. */
+const STROKE_PX = 3.4;
+const ARROW_PX = 24;
+const CHEVRON_PX = 13;
+/** Most strokes, arrowheads and rings the dependency overlay draws (200 arcs at most). */
+const MAX_STROKES = 5_200;
+const MAX_ARROWS = 420;
+const MAX_ENDPOINTS = 420;
+
+/** Keyboard driving: a key's axis and direction; Shift turns arrows into turn and tilt. */
+type DriveAxis = 'forward' | 'strafe' | 'turn' | 'tilt' | 'zoom';
+function driveKey(code: string, shift: boolean): [DriveAxis, number] | null {
+  switch (code) {
+    case 'ArrowUp':
+      return shift ? ['tilt', 1] : ['forward', 1];
+    case 'ArrowDown':
+      return shift ? ['tilt', -1] : ['forward', -1];
+    case 'ArrowLeft':
+      return shift ? ['turn', 1] : ['strafe', -1];
+    case 'ArrowRight':
+      return shift ? ['turn', -1] : ['strafe', 1];
+    case 'KeyW':
+      return ['forward', 1];
+    case 'KeyS':
+      return ['forward', -1];
+    case 'KeyA':
+      return ['strafe', -1];
+    case 'KeyD':
+      return ['strafe', 1];
+    case 'KeyQ':
+      return ['turn', 1];
+    case 'KeyE':
+      return ['turn', -1];
+    case 'Equal':
+    case 'NumpadAdd':
+    case 'PageUp':
+      return ['zoom', 1];
+    case 'Minus':
+    case 'NumpadSubtract':
+    case 'PageDown':
+      return ['zoom', -1];
+    default:
+      return null;
+  }
+}
+
 /** Whether earlier or later camera views exist. */
 export interface ViewHistory {
   back: boolean;
@@ -195,7 +241,22 @@ export class CityRenderer {
   private packageSegments: { a: THREE.Vector3; b: THREE.Vector3; width: number }[] = [];
   private packageZoom = -1;
   private readonly overlayGroup = new THREE.Group();
-  private readonly arcGeometries: THREE.BufferGeometry[] = [];
+  /** File dependency overlay: screen-width strokes, arrowheads, and rings on connected files. */
+  private readonly strokes: THREE.InstancedMesh;
+  private readonly arrows: THREE.InstancedMesh;
+  private readonly endpointRings: THREE.InstancedMesh;
+  private strokeList: { a: THREE.Vector3; b: THREE.Vector3; color: THREE.Color }[] = [];
+  private arrowList: { tip: THREE.Vector3; direction: THREE.Vector3; px: number; color: THREE.Color }[] = [];
+  /**
+   * Buildings at the other end of the shown relationships, with their stroke colour and
+   * whether the selection imports them (→), they import the selection (←), or both (↔).
+   */
+  private endpoints: { index: number; color: string; mark: string }[] = [];
+  /** Keys held for driving, their eased axes, and the driving frame. */
+  private readonly held = new Map<string, [DriveAxis, number]>();
+  private readonly driven: Record<DriveAxis, number> = { forward: 0, strafe: 0, turn: 0, tilt: 0, zoom: 0 };
+  private driveFrame = 0;
+  private lastDrive = 0;
   private readonly ghosts: THREE.InstancedMesh;
   private readonly addedMarkers: THREE.InstancedMesh;
   private readonly pickCells = new Map<string, { bounds: THREE.Box3; indices: number[] }>();
@@ -646,6 +707,16 @@ export class CityRenderer {
     );
     this.packageLines.count = 0;
     this.overlayGroup.add(this.packageLines);
+    // Relationships of a selected file: strokes and arrowheads drawn over the city, rings on
+    // the buildings at their other ends. One draw call each; colours per instance by kind.
+    const overlayMaterial = (depthTest: boolean) =>
+      this.ownMaterial(new THREE.MeshBasicMaterial({ depthTest, depthWrite: false, transparent: true, opacity: 0.95, fog: false }));
+    this.strokes = this.batch(this.ownGeometry(new THREE.CylinderGeometry(1, 1, 1, 6, 1, true)), overlayMaterial(false), MAX_STROKES);
+    this.arrows = this.batch(this.ownGeometry(new THREE.ConeGeometry(0.5, 1, 12)), overlayMaterial(false), MAX_ARROWS);
+    this.endpointRings = this.batch(this.ownGeometry(new THREE.RingGeometry(0.58, 0.8, 40).rotateX(-Math.PI / 2)), overlayMaterial(true), MAX_ENDPOINTS);
+    for (const mesh of [this.strokes, this.arrows, this.endpointRings]) mesh.count = 0;
+    this.strokes.renderOrder = this.arrows.renderOrder = 12;
+    this.endpointRings.renderOrder = 2;
     this.layoutBuildings();
     this.applyStyle('structure', new Set(), () => true);
     const { signal } = this.abort;
@@ -1157,6 +1228,7 @@ export class CityRenderer {
       });
       this.packageLines.count = this.packageSegments.length;
       this.finish(this.packageLines);
+      this.layoutStrokes(ppu);
       this.packageZoom = ppu;
     }
     // Level of detail counts rendered pixels: a frame-guarded (lower) pixel ratio sheds
@@ -1350,6 +1422,24 @@ export class CityRenderer {
     }
     const eye = camera.position,
       distance = Math.max(1e-3, eye.distanceTo(this.controls.target));
+    // Files at the other end of the shown relationships, nearest first, with their line colour.
+    const ends = this.endpoints
+      .map(({ index, color, mark }) => {
+        const b = this.city.buildings[index];
+        if (!b) return null;
+        const p = center(b.rect).setY(b.height + 0.9);
+        return { b, p, color, mark, away: eye.distanceTo(p) };
+      })
+      .filter((e) => e !== null)
+      .sort((x, y) => x.away - y.away);
+    let named = 0;
+    for (const e of ends) {
+      if (named >= 16) break;
+      if (focus && e.b.nodeId === focus.nodeId) continue;
+      const at = project(e.p.clone());
+      const name = e.b.path.split('/').at(-1) ?? e.b.path;
+      if (at && pill(e.mark ? `${e.mark} ${name}` : name, at, { swatch: e.color })) named++;
+    }
     const candidates = this.city.districts
       .filter((d) => d.kind === 'package')
       .map((d) => {
@@ -1435,72 +1525,150 @@ export class CityRenderer {
     this.overlayGroup.clear();
     this.overlayGroup.add(this.packageLines);
     this.packageSegments = [];
+    this.strokeList = [];
+    this.arrowList = [];
     this.packageZoom = -1;
     const terminals = result.promotedTerminal
       ? [...this.city.terminals.slice(0, 49), result.promotedTerminal]
       : this.city.terminals;
     this.placeTerminals(terminals);
-    for (const g of this.arcGeometries) g.dispose();
-    this.arcGeometries.length = 0;
-    // One line/arrow batch per kind: bounded draw calls even for a dense selection.
-    for (const key of Object.keys(EDGE_COLORS) as (keyof typeof EDGE_COLORS)[]) {
-      const positions: number[] = [],
-        arrows: number[] = [];
-      for (const arc of result.arcs.filter((a) => edgeClass(a.kind) === key)) {
-        const points = arc.points.map((p) => new THREE.Vector3(...p));
-        const curve = points.length === 3 ? new THREE.QuadraticBezierCurve3(points[0]!, points[1]!, points[2]!) : null;
-        const samples = curve ? curve.getPoints(20) : points;
-        for (let i = 0; i + 1 < samples.length; i++) {
-          if (arc.kind === 'package')
-            this.packageSegments.push({
-              a: samples[i]!,
-              b: samples[i + 1]!,
-              width: Math.min(6, 1 + Math.log2(1 + arc.count)),
-            });
-          else positions.push(...samples[i]!.toArray(), ...samples[i + 1]!.toArray());
-        }
-        const end = samples.at(-1)!,
-          prev = samples.at(-2)!;
-        const direction = end.clone().sub(prev).normalize();
-        const side = new THREE.Vector3()
-          .crossVectors(direction, new THREE.Vector3(0, 1, 0))
-          .normalize()
-          .multiplyScalar(0.25);
-        const back = end.clone().addScaledVector(direction, -0.55);
-        arrows.push(
-          ...end.toArray(),
-          ...back.clone().add(side).toArray(),
-          ...end.toArray(),
-          ...back.clone().sub(side).toArray(),
-        );
+    const ends = new Map<number, { color: string; imports: boolean; consumes: boolean }>();
+    for (const arc of result.arcs) {
+      const points = arc.points.map((p) => new THREE.Vector3(...p));
+      const curve = points.length === 3 ? new THREE.QuadraticBezierCurve3(points[0]!, points[1]!, points[2]!) : null;
+      const samples = curve ? curve.getPoints(24) : points;
+      if (arc.kind === 'package') {
+        for (let i = 0; i + 1 < samples.length; i++)
+          this.packageSegments.push({ a: samples[i]!, b: samples[i + 1]!, width: Math.min(6, 1 + Math.log2(1 + arc.count)) });
+        continue;
       }
-      if (!positions.length && !arrows.length) continue;
-      const g = new THREE.BufferGeometry().setAttribute(
-        'position',
-        new THREE.Float32BufferAttribute([...positions, ...arrows], 3),
-      );
-      this.arcGeometries.push(g);
-      const materialKey = `edge:${key}`;
-      let material = [...this.materials].find((m) => m.name === materialKey) as THREE.LineBasicMaterial | undefined;
-      if (!material) {
-        material = this.ownMaterial(
-          key === 'type' || key === 'dynamic'
-            ? new THREE.LineDashedMaterial({
-                color: EDGE_COLORS[key],
-                depthTest: false,
-                dashSize: key === 'type' ? 0.5 : 0.2,
-                gapSize: 0.2,
-              })
-            : new THREE.LineBasicMaterial({ color: EDGE_COLORS[key], depthTest: false }),
-        );
-        material.name = materialKey;
+      const key = edgeClass(arc.kind),
+        tint = new THREE.Color(EDGE_COLORS[key]);
+      // Weaker kinds are dashed: type-only every other segment, dynamic two on and one off.
+      const period = key === 'type' ? 2 : key === 'dynamic' ? 3 : 0;
+      for (let i = 0; i + 1 < samples.length; i++)
+        if (!period || i % period !== period - 1) this.strokeList.push({ a: samples[i]!, b: samples[i + 1]!, color: tint });
+      // Arrowheads point at the imported target: one at the end, a smaller chevron midway.
+      const last = samples.length - 1;
+      if (last >= 1) this.arrowList.push({ tip: samples[last]!, direction: samples[last]!.clone().sub(samples[last - 1]!), px: ARROW_PX, color: tint });
+      const mid = Math.floor(last / 2);
+      if (last >= 4) this.arrowList.push({ tip: samples[mid + 1]!, direction: samples[mid + 1]!.clone().sub(samples[mid - 1]!), px: CHEVRON_PX, color: tint });
+      for (const id of [arc.sourceId, arc.targetId]) {
+        const index = id === result.selectionId ? undefined : this.buildingIndex.get(id);
+        if (index === undefined) continue;
+        const end = ends.get(index) ?? { color: EDGE_COLORS[key], imports: false, consumes: false };
+        if (arc.sourceId === result.selectionId) end.imports = true;
+        if (arc.targetId === result.selectionId) end.consumes = true;
+        ends.set(index, end);
       }
-      const lines = new THREE.LineSegments(g, material);
-      lines.computeLineDistances();
-      this.overlayGroup.add(lines);
     }
+    this.strokeList.length = Math.min(this.strokeList.length, MAX_STROKES);
+    this.arrowList.length = Math.min(this.arrowList.length, MAX_ARROWS);
+    this.endpoints = [...ends]
+      .slice(0, MAX_ENDPOINTS)
+      .map(([index, e]) => ({ index, color: e.color, mark: e.imports && e.consumes ? '↔' : e.imports ? '→' : e.consumes ? '←' : '' }));
+    this.endpoints.forEach(({ index, color: hex }, n) => {
+      const b = this.city.buildings[index]!,
+        p = center(b.rect);
+      this.endpointRings.setMatrixAt(n, matrix.makeTranslation(p.x, groundLevel(this.districtDepth.get(b.districtId) ?? 1) + 0.035, p.z));
+      this.endpointRings.setColorAt(n, color.set(hex));
+    });
+    this.endpointRings.count = this.endpoints.length;
+    this.finish(this.endpointRings);
     this.invalidate();
   }
+  /** Size strokes and arrowheads in screen pixels at the current zoom. */
+  private layoutStrokes(ppu: number) {
+    const turn = new THREE.Quaternion(),
+      direction = new THREE.Vector3(),
+      up = new THREE.Vector3(0, 1, 0),
+      size = new THREE.Vector3(),
+      at = new THREE.Vector3();
+    const radius = STROKE_PX / (2 * ppu);
+    this.strokeList.forEach((stroke, i) => {
+      direction.copy(stroke.b).sub(stroke.a);
+      const length = direction.length();
+      turn.setFromUnitVectors(up, direction.normalize());
+      matrix.compose(at.copy(stroke.a).add(stroke.b).multiplyScalar(0.5), turn, size.set(radius, length, radius));
+      this.strokes.setMatrixAt(i, matrix);
+      this.strokes.setColorAt(i, stroke.color);
+    });
+    this.strokes.count = this.strokeList.length;
+    this.finish(this.strokes);
+    this.arrowList.forEach((arrow, i) => {
+      turn.setFromUnitVectors(up, direction.copy(arrow.direction).normalize());
+      const length = THREE.MathUtils.clamp(arrow.px / ppu, 0.12, 6);
+      // The tip sits on the end point; the cone's centre is half a length behind it.
+      matrix.compose(at.copy(arrow.tip).addScaledVector(direction, -length / 2), turn, size.set(length * 0.75, length, length * 0.75));
+      this.arrows.setMatrixAt(i, matrix);
+      this.arrows.setColorAt(i, arrow.color);
+    });
+    this.arrows.count = this.arrowList.length;
+    this.finish(this.arrows);
+  }
+  /**
+   * Keyboard driving: arrows or W A S D move over the ground, Q and E (or Shift with the side
+   * arrows) turn, Shift with up and down tilts, + and - (or Page Up/Down) zoom. Movement
+   * eases in and out and scales with the distance to the ground target. Returns whether the
+   * key drives the city.
+   */
+  keyDown(code: string, shift: boolean): boolean {
+    const axis = driveKey(code, shift);
+    if (!axis) return false;
+    this.flight?.cancel();
+    this.held.set(code, axis);
+    if (!this.driveFrame) {
+      this.lastDrive = 0;
+      this.driveFrame = requestAnimationFrame(this.steer);
+    }
+    return true;
+  }
+  keyUp(code: string) {
+    this.held.delete(code);
+  }
+  releaseKeys() {
+    this.held.clear();
+  }
+  private readonly steer = (now: number) => {
+    this.driveFrame = 0;
+    if (this.disposed) return;
+    const dt = this.lastDrive ? Math.min(0.05, (now - this.lastDrive) / 1000) : 1 / 60;
+    this.lastDrive = now;
+    const wanted: Record<DriveAxis, number> = { forward: 0, strafe: 0, turn: 0, tilt: 0, zoom: 0 };
+    for (const [axis, sign] of this.held.values()) wanted[axis] = THREE.MathUtils.clamp(wanted[axis] + sign, -1, 1);
+    // Eased start and stop; reduced motion responds directly, without glide.
+    const ease = this.reducedMotion ? 1 : 1 - Math.exp(-dt * 9);
+    let active = false;
+    for (const axis of Object.keys(wanted) as DriveAxis[]) {
+      this.driven[axis] += (wanted[axis] - this.driven[axis]) * ease;
+      if (Math.abs(this.driven[axis]) < 0.003) this.driven[axis] = 0;
+      else active = true;
+    }
+    if (!active) return;
+    const d = this.driven,
+      target = this.controls.target,
+      offset = this.camera.position.clone().sub(target);
+    const distance = offset.length();
+    const forward = new THREE.Vector3(-offset.x, 0, -offset.z);
+    if (forward.lengthSq() < 1e-8) forward.set(0, 0, -1);
+    forward.normalize();
+    const right = new THREE.Vector3(-forward.z, 0, forward.x);
+    // Faster when high above the city, never so fast that a tap skips a district.
+    const step = THREE.MathUtils.clamp(distance, 1.5, 40) * 0.7 * dt;
+    const move = forward.multiplyScalar(d.forward * step).addScaledVector(right, d.strafe * step);
+    target.add(move);
+    if (d.turn) offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), d.turn * 1.5 * dt);
+    if (d.tilt) {
+      const spherical = new THREE.Spherical().setFromVector3(offset);
+      spherical.phi = THREE.MathUtils.clamp(spherical.phi - d.tilt * 0.9 * dt, this.controls.minPolarAngle, this.controls.maxPolarAngle);
+      offset.setFromSpherical(spherical);
+    }
+    if (d.zoom) offset.setLength(THREE.MathUtils.clamp(distance * Math.exp(-d.zoom * 1.5 * dt), this.controls.minDistance, this.controls.maxDistance));
+    this.camera.position.copy(target).add(offset);
+    this.controls.update();
+    this.invalidate();
+    this.driveFrame = requestAnimationFrame(this.steer);
+  };
   /**
    * The establishing shot: the whole island. Cinematic views look in at a three-quarter
    * angle under the sky; the isometric view fits the projected island bounds.
@@ -1647,6 +1815,7 @@ export class CityRenderer {
       cameraMoving: this.flight !== null || this.settling,
       occlusion: this.baker ? (this.baker.ready ? 'ready' : 'baking') : 'off',
       pixelRatio: this.ratio,
+      overlay: { strokes: this.strokes.count, arrows: this.arrows.count, endpoints: this.endpointRings.count },
       gpuMsPerMegapixel: this.gpuPerPixel * 1e6,
       views: { count: this.views.length, index: this.viewIndex },
       zoom: this.pixelsPerUnit(),
@@ -1759,7 +1928,7 @@ export class CityRenderer {
     this.controls.removeEventListener('change', this.invalidate);
     this.controls.removeEventListener('change', this.noteInput);
     this.controls.dispose();
-    for (const g of this.arcGeometries) g.dispose();
+    cancelAnimationFrame(this.driveFrame);
     for (const mesh of this.instances) mesh.dispose();
     for (const g of this.geometry) g.dispose();
     for (const m of this.materials) m.dispose();

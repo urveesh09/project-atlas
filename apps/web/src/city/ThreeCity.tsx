@@ -92,13 +92,23 @@ export default function ThreeCity(props: {
   useEffect(() => {
     if (props.focusNonce) renderer.current?.focus(props.selected);
   }, [props.focusNonce]);
+  // The city takes keys once clicked or tabbed to: drive with arrows or W A S D (ADR-045).
   return (
     <div
       ref={host}
       className="city-surface"
       data-city-renderer="3d"
-      aria-label="Miniature city. Select files through the repository tree, search or file table."
-      role="img"
+      role="application"
+      aria-roledescription="3D city"
+      aria-label="Miniature city. Move with the arrow keys or W A S D, turn with Q and E, tilt with Shift and the up or down arrow, zoom with plus and minus. Select files through the repository tree, search or file table."
+      tabIndex={0}
+      onPointerDown={() => host.current?.focus({ preventScroll: true })}
+      onKeyDown={(event) => {
+        if (event.ctrlKey || event.metaKey || event.altKey) return;
+        if (renderer.current?.keyDown(event.code, event.shiftKey)) event.preventDefault();
+      }}
+      onKeyUp={(event) => renderer.current?.keyUp(event.code)}
+      onBlur={() => renderer.current?.releaseKeys()}
     />
   );
 }

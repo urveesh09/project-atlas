@@ -113,6 +113,9 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
             <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Collapse, expand; switch inspector tabs</dd></div>
             <div><dt><kbd>Enter</kbd></dt><dd>Select</dd></div>
             <div><dt><kbd>←</kbd> <kbd>→</kbd> in History</dt><dd>Earlier or later snapshot</dd></div>
+            <div><dt><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrows in the city</dt><dd>Move forward, left, back, right (click the city first)</dd></div>
+            <div><dt><kbd>Q</kbd> <kbd>E</kbd>, <kbd>Shift</kbd>+arrows</dt><dd>Turn; tilt the view up or down</dd></div>
+            <div><dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>Zoom the city in or out</dd></div>
             <div><dt><kbd>F</kbd></dt><dd>Expand the city, or leave it</dd></div>
             <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous or next camera view (3D)</dd></div>
             <div><dt><kbd>Esc</kbd></dt><dd>Close panel, then clear selection</dd></div>

@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- City: keyboard driving (arrows or W A S D, Q/E turn, Shift+arrows tilt, +/− zoom), and
+  dependency strokes with arrowheads, rings and direction-marked names on connected files
+  ([ADR-045](docs/adr/ADR-045-pointer-picks-keyboard-driving-and-dependency-strokes.md)).
 - Release engineering:
   - version-tag releases with the portable CLI archive, checksums and build provenance;
   - API and sandbox images on GHCR;
@@ -26,6 +29,7 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   [ADR-041](docs/adr/ADR-041-living-city.md)).
 
 ### Fixed
+- Clicking a building scrolled the page to the inspector heading (ADR-045).
 - After a snapshot change, a failing occlusion worker re-baked the first snapshot
   (ADR-043).
 - A selection's deferred focus could take focus back from where the viewer had moved it

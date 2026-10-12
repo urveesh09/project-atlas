@@ -1,6 +1,8 @@
 .city { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--panel); margin-bottom: 28px; }
 .city-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 330px); align-items: start; gap: 20px; padding: 20px; }
 .city-inspector { min-width: 0; }
+/* Beside the city, the inspector stays in view while the page scrolls, so a pick never has to move the page. */
+@media (min-width: 1351px) { .city-content > .city-inspector { position: sticky; top: 0; max-height: calc(100vh - 96px); overflow-y: auto; } }
 .city-content .city { min-width: 0; }
 @media (max-width: 1350px) { .city-content { display: block; } }
 .with-source .city-content { display: block; }
@@ -25,6 +27,14 @@
 .city-stage:fullscreen { height: 100vh; width: 100vw; }
 .city-stage.is-expanded { position: fixed; inset: 0; height: auto; z-index: 60; }
 .city-surface, .city-canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.city-surface:focus { outline: none; }
+.city-surface:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+/* Driving keys, shown while the city has keyboard focus. */
+.city-keys { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); margin: 0; padding: 6px 12px; background: rgba(24, 35, 49, 0.86); color: #eef1f5; border-radius: 8px; font-size: 11px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 2; }
+.city-keys kbd { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.3); color: inherit; margin: 0 1px; }
+.city-stage:focus-within .city-keys { opacity: 1; }
+@media (max-width: 900px) { .city-keys { display: none; } }
+@media (prefers-reduced-motion: reduce) { .city-keys { transition: none; } }
 .city-labels { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .city-attribution { position: absolute; bottom: 10px; right: 14px; font-size: 9px; letter-spacing: .1em; padding: 3px 7px; background: #faf8f2; color: #344452; pointer-events: none; }
 .city-hover { position: absolute; inset: 12px auto auto 12px; max-width: calc(100% - 24px); padding: 10px 14px; background: #182331; color: #eef1f5; border-radius: 8px; pointer-events: none; font-size: 12px; overflow-wrap: anywhere; }

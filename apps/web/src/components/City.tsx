@@ -415,7 +415,8 @@ export function City() {
         Height = code lines, on a logarithmic scale. △ source · ⬡ test · ▱ declaration · □ kiosk. × marks unavailable
         analysis. Roads separate folders; they are spacing. City style, building shapes, storeys, windows, walls,
         trees, paving, ground shading and the harbour are decorative and seeded per file; they carry no data. Roofs,
-        eaves and battlements share their building's lens colour. A blue ring marks each selected building. The 3D
+        eaves and battlements share their building's lens colour. A blue ring marks each selected building. Click the
+        city to drive it with the keyboard. The 3D
         city is in perspective, so nearer buildings look larger; the 2D map and file table compare sizes exactly.
       </p>
       <div className="city-legend" aria-label="City lens legend">
@@ -463,7 +464,7 @@ export function City() {
               filter={filter}
               overlay={overlay}
               focusNonce={state.focusNonce}
-              select={(id) => select(id, { focusInspector: true })}
+              select={(id) => select(id)}
               register={registerMap}
             />
           ) : (
@@ -486,7 +487,9 @@ export function City() {
                   focusNonce={state.focusNonce}
                   lowQuality={lowQuality}
                   theme={theme}
-                  select={(id) => select(id, { focusInspector: true })}
+                  // A pointer pick keeps focus (and the page) where it is; the inspector beside
+                  // the city updates and the live region announces the selection.
+                  select={(id) => select(id)}
                   hover={setHoverId}
                   fail={fail}
                   register={register3d}
@@ -553,6 +556,11 @@ export function City() {
               </span>
             </div>
           )}
+          {state.mode === '3d' && (
+            <p className="city-keys" aria-hidden="true">
+              <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows move · <kbd>Q</kbd><kbd>E</kbd> turn · <kbd>Shift</kbd>+<kbd>↑</kbd><kbd>↓</kbd> tilt · <kbd>+</kbd><kbd>−</kbd> zoom
+            </p>
+          )}
           <span className="city-attribution">ATLAS · STATIC REPOSITORY CITY</span>
         </div>
       )}
@@ -592,7 +600,8 @@ export function City() {
         data-overlay-ready={overlayReady && overlay.key === currentOverlayKey}
       >
         Overlay: {overlay.arcs.length} of {overlay.total} relationships; {overlay.omitted} omitted ({overlay.unplaced}{' '}
-        without visible plots/terminals). Arrows point to imported targets. Value = blue solid · type = purple · dynamic
+        without visible plots/terminals). Arrows point to imported targets; a ring and a name mark each connected file: → it is imported by the
+        selection, ← it imports the selection. Value = blue solid · type = purple · dynamic
         = amber · resource = green. {overlay.policy}.
       </p>
       {!!edges.length && (
