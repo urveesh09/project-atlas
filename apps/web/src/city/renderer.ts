@@ -29,7 +29,8 @@ import {
 import { THEMES, type Archetype, type CityTheme, type PartKind, type ThemeSpec } from './themes';
 import { mistTexture, sceneryGeometry, skyDome } from './atmosphere';
 import { cloudLayer, foliageMaterial, waterMaterial, type Clock } from './living';
-import { OCCLUDER_STRIDE, bakeOcclusion, occlusionGrid, type OcclusionGrid } from './occlusion';
+import { OCCLUDER_STRIDE, occlusionGrid, type OcclusionGrid } from './occlusion';
+import { OcclusionBaker, type BakeWorker } from './baker';
 import { PAVE, fieldUniforms, withOcclusion, withPaving, withTiles, type FieldUniforms, type PavingStyle } from './shading';
 
 const center = (r: Rect) => new THREE.Vector3((r.x + r.width / 2) / 100, 0, (r.z + r.depth / 2) / 100);
@@ -225,10 +226,7 @@ export class CityRenderer {
   private readonly field: FieldUniforms | null;
   private readonly fieldGrid: OcclusionGrid;
   private staticOccluders = new Float32Array(0);
-  /** The bake worker; false once it failed, so later bakes run inline. */
-  private fieldWorker: Worker | false | null = null;
-  private fieldTicket = 0;
-  private fieldApplied = 0;
+  private readonly baker: OcclusionBaker | null = null;
   private readonly selectionRings: THREE.InstancedMesh;
   private readonly ringMaterial: THREE.MeshBasicMaterial;
   /** Camera views for Back/Forward; the current one is at `viewIndex`. */
@@ -281,6 +279,11 @@ export class CityRenderer {
       if (ext && gl instanceof WebGL2RenderingContext) this.timer = { gl, ext, query: null, pixels: 1 };
     }
     this.field = lite ? null : fieldUniforms();
+    if (this.field)
+      this.baker = new OcclusionBaker(
+        (bytes) => this.applyField(bytes),
+        () => new Worker(new URL('./occlusion.worker.ts', import.meta.url), { type: 'module', name: 'atlas-occlusion' }) as unknown as BakeWorker,
+      );
     this.renderer.setClearColor(this.spec.sky.haze);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     if (this.shadowsOn) {
@@ -795,14 +798,16 @@ export class CityRenderer {
         archetype = this.archetypes[style.archetype]!,
         body = this.bodies[style.archetype]!,
         slot = body.used++,
-        f = style.footprint;
+        f = style.footprint,
+        // Depth scale: a seeded slab plan on square-planned bodies.
+        d = f * style.aspect;
       rotation.makeRotationY(style.rotation);
       matrix
-        .makeScale(f, 0.35 + h - BODY_BASE, f)
+        .makeScale(f, 0.35 + h - BODY_BASE, d)
         .premultiply(rotation)
         .setPosition(p.x, BODY_BASE, p.z);
       body.mesh.setMatrixAt(slot, matrix);
-      (body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute).setXYZ(slot, style.windows, style.variant, style.base);
+      (body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute).setXYZW(slot, style.windows, style.variant, style.base, style.material);
       this.bodyBatch[i] = style.archetype;
       this.bodySlot[i] = slot;
       if (occluders) {
@@ -814,13 +819,14 @@ export class CityRenderer {
       for (const part of placements[i]!) {
         const batch = this.parts.get(part.key)!,
           n = batch.used++;
-        // Corner parts sit at an offset on the top; it turns with the body.
+        // Corner parts sit at an offset on the top (keeping their own square plan); outline
+        // parts follow the body's plan. Both turn with the body.
         const ox = part.ox * f,
-          oz = part.oz * f,
+          oz = part.oz * d,
           c = Math.cos(style.rotation),
           sn = Math.sin(style.rotation);
         matrix
-          .makeScale(part.hx * f, PART_HEIGHT[part.kind], part.hz * f)
+          .makeScale(part.hx * f, PART_HEIGHT[part.kind], part.hz * (CORNER_PARTS.has(part.kind) ? f : d))
           .premultiply(rotation)
           .setPosition(p.x + ox * c + oz * sn, part.y, p.z - ox * sn + oz * c);
         batch.mesh.setMatrixAt(n, matrix);
@@ -838,7 +844,7 @@ export class CityRenderer {
         fit = (archetype.roof ?? 1) * f;
       matrix
         .makeRotationY(b.role === 'source' ? Math.PI / 4 : ((b.seed % 4) * Math.PI) / 2)
-        .premultiply(scaling.makeScale((tx * fit) / 0.44, 1, (tz * fit) / 0.44))
+        .premultiply(scaling.makeScale((tx * fit) / 0.44, 1, (tz * fit * style.aspect) / 0.44))
         .premultiply(rotation)
         .setPosition(p.x, h + 0.45, p.z);
       roof.setMatrixAt(n, matrix);
@@ -870,59 +876,40 @@ export class CityRenderer {
   }
 
   /**
-   * Re-bake the sky-occlusion field for this frame's buildings in a worker; the previous
-   * field stays on screen until the new one lands (a stale bake is dropped).
+   * Re-bake the sky-occlusion field for this frame's buildings; the previous field stays on
+   * screen until the new one lands, and only the latest request is applied.
    */
   private bakeField(buildings: Float32Array) {
-    const field = this.field;
-    if (!field || this.disposed) return;
+    if (!this.baker) return;
     const occluders = new Float32Array(this.staticOccluders.length + buildings.length);
     occluders.set(this.staticOccluders);
     occluders.set(buildings, this.staticOccluders.length);
-    const ticket = ++this.fieldTicket,
+    this.baker.bake(this.fieldGrid, occluders);
+  }
+
+  /** Upload a baked field, reusing the texture while the grid is unchanged. */
+  private applyField(bytes: Uint8Array) {
+    const field = this.field,
       grid = this.fieldGrid;
-    const apply = (id: number, bytes: Uint8Array) => {
-      if (this.disposed || id !== this.fieldTicket) return;
-      const current = field.atlasAO.value;
-      if (current instanceof THREE.DataTexture && current.image.width === grid.width && current.image.height === grid.depth) {
-        current.image.data = bytes;
-        current.needsUpdate = true;
-      } else {
-        const texture = new THREE.DataTexture(bytes, grid.width, grid.depth, THREE.RedFormat, THREE.UnsignedByteType);
-        texture.unpackAlignment = 1;
-        // Mipmaps: a wide view reads a coarse level instead of thrashing the texture cache
-        // (5 ms of a 20 ms frame on a GT 730 without them).
-        texture.generateMipmaps = true;
-        texture.magFilter = THREE.LinearFilter;
-        texture.minFilter = THREE.LinearMipmapLinearFilter;
-        texture.needsUpdate = true;
-        current.dispose();
-        field.atlasAO.value = texture;
-        field.atlasAORect.value.set(grid.minX, grid.minZ, 1 / (grid.width * grid.texel), 1 / (grid.depth * grid.texel));
-      }
-      this.fieldApplied = id;
-      this.invalidate();
-    };
-    // Without a worker the bake runs here, after the frame that asked for it.
-    const inline = () => setTimeout(() => apply(ticket, bakeOcclusion(grid, occluders)), 0);
-    if (this.fieldWorker === false) return void inline();
-    try {
-      if (!this.fieldWorker) {
-        const worker = new Worker(new URL('./occlusion.worker.ts', import.meta.url), { type: 'module', name: 'atlas-occlusion' });
-        worker.onmessage = ({ data }: MessageEvent<{ id: number; field: Uint8Array }>) => apply(data.id, data.field);
-        worker.onerror = () => {
-          worker.terminate();
-          this.fieldWorker = false;
-          inline();
-        };
-        this.fieldWorker = worker;
-      }
-      // Copied, not transferred: the inline fallback may still need these occluders.
-      this.fieldWorker.postMessage({ id: ticket, grid, occluders });
-    } catch {
-      this.fieldWorker = false;
-      inline();
+    if (!field || this.disposed) return;
+    const current = field.atlasAO.value;
+    if (current instanceof THREE.DataTexture && current.image.width === grid.width && current.image.height === grid.depth) {
+      current.image.data = bytes;
+      current.needsUpdate = true;
+    } else {
+      const texture = new THREE.DataTexture(bytes, grid.width, grid.depth, THREE.RedFormat, THREE.UnsignedByteType);
+      texture.unpackAlignment = 1;
+      // Mipmaps: a wide view reads a coarse level instead of thrashing the texture cache
+      // (5 ms of a 20 ms frame on a GT 730 without them).
+      texture.generateMipmaps = true;
+      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.needsUpdate = true;
+      current.dispose();
+      field.atlasAO.value = texture;
+      field.atlasAORect.value.set(grid.minX, grid.minZ, 1 / (grid.width * grid.texel), 1 / (grid.depth * grid.texel));
     }
+    this.invalidate();
   }
 
   /**
@@ -992,7 +979,7 @@ export class CityRenderer {
     if (g.styled) {
       // Disposing releases the old GPU buffers; the next render uploads the larger ones.
       g.geometry.dispose();
-      g.geometry.setAttribute('atlasStyle', new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3));
+      g.geometry.setAttribute('atlasStyle', new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4));
     }
     const shadows: Shadows = g.mesh.castShadow ? (g.mesh.receiveShadow ? 'both' : 'cast') : g.mesh.receiveShadow ? 'receive' : 'none';
     this.scene.remove(g.mesh);
@@ -1658,7 +1645,7 @@ export class CityRenderer {
       animated: this.animated,
       lite: this.lite,
       cameraMoving: this.flight !== null || this.settling,
-      occlusion: this.field ? (this.fieldApplied === this.fieldTicket ? 'ready' : 'baking') : 'off',
+      occlusion: this.baker ? (this.baker.ready ? 'ready' : 'baking') : 'off',
       pixelRatio: this.ratio,
       gpuMsPerMegapixel: this.gpuPerPixel * 1e6,
       views: { count: this.views.length, index: this.viewIndex },
@@ -1765,7 +1752,7 @@ export class CityRenderer {
     if (this.settleTimer) clearTimeout(this.settleTimer);
     if (this.timer?.query) this.timer.gl.deleteQuery(this.timer.query);
     this.visibility?.disconnect();
-    if (this.fieldWorker) this.fieldWorker.terminate();
+    this.baker?.dispose();
     this.field?.atlasAO.value.dispose();
     this.abort.abort();
     this.resizeObserver.disconnect();

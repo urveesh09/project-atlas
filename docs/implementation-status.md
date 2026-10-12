@@ -548,6 +548,28 @@ Captures: [labels](images/city-ux-modern-labels.png),
 [Eastern flagstones](images/city-ux-eastern-flagstones.png),
 [selection card](images/city-ux-selection-card.png), [expanded city](images/city-ux-expanded.png).
 
+### Bake fallback, proportions and materials (2026-10-12)
+
+A review of ADR-042 found that a worker failure after a snapshot change re-baked the first
+snapshot, which the stale guard then discarded. Bakes now go through `OcclusionBaker`
+([ADR-043](adr/ADR-043-bake-fallback-proportions-and-materials.md)), which always falls back
+to the latest pending request. Regression tests drive the reviewer's exact sequence.
+
+The city is also less repetitive:
+- square-planned towers may be seeded slabs;
+- Modern adds art deco, octagonal and split-slab silhouettes, and Western a bell tower;
+- walls between the windows show brick, precast panels, metal fins or ashlar. These change
+  brightness only and appear only close up.
+
+Evidence:
+- At the stage, every orbit is at the 16.7 ms cap on Vite (all styles) and the
+  10,000-file city.
+- Expanded to 1080p, 39 of 40 orbits are at the cap. One was at 33 ms on a fifth
+  consecutive heavy run; the guard then lowered the ratio.
+- Snapshot change: p95 ≤ 65 ms. Selection: p95 ≤ 44 ms.
+- `pnpm verify`: 635 passed. Viewer e2e: 27 of 27 on the GPU and with `CI=1`.
+- The corpus baseline is exact.
+
 ### Reproduce verification
 
 ```sh

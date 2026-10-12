@@ -26,9 +26,15 @@ export interface BuildingStyle {
   variant: number;
   /** Ground-storey treatment (see `BASE`). */
   base: number;
+  /** Depth over width of a square-planned body: some towers are slabs (1 = square). */
+  aspect: number;
+  /** Wall material (see `MATERIAL`). */
+  material: number;
 }
 
 const FOOTPRINTS = [0.92, 0.96, 1] as const;
+/** Plan proportions for bodies whose every tier is four-sided; seeded, never from data. */
+const ASPECTS = [1, 1, 0.86, 0.74] as const;
 
 export function districtFamily(districtId: string, theme: CityTheme = 'modern'): number {
   return xorshift32(seedFromId(districtId))() % THEMES[theme].families.length;
@@ -44,7 +50,12 @@ export function buildingStyle(b: CityBuilding, family: number, theme: CityTheme 
   const rotation = ((next() % 4) * Math.PI) / 2;
   const patterns = tall ? spec.windows[family]! : spec.lowWindows;
   const windows = patterns[next() % patterns.length]!;
-  return { archetype, footprint, rotation, windows, variant: (next() % 1000) / 1000, base: spec.archetypes[archetype]!.base ?? 0 };
+  const variant = (next() % 1000) / 1000;
+  const square = spec.archetypes[archetype]!.tiers.every((t) => t.sides === 4);
+  const aspect = square ? ASPECTS[next() % ASPECTS.length]! : 1;
+  // Neighbours share a district's material or the next one in the list.
+  const material = spec.materials[(family + (next() % 2)) % spec.materials.length]!;
+  return { archetype, footprint, rotation, windows, variant, base: spec.archetypes[archetype]!.base ?? 0, aspect, material };
 }
 
 /** Outline of an archetype at a fraction of its height: sides and half extents. */
@@ -363,12 +374,12 @@ export function facadeMaterial(detail: boolean, sky: { zenith: string; horizon: 
         `#include <common>
 attribute vec4 atlasFace;
 attribute float atlasShade;
-attribute vec3 atlasStyle;
+attribute vec4 atlasStyle;
 varying vec4 vAtlasFace;
 flat varying vec2 vAtlasFaceSize;
 varying float vAtlasShade;
 varying float vAtlasY;
-flat varying vec3 vAtlasStyle;`,
+flat varying vec4 vAtlasStyle;`,
       )
       .replace(
         '#include <begin_vertex>',
@@ -393,7 +404,7 @@ varying vec4 vAtlasFace;
 flat varying vec2 vAtlasFaceSize;
 varying float vAtlasShade;
 varying float vAtlasY;
-flat varying vec3 vAtlasStyle;
+flat varying vec4 vAtlasStyle;
 uniform vec3 atlasSkyZenith;
 uniform vec3 atlasSkyHorizon;
 float atlasHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -423,6 +434,9 @@ float atlasGlassMask = 0.0;
   float facade = step(1e-4, vAtlasFaceSize.x) * step(1e-4, vAtlasFaceSize.y);
   float fade = facade * (1.0 - smoothstep(0.3, 0.55, max(fw.x, fw.y)));
   float fineFade = 1.0 - smoothstep(0.35, 0.6, max(fineFw.x, fineFw.y));
+  // Wall material coordinates: world units across and up the face.
+  vec2 atlasM = vec2(vAtlasFace.x * vAtlasFaceSize.x, vAtlasY);
+  vec2 atlasMfw = max(fwidth(atlasM), vec2(1e-4));
   // Far away the pattern has faded out entirely: skip it (a uniform branch over a distant
   // block), which keeps wide views cheap. Derivatives are all taken above this line.
   if (fade > 0.001) {
@@ -472,6 +486,36 @@ float atlasGlassMask = 0.0;
   if (style == 4.0) atlasGlass = mix(atlasWall * 0.4, vec3(0.3, 0.16, 0.1), 0.3);
   float atlasLit = step(style == 4.0 ? 0.9 : 0.95, atlasNoise);
   atlasGlass = mix(atlasGlass, vec3(1.0, 0.86, 0.58), atlasLit * 0.75);
+  // Wall material between the windows. It scales brightness only, so the lens hue holds:
+  // brick in running bond with pale mortar, precast panels on the window grid, metal fins
+  // that catch the light, or coursed ashlar with dark joints. Plain render stays smooth.
+  float material = floor(vAtlasStyle.w + 0.5);
+  float surface = 1.0;
+  if (material == 1.0 || material == 4.0) {
+    vec2 unit = material == 1.0 ? vec2(0.12, 0.055) : vec2(0.3, 0.15);
+    vec2 b = atlasM / unit;
+    b.x += 0.5 * mod(floor(b.y), 2.0);
+    vec2 bf = fract(b), bfw = atlasMfw / unit;
+    vec2 width = material == 1.0 ? vec2(0.05, 0.1) : vec2(0.03, 0.06);
+    vec2 e = min(bf, 1.0 - bf);
+    vec2 j = 1.0 - smoothstep(width - bfw, width + bfw, e);
+    float joint = max(j.x, j.y);
+    float tone = atlasHash(vec3(floor(b), 13.0 + material)) - 0.5;
+    float detail = 1.0 - smoothstep(0.22, 0.45, max(bfw.x, bfw.y));
+    float shade = material == 1.0 ? (1.0 + 0.14 * tone) * (1.0 + 0.12 * joint) : (1.0 + 0.18 * tone) * (1.0 - 0.22 * joint);
+    surface = mix(1.0, shade, detail);
+  } else if (material == 2.0) {
+    vec2 e = min(f, 1.0 - f);
+    vec2 j = 1.0 - smoothstep(vec2(0.025) - fw, vec2(0.025) + fw, e);
+    float tone = atlasHash(vec3(floor(cell), 31.0)) - 0.5;
+    surface = (1.0 + 0.08 * tone) * (1.0 - 0.16 * max(j.x, j.y));
+  } else if (material == 3.0) {
+    float x = fract(cell.x * 2.0);
+    float fin = 1.0 - smoothstep(0.035 - fw.x * 2.0, 0.035 + fw.x * 2.0, min(x, 1.0 - x));
+    float shadow = smoothstep(0.04, 0.06, x) * (1.0 - smoothstep(0.1, 0.14, x));
+    surface = (1.0 + 0.2 * fin) * (1.0 - 0.12 * shadow * fineFade) * (f.y < 0.22 ? 0.9 : 1.0);
+  }
+  atlasWall *= mix(1.0, surface, fade);
   atlasWall = mix(atlasWall, mix(atlasWall, vec3(0.95, 0.92, 0.85), 0.28), light * fade);
   atlasWall = mix(atlasWall, atlasWall * 0.42, clamp(dark, 0.0, 1.0) * fade);
   atlasWall = mix(atlasWall, atlasGlass, glass * fade);
@@ -535,7 +579,7 @@ if (atlasGlassMask > 0.001) {
 #include <envmap_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => `atlas-facade-5-${detail ? 1 : 0}`;
+  material.customProgramCacheKey = () => `atlas-facade-6-${detail ? 1 : 0}`;
   return material;
 }
 

@@ -114,6 +114,11 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
       expect(s.windows).toBeGreaterThanOrEqual(0);
       expect(s.windows).toBeLessThanOrEqual(9);
       expect(s.base).toBe(spec.archetypes[s.archetype]!.base ?? 0);
+      // Slab plans only narrow a square-planned body, so it stays inside its plot.
+      expect(s.aspect).toBeGreaterThan(0.7);
+      expect(s.aspect).toBeLessThanOrEqual(1);
+      if (spec.archetypes[s.archetype]!.tiers.some((t) => t.sides !== 4)) expect(s.aspect).toBe(1);
+      expect(spec.materials).toContain(s.material);
     }
   });
 

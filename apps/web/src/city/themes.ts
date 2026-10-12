@@ -76,6 +76,8 @@ export interface ThemeSpec {
   /** Fixed-height kiosk and declaration roles. */
   low: readonly number[];
   lowWindows: readonly number[];
+  /** Wall materials (see `MATERIAL`); a district alternates two neighbouring ones. */
+  materials: readonly number[];
   ground: {
     beach: string;
     belt: string;
@@ -104,6 +106,12 @@ export interface ThemeSpec {
   scenery: 'bay' | 'karst' | 'alps';
   clouds: string;
 }
+
+/**
+ * Wall materials drawn by the facade shader between the windows. They change brightness
+ * only, never the lens hue, and appear only close up.
+ */
+export const MATERIAL = { render: 0, brick: 1, panel: 2, fins: 3, ashlar: 4 } as const;
 
 /** Window patterns understood by the facade shader. */
 export const WINDOW = {
@@ -138,12 +146,18 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
         parts: [{ kind: 'band', every: 1.8, from: 0.9, overhang: 1.06 }, { kind: 'rooftop', corners: 2 }],
         base: BASE.lobby,
       },
+      // Art deco: a shaft stepping in three times to a crown.
+      { name: 'deco', tiers: [box(0, 0.6, 0.44, 0.44, 1, 0.97), box(0.6, 0.8, 0.36), box(0.8, 0.92, 0.29), box(0.92, 1, 0.24, 0.24, 1.05)], base: BASE.lobby },
+      // Octagonal shaft on a low podium, gently tapering.
+      { name: 'octagon', tiers: [box(0, 0.1, 0.46, 0.46, 0.88), ring(0.1, 1, 8, 0.41, 1, 0.9)], base: BASE.lobby },
+      // A slab whose upper floors step back on one side.
+      { name: 'split-slab', tiers: [box(0, 0.7, 0.45, 0.32), box(0.7, 1, 0.45, 0.23, 1.05)], base: BASE.lobby, parts: [{ kind: 'rooftop', corners: 2 }] },
     ],
     families: [
-      [0, 6, 2],
-      [1, 3, 4, 8],
-      [2, 5, 6],
-      [0, 1, 4, 5, 8],
+      [0, 6, 2, 9],
+      [1, 3, 4, 8, 11],
+      [2, 5, 6, 10],
+      [0, 1, 4, 5, 8, 9, 11],
     ],
     windows: [
       [W.punched, W.grid],
@@ -153,6 +167,7 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
     ],
     low: [0, 1, 7],
     lowWindows: [W.punched, W.ribbon, W.grid],
+    materials: [MATERIAL.panel, MATERIAL.fins, MATERIAL.brick, MATERIAL.render],
     ground: {
       beach: '#e3d4ab',
       belt: '#a9be8c',
@@ -217,6 +232,7 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
     windows: [[W.lattice], [W.lattice, W.grid], [W.lattice, W.vertical], [W.lattice]],
     low: [5, 6],
     lowWindows: [W.lattice],
+    materials: [MATERIAL.render, MATERIAL.brick, MATERIAL.ashlar],
     ground: {
       beach: '#d8ceb4',
       belt: '#a2bb8a',
@@ -268,11 +284,19 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
       },
       // Manor: a broad mansion with chimneys, shuttered windows and a central door.
       { name: 'manor', tiers: [box(0, 1, 0.45, 0.33)], parts: [{ kind: 'band', every: 1.4, from: 1.1, overhang: 1.04 }, { kind: 'chimney', corners: 4 }], roof: 0.9, base: BASE.door },
+      // Bell tower: a shaft with two set-back stages and corner pinnacles.
+      {
+        name: 'bell-tower',
+        tiers: [box(0, 0.72, 0.4), box(0.72, 0.86, 0.33), box(0.86, 1, 0.27)],
+        parts: [{ kind: 'band', every: 2, from: 1.5, overhang: 1.07 }, { kind: 'pinnacle', corners: 4 }],
+        roof: 0.86,
+        base: BASE.arcade,
+      },
     ],
     families: [
-      [0, 1, 8],
+      [0, 1, 8, 10],
       [2, 9, 5],
-      [3, 1, 4],
+      [3, 1, 4, 10],
       [8, 9, 3, 4],
     ],
     windows: [
@@ -283,6 +307,7 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
     ],
     low: [6, 7],
     lowWindows: [W.timber, W.shutter],
+    materials: [MATERIAL.ashlar, MATERIAL.brick, MATERIAL.render],
     ground: {
       beach: '#d9cba6',
       belt: '#9cb97c',

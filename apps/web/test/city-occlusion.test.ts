@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OcclusionBaker, type BakeWorker } from '../src/city/baker';
 import { OCCLUDER_STRIDE, bakeOcclusion, occlusionGrid } from '../src/city/occlusion';
 
 /** One occluder: centre, half extents, height and strength. */
@@ -51,5 +52,80 @@ describe('baked sky-occlusion field', () => {
     expect(bakeOcclusion(grid, occluders)).toEqual(a);
     expect(at(grid, a, 12.6, 25)).toBe(255);
     expect(at(grid, a, 14.6, 14)).toBe(255);
+  });
+});
+
+describe('occlusion bake scheduling', () => {
+  /** A stand-in worker that records posts and fails or answers on demand. */
+  const harness = () => {
+    const posted: number[] = [];
+    const applied: Uint8Array[] = [];
+    const deferred: (() => void)[] = [];
+    let spawned = 0;
+    const worker: BakeWorker = {
+      postMessage: (m) => void posted.push(m.id),
+      terminate: () => {},
+      onmessage: null,
+      onerror: null,
+    };
+    const baker = new OcclusionBaker(
+      (field) => applied.push(field),
+      () => {
+        spawned++;
+        return worker;
+      },
+      (run) => void deferred.push(run),
+    );
+    const flush = () => deferred.splice(0).forEach((run) => run());
+    return { baker, worker, posted, applied, flush, spawned: () => spawned };
+  };
+  const grid = occlusionGrid(0, 0, 20, 20);
+  const snapshotA = new Float32Array(box(5, 5, 4));
+  const snapshotB = new Float32Array(box(14, 12, 6));
+
+  it('falls back to the latest snapshot when the worker fails after a snapshot change', () => {
+    const h = harness();
+    h.baker.bake(grid, snapshotA);
+    h.baker.bake(grid, snapshotB);
+    expect(h.posted).toEqual([1, 2]);
+    h.worker.onerror!(new Event('error'));
+    h.flush();
+    expect(h.applied).toHaveLength(1);
+    expect(h.applied[0]).toEqual(bakeOcclusion(grid, snapshotB));
+    expect(h.baker.ready).toBe(true);
+  });
+
+  it('applies only the latest worker result and bakes inline after a failure', () => {
+    const h = harness();
+    h.baker.bake(grid, snapshotA);
+    h.baker.bake(grid, snapshotB);
+    h.worker.onmessage!({ data: { id: 1, field: new Uint8Array([1]) } });
+    expect(h.applied).toHaveLength(0);
+    expect(h.baker.ready).toBe(false);
+    h.worker.onmessage!({ data: { id: 2, field: new Uint8Array([2]) } });
+    expect(h.applied).toEqual([new Uint8Array([2])]);
+    h.worker.onerror!(new Event('error'));
+    h.baker.bake(grid, snapshotA);
+    h.baker.bake(grid, snapshotB);
+    h.flush();
+    // Two inline requests, one bake: the newer one replaced the older before it ran.
+    expect(h.applied).toHaveLength(2);
+    expect(h.applied[1]).toEqual(bakeOcclusion(grid, snapshotB));
+    expect(h.spawned()).toBe(1);
+  });
+
+  it('bakes inline when a worker cannot start', () => {
+    const applied: Uint8Array[] = [];
+    const deferred: (() => void)[] = [];
+    const baker = new OcclusionBaker(
+      (field) => applied.push(field),
+      () => {
+        throw new Error('no workers here');
+      },
+      (run) => void deferred.push(run),
+    );
+    baker.bake(grid, snapshotA);
+    deferred.splice(0).forEach((run) => run());
+    expect(applied[0]).toEqual(bakeOcclusion(grid, snapshotA));
   });
 });
