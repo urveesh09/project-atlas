@@ -347,10 +347,16 @@ function mergeFlat(parts: THREE.BufferGeometry[], colours?: readonly THREE.Color
  * drawn only where a cell spans several pixels, so far views keep the exact lens colour. A
  * soft base gradient stands in for ambient occlusion. `detail` false compiles patterns out.
  */
-export function facadeMaterial(detail: boolean): THREE.MeshLambertMaterial {
+export function facadeMaterial(detail: boolean, sky: { zenith: string; horizon: string } = { zenith: '#9fbfe0', horizon: '#e6ecef' }): THREE.MeshLambertMaterial {
   const material = new THREE.MeshLambertMaterial();
   material.defines = { ATLAS_WINDOWS: detail ? 1 : 0 };
+  // Glass reflects this sky by viewing angle (Fresnel), and the street below it.
+  const reflection = {
+    atlasSkyZenith: { value: new THREE.Color(sky.zenith) },
+    atlasSkyHorizon: { value: new THREE.Color(sky.horizon) },
+  };
   material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, reflection);
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -359,9 +365,10 @@ attribute vec4 atlasFace;
 attribute float atlasShade;
 attribute vec3 atlasStyle;
 varying vec4 vAtlasFace;
+flat varying vec2 vAtlasFaceSize;
 varying float vAtlasShade;
 varying float vAtlasY;
-varying vec3 vAtlasStyle;`,
+flat varying vec3 vAtlasStyle;`,
       )
       .replace(
         '#include <begin_vertex>',
@@ -372,6 +379,8 @@ varying vec3 vAtlasStyle;`,
   vec3 atlasScale = vec3(1.0);
 #endif
   vAtlasFace = vec4(atlasFace.x, atlasFace.y >= 0.0 ? atlasFace.y * atlasScale.x : -atlasFace.y * atlasScale.z, atlasFace.z, atlasFace.w * atlasScale.y);
+  // Face size is constant per face: flat, so window counts and seeds never flicker between pixels.
+  vAtlasFaceSize = vAtlasFace.yw;
   vAtlasShade = atlasShade;
   vAtlasY = position.y * atlasScale.y;
   vAtlasStyle = atlasStyle;`,
@@ -381,9 +390,12 @@ varying vec3 vAtlasStyle;`,
         '#include <common>',
         `#include <common>
 varying vec4 vAtlasFace;
+flat varying vec2 vAtlasFaceSize;
 varying float vAtlasShade;
 varying float vAtlasY;
-varying vec3 vAtlasStyle;
+flat varying vec3 vAtlasStyle;
+uniform vec3 atlasSkyZenith;
+uniform vec3 atlasSkyHorizon;
 float atlasHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float atlasBox(vec2 f, vec2 fw, vec2 lo, vec2 hi) {
   vec2 m = smoothstep(lo - fw, lo + fw, f) * (1.0 - smoothstep(hi - fw, hi + fw, f));
@@ -394,6 +406,7 @@ float atlasLine(float d, float width, float fw) { return 1.0 - smoothstep(width 
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
+float atlasGlassMask = 0.0;
 {
   vec3 atlasWall = diffuseColor.rgb * vAtlasShade;
 #if ATLAS_WINDOWS
@@ -401,15 +414,18 @@ float atlasLine(float d, float width, float fw) { return 1.0 - smoothstep(width 
   vec2 size = style == 1.0 ? vec2(0.34, 0.3) : style == 2.0 ? vec2(0.15, 0.3) : style == 3.0 ? vec2(0.13, 0.22)
     : style == 4.0 ? vec2(0.24, 0.42) : style == 5.0 ? vec2(0.2, 0.4) : style == 6.0 ? vec2(0.24, 0.36)
     : style == 7.0 ? vec2(0.16, 0.26) : style == 8.0 ? vec2(0.18, 0.34) : style == 9.0 ? vec2(0.26, 0.36) : vec2(0.2, 0.3);
-  vec2 count = max(vec2(1.0), floor(vec2(vAtlasFace.y, vAtlasFace.w) / size + 0.5));
+  vec2 count = max(vec2(1.0), floor(vec2(vAtlasFaceSize.x, vAtlasFaceSize.y) / size + 0.5));
   vec2 cell = vec2(vAtlasFace.x, vAtlasFace.z) * count;
   vec2 f = fract(cell);
   vec2 fw = max(fwidth(cell), vec2(1e-4));
   vec2 fine = fract(cell * vec2(4.0, 3.0));
   vec2 fineFw = fw * vec2(4.0, 3.0);
-  float facade = step(1e-4, vAtlasFace.y) * step(1e-4, vAtlasFace.w);
+  float facade = step(1e-4, vAtlasFaceSize.x) * step(1e-4, vAtlasFaceSize.y);
   float fade = facade * (1.0 - smoothstep(0.3, 0.55, max(fw.x, fw.y)));
   float fineFade = 1.0 - smoothstep(0.35, 0.6, max(fineFw.x, fineFw.y));
+  // Far away the pattern has faded out entirely: skip it (a uniform branch over a distant
+  // block), which keeps wide views cheap. Derivatives are all taken above this line.
+  if (fade > 0.001) {
   float course = atlasLine(fract(cell.y * 3.0), 0.06, fw.y * 3.0);
   float glass = 0.0, dark = 0.0, light = 0.0;
   if (style == 1.0) glass = atlasBox(f, fw, vec2(0.03, 0.3), vec2(0.97, 0.8));
@@ -450,7 +466,7 @@ float atlasLine(float d, float width, float fw) { return 1.0 - smoothstep(width 
   } else glass = atlasBox(f, fw, vec2(0.24, 0.3), vec2(0.76, 0.8));
   // Interpolated per-instance values wobble in the last bits; quantise before hashing so each
   // window decides once instead of per pixel (which showed as speckle).
-  float atlasNoise = atlasHash(vec3(floor(cell), floor(vAtlasStyle.y * 997.0 + 0.5) + floor(vAtlasFace.y * 64.0 + 0.5) * 7.0));
+  float atlasNoise = atlasHash(vec3(floor(cell), floor(vAtlasStyle.y * 997.0 + 0.5) + floor(vAtlasFaceSize.x * 64.0 + 0.5) * 7.0));
   vec3 atlasGlass = mix(atlasWall * 0.5, vec3(0.15, 0.2, 0.27), 0.4) * (0.85 + 0.3 * atlasNoise);
   if (style == 7.0) atlasGlass = mix(atlasWall * 0.62, vec3(0.5, 0.64, 0.78), 0.28) * (0.78 + 0.32 * vAtlasFace.z) * (0.92 + 0.16 * atlasNoise);
   if (style == 4.0) atlasGlass = mix(atlasWall * 0.4, vec3(0.3, 0.16, 0.1), 0.3);
@@ -459,11 +475,14 @@ float atlasLine(float d, float width, float fw) { return 1.0 - smoothstep(width 
   atlasWall = mix(atlasWall, mix(atlasWall, vec3(0.95, 0.92, 0.85), 0.28), light * fade);
   atlasWall = mix(atlasWall, atlasWall * 0.42, clamp(dark, 0.0, 1.0) * fade);
   atlasWall = mix(atlasWall, atlasGlass, glass * fade);
+  // Paper screens barely reflect; lit windows glow instead of mirroring the sky.
+  atlasGlassMask = glass * fade * (style == 4.0 ? 0.25 : 1.0) * (1.0 - 0.85 * atlasLit);
   totalEmissiveRadiance += vec3(0.5, 0.4, 0.22) * atlasLit * glass * fade;
+  }
   // Ground storey (world units along the face and above the body base): a glass lobby, an
   // open colonnade, an arcade of round arches, or a front door with a step.
   float baseKind = floor(vAtlasStyle.z + 0.5);
-  vec2 bp = vec2(vAtlasFace.x * vAtlasFace.y, vAtlasY);
+  vec2 bp = vec2(vAtlasFace.x * vAtlasFaceSize.x, vAtlasY);
   vec2 bfw = max(fwidth(bp), vec2(1e-4));
   float band = facade * (1.0 - smoothstep(0.56 - bfw.y, 0.56 + bfw.y, bp.y));
   float baseFade = band * (1.0 - smoothstep(0.012, 0.03, max(bfw.x, bfw.y)));
@@ -487,7 +506,7 @@ float atlasLine(float d, float width, float fw) { return 1.0 - smoothstep(width 
     float opening = 1.0 - smoothstep(-bfw.x, bfw.x, d);
     atlasWall = mix(atlasWall, mix(atlasWall * 0.9, atlasWall * 0.28, opening), baseFade);
   } else if (baseKind == 4.0) {
-    float x = abs(vAtlasFace.x - 0.5) * vAtlasFace.y;
+    float x = abs(vAtlasFace.x - 0.5) * vAtlasFaceSize.x;
     float door = (1.0 - smoothstep(0.065, 0.065 + bfw.x, x)) * (1.0 - smoothstep(0.4, 0.4 + bfw.y, bp.y));
     float frame = (1.0 - smoothstep(0.085, 0.085 + bfw.x, x)) * (1.0 - smoothstep(0.43, 0.43 + bfw.y, bp.y)) - door;
     atlasWall = mix(atlasWall, atlasWall * 0.75, clamp(frame, 0.0, 1.0) * baseFade);
@@ -496,9 +515,27 @@ float atlasLine(float d, float width, float fw) { return 1.0 - smoothstep(width 
 #endif
   diffuseColor.rgb = atlasWall * mix(0.76, 1.0, smoothstep(0.08, 0.9, vAtlasY));
 }`,
+      )
+      .replace(
+        '#include <envmap_fragment>',
+        `#if ATLAS_WINDOWS
+if (atlasGlassMask > 0.001) {
+  // Fresnel sky reflection: glass seen edge-on mirrors the sky (or the street when it
+  // faces down), seen head-on it shows its dark interior.
+  vec3 atlasView = normalize(vViewPosition);
+  float atlasFacing = clamp(dot(normal, atlasView), 0.0, 1.0);
+  float atlasFresnel = 0.08 + 0.92 * pow(1.0 - atlasFacing, 5.0);
+  vec3 atlasRay = inverseTransformDirection(reflect(-atlasView, normal), viewMatrix);
+  vec3 atlasMirror = atlasRay.y > 0.0
+    ? mix(atlasSkyHorizon, atlasSkyZenith, smoothstep(0.0, 0.7, atlasRay.y))
+    : mix(atlasSkyHorizon * 0.55, vec3(0.22, 0.21, 0.2), smoothstep(0.0, 0.3, -atlasRay.y));
+  outgoingLight = mix(outgoingLight, atlasMirror, atlasGlassMask * clamp(atlasFresnel * 0.85 + 0.1, 0.0, 0.72));
+}
+#endif
+#include <envmap_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => `atlas-facade-3-${detail ? 1 : 0}`;
+  material.customProgramCacheKey = () => `atlas-facade-5-${detail ? 1 : 0}`;
   return material;
 }
 

@@ -490,6 +490,51 @@ Captures: Eastern [ponds and pagodas](images/city-living-eastern-ponds.png) and
 [Western](images/city-living-western.png), [Western castle](images/city-living-western-castle.png),
 [Modern](images/city-living-modern.png).
 
+### Grounded city and view controls (2026-10-12)
+
+At the owner's request the city comes closer to realism and is easier to explore on their
+GT 730 ([ADR-042](adr/ADR-042-grounded-city-and-view-controls.md)):
+- a sky-occlusion field, baked in a worker per frame, darkens street canyons and the foot of
+  every wall;
+- the paving differs by style: Modern concrete slabs, Eastern flagstones, Western cobbles.
+  Streets are asphalt, pitched roofs have tiles, and glass reflects the sky by viewing angle;
+- package labels are placed by priority without overlapping, and the selected building is
+  named with a leader line;
+- a selected building has a ring at its base, and a selection card shows its folder trail;
+- Previous and Next camera view, Whole city, Expand (full screen) and Hide tree are added,
+  and the stage is taller (54vh).
+
+A frame guard and calibrated resolution keep the frame rate. Timer queries predict a new
+stage size's GPU cost; sustained late frames while moving lower the pixel ratio, rarely and
+never per frame. Level of detail counts rendered pixels.
+
+Measuring this found that `measureFrames` rendered twice per sample (121 renders for 60
+samples). It now renders once, as interaction does. Earlier orbit results, including the
+Phase 3 benchmark, were measured the double way and are kept as recorded.
+
+Evidence (GT 730, one render per sample):
+- Stage 54vh: every 120-frame orbit is at the 16.7 ms cap in all styles on Vite and on the
+  10,000-file city. GPU time is 7.6–10.4 ms default and 9.2–12.4 ms close.
+- Expanded 1920 x 1080: every orbit is at the cap. Vite uses pixel ratios 0.59–0.69; the
+  10,000-file city runs at full resolution.
+- Snapshot change: p95 48–56 ms. Selection: p95 42–43 ms. Draw calls: 18–41.
+- `pnpm verify`: 632 passed, 80 service-gated skips.
+- Viewer e2e: 27 of 27 on the GPU and with `CI=1` (SwiftShader).
+
+Failures along the way are recorded in the ADR:
+- an unmipmapped field gave 20 ms frames;
+- a per-frame canvas resize stalled ANGLE;
+- one `CI=1` e2e run failed J1: focus reached the inspector a frame too late on SwiftShader.
+
+Inspector focus now moves in the commit that renders it. Two `CI=1` runs and a GPU run
+then passed 27 of 27.
+
+Captures: [labels](images/city-ux-modern-labels.png),
+[contact occlusion](images/city-ux-contact-occlusion.png),
+[Western cobbles](images/city-ux-western-cobbles.png),
+[Eastern flagstones](images/city-ux-eastern-flagstones.png),
+[selection card](images/city-ux-selection-card.png), [expanded city](images/city-ux-expanded.png).
+
 ### Reproduce verification
 
 ```sh

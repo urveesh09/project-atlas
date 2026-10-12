@@ -20,12 +20,28 @@
 .city-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 20px 14px; font-size: 11px; }
 .city-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .city-legend i { width: 15px; height: 15px; border: 1px solid var(--muted); border-radius: 3px; }
-.city-stage { height: clamp(300px, 48vh, 600px); position: relative; background: #e9e4d7; overflow: hidden; isolation: isolate; }
+.city-stage { height: clamp(320px, 54vh, 720px); position: relative; background: #e9e4d7; overflow: hidden; isolation: isolate; }
+/* Expanded city: the browser's full screen, or a fixed overlay where full screen is refused. */
+.city-stage:fullscreen { height: 100vh; width: 100vw; }
+.city-stage.is-expanded { position: fixed; inset: 0; height: auto; z-index: 60; }
 .city-surface, .city-canvas { width: 100%; height: 100%; display: block; touch-action: none; }
 .city-labels { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .city-attribution { position: absolute; bottom: 10px; right: 14px; font-size: 9px; letter-spacing: .1em; padding: 3px 7px; background: #faf8f2; color: #344452; pointer-events: none; }
 .city-hover { position: absolute; inset: 12px auto auto 12px; max-width: calc(100% - 24px); padding: 10px 14px; background: #182331; color: #eef1f5; border-radius: 8px; pointer-events: none; font-size: 12px; overflow-wrap: anywhere; }
 .city-hover span { display: block; font-size: 11px; color: #bcc7d7; }
+/* Floating view controls, top right; translucent so the city stays the subject. */
+.city-nav { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; z-index: 2; }
+.city .city-nav button { min-width: 44px; padding: 6px 10px; font-size: 17px; line-height: 1; background: rgba(250, 248, 242, 0.9); border-color: rgba(38, 51, 68, 0.18); box-shadow: 0 1px 4px rgba(24, 35, 49, 0.16); backdrop-filter: blur(6px); }
+.city .city-nav button[aria-pressed=true] { background: #182331; color: #eef1f5; }
+/* Selection card, bottom left: the folder trail (each step selectable) and key numbers. */
+.city-card { position: absolute; left: 12px; bottom: 12px; max-width: min(460px, calc(100% - 24px)); padding: 10px 14px 11px; background: rgba(250, 248, 242, 0.94); border: 1px solid rgba(38, 51, 68, 0.16); border-radius: 10px; box-shadow: 0 2px 10px rgba(24, 35, 49, 0.16); backdrop-filter: blur(6px); font-size: 12px; z-index: 2; overflow-wrap: anywhere; }
+.city-card > strong { display: block; font-size: 14px; color: #182331; }
+.city-card > span { display: block; color: #4a5767; margin-top: 2px; }
+.city-trail { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0 2px; margin: 0 0 4px; padding: 0; }
+.city-trail li { display: inline-flex; align-items: center; }
+.city-trail li + li::before { content: '›'; color: #8a94a1; padding: 0 3px; }
+.city .city-crumb { min-height: 28px; padding: 2px 6px; border: 0; background: none; color: #1d5f8a; font-size: 12px; border-radius: 5px; }
+.city .city-crumb:hover { background: rgba(29, 95, 138, 0.1); }
 .city-loading { color: #263344; padding: 24px; }
 .city-message { padding: 12px 20px; color: var(--text); background: var(--panel-2); margin: 0; }
 .city-details { border-top: 1px solid var(--border); padding: 12px 20px; }

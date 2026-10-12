@@ -29,6 +29,8 @@ import {
 import { THEMES, type Archetype, type CityTheme, type PartKind, type ThemeSpec } from './themes';
 import { mistTexture, sceneryGeometry, skyDome } from './atmosphere';
 import { cloudLayer, foliageMaterial, waterMaterial, type Clock } from './living';
+import { OCCLUDER_STRIDE, bakeOcclusion, occlusionGrid, type OcclusionGrid } from './occlusion';
+import { PAVE, fieldUniforms, withOcclusion, withPaving, withTiles, type FieldUniforms, type PavingStyle } from './shading';
 
 const center = (r: Rect) => new THREE.Vector3((r.x + r.width / 2) / 100, 0, (r.z + r.depth / 2) / 100);
 const color = new THREE.Color();
@@ -71,6 +73,41 @@ const CORNER_FIT: Partial<Record<PartKind, { inset: number; size: number; drop: 
 const IDLE_FPS = 24;
 /** Most storey parts per building, so a 14-high tower stays bounded. */
 const MAX_STOREY_PARTS = 14;
+const PAVING: Record<CityTheme, PavingStyle> = { modern: 0, eastern: 1, western: 2 };
+/** Remembered camera views for Back and Forward. */
+const MAX_VIEWS = 40;
+/** A camera still for this long (ms) counts as a settled view for Back/Forward. */
+const SETTLE_MS = 160;
+/**
+ * Frame guard: over this many moving frames, a 75th-percentile frame interval above
+ * GUARD_LATE_MS lowers the pixel ratio in proportion to the lateness (10-40% per step, to at
+ * most half of full), at most once per GUARD_COOLDOWN_MS. Resizing a WebGL canvas stalls ANGLE, so the ratio never changes per
+ * frame. The pixel count found sustainable carries over when the stage is resized.
+ */
+const GUARD_FRAMES = 60;
+const GUARD_LATE_MS = 20;
+const GUARD_COOLDOWN_MS = 1500;
+const GUARD_FLOOR = 0.5;
+/**
+ * Calibrated resolution: GPU time of every SAMPLE_EVERY-th frame is read back (a timer query,
+ * never blocking). On a resize, the pixel ratio is chosen so the predicted frame stays
+ * within GPU_BUDGET_MS, leaving headroom for a GPU that slows down as it heats.
+ */
+const SAMPLE_EVERY = 15;
+const GPU_BUDGET_MS = 11;
+
+interface GpuTimer {
+  gl: WebGL2RenderingContext;
+  ext: { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number };
+  query: WebGLQuery | null;
+  pixels: number;
+}
+
+/** Whether earlier or later camera views exist. */
+export interface ViewHistory {
+  back: boolean;
+  forward: boolean;
+}
 
 /** An instanced batch that grows on demand; `styled` batches carry a per-instance style buffer. */
 interface Growable {
@@ -184,11 +221,40 @@ export class CityRenderer {
   private cancelMeasure: (() => void) | null = null;
   private readonly extent: number;
   private readonly origin: THREE.Vector3;
+  /** Baked sky occlusion (full detail only): uniforms, grid, static occluders and the bake worker. */
+  private readonly field: FieldUniforms | null;
+  private readonly fieldGrid: OcclusionGrid;
+  private staticOccluders = new Float32Array(0);
+  /** The bake worker; false once it failed, so later bakes run inline. */
+  private fieldWorker: Worker | false | null = null;
+  private fieldTicket = 0;
+  private fieldApplied = 0;
+  private readonly selectionRings: THREE.InstancedMesh;
+  private readonly ringMaterial: THREE.MeshBasicMaterial;
+  /** Camera views for Back/Forward; the current one is at `viewIndex`. */
+  private views: { position: THREE.Vector3; target: THREE.Vector3 }[] = [];
+  private viewIndex = -1;
+  private interacting = false;
+  private readonly lastEye = new THREE.Vector3(Infinity, 0, 0);
+  private readonly lastLook = new THREE.Vector3();
+  private settleTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Full pixel ratio, the ratio the frame guard currently allows, and its samples. */
+  private readonly fullRatio: number;
+  private ratio: number;
+  private readonly late: number[] = [];
+  private lastFrameAt = 0;
+  private guardUntil = 0;
+  /** Drawing-buffer pixels this GPU sustained once the guard engaged (Infinity until then). */
+  private sustainable = Infinity;
+  private readonly timer: GpuTimer | null = null;
+  /** Measured GPU milliseconds per drawing-buffer pixel; the recent worst case. */
+  private gpuPerPixel = 0;
+  private frameCount = 0;
 
   constructor(
     readonly host: HTMLElement,
     initial: CityData,
-    readonly callbacks: { select(id: string): void; hover(id: string | null): void; fail(reason: string): void },
+    readonly callbacks: { select(id: string): void; hover(id: string | null): void; fail(reason: string): void; views?(state: ViewHistory): void },
     readonly lowQuality: boolean,
     readonly theme: CityTheme = 'modern',
   ) {
@@ -207,7 +273,14 @@ export class CityRenderer {
     this.lite = lowQuality || /swiftshader|llvmpipe|software|microsoft basic/i.test(gpu);
     const lite = this.lite;
     this.shadowsOn = !lite;
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, lite ? 1 : 1.5));
+    this.fullRatio = this.ratio = Math.min(devicePixelRatio || 1, lite ? 1 : 1.5);
+    this.renderer.setPixelRatio(this.ratio);
+    if (!lite) {
+      const gl = this.renderer.getContext();
+      const ext = gl instanceof WebGL2RenderingContext ? gl.getExtension('EXT_disjoint_timer_query_webgl2') : null;
+      if (ext && gl instanceof WebGL2RenderingContext) this.timer = { gl, ext, query: null, pixels: 1 };
+    }
+    this.field = lite ? null : fieldUniforms();
     this.renderer.setClearColor(this.spec.sky.haze);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     if (this.shadowsOn) {
@@ -223,6 +296,7 @@ export class CityRenderer {
     host.append(this.renderer.domElement, this.labels);
     this.extent = Math.max(city.root.width, city.root.depth) / 100 + 18;
     this.origin = center(city.root);
+    this.fieldGrid = occlusionGrid(city.root.x / 100, city.root.z / 100, (city.root.x + city.root.width) / 100, (city.root.z + city.root.depth) / 100);
     this.camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 10_000);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.minPolarAngle = 0.12;
@@ -240,7 +314,14 @@ export class CityRenderer {
     this.controls.zoomSpeed = 1.1;
     this.controls.addEventListener('change', this.invalidate);
     this.controls.addEventListener('change', this.noteInput);
-    this.controls.addEventListener('start', () => this.flight?.cancel());
+    this.controls.addEventListener('start', () => {
+      this.flight?.cancel();
+      this.interacting = true;
+    });
+    this.controls.addEventListener('end', () => {
+      this.interacting = false;
+      this.invalidate();
+    });
     this.scene.add(new THREE.HemisphereLight('#f6f8ff', '#9d9a8b', this.shadowsOn ? 2.05 : 1.9));
     this.sun = new THREE.DirectionalLight('#fff3df', 2.5);
     this.sun.position.copy(this.origin).add(SUN.clone().normalize().multiplyScalar(this.extent * 2));
@@ -265,7 +346,6 @@ export class CityRenderer {
     // Base-anchored unit box: y spans [0, 1], so scale.y is a top height.
     const box = this.ownGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0));
     const plane = this.ownGeometry(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
-    const matte = this.ownMaterial(new THREE.MeshLambertMaterial());
     // Ground in one mesh (plan §11.1 permits a decorative shoreline): beach, a green belt and
     // the perimeter road. The island sits in an open sea under a sky, with distant scenery.
     const r = city.root;
@@ -297,10 +377,12 @@ export class CityRenderer {
     };
     for (const l of decor.lawns) flat(l.x, l.y, l.z, Math.max(0.1, l.width), l.depth, 0, ground.lawn);
     if (ground.marking) for (const m of decor.markings) flat(m.x, m.y, m.z, m.length, 0.07, m.rotation, ground.marking);
-    const groundMesh = new THREE.Mesh(
-      this.ownGeometry(mergeGeometries(slabs)),
-      this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true })),
-    );
+    const groundMaterial = this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    if (this.field) withOcclusion(groundMaterial, this.field);
+    const groundMesh = new THREE.Mesh(this.ownGeometry(mergeGeometries(slabs)), groundMaterial);
+    // Opaque ground draws after the districts and buildings that cover most of it, so its
+    // hidden pixels fail the depth test before shading.
+    groundMesh.renderOrder = 2;
     for (const g of slabs) g.dispose();
     groundMesh.receiveShadow = true;
     this.scene.add(groundMesh);
@@ -317,6 +399,7 @@ export class CityRenderer {
       this.ownMaterial(waterMaterial(this.spec.sky, this.clock, SUN, { island: beach, foam: 1, detail: !lite })),
     );
     ocean.position.set(this.origin.x, -0.1, this.origin.z);
+    ocean.renderOrder = 3;
     const scenery = sceneryGeometry(this.spec, city, this.extent);
     const backdrop = new THREE.Mesh(
       this.ownGeometry(scenery.geometry),
@@ -346,8 +429,22 @@ export class CityRenderer {
     }
     // Districts as kerbed blocks: a darker kerb, an inset surface, nested blocks stepping up.
     // The repository block reads as the street grid between packages.
-    const districtMesh = this.batch(box, matte, city.districts.length * 2, 'receive');
-    city.districts.forEach((d, i) => {
+    // Kerbs stay plain; the street grid gets asphalt and district surfaces paving.
+    const districtBox = this.ownGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0));
+    // Upper (deeper) districts draw first and each surface before its kerb, so the levels
+    // below fail the depth test instead of shading pixels that end up covered.
+    const order = city.districts.map((d, i) => ({ d, i })).sort((a, b) => b.d.depth - a.d.depth || a.i - b.i);
+    const paving = new Float32Array(city.districts.length * 2);
+    order.forEach(({ d }, k) => (paving[k * 2] = d.depth === 0 ? PAVE.street : PAVE.plaza));
+    districtBox.setAttribute('atlasPave', new THREE.InstancedBufferAttribute(paving, 1));
+    const districtMaterial = this.ownMaterial(new THREE.MeshLambertMaterial());
+    if (this.field) {
+      withPaving(districtMaterial, PAVING[theme]);
+      withOcclusion(districtMaterial, this.field);
+    }
+    const districtMesh = this.batch(districtBox, districtMaterial, city.districts.length * 2, 'receive');
+    districtMesh.renderOrder = 1;
+    order.forEach(({ d }, k) => {
       const top = groundLevel(d.depth),
         c = center(d.rect),
         w = d.rect.width / 100,
@@ -355,12 +452,12 @@ export class CityRenderer {
       const root = d.depth === 0,
         pkg = d.kind === 'package';
       matrix.makeScale(w, top, dep).setPosition(c.x, 0, c.z);
-      districtMesh.setMatrixAt(i * 2, matrix);
-      districtMesh.setColorAt(i * 2, color.set(root ? ground.rootKerb : pkg ? ground.packageKerb : ground.directoryKerb));
+      districtMesh.setMatrixAt(k * 2 + 1, matrix);
+      districtMesh.setColorAt(k * 2 + 1, color.set(root ? ground.rootKerb : pkg ? ground.packageKerb : ground.directoryKerb));
       matrix.makeScale(Math.max(0.1, w - 0.24), top + 0.015, Math.max(0.1, dep - 0.24)).setPosition(c.x, 0, c.z);
-      districtMesh.setMatrixAt(i * 2 + 1, matrix);
+      districtMesh.setMatrixAt(k * 2, matrix);
       districtMesh.setColorAt(
-        i * 2 + 1,
+        k * 2,
         color.set(root ? ground.rootSurface : pkg ? ground.packageSurface : ground.directory[d.depth % 2]!),
       );
     });
@@ -449,9 +546,21 @@ export class CityRenderer {
       place(this.batch(this.ownGeometry(cornerGeometry(this.spec.walls)), coloured(), decor.corners.length, 'both'), decor.corners);
       place(this.batch(this.ownGeometry(gateGeometry(this.spec.walls)), coloured(), decor.gates.length, 'both'), decor.gates);
     }
+    if (this.field) {
+      // Trees and town walls shade the ground around them too; they never move.
+      const list: number[] = [];
+      for (const t of decor.trees) list.push(t.x, t.z, 0.2 * t.scale, 0.2 * t.scale, 0.75 * t.scale, 0.35);
+      for (const s of decor.walls) {
+        const along = Math.abs(Math.cos(s.rotation)),
+          across = Math.abs(Math.sin(s.rotation));
+        list.push(s.x, s.z, (along * s.length) / 2 + across * 0.07, (across * s.length) / 2 + along * 0.07, 0.3, 0.45);
+      }
+      this.staticOccluders = new Float32Array(list);
+    }
     // Seeded archetype batches share one facade material; each grows on demand. Accent
     // parts share one lens-shaded material per kind and outline.
-    this.facade = this.ownMaterial(facadeMaterial(!lite));
+    this.facade = this.ownMaterial(facadeMaterial(!lite, this.spec.sky));
+    if (this.field) withOcclusion(this.facade, this.field, true);
     for (const a of this.archetypes) this.bodies.push(this.growable(this.ownGeometry(archetypeGeometry(a)), this.facade, true, 'both', true));
     // Lens-shaded accents (eaves, bands, battlements; corner parts carry dark caps per vertex),
     // stone bases and grey rooftop plant.
@@ -486,16 +595,13 @@ export class CityRenderer {
                   role === 'declaration' ? 0.08 : 0.16,
                   role === 'config' ? 0.6 : 0.93,
                 );
-      const roof = this.batch(
-        this.ownGeometry(shape),
-        this.ownMaterial(
-          new THREE.MeshLambertMaterial({
-            color: role === 'test' ? this.spec.roofs.test : role === 'source' ? this.spec.roofs.source : this.spec.roofs.other,
-          }),
-        ),
-        capacity,
-        'both',
+      const roofMaterial = this.ownMaterial(
+        new THREE.MeshLambertMaterial({
+          color: role === 'test' ? this.spec.roofs.test : role === 'source' ? this.spec.roofs.source : this.spec.roofs.other,
+        }),
       );
+      if (role === 'source' && !lite) withTiles(roofMaterial, this.spec.sourceRoof === 'pavilion' ? 40 : 30, this.spec.sourceRoof === 'pavilion' ? 56 : 44);
+      const roof = this.batch(this.ownGeometry(shape), roofMaterial, capacity, 'both');
       roof.count = 0;
       this.roofs.set(role, roof);
     }
@@ -506,6 +612,11 @@ export class CityRenderer {
     const wire = this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#174664', wireframe: true, depthTest: false, fog: false }));
     this.selection = this.batch(centred, wire, capacity);
     this.selection.count = 0;
+    // A ring on the ground marks each selected building's base, so a selection reads from any angle.
+    this.ringMaterial = this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#2a7ab8', transparent: true, opacity: 0.85, depthWrite: false, fog: false }));
+    this.selectionRings = this.batch(this.ownGeometry(new THREE.RingGeometry(0.6, 0.75, 48).rotateX(-Math.PI / 2)), this.ringMaterial, capacity);
+    this.selectionRings.count = 0;
+    this.selectionRings.renderOrder = 2;
     // Compare marks: deleted plots as outlined ghosts, added files with a raised marker.
     this.ghosts = this.batch(centred, this.ownMaterial(new THREE.MeshBasicMaterial({ color: '#7a4f2a', wireframe: true, fog: false })), capacity);
     this.ghosts.count = 0;
@@ -676,6 +787,7 @@ export class CityRenderer {
     this.bodyBatch = new Uint8Array(buildings.length);
     this.bodySlot = new Int32Array(buildings.length);
     const roofCounts = new Map<string, number>();
+    const occluders = this.field ? new Float32Array(buildings.length * OCCLUDER_STRIDE) : null;
     this.boxes = buildings.map((b, i) => {
       const p = center(b.rect);
       const h = b.height,
@@ -693,6 +805,11 @@ export class CityRenderer {
       (body.geometry.getAttribute('atlasStyle') as THREE.InstancedBufferAttribute).setXYZ(slot, style.windows, style.variant, style.base);
       this.bodyBatch[i] = style.archetype;
       this.bodySlot[i] = slot;
+      if (occluders) {
+        const wall = wallAt(archetype, 0),
+          half = Math.max(wall.hx, wall.hz) * f;
+        occluders.set([p.x, p.z, half, half, 0.35 + h - groundLevel(this.districtDepth.get(b.districtId) ?? 1), 0.6], i * OCCLUDER_STRIDE);
+      }
       // Accent parts follow the wall outline at their storey and turn with the body.
       for (const part of placements[i]!) {
         const batch = this.parts.get(part.key)!,
@@ -749,6 +866,63 @@ export class CityRenderer {
     }
     this.placeTerminals(this.city.terminals);
     this.shadowDirty = true;
+    if (occluders) this.bakeField(occluders);
+  }
+
+  /**
+   * Re-bake the sky-occlusion field for this frame's buildings in a worker; the previous
+   * field stays on screen until the new one lands (a stale bake is dropped).
+   */
+  private bakeField(buildings: Float32Array) {
+    const field = this.field;
+    if (!field || this.disposed) return;
+    const occluders = new Float32Array(this.staticOccluders.length + buildings.length);
+    occluders.set(this.staticOccluders);
+    occluders.set(buildings, this.staticOccluders.length);
+    const ticket = ++this.fieldTicket,
+      grid = this.fieldGrid;
+    const apply = (id: number, bytes: Uint8Array) => {
+      if (this.disposed || id !== this.fieldTicket) return;
+      const current = field.atlasAO.value;
+      if (current instanceof THREE.DataTexture && current.image.width === grid.width && current.image.height === grid.depth) {
+        current.image.data = bytes;
+        current.needsUpdate = true;
+      } else {
+        const texture = new THREE.DataTexture(bytes, grid.width, grid.depth, THREE.RedFormat, THREE.UnsignedByteType);
+        texture.unpackAlignment = 1;
+        // Mipmaps: a wide view reads a coarse level instead of thrashing the texture cache
+        // (5 ms of a 20 ms frame on a GT 730 without them).
+        texture.generateMipmaps = true;
+        texture.magFilter = THREE.LinearFilter;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.needsUpdate = true;
+        current.dispose();
+        field.atlasAO.value = texture;
+        field.atlasAORect.value.set(grid.minX, grid.minZ, 1 / (grid.width * grid.texel), 1 / (grid.depth * grid.texel));
+      }
+      this.fieldApplied = id;
+      this.invalidate();
+    };
+    // Without a worker the bake runs here, after the frame that asked for it.
+    const inline = () => setTimeout(() => apply(ticket, bakeOcclusion(grid, occluders)), 0);
+    if (this.fieldWorker === false) return void inline();
+    try {
+      if (!this.fieldWorker) {
+        const worker = new Worker(new URL('./occlusion.worker.ts', import.meta.url), { type: 'module', name: 'atlas-occlusion' });
+        worker.onmessage = ({ data }: MessageEvent<{ id: number; field: Uint8Array }>) => apply(data.id, data.field);
+        worker.onerror = () => {
+          worker.terminate();
+          this.fieldWorker = false;
+          inline();
+        };
+        this.fieldWorker = worker;
+      }
+      // Copied, not transferred: the inline fallback may still need these occluders.
+      this.fieldWorker.postMessage({ id: ticket, grid, occluders });
+    } catch {
+      this.fieldWorker = false;
+      inline();
+    }
   }
 
   /**
@@ -901,6 +1075,20 @@ export class CityRenderer {
     const bounds = this.host.getBoundingClientRect();
     this.width = Math.max(1, bounds.width);
     this.height = Math.max(1, bounds.height);
+    // A new stage size (e.g. expanding the city) gets the ratio its predicted GPU time and the
+    // pixel count this GPU sustained allow, and returns to the full ratio where that fits.
+    const full = this.width * this.height * this.fullRatio * this.fullRatio;
+    const predicted = this.gpuPerPixel * full;
+    const budget = predicted > GPU_BUDGET_MS ? Math.sqrt(GPU_BUDGET_MS / predicted) : 1;
+    const ratio = Math.max(
+      this.fullRatio * GUARD_FLOOR,
+      Math.min(this.fullRatio * budget, Math.sqrt(this.sustainable / (this.width * this.height))),
+    );
+    if (ratio !== this.ratio) {
+      this.ratio = ratio;
+      this.renderer.setPixelRatio(ratio);
+      this.late.length = 0;
+    }
     this.renderer.setSize(this.width, this.height, false);
     this.labels.width = Math.round(this.width);
     this.labels.height = Math.round(this.height);
@@ -945,8 +1133,23 @@ export class CityRenderer {
     // Damped orbiting keeps moving after the pointer lifts; keep drawing until it settles.
     this.settling = this.damping && this.controls.update();
     if (this.settling) this.invalidate();
+    const now = performance.now();
+    // A view is remembered once the camera has been still for a moment; the check is one
+    // timer, never an extra frame.
+    const moving = !this.camera.position.equals(this.lastEye) || !this.controls.target.equals(this.lastLook);
+    this.lastEye.copy(this.camera.position);
+    this.lastLook.copy(this.controls.target);
+    this.guardFrames(moving, now);
+    if (moving) {
+      if (this.settleTimer) clearTimeout(this.settleTimer);
+      this.settleTimer = setTimeout(() => {
+        this.settleTimer = null;
+        if (!this.disposed && !this.flight && !this.measuring && this.camera.position.equals(this.lastEye) && this.controls.target.equals(this.lastLook)) this.recordView();
+      }, SETTLE_MS);
+    }
     const ppu = this.pixelsPerUnit();
-    if (this.animated) this.clock.value = performance.now() / 1000;
+    if (this.animated) this.clock.value = now / 1000;
+    if (this.animated && this.selectionRings.count) this.ringMaterial.opacity = 0.62 + 0.25 * Math.sin(this.clock.value * 2.6);
     this.frameAtmosphere(this.camera);
     if (Math.abs(this.packageZoom - ppu) > ppu * 0.02) {
       const rotation = new THREE.Quaternion(),
@@ -969,17 +1172,22 @@ export class CityRenderer {
       this.finish(this.packageLines);
       this.packageZoom = ppu;
     }
-    // Perspective shows near roofs large even when the target is far, so it keeps them.
-    const near = ppu >= 2;
+    // Level of detail counts rendered pixels: a frame-guarded (lower) pixel ratio sheds
+    // detail as well as fill. Perspective shows near roofs large even when the target is
+    // far, so it keeps them.
+    const rendered = ppu * this.ratio;
+    const near = rendered >= 2;
     for (const roof of this.roofs.values()) roof.visible = near;
     // Below ~1.5 px per cell trees are speckle; the facade shader fades windows by itself.
-    for (const mesh of this.decorations) mesh.visible = ppu >= 1.5;
+    for (const mesh of this.decorations) mesh.visible = rendered >= 1.5;
     const shadowFrame = this.shadowsOn && this.shadowDirty;
     if (shadowFrame) {
       this.renderer.shadowMap.needsUpdate = true;
       this.shadowDirty = false;
     }
+    const timed = this.sampleGpu(shadowFrame);
     this.renderer.render(this.scene, this.camera);
+    if (timed) this.timer!.gl.endQuery(this.timer!.ext.TIME_ELAPSED_EXT);
     // Report steady-state draw calls; a shadow update's extra pass is recorded separately and
     // followed by an ordinary frame.
     if (shadowFrame) {
@@ -987,6 +1195,72 @@ export class CityRenderer {
       this.invalidate();
     } else this.drawCalls = this.renderer.info.render.calls;
     this.drawLabels(this.labels, this.camera, this.width, this.height);
+  }
+  /**
+   * Read a finished GPU timing if one is ready, and start timing this frame every
+   * SAMPLE_EVERY frames (never a shadow-map frame). Returns whether this frame is timed.
+   */
+  private sampleGpu(shadowFrame: boolean): boolean {
+    const t = this.timer;
+    if (!t) return false;
+    const { gl, ext } = t;
+    if (t.query) {
+      if (!gl.getQueryParameter(t.query, gl.QUERY_RESULT_AVAILABLE)) return false;
+      if (!gl.getParameter(ext.GPU_DISJOINT_EXT)) {
+        const perPixel = gl.getQueryParameter(t.query, gl.QUERY_RESULT) / 1e6 / t.pixels;
+        // Rise at once, fall slowly: a heavy view is remembered for a while.
+        this.gpuPerPixel = Math.max(perPixel, this.gpuPerPixel * 0.97);
+      }
+      gl.deleteQuery(t.query);
+      t.query = null;
+    }
+    if (shadowFrame || ++this.frameCount % SAMPLE_EVERY !== 0) return false;
+    t.query = gl.createQuery();
+    t.pixels = Math.max(1, gl.drawingBufferWidth * gl.drawingBufferHeight);
+    gl.beginQuery(ext.TIME_ELAPSED_EXT, t.query);
+    return true;
+  }
+  /** Lower the pixel ratio after sustained late frames while the camera moves (see GUARD_FRAMES). */
+  private guardFrames(moving: boolean, now: number) {
+    const interval = now - this.lastFrameAt;
+    this.lastFrameAt = now;
+    if (!moving || interval > 120) return;
+    this.late.push(interval);
+    if (this.late.length < GUARD_FRAMES) return;
+    const sorted = this.late.sort((a, b) => a - b),
+      p75 = sorted[Math.floor(sorted.length * 0.75)]!;
+    this.late.length = 0;
+    if (p75 <= GUARD_LATE_MS || now < this.guardUntil || this.ratio <= this.fullRatio * GUARD_FLOOR + 1e-6) return;
+    // Pixels scale with the square of the ratio: aim the next frame at the display interval.
+    const step = THREE.MathUtils.clamp(Math.sqrt(16.7 / p75) * 0.95, 0.6, 0.9);
+    this.ratio = Math.max(this.fullRatio * GUARD_FLOOR, this.ratio * step);
+    this.sustainable = this.width * this.height * this.ratio * this.ratio;
+    this.guardUntil = now + GUARD_COOLDOWN_MS;
+    this.renderer.setPixelRatio(this.ratio);
+  }
+  /** Remember a settled camera view for Back/Forward, unless it repeats the current one. */
+  private recordView() {
+    const position = this.camera.position.clone(),
+      target = this.controls.target.clone();
+    const current = this.views[this.viewIndex];
+    const tolerance = Math.max(0.05, position.distanceTo(target) * 0.02);
+    if (current && current.position.distanceTo(position) < tolerance && current.target.distanceTo(target) < tolerance) return;
+    this.views = this.views.slice(0, this.viewIndex + 1);
+    this.views.push({ position, target });
+    if (this.views.length > MAX_VIEWS) this.views.shift();
+    this.viewIndex = this.views.length - 1;
+    this.notifyViews();
+  }
+  private notifyViews() {
+    this.callbacks.views?.({ back: this.viewIndex > 0, forward: this.viewIndex < this.views.length - 1 });
+  }
+  /** Fly to the previous (-1) or next (+1) remembered view. */
+  travel(step: -1 | 1) {
+    const next = this.views[this.viewIndex + step];
+    if (!next) return;
+    this.viewIndex += step;
+    this.notifyViews();
+    this.setView(next.position.clone(), next.target.clone(), true);
   }
   /**
    * Fog, clipping planes and the sky follow the camera: the island stays crisp, the distant
@@ -1006,25 +1280,43 @@ export class CityRenderer {
       this.sky.scale.setScalar(camera.far * 0.9);
     }
   }
+  /**
+   * Labels on a 2D canvas over the city. The hovered or singly selected building is always
+   * named, with a leader to its roof. Package names follow by priority (the selection's
+   * package, then the largest on screen), skip places another label already holds, and
+   * fade with distance, so a crowded view stays readable.
+   */
   private drawLabels(canvas: HTMLCanvasElement, camera: THREE.Camera, width: number, height: number) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, width, height);
-    ctx.font = '600 12px system-ui';
     ctx.textAlign = 'center';
-    const label = (text: string, p: THREE.Vector3, swatch: string | null = null) => {
+    const taken: number[] = [];
+    const free = (x0: number, y0: number, x1: number, y1: number) => {
+      for (let k = 0; k < taken.length; k += 4) if (x0 < taken[k + 2]! && x1 > taken[k]! && y0 < taken[k + 3]! && y1 > taken[k + 1]!) return false;
+      return true;
+    };
+    const project = (p: THREE.Vector3) => {
       const v = p.project(camera);
-      if (v.z < -1 || v.z > 1) return;
+      if (v.z < -1 || v.z > 1) return null;
       const x = ((v.x + 1) / 2) * width,
         y = ((1 - v.y) / 2) * height;
-      if (x < 0 || x > width || y < 0 || y > height) return;
+      return x < 0 || x > width || y < 0 || y > height ? null : { x, y };
+    };
+    const pill = (text: string, at: { x: number; y: number }, o: { swatch?: string | null; strong?: boolean; alpha?: number; force?: boolean }) => {
       const safe = text.length > 42 ? `${text.slice(0, 39)}…` : text;
-      const inset = swatch ? 12 : 0;
-      const w = ctx.measureText(safe).width + 18 + inset;
+      ctx.font = o.strong ? '650 13px system-ui' : '600 12px system-ui';
+      const inset = o.swatch ? 12 : 0,
+        w = ctx.measureText(safe).width + 18 + inset,
+        h = o.strong ? 23 : 21,
+        top = at.y - 12;
+      if (!o.force && !free(at.x - w / 2 - 4, top - 3, at.x + w / 2 + 4, top + h + 3)) return false;
+      taken.push(at.x - w / 2 - 4, top - 3, at.x + w / 2 + 4, top + h + 3);
+      ctx.globalAlpha = o.alpha ?? 1;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(x - w / 2, y - 12, w, 21, 10.5);
-      else ctx.rect(x - w / 2, y - 12, w, 21);
-      ctx.fillStyle = 'rgba(249, 247, 240, 0.94)';
+      if (ctx.roundRect) ctx.roundRect(at.x - w / 2, top, w, h, h / 2);
+      else ctx.rect(at.x - w / 2, top, w, h);
+      ctx.fillStyle = o.strong ? 'rgba(24, 35, 49, 0.92)' : 'rgba(249, 247, 240, 0.94)';
       ctx.shadowColor = 'rgba(24, 35, 49, 0.18)';
       ctx.shadowBlur = 4;
       ctx.shadowOffsetY = 1;
@@ -1032,27 +1324,62 @@ export class CityRenderer {
       ctx.shadowColor = 'transparent';
       ctx.strokeStyle = 'rgba(38, 51, 68, 0.16)';
       ctx.stroke();
-      if (swatch) {
+      if (o.swatch) {
         ctx.beginPath();
-        ctx.arc(x - w / 2 + 12, y - 1.5, 4, 0, Math.PI * 2);
-        ctx.fillStyle = swatch;
+        ctx.arc(at.x - w / 2 + 12, top + h / 2, 4, 0, Math.PI * 2);
+        ctx.fillStyle = o.swatch;
         ctx.fill();
       }
-      ctx.fillStyle = '#263344';
-      ctx.fillText(safe, x + inset / 2, y + 3);
+      ctx.fillStyle = o.strong ? '#f4f6f9' : '#263344';
+      ctx.fillText(safe, at.x + inset / 2, top + h / 2 + 4);
+      ctx.globalAlpha = 1;
+      return true;
     };
-    // The swatch repeats the facade colour only while the structure lens shows package colour.
-    for (const d of this.city.districts.filter((d) => d.kind === 'package').slice(0, 20))
-      label(
-        d.label,
-        new THREE.Vector3((d.rect.x + d.rect.width / 2) / 100, groundLevel(d.depth), (d.rect.z + 70) / 100),
-        this.lens === 'structure' ? districtColor(d.id) : null,
-      );
-    const b = this.city.buildings.find(
-      (b) =>
-        b.nodeId === this.hoverId || (this.hoverId === null && this.selected.size === 1 && this.selected.has(b.nodeId)),
-    );
-    if (b) label(b.path, center(b.rect).setY(b.height + 1.6));
+    const focusIndex =
+      this.hoverId !== null
+        ? this.buildingIndex.get(this.hoverId)
+        : this.selected.size === 1
+          ? this.buildingIndex.get(this.selected.values().next().value!)
+          : undefined;
+    const focus = focusIndex === undefined ? null : this.city.buildings[focusIndex]!;
+    let home: CityData['districts'][number] | null = null;
+    if (focus) {
+      const roof = project(center(focus.rect).setY(focus.height + 0.55));
+      const at = project(center(focus.rect).setY(focus.height + 1.6));
+      if (roof && at) {
+        ctx.beginPath();
+        ctx.moveTo(roof.x, roof.y);
+        ctx.lineTo(at.x, at.y + 10);
+        ctx.strokeStyle = 'rgba(24, 35, 49, 0.75)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        pill(focus.path, at, { strong: true, force: true });
+      }
+      const fx = focus.rect.x + focus.rect.width / 2,
+        fz = focus.rect.z + focus.rect.depth / 2;
+      for (const d of this.city.districts)
+        if (d.kind === 'package' && fx >= d.rect.x && fx <= d.rect.x + d.rect.width && fz >= d.rect.z && fz <= d.rect.z + d.rect.depth && (!home || d.depth > home.depth))
+          home = d;
+    }
+    const eye = camera.position,
+      distance = Math.max(1e-3, eye.distanceTo(this.controls.target));
+    const candidates = this.city.districts
+      .filter((d) => d.kind === 'package')
+      .map((d) => {
+        const p = new THREE.Vector3((d.rect.x + d.rect.width / 2) / 100, groundLevel(d.depth), (d.rect.z + 70) / 100);
+        const away = eye.distanceTo(p);
+        return { d, p, away, rank: d === home ? Infinity : Math.hypot(d.rect.width, d.rect.depth) / 100 / Math.max(away, 1e-3) };
+      })
+      .sort((a, b) => b.rank - a.rank);
+    let shown = 0;
+    for (const c of candidates) {
+      if (shown >= 24) break;
+      const at = project(c.p);
+      if (!at) continue;
+      const alpha = THREE.MathUtils.clamp(1.35 - (0.4 * c.away) / distance, 0.45, 1);
+      // The swatch repeats the facade colour only while the structure lens shows package colour.
+      if (pill(c.d.label, at, { swatch: this.lens === 'structure' ? districtColor(c.d.id) : null, alpha: c.d === home ? 1 : alpha })) shown++;
+    }
   }
   applyStyle(lens: CityLens, selected: ReadonlySet<string>, filter: (b: CityBuilding) => boolean) {
     const recolor =
@@ -1090,7 +1417,9 @@ export class CityRenderer {
       const b = this.city.buildings[i]!,
         p = center(b.rect);
       matrix.makeScale(1.04, b.height + 0.5, 1.04).setPosition(p.x, 0.35 + b.height / 2, p.z);
-      this.selection.setMatrixAt(count++, matrix);
+      this.selection.setMatrixAt(count, matrix);
+      matrix.makeTranslation(p.x, groundLevel(this.districtDepth.get(b.districtId) ?? 1) + 0.03, p.z);
+      this.selectionRings.setMatrixAt(count++, matrix);
     }
     if (tones) {
       // Accent parts carry a darker shade of their building's facade colour.
@@ -1104,6 +1433,8 @@ export class CityRenderer {
     }
     this.selection.count = count;
     this.finish(this.selection);
+    this.selectionRings.count = count;
+    this.finish(this.selectionRings);
     if (recolor) {
       this.missing.count = unknown;
       this.finish(this.missing);
@@ -1327,6 +1658,10 @@ export class CityRenderer {
       animated: this.animated,
       lite: this.lite,
       cameraMoving: this.flight !== null || this.settling,
+      occlusion: this.field ? (this.fieldApplied === this.fieldTicket ? 'ready' : 'baking') : 'off',
+      pixelRatio: this.ratio,
+      gpuMsPerMegapixel: this.gpuPerPixel * 1e6,
+      views: { count: this.views.length, index: this.viewIndex },
       zoom: this.pixelsPerUnit(),
       renderer: ext ? String(ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'unknown',
       heapBytes: (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null,
@@ -1375,6 +1710,12 @@ export class CityRenderer {
           .applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.01);
         this.camera.position.copy(this.controls.target).add(offset);
         this.controls.update();
+        // update() emits 'change', which queues an ordinary frame; this sample is that frame,
+        // so cancel the queued one (it used to render a second time per sample, ADR-042).
+        if (this.frame) {
+          cancelAnimationFrame(this.frame);
+          this.frame = 0;
+        }
         this.render();
         if (values.length >= Math.min(240, count)) finish();
         else frame = requestAnimationFrame(tick);
@@ -1421,7 +1762,11 @@ export class CityRenderer {
     this.flight?.cancel();
     cancelAnimationFrame(this.frame);
     cancelAnimationFrame(this.ambientFrame);
+    if (this.settleTimer) clearTimeout(this.settleTimer);
+    if (this.timer?.query) this.timer.gl.deleteQuery(this.timer.query);
     this.visibility?.disconnect();
+    if (this.fieldWorker) this.fieldWorker.terminate();
+    this.field?.atlasAO.value.dispose();
     this.abort.abort();
     this.resizeObserver.disconnect();
     this.controls.removeEventListener('change', this.invalidate);

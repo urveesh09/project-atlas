@@ -21,6 +21,24 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
   const { model, state, select, dispatch } = useViewer();
   const searchRef = useRef<HTMLInputElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  // Hiding the tree is a per-viewer layout preference, like the city style.
+  const [treeHidden, setTreeHidden] = useState(() => {
+    try {
+      return localStorage.getItem('atlas.treeHidden') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleTree = () => {
+    setTreeHidden((hidden) => {
+      try {
+        localStorage.setItem('atlas.treeHidden', hidden ? '0' : '1');
+      } catch {
+        // Storage may be blocked; the choice then lasts for this page only.
+      }
+      return !hidden;
+    });
+  };
   const selected = model.node(state.selectedId);
   const status = model.manifest.frames[model.frame]!.analysisStatus;
 
@@ -45,7 +63,7 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
   }, [dispatch, helpOpen, select, state.selectedId, state.tombstone, state.source]);
 
   return (
-    <div className={`app${state.source ? ' with-source' : ''}`}>
+    <div className={`app${state.source ? ' with-source' : ''}${treeHidden ? ' tree-hidden' : ''}`}>
       <a className="skip" href="#main-content">
         Skip to content
       </a>
@@ -66,6 +84,9 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
         </div>
         <Search ref={searchRef} />
         <div className="topbar-actions">
+          <button type="button" className="button ghost" aria-expanded={!treeHidden} aria-controls="repository-tree" onClick={toggleTree}>
+            {treeHidden ? 'Show tree' : 'Hide tree'}
+          </button>
           <button type="button" className="button ghost" aria-expanded={helpOpen} aria-controls="shortcuts" onClick={() => setHelpOpen((o) => !o)}>
             Keys
           </button>
@@ -86,13 +107,15 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
             <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Collapse, expand; switch inspector tabs</dd></div>
             <div><dt><kbd>Enter</kbd></dt><dd>Select</dd></div>
             <div><dt><kbd>←</kbd> <kbd>→</kbd> in History</dt><dd>Earlier or later snapshot</dd></div>
+            <div><dt><kbd>F</kbd></dt><dd>Expand the city, or leave it</dd></div>
+            <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous or next camera view (3D)</dd></div>
             <div><dt><kbd>Esc</kbd></dt><dd>Close panel, then clear selection</dd></div>
             <div><dt><kbd>?</kbd></dt><dd>Show or hide this help</dd></div>
           </dl>
         </section>
       )}
       <div className="layout">
-        <nav className="sidebar" aria-label="Repository">
+        <nav id="repository-tree" className="sidebar" aria-label="Repository">
           <Tree />
         </nav>
         <main id="main-content" className="content city-content" tabIndex={-1}>

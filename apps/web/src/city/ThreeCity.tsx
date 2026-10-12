@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { CityBuilding, CityData, CityLens } from '@atlas/layout';
-import { CityRenderer, type CityGhost } from './renderer';
+import { CityRenderer, type CityGhost, type ViewHistory } from './renderer';
 import type { CityHandle } from './types';
 import type { OverlayResult } from './overlay';
 import type { CityTheme } from './themes';
@@ -22,6 +22,8 @@ export default function ThreeCity(props: {
   hover(id: string | null): void;
   fail(reason: string): void;
   register(handle: CityHandle | null): void;
+  /** Whether earlier or later camera views exist, for Back and Forward. */
+  views(state: ViewHistory): void;
 }) {
   const host = useRef<HTMLDivElement>(null),
     renderer = useRef<CityRenderer | null>(null),
@@ -39,6 +41,7 @@ export default function ThreeCity(props: {
           select: (id) => latest.current.select(id),
           hover: (id) => latest.current.hover(id),
           fail: (reason) => latest.current.fail(reason),
+          views: (state) => latest.current.views(state),
         },
         props.lowQuality,
         props.theme,
@@ -58,12 +61,14 @@ export default function ThreeCity(props: {
       focus: (ids) => view.focus(ids),
       exportPng: () => view.exportPng(),
       cameraState: () => view.cameraState(),
+      travel: (step) => view.travel(step),
     });
     if (new URLSearchParams(location.search).get('atlasBenchmark') === '1') window.__atlasCity = view;
     return () => {
       if (window.__atlasCity === view) delete window.__atlasCity;
       lastView.current = { key: viewKey, camera: view.cameraState() };
       view.dispose();
+      latest.current.views({ back: false, forward: false });
       renderer.current = null;
       latest.current.register(null);
     };

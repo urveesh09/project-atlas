@@ -7,7 +7,7 @@ import { useViewer } from '../app/context';
 import { ROLE_LABEL, formatNumber, shortOid } from '../app/model';
 import { MapCity } from '../city/MapCity';
 import type { CityHandle } from '../city/types';
-import type { CityGhost } from '../city/renderer';
+import type { CityGhost, ViewHistory } from '../city/renderer';
 import { overlayKey, type OverlayResult } from '../city/overlay';
 import { addProvenance, downloadBlob, exportMetadata } from '../city/export';
 import { CITY_THEMES, CITY_THEME_LABEL, type CityTheme } from '../city/themes';
@@ -68,6 +68,9 @@ function store(key: string, value: string) {
   }
 }
 const THEME_KEY = 'atlas.cityStyle';
+const NO_VIEWS: ViewHistory = { back: false, forward: false };
+/** Keys typed into a control never drive the city (plan §12.4). */
+const typing = (target: EventTarget | null) => target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable="true"]') !== null;
 
 export function City() {
   const { dataset, model, state, dispatch, select, queries, comparison } = useViewer();
@@ -96,6 +99,43 @@ export function City() {
     [depth, setDepth] = useState(2),
     [reachPage, setReachPage] = useState(0);
   const reachTicket = useRef(0);
+  const [views, setViews] = useState<ViewHistory>(NO_VIEWS);
+  // Expanded city: the browser's full screen when allowed, otherwise a fixed overlay.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState<'no' | 'fullscreen' | 'overlay'>('no');
+  const toggleExpanded = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else if (expanded === 'overlay') setExpanded('no');
+    else if (typeof stage.requestFullscreen === 'function') stage.requestFullscreen().then(() => setExpanded('fullscreen'), () => setExpanded('overlay'));
+    else setExpanded('overlay');
+  }, [expanded]);
+  useEffect(() => {
+    const changed = () => setExpanded((now) => (document.fullscreenElement === stageRef.current ? 'fullscreen' : now === 'fullscreen' ? 'no' : now));
+    document.addEventListener('fullscreenchange', changed);
+    return () => document.removeEventListener('fullscreenchange', changed);
+  }, []);
+  useEffect(() => {
+    if (state.mode === 'table') return;
+    const onKey = (event: KeyboardEvent) => {
+      if (typing(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key === 'f' || event.key === 'F') {
+        event.preventDefault();
+        toggleExpanded();
+      } else if (event.key === '[' || event.key === ']') {
+        event.preventDefault();
+        handle.current?.travel?.(event.key === '[' ? -1 : 1);
+      } else if (event.key === 'Escape' && expanded !== 'no') {
+        // Leaving the expanded city comes first; the selection stays.
+        event.stopImmediatePropagation();
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+        setExpanded('no');
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [state.mode, expanded, toggleExpanded]);
   const owner = useRef<'3d' | 'map' | null>(null);
   const register = useCallback((value: CityHandle | null, mode: '3d' | 'map') => {
     if (value) {
@@ -250,6 +290,20 @@ export function City() {
   };
   const hovered = model.node(hoverId);
   const hoveredBuilding = hovered ? model.city.buildings.find((b) => b.nodeId === hovered.id) : undefined;
+  // The selection card: where the selection lives (each folder selectable) and its key numbers.
+  const chosen = model.node(state.selectedId);
+  const trail = useMemo(() => {
+    const out: NonNullable<ReturnType<typeof model.node>>[] = [];
+    for (let n = chosen; n?.parentId; ) {
+      const parent = model.node(n.parentId);
+      if (!parent || parent.kind === 'repository') break;
+      out.unshift(parent);
+      n = parent;
+    }
+    return out;
+  }, [model, chosen]);
+  const chosenBuilding = chosen?.kind === 'file' ? model.city.buildings.find((b) => b.nodeId === chosen.id) : undefined;
+  const crumb = (n: NonNullable<typeof chosen>) => ('path' in n && n.kind === 'directory' ? (n.path.split('/').at(-1) ?? n.path) : model.title(n));
   return (
     <section className="city" aria-labelledby="city-title">
       <div className="city-heading">
@@ -360,9 +414,9 @@ export function City() {
       <p className="city-note">
         Height = code lines, on a logarithmic scale. △ source · ⬡ test · ▱ declaration · □ kiosk. × marks unavailable
         analysis. Roads separate folders; they are spacing. City style, building shapes, storeys, windows, walls,
-        trees and the harbour are decorative and seeded per file; they carry no data. Roofs, eaves and battlements
-        share their building's lens colour. The 3D city is in perspective, so nearer buildings look larger; the 2D
-        map and file table compare sizes exactly.
+        trees, paving, ground shading and the harbour are decorative and seeded per file; they carry no data. Roofs,
+        eaves and battlements share their building's lens colour. A blue ring marks each selected building. The 3D
+        city is in perspective, so nearer buildings look larger; the 2D map and file table compare sizes exactly.
       </p>
       <div className="city-legend" aria-label="City lens legend">
         <strong>{LENS_LABEL[state.lens]}</strong>
@@ -399,7 +453,7 @@ export function City() {
         </p>
       )}
       {state.mode !== 'table' && (
-        <div className="city-stage">
+        <div ref={stageRef} className={`city-stage${expanded === 'overlay' ? ' is-expanded' : ''}`}>
           {state.mode === 'map' ? (
             <MapCity
               city={model.city}
@@ -436,6 +490,7 @@ export function City() {
                   hover={setHoverId}
                   fail={fail}
                   register={register3d}
+                  views={setViews}
                 />
               </Suspense>
             </GraphicsBoundary>
@@ -448,6 +503,53 @@ export function City() {
                 {state.lens === 'structure'
                   ? (model.index.packageOf(hovered.id)?.packageName ?? 'root package')
                   : formatNumber(hoveredBuilding ? lensValue(hoveredBuilding, state.lens) : null)}
+              </span>
+            </div>
+          )}
+          <div className="city-nav" role="toolbar" aria-label="City view">
+            {state.mode === '3d' && (
+              <>
+                <button type="button" aria-label="Previous view" title="Previous view ( [ )" disabled={!views.back || !ready} onClick={() => handle.current?.travel?.(-1)}>
+                  <span aria-hidden="true">←</span>
+                </button>
+                <button type="button" aria-label="Next view" title="Next view ( ] )" disabled={!views.forward || !ready} onClick={() => handle.current?.travel?.(1)}>
+                  <span aria-hidden="true">→</span>
+                </button>
+              </>
+            )}
+            <button type="button" aria-label="Show the whole city" title="Whole city" disabled={!ready} onClick={() => handle.current?.reset()}>
+              <span aria-hidden="true">⌂</span>
+            </button>
+            <button
+              type="button"
+              aria-label={expanded === 'no' ? 'Expand city' : 'Leave expanded city'}
+              aria-pressed={expanded !== 'no'}
+              title={expanded === 'no' ? 'Expand city (F)' : 'Leave expanded city (F or Esc)'}
+              onClick={toggleExpanded}
+            >
+              <span aria-hidden="true">{expanded === 'no' ? '⤢' : '⤡'}</span>
+            </button>
+          </div>
+          {chosen && chosen.kind !== 'repository' && (
+            <div className="city-card">
+              {trail.length > 0 && (
+                <nav aria-label="Selection path">
+                  <ol className="city-trail">
+                    {trail.map((n) => (
+                      <li key={n.id}>
+                        <button type="button" className="city-crumb" aria-label={`Select ${n.kind === 'package' ? 'package' : 'folder'} ${model.title(n)}`} onClick={() => select(n.id)}>
+                          {crumb(n)}
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              )}
+              <strong>{chosen.kind === 'file' ? (chosen.path.split('/').at(-1) ?? chosen.path) : model.title(chosen)}</strong>
+              <span>
+                {chosen.kind === 'file'
+                  ? `${ROLE_LABEL[chosen.role]} · ${formatNumber(chosenBuilding?.metric?.codeLines)} code lines${state.lens === 'structure' ? '' : ` · ${LENS_LABEL[state.lens]}: ${formatNumber(chosenBuilding ? lensValue(chosenBuilding, state.lens) : null)}`}`
+                  : `${selectedIds.size.toLocaleString('en-US')} file${selectedIds.size === 1 ? '' : 's'} highlighted`}
               </span>
             </div>
           )}

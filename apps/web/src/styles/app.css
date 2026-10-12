@@ -250,6 +250,16 @@ kbd {
 .app.with-source .layout {
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(320px, 44%);
 }
+/* The repository tree can be hidden to give the city the width. */
+.app.tree-hidden .layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+.app.tree-hidden.with-source .layout {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 44%);
+}
+.app.tree-hidden .sidebar {
+  display: none;
+}
 .sidebar {
   border-inline-end: 1px solid var(--border);
   overflow: auto;

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import type { FrameComparison } from '@atlas/graph';
 import { QueryClient } from '../data/query';
 import type { SourceStatus } from '../data/load';
@@ -94,6 +94,21 @@ export function ViewerProvider({ head, source, children }: { head: ViewerModel; 
     }
   }, [dataset, head]);
 
+  /** The element focused when a selection asked to focus the inspector; undefined when none is pending. */
+  const pendingFocus = useRef<Element | null | undefined>(undefined);
+  // Focus the inspector heading in the commit that renders it, unless the viewer has moved
+  // focus elsewhere since the selection. (A deferred frame could arrive late on a heavy or
+  // software-rendered scene and then steal focus back.)
+  const focusInspector = useCallback(() => {
+    const from = pendingFocus.current;
+    const title = document.getElementById('inspector-title');
+    if (from === undefined || !title) return;
+    pendingFocus.current = undefined;
+    const now = document.activeElement;
+    if (now !== from && now !== document.body && now !== null) return;
+    title.focus();
+  }, []);
+  useLayoutEffect(focusInspector);
   const select = useCallback((id: string | null, options: { focusInspector?: boolean } = {}) => {
     const current = modelRef.current;
     const node = current.node(id);
@@ -104,16 +119,11 @@ export function ViewerProvider({ head, source, children }: { head: ViewerModel; 
       announce: node ? `Selected ${current.title(node)}` : 'Showing repository overview',
     });
     if (options.focusInspector) {
-      // Focus waits a frame for the inspector to render. Frames can be late (heavy scenes,
-      // software rendering), so never steal focus the viewer has since moved elsewhere.
-      const from = document.activeElement;
-      requestAnimationFrame(() => {
-        const now = document.activeElement;
-        if (now !== from && now !== document.body && now !== null) return;
-        document.getElementById('inspector-title')?.focus();
-      });
+      pendingFocus.current = document.activeElement;
+      // A selection that changes nothing renders nothing; settle the request on the next frame.
+      requestAnimationFrame(focusInspector);
     }
-  }, []);
+  }, [focusInspector]);
 
   const loadFrame = useCallback(
     async (frame: number): Promise<ViewerModel> => {

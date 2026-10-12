@@ -117,7 +117,8 @@ export function sceneryGeometry(spec: ThemeSpec, city: CityData, extent: number)
         const crown = new THREE.IcosahedronGeometry(radius * 0.95, 0).scale(1, 0.55, 1).translate(0, height, 0);
         const paint: Paint = (y, h) =>
           y > h * 0.93 ? tint('#5f8a5a', haze, fade) : tint('#6f7a72', '#a7ab9c', y / h).lerp(new THREE.Color(haze), fade);
-        add(mergeGeometries([rock.toNonIndexed(), crown.toNonIndexed()])!, x, -0.1, z, height, paint);
+        // Icosahedra are already non-indexed.
+        add(mergeGeometries([rock.toNonIndexed(), crown])!, x, -0.1, z, height, paint);
         rock.dispose();
         crown.dispose();
         if (next() % 5 === 0) {
