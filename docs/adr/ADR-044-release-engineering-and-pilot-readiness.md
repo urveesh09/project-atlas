@@ -37,6 +37,11 @@ tooling. The repository had one CI workflow and no release automation. It also h
    - Dependabot proposes monthly, grouped updates. Toolchain bumps (TypeScript, three.js
      minors) are excluded, because pinned versions are deliberate (docs/toolchain.md).
      Nothing merges automatically.
+   - *Amended the same day:* the first npm version-update job failed inside pnpm on this
+     pinned workspace (error processing `@types/node`). npm version updates were removed;
+     npm vulnerabilities are covered by Dependabot security alerts and updates (an owner
+     setting). The first GitHub Actions group (14 updates, PR #1) passed CI and was merged
+     by the owner.
 4. **A static demo** (`scripts/build-demo-site.mjs`, `.github/workflows/demo-site.yml`).
    - A demo build of the viewer (`VITE_ATLAS_DEMO_BASE`) opens a bundled artifact from a
      relative folder, through the same validation as every other load.
