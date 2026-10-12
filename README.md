@@ -22,6 +22,11 @@ to report a vulnerability see [SECURITY.md](SECURITY.md), and to contribute see 
 
 ## Try it
 
+**[Open the live demo](https://urveesh09.github.io/project-atlas/)**: ATLAS in your browser on
+an analysis of [vuejs/core](https://github.com/vuejs/core) (702 files, 12 history snapshots).
+Nothing to install; the analysis contains paths, metrics and relationships, never source
+text.
+
 For a portable archive that needs only Node and Git after extraction, follow the
 [candidate guide](docs/release/README.md). To build from this checkout:
 
