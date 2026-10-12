@@ -1,6 +1,11 @@
 # Dependency updates are proposals, never automatic merges. The toolchain and libraries are
 # pinned on purpose (docs/toolchain.md): each pull request must pass CI and be reviewed,
 # and a change of output bytes needs the corpus baseline and an ADR (AGENTS.md).
+#
+# npm packages get no routine version updates: Dependabot's npm job failed inside pnpm on
+# this pinned workspace (run of 2026-10-12, error processing @types/node), and the pins are
+# deliberate anyway. Vulnerable npm packages are still covered by Dependabot security alerts
+# and security updates, enabled in the repository's security settings.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -12,24 +17,6 @@ updates:
         patterns: ['*']
     commit-message:
       prefix: ci
-  - package-ecosystem: npm
-    directory: /
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 3
-    versioning-strategy: increase
-    groups:
-      development:
-        dependency-type: development
-        update-types: [minor, patch]
-    ignore:
-      # Toolchain upgrades are deliberate decisions (docs/toolchain.md).
-      - dependency-name: typescript
-        update-types: [version-update:semver-major, version-update:semver-minor]
-      - dependency-name: three
-        update-types: [version-update:semver-major, version-update:semver-minor]
-    commit-message:
-      prefix: deps
   - package-ecosystem: docker
     directory: /deploy
     schedule:
