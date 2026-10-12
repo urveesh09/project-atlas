@@ -159,6 +159,10 @@ Plan rules are unchanged:
 - Viewer e2e: 27 of 27 on the GPU and with `CI=1` (SwiftShader). Before decision 8 one
   `CI=1` run failed J1 as described; after it, two consecutive `CI=1` runs and a GPU run
   passed 27 of 27, and `pnpm verify` passed again (632).
+- CI run 38215086074 failed `verify (windows-latest)` on attempt 1. The analyzer's
+  `--no-history` test reported `partial`: a wall-clock parse deadline, while the SwiftShader
+  e2e ran alongside it. Rerunning only that job passed. The failure is recorded in the
+  implementation status; no code or test changed for it.
 - Captures:
   - [labels](../images/city-ux-modern-labels.png);
   - [contact occlusion](../images/city-ux-contact-occlusion.png);

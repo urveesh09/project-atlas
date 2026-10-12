@@ -529,6 +529,19 @@ Failures along the way are recorded in the ADR:
 Inspector focus now moves in the commit that renders it. Two `CI=1` runs and a GPU run
 then passed 27 of 27.
 
+CI run [38215086074](https://github.com/urveesh09/project-atlas/actions/runs/38215086074)
+failed `verify (windows-latest)` on attempt 1. Its seven other jobs passed. The failing test
+was the analyzer's `--no-history` Harbor test, which reported `partial` instead of
+`complete`.
+- `partial` means a limit was hit or a parse failed. The parse pool's per-file deadline is
+  wall-clock time.
+- The test ran alongside the 50-second SwiftShader viewer e2e, the same pairing as the load
+  failure in run 38160443032.
+- Rerunning only the failed job passed, and the run is green.
+
+The evidence points to CPU contention on the shared runner, not a logic fault. It is not
+proven, and the analyzer code is untouched. This failure is kept here.
+
 Captures: [labels](images/city-ux-modern-labels.png),
 [contact occlusion](images/city-ux-contact-occlusion.png),
 [Western cobbles](images/city-ux-western-cobbles.png),
