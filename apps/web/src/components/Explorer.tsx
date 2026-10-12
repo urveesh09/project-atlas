@@ -90,6 +90,12 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
           <button type="button" className="button ghost" aria-expanded={helpOpen} aria-controls="shortcuts" onClick={() => setHelpOpen((o) => !o)}>
             Keys
           </button>
+          {import.meta.env.VITE_ATLAS_DEMO_BASE && (
+            // Static demo builds (ADR-044) point visitors at running ATLAS on their own code.
+            <a className="button ghost" href="https://github.com/urveesh09/project-atlas#try-it" target="_blank" rel="noopener">
+              Run on your repository
+            </a>
+          )}
           {hosted ? (
             <ResultActions analysisId={hosted.analysisId} expiresAt={hosted.expiresAt} />
           ) : (

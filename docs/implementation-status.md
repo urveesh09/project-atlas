@@ -570,6 +570,29 @@ Evidence:
 - `pnpm verify`: 635 passed. Viewer e2e: 27 of 27 on the GPU and with `CI=1`.
 - The corpus baseline is exact.
 
+### Release engineering and pilot readiness (2026-10-12)
+
+An external audit judged ATLAS ready for customer discovery and controlled pilots, not yet
+for a subscription launch. The owner directed DevOps work on free tooling
+([ADR-044](adr/ADR-044-release-engineering-and-pilot-readiness.md),
+[release process](release/release-process.md)):
+- version-tag releases with a version guard, a draft GitHub release, the CLI archive,
+  `SHA256SUMS` and provenance, and GHCR images with SBOM and provenance;
+- CodeQL, dependency review, OpenSSF Scorecard and Dependabot proposals;
+- a static demo site of the viewer on the verified vuejs/core corpus artifact;
+- a security policy, contribution guide, code of conduct, issue forms (including pilot
+  feedback), a pull-request checklist and CODEOWNERS.
+
+Evidence:
+- `actionlint`: 0 errors.
+- The version guard refuses development, malformed and mismatched tags.
+- The static demo, served below a sub-path as on Pages, opened vuejs/core in Chromium. A
+  first attempt failed with `MANIFEST_MISSING`, because the worker resolved the relative
+  base; the base is now resolved against the page.
+
+Owner settings are pending: Pages source, private vulnerability reporting, Dependabot alerts
+and a `main` ruleset. No release has been tagged.
+
 ### Reproduce verification
 
 ```sh

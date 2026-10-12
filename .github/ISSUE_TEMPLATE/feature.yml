@@ -1,0 +1,20 @@
+name: Feature idea
+description: A capability or workflow that would make ATLAS more useful.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What were you trying to do, and what got in the way? Concrete situations help most.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you use today
+      description: Other tools or workarounds, if any.

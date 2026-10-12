@@ -1,5 +1,10 @@
 # ATLAS: your codebase as a city
 
+[![ci](https://github.com/urveesh09/project-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/urveesh09/project-atlas/actions/workflows/ci.yml)
+[![security](https://github.com/urveesh09/project-atlas/actions/workflows/security.yml/badge.svg)](https://github.com/urveesh09/project-atlas/actions/workflows/security.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/urveesh09/project-atlas/badge)](https://scorecard.dev/viewer/?uri=github.com/urveesh09/project-atlas)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 ATLAS turns the committed contents of a TypeScript/JavaScript repository into a navigable, explainable miniature city:
 
 - packages become districts, folders become blocks and files become buildings;
@@ -12,6 +17,8 @@ Every visual encoding has a legend, every finding has evidence, and every gap in
 > **Status:** All four pillars and the hosted public-GitHub implementation are available. Phase 6 adds pinned real-repository validation, repeated capacity measurements and a portable CLI candidate tested outside the development checkout. See the [candidate install/demo guide](docs/release/README.md), [release audit](docs/release/release-audit.md) and [implementation status](docs/implementation-status.md). G6 remains open for the exact capacity-fixture matrix, human usability/accessibility, reference-device and public-infrastructure acceptance. Runtime tracing stays deferred.
 
 **New here? Read [Start here](docs/START_HERE.md)** for setup, every way to run ATLAS, and the remaining release steps.
+Releases, the demo site and security practice are described in the [release process](docs/release/release-process.md);
+to report a vulnerability see [SECURITY.md](SECURITY.md), and to contribute see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Try it
 

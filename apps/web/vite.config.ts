@@ -5,6 +5,8 @@ import { defineConfig } from 'vite';
 const packages = fileURLToPath(new URL('../../packages/', import.meta.url));
 
 export default defineConfig({
+  // Static demo builds are served below a path (GitHub Pages), so assets resolve relatively.
+  base: process.env.VITE_ATLAS_DEMO_BASE ? './' : '/',
   plugins: [react()],
   resolve: {
     // The viewer bundles shared packages from source; it never imports analyzer or ingest code.

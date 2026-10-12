@@ -1,0 +1,53 @@
+name: demo site
+
+# Publishes the static demo (ADR-044): the viewer opening a verified, source-free analysis of
+# a pinned public repository from the corpus (vuejs/core, MIT). Runs on demand and when a
+# release is published; GitHub Pages must use "GitHub Actions" as its source.
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Acquire only the immutable pinned corpus commits
+        run: node scripts/validate-real-repositories.mjs --acquire
+      - name: Analyze offline and require the committed baseline bytes
+        run: node scripts/validate-real-repositories.mjs && node scripts/check-repository-baseline.mjs
+      - name: Build the static site around the verified vuejs/core artifact
+        run: node scripts/build-demo-site.mjs --artifact .atlas-tmp/release-corpus/vuejs-core/artifact --out "$RUNNER_TEMP/site"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

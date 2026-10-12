@@ -10,7 +10,7 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
 2. [docs/implementation-status.md](docs/implementation-status.md): what is done, with evidence.
 3. [docs/release/release-audit.md](docs/release/release-audit.md): requirement → evidence
    trace, and the open acceptance items R6-01…R6-07.
-4. [docs/adr/](docs/adr/): ADR-001…ADR-043. Every non-obvious design choice lives here.
+4. [docs/adr/](docs/adr/): ADR-001…ADR-044. Every non-obvious design choice lives here.
    Check for an ADR before "fixing" something that looks odd.
 
 **Current state (2026-10-11):** the four pillars and Phase 6 candidate tooling are
@@ -60,7 +60,8 @@ an ADR first.
 | `packages/control` | Hosted control plane: migrations, roles, storage, publications, GitHub budget |
 | `apps/api`, `apps/worker`, `apps/web` | Hosted HTTP API; coordinator and sandboxes; React/Three.js viewer |
 | `deploy/` | Sandbox and API images, compose stack |
-| `scripts/` | Benchmarks, corpus validation, packaging, contract generation |
+| `scripts/` | Benchmarks, corpus validation, packaging, contract generation, release guard, demo site |
+| `.github/` | CI, release, security, Scorecard and demo-site workflows; Dependabot; issue forms ([release process](docs/release/release-process.md)) |
 | `.atlas-tmp/` | Ignored scratch: corpus, fixtures, reports. Never commit it |
 
 `packages/schema` is shared with the browser. Don't add static `node:` imports there.

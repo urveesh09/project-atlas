@@ -1,0 +1,44 @@
+name: Pilot feedback
+description: For teams trying ATLAS on a real codebase. Tells us what is worth building next.
+labels: [pilot-feedback]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for piloting ATLAS. Short answers are fine. Please do not include source code or private repository names.
+  - type: dropdown
+    id: task
+    attributes:
+      label: What did you use ATLAS for?
+      multiple: true
+      options: ["Onboarding onto an unfamiliar codebase", "Finding where to change something", "Reviewing dependencies or cycles", "Finding risky hotspots", "Understanding how the code changed over time", "Explaining the codebase to others", "Other"]
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Did it help you finish that task?
+      options: ["Yes, faster than without it", "Yes, about the same speed", "Partly", "No"]
+    validations:
+      required: true
+  - type: textarea
+    id: best
+    attributes:
+      label: The most useful moment
+      description: What did ATLAS show you that you would not have found as quickly otherwise?
+  - type: textarea
+    id: friction
+    attributes:
+      label: Where you got stuck or lost trust
+  - type: dropdown
+    id: again
+    attributes:
+      label: Would you use it again next week?
+      options: ["Yes", "Maybe", "No"]
+    validations:
+      required: true
+  - type: textarea
+    id: team
+    attributes:
+      label: Team context (optional)
+      description: Team size, repository size in files, languages, and whether a hosted team workspace would matter to you.

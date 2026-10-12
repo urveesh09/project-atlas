@@ -1,0 +1,38 @@
+# Dependency updates are proposals, never automatic merges. The toolchain and libraries are
+# pinned on purpose (docs/toolchain.md): each pull request must pass CI and be reviewed,
+# and a change of output bytes needs the corpus baseline and an ADR (AGENTS.md).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    versioning-strategy: increase
+    groups:
+      development:
+        dependency-type: development
+        update-types: [minor, patch]
+    ignore:
+      # Toolchain upgrades are deliberate decisions (docs/toolchain.md).
+      - dependency-name: typescript
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: three
+        update-types: [version-update:semver-major, version-update:semver-minor]
+    commit-message:
+      prefix: deps
+  - package-ecosystem: docker
+    directory: /deploy
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: deploy

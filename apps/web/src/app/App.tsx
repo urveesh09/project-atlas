@@ -12,6 +12,9 @@ import { ViewerProvider } from './context';
 import { ViewerDataset, ViewerModel } from './model';
 import { parseFragment } from './state';
 
+/** Relative folder of a bundled demo artifact, set only by static demo builds (ADR-044). */
+const DEMO_BASE: string = import.meta.env.VITE_ATLAS_DEMO_BASE ?? '';
+
 type Phase =
   | { kind: 'starting' }
   | { kind: 'landing' }
@@ -121,6 +124,9 @@ export function App() {
       if (stale()) return;
       if (capabilities && current.kind === 'home') setPhase({ kind: 'hosted-landing', capabilities });
       else if (capabilities) setPhase({ kind: 'unavailable', code: 'ARTIFACT_NOT_FOUND' });
+      // A static demo build (ADR-044) opens its bundled artifact through the same validation.
+      // The worker fetches it, so resolve the folder against the page, not the worker script.
+      else if (DEMO_BASE) void run('Loading the demo city', { kind: 'server', base: new URL(DEMO_BASE, location.href).pathname }, null);
       else setPhase({ kind: 'landing' });
     };
     void route();
