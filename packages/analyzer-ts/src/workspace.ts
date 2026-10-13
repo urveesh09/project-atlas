@@ -112,7 +112,11 @@ const LINE_TERMINATOR = /[\n\r\u2028\u2029]/;
  * trailing `**` spans the rest of the path (at least the separator after its prefix).
  */
 export function compileWorkspaceGlob(glob: string): WorkspaceGlob | null {
-  const cleaned = glob.replace(/^\.\//, '').replace(/\/+$/, '');
+  // Trailing separators are trimmed by index: `/\/+$/` is quadratic on long runs of `/`.
+  const start = glob.startsWith('./') ? 2 : 0;
+  let end = glob.length;
+  while (end > start && glob[end - 1] === '/') end--;
+  const cleaned = glob.slice(start, end);
   if (cleaned === '' || cleaned.includes('..') || cleaned.startsWith('/')) return null;
   const segments = cleaned.split('/');
   return {
