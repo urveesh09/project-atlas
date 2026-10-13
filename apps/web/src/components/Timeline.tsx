@@ -85,19 +85,28 @@ export function Timeline() {
 
   return (
     <section className="timeline" aria-labelledby="timeline-title">
+      {/* Compact by design (ADR-047): one heading line, then the strip between Earlier and Later. */}
       <div className="timeline-head">
         <h2 id="timeline-title" className="timeline-title">
           History
         </h2>
-        <p className="timeline-summary">
-          <strong>{coverage.commitsTraversed.toLocaleString('en-US')}</strong> mainline commits ·{' '}
-          {windowStart ? `${formatDate(windowStart)} → ${formatDate(frames.at(-1)!.commit.committerTime)}` : formatDate(active.commit.committerTime)} ·{' '}
-          <strong>{frames.length}</strong> analyzed snapshot{frames.length === 1 ? '' : 's'}
-          {coverage.framesRequested > frames.length ? ` of ${coverage.framesRequested} requested` : ''} · {BOUNDARY[coverage.boundary] ?? coverage.boundary}
-          {coverage.status === 'partial' && <span className="chip chip-warn timeline-chip">partial history</span>}
+        <p className="timeline-current" aria-hidden="true">
+          <strong>
+            Snapshot {state.frame + 1} of {frames.length}
+          </strong>{' '}
+          · {formatDate(active.commit.committerTime)} · <code>{shortOid(active.commit.oid)}</code> · {active.coverage.includedFiles.toLocaleString('en-US')} files
+          {state.frame === dataset.headIndex && ' · selected commit'}
         </p>
         <details className="timeline-help">
           <summary>How to read history</summary>
+          <p className="timeline-summary">
+            <strong>{coverage.commitsTraversed.toLocaleString('en-US')}</strong> mainline commits ·{' '}
+            {windowStart ? `${formatDate(windowStart)} → ${formatDate(frames.at(-1)!.commit.committerTime)}` : formatDate(active.commit.committerTime)} ·{' '}
+            <strong>{frames.length}</strong> analyzed snapshot{frames.length === 1 ? '' : 's'}
+            {coverage.framesRequested > frames.length ? ` of ${coverage.framesRequested} requested` : ''} · {BOUNDARY[coverage.boundary] ?? coverage.boundary} ·{' '}
+            {commitsUpTo} of {coverage.commitsTraversed} window commits up to the snapshot shown
+            {coverage.status === 'partial' && <span className="chip chip-warn timeline-chip">partial history</span>}
+          </p>
           <ul>
             <li>
               Snapshots are <strong>sampled</strong> commits on the first-parent (mainline) chain, not every commit. Churn and the change counts still use every commit in
@@ -112,55 +121,49 @@ export function Timeline() {
           </ul>
         </details>
       </div>
-      <div className="timeline-scroll">
-      <div className="timeline-track" style={{ minWidth: frames.length * 48 }}>
-        <div className="timeline-axis" aria-hidden="true">
-          {ticks.map((t) => (
-            <span key={t.key} className="timeline-tick" style={{ left: `${t.at * 100}%` }} />
-          ))}
-        </div>
-        <ol className="timeline-strip" aria-label="Analyzed snapshots, oldest to newest" onKeyDown={onKey}>
-          {frames.map((f, i) => {
-            const selected = i === state.frame;
-            const inCompare = state.compare && (state.compare.a === i || state.compare.b === i);
-            return (
-              <li key={f.snapshotId} style={{ left: `${position(i) * 100}%` }}>
-                <button
-                  ref={(el) => {
-                    if (el) refs.current.set(i, el);
-                  }}
-                  type="button"
-                  className={`timeline-frame${selected ? ' is-active' : ''}${inCompare ? ' is-compare' : ''}${frameLoading === i ? ' is-loading' : ''}`}
-                  aria-current={selected ? 'step' : undefined}
-                  tabIndex={selected ? 0 : -1}
-                  aria-label={`Snapshot ${i + 1} of ${frames.length}: ${formatDate(f.commit.committerTime)}, commit ${shortOid(f.commit.oid)}, ${f.coverage.includedFiles.toLocaleString('en-US')} files${i === dataset.headIndex ? ', selected commit' : ''}${f.analysisStatus !== 'complete' ? `, ${f.analysisStatus} analysis` : ''}${state.compare?.a === i ? ', comparison A' : state.compare?.b === i ? ', comparison B' : ''}`}
-                  onClick={() => go(i)}
-                >
-                  <span className="timeline-dot" aria-hidden="true">
-                    {state.compare?.a === i ? 'A' : state.compare?.b === i ? 'B' : ''}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-      </div>
-      <div className="timeline-controls">
+      <div className="timeline-row">
         <button type="button" className="button" disabled={state.frame === 0} onClick={() => go(state.frame - 1)}>
           ‹ Earlier
         </button>
-        <p className="timeline-current" aria-hidden="true">
-          <strong>
-            Snapshot {state.frame + 1} of {frames.length}
-          </strong>{' '}
-          · {formatDate(active.commit.committerTime)} · <code>{shortOid(active.commit.oid)}</code> · {active.coverage.includedFiles.toLocaleString('en-US')} files ·{' '}
-          {commitsUpTo} of {coverage.commitsTraversed} window commits up to here
-          {state.frame === dataset.headIndex && ' · selected commit'}
-        </p>
+        <div className="timeline-scroll">
+          <div className="timeline-track" style={{ minWidth: frames.length * 48 }}>
+            <div className="timeline-axis" aria-hidden="true">
+              {ticks.map((t) => (
+                <span key={t.key} className="timeline-tick" style={{ left: `${t.at * 100}%` }} />
+              ))}
+            </div>
+            <ol className="timeline-strip" aria-label="Analyzed snapshots, oldest to newest" onKeyDown={onKey}>
+              {frames.map((f, i) => {
+                const selected = i === state.frame;
+                const inCompare = state.compare && (state.compare.a === i || state.compare.b === i);
+                return (
+                  <li key={f.snapshotId} style={{ left: `${position(i) * 100}%` }}>
+                    <button
+                      ref={(el) => {
+                        if (el) refs.current.set(i, el);
+                      }}
+                      type="button"
+                      className={`timeline-frame${selected ? ' is-active' : ''}${inCompare ? ' is-compare' : ''}${frameLoading === i ? ' is-loading' : ''}`}
+                      aria-current={selected ? 'step' : undefined}
+                      tabIndex={selected ? 0 : -1}
+                      aria-label={`Snapshot ${i + 1} of ${frames.length}: ${formatDate(f.commit.committerTime)}, commit ${shortOid(f.commit.oid)}, ${f.coverage.includedFiles.toLocaleString('en-US')} files${i === dataset.headIndex ? ', selected commit' : ''}${f.analysisStatus !== 'complete' ? `, ${f.analysisStatus} analysis` : ''}${state.compare?.a === i ? ', comparison A' : state.compare?.b === i ? ', comparison B' : ''}`}
+                      onClick={() => go(i)}
+                    >
+                      <span className="timeline-dot" aria-hidden="true">
+                        {state.compare?.a === i ? 'A' : state.compare?.b === i ? 'B' : ''}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </div>
         <button type="button" className="button" disabled={state.frame >= frames.length - 1} onClick={() => go(state.frame + 1)}>
           Later ›
         </button>
+      </div>
+      <div className="timeline-controls">
         {!reducedMotion && frames.length > 1 && (
           <button
             type="button"

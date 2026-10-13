@@ -1,6 +1,6 @@
 {
   "name": "@atlas/history",
-  "version": "0.1.0-dev",
+  "version": "0.1.0-beta.1",
   "private": true,
   "description": "Bounded first-parent history, file lineage and frame selection.",
   "license": "MIT",

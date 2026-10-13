@@ -4,12 +4,14 @@ import type { ReachResult } from '@atlas/graph';
 import { POLICIES } from '@atlas/graph';
 import { compareAscii, compareUtf8 } from '@atlas/schema';
 import { useViewer } from '../app/context';
+import { useWorkspace } from '../app/workspace';
+import { Timeline } from './Timeline';
 import { ROLE_LABEL, formatNumber, shortOid } from '../app/model';
 import { MapCity } from '../city/MapCity';
 import type { CityHandle } from '../city/types';
 import type { CityGhost, ViewHistory } from '../city/renderer';
 import { overlayKey, type OverlayResult } from '../city/overlay';
-import { addProvenance, downloadBlob, exportMetadata } from '../city/export';
+import { addProvenance, downloadBlob, embedPngText, exportMetadata, PROVENANCE_KEYWORD } from '../city/export';
 import { CITY_THEMES, CITY_THEME_LABEL, type CityTheme } from '../city/themes';
 import '../styles/city.css';
 
@@ -100,22 +102,10 @@ export function City() {
     [reachPage, setReachPage] = useState(0);
   const reachTicket = useRef(0);
   const [views, setViews] = useState<ViewHistory>(NO_VIEWS);
-  // Expanded city: the browser's full screen when allowed, otherwise a fixed overlay.
-  const stageRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState<'no' | 'fullscreen' | 'overlay'>('no');
-  const toggleExpanded = useCallback(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-    else if (expanded === 'overlay') setExpanded('no');
-    else if (typeof stage.requestFullscreen === 'function') stage.requestFullscreen().then(() => setExpanded('fullscreen'), () => setExpanded('overlay'));
-    else setExpanded('overlay');
-  }, [expanded]);
-  useEffect(() => {
-    const changed = () => setExpanded((now) => (document.fullscreenElement === stageRef.current ? 'fullscreen' : now === 'fullscreen' ? 'no' : now));
-    document.addEventListener('fullscreenchange', changed);
-    return () => document.removeEventListener('fullscreenchange', changed);
-  }, []);
+  // Expanded workspace (ADR-047): the whole explorer, so search and evidence stay at hand.
+  const workspace = useWorkspace();
+  const expanded = workspace.mode;
+  const toggleExpanded = workspace.toggle;
   useEffect(() => {
     if (state.mode === 'table') return;
     const onKey = (event: KeyboardEvent) => {
@@ -127,15 +117,14 @@ export function City() {
         event.preventDefault();
         handle.current?.travel?.(event.key === '[' ? -1 : 1);
       } else if (event.key === 'Escape' && expanded !== 'no') {
-        // Leaving the expanded city comes first; the selection stays.
+        // Leaving the expanded workspace comes first; the selection stays.
         event.stopImmediatePropagation();
-        if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-        setExpanded('no');
+        workspace.leave();
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [state.mode, expanded, toggleExpanded]);
+  }, [state.mode, expanded, toggleExpanded, workspace]);
   const owner = useRef<'3d' | 'map' | null>(null);
   const register = useCallback((value: CityHandle | null, mode: '3d' | 'map') => {
     if (value) {
@@ -260,6 +249,11 @@ export function City() {
         setMessage('Reach query is unavailable. Direct dependencies remain in the inspector.');
     }
   };
+  const currentMetadata = () => exportMetadata(model, state, overlay, handle.current?.cameraState() ?? null, state.mode === '3d' ? theme : null);
+  const exportMetadataFile = () => {
+    downloadBlob(new Blob([JSON.stringify(currentMetadata(), null, 2)], { type: 'application/json' }), 'atlas-city.metadata.json');
+    setMessage('Started the download of atlas-city.metadata.json: the provenance of the current view.');
+  };
   const exportImage = async () => {
     if (exporting) return;
     if (!handle.current) {
@@ -269,17 +263,18 @@ export function City() {
     setExporting(true);
     setMessage('Preparing the bounded PNG export…');
     try {
-      const metadata = exportMetadata(model, state, overlay, handle.current.cameraState(), state.mode === '3d' ? theme : null);
+      const metadata = currentMetadata();
       const blob = await addProvenance(
         await handle.current.exportPng(),
         `ATLAS · ${model.manifest.repo.displayName} · ${shortOid(model.graph.commitOid)} ${model.commit.committerTime.slice(0, 10)}${model.isHead ? '' : ` (snapshot ${model.frame + 1}/${dataset.frames.length})`}${state.compare ? ` · compare ${state.compare.a + 1}→${state.compare.b + 1}` : ''} · ${LENS_LABEL[state.lens]}${model.manifest.coverage.history.status === 'partial' || model.graph.coverage.limitsHit.length ? ' · PARTIAL COVERAGE' : ''} · ${model.manifest.analyzer.version} · static analysis`,
       );
-      downloadBlob(blob, 'atlas-city.png');
-      downloadBlob(
-        new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json' }),
-        'atlas-city.metadata.json',
+      // One download that carries its own provenance (ADR-047): browsers may hold back a
+      // second automatic download, so the metadata travels inside the PNG as a text chunk.
+      const png = embedPngText(new Uint8Array(await blob.arrayBuffer()), PROVENANCE_KEYWORD, JSON.stringify(metadata));
+      downloadBlob(new Blob([png as BlobPart], { type: 'image/png' }), 'atlas-city.png');
+      setMessage(
+        `Exported PNG: started the download of atlas-city.png, with its provenance inside the file (PNG text "${PROVENANCE_KEYWORD}"). Export metadata saves the same provenance as JSON.`,
       );
-      setMessage('Exported PNG and provenance metadata. The file table and artifact retain accessible evidence.');
     } catch (error) {
       setMessage(
         `Image export is unavailable (${error instanceof Error ? error.message : 'encoding failed'}). The file table remains usable.`,
@@ -307,13 +302,12 @@ export function City() {
   return (
     <section className="city" aria-labelledby="city-title">
       <div className="city-heading">
-        <div>
-          <p className="eyebrow">ONE FILE · ONE BUILDING{model.isHead ? '' : ` · SNAPSHOT ${model.frame + 1} OF ${dataset.frames.length}`}</p>
-          <h1 id="city-title">{model.isHead ? 'Your code, in perspective' : `As it stood on ${model.commit.committerTime.slice(0, 10)}`}</h1>
-        </div>
-        <span>
-          {model.city.buildings.length.toLocaleString()} plots ·{' '}
-          {model.city.districts.filter((d) => d.kind === 'package').length} packages
+        <h1 id="city-title">
+          {model.manifest.repo.displayName}
+          <span>{model.isHead ? ' as a city' : ` on ${model.commit.committerTime.slice(0, 10)} (snapshot ${model.frame + 1} of ${dataset.frames.length})`}</span>
+        </h1>
+        <span className="city-counts">
+          {model.city.buildings.length.toLocaleString('en-US')} files · {model.city.districts.filter((d) => d.kind === 'package').length} packages · height = code lines
         </span>
       </div>
       <div className="city-toolbar" aria-label="City controls">
@@ -356,34 +350,19 @@ export function City() {
             <option value="findings">With findings</option>
           </select>
         </label>
-        {state.mode !== 'table' && (
-          <>
-            <button type="button" onClick={() => handle.current?.reset()}>
-              Reset city
-            </button>
-            <button type="button" aria-label="Zoom in" onClick={() => handle.current?.zoom(1.3)}>
-              ＋
-            </button>
-            <button type="button" aria-label="Zoom out" onClick={() => handle.current?.zoom(1 / 1.3)}>
-              −
-            </button>
-            <button type="button" onClick={() => handle.current?.north()}>
-              North
-            </button>
-            <button
-              type="button"
-              disabled={!selectedIds.size || !ready}
-              onClick={() => {
-                handle.current?.focus(selectedIds);
-              }}
-            >
-              Focus selection
-            </button>
-            <button type="button" disabled={!ready || exporting} onClick={() => void exportImage()}>
-              Export PNG
-            </button>
-          </>
-        )}
+        <label>
+          Dependencies
+          <select
+            aria-label="Dependencies"
+            value={state.direction}
+            onChange={(e) => dispatch({ type: 'edges', direction: e.target.value as typeof state.direction })}
+          >
+            <option value="outgoing">Imports → targets</option>
+            <option value="incoming">Consumers → selected file</option>
+            <option value="both">Imports and consumers</option>
+          </select>
+        </label>
+
         {state.mode === '3d' && (
           <label>
             City style
@@ -410,15 +389,17 @@ export function City() {
             Low detail
           </label>
         )}
+        {state.mode !== 'table' && (
+          <span className="city-exports">
+            <button type="button" disabled={!ready || exporting} onClick={() => void exportImage()}>
+              Export PNG
+            </button>
+            <button type="button" disabled={!ready} onClick={exportMetadataFile}>
+              Export metadata
+            </button>
+          </span>
+        )}
       </div>
-      <p className="city-note">
-        Height = code lines, on a logarithmic scale. △ source · ⬡ test · ▱ declaration · □ kiosk. × marks unavailable
-        analysis. Roads separate folders; they are spacing. City style, building shapes, storeys, windows, walls,
-        trees, paving, ground shading and the harbour are decorative and seeded per file; they carry no data. Roofs,
-        eaves and battlements share their building's lens colour. A blue ring marks each selected building. Click the
-        city to drive it with the keyboard. The 3D
-        city is in perspective, so nearer buildings look larger; the 2D map and file table compare sizes exactly.
-      </p>
       <div className="city-legend" aria-label="City lens legend">
         <strong>{LENS_LABEL[state.lens]}</strong>
         {state.lens === 'structure' ? (
@@ -441,6 +422,17 @@ export function City() {
             Compare marks: <span aria-hidden="true">▢</span> outlined ghost = deleted since A · <span aria-hidden="true">◆</span> raised diamond = added in B.
           </span>
         )}
+        <details className="city-about">
+          <summary>How to read the city</summary>
+          <p className="city-note">
+          Height = code lines, on a logarithmic scale. △ source · ⬡ test · ▱ declaration · □ kiosk. × marks unavailable
+          analysis. Roads separate folders; they are spacing. City style, building shapes, storeys, windows, walls,
+          trees, paving, ground shading and the harbour are decorative and seeded per file; they carry no data. Roofs,
+          eaves and battlements share their building's lens colour. A blue ring marks each selected building. Click the
+          city to drive it with the keyboard. The 3D
+          city is in perspective, so nearer buildings look larger; the 2D map and file table compare sizes exactly.
+          </p>
+        </details>
       </div>
       {state.filter !== 'all' && (
         <p className="city-note">
@@ -454,7 +446,7 @@ export function City() {
         </p>
       )}
       {state.mode !== 'table' && (
-        <div ref={stageRef} className={`city-stage${expanded === 'overlay' ? ' is-expanded' : ''}`}>
+        <div className="city-stage">
           {state.mode === 'map' ? (
             <MapCity
               city={model.city}
@@ -520,17 +512,42 @@ export function City() {
                 </button>
               </>
             )}
-            <button type="button" aria-label="Show the whole city" title="Whole city" disabled={!ready} onClick={() => handle.current?.reset()}>
+            <button type="button" aria-label="Reset city" title="Show the whole city" disabled={!ready} onClick={() => handle.current?.reset()}>
               <span aria-hidden="true">⌂</span>
             </button>
+            {expanded !== 'no' && (
+              <button
+                type="button"
+                aria-label={workspace.drawer ? 'Hide the evidence panel' : 'Show the evidence panel'}
+                aria-pressed={workspace.drawer}
+                title={workspace.drawer ? 'Hide the evidence panel' : 'Show the evidence panel'}
+                onClick={() => workspace.setDrawer(!workspace.drawer)}
+              >
+                <span aria-hidden="true">☰</span>
+              </button>
+            )}
             <button
               type="button"
               aria-label={expanded === 'no' ? 'Expand city' : 'Leave expanded city'}
               aria-pressed={expanded !== 'no'}
-              title={expanded === 'no' ? 'Expand city (F)' : 'Leave expanded city (F or Esc)'}
+              title={expanded === 'no' ? 'Expand into a full-screen workspace (F)' : 'Leave the workspace (F or Esc)'}
               onClick={toggleExpanded}
             >
               <span aria-hidden="true">{expanded === 'no' ? '⤢' : '⤡'}</span>
+            </button>
+          </div>
+          <div className="city-nav city-nav-camera" role="toolbar" aria-label="Camera">
+            <button type="button" aria-label="Zoom in" title="Zoom in (+)" disabled={!ready} onClick={() => handle.current?.zoom(1.3)}>
+              <span aria-hidden="true">+</span>
+            </button>
+            <button type="button" aria-label="Zoom out" title="Zoom out (−)" disabled={!ready} onClick={() => handle.current?.zoom(1 / 1.3)}>
+              <span aria-hidden="true">−</span>
+            </button>
+            <button type="button" aria-label="North" title="Turn to face north" disabled={!ready} onClick={() => handle.current?.north()}>
+              <span aria-hidden="true">N</span>
+            </button>
+            <button type="button" aria-label="Focus selection" title="Fly to the selection" disabled={!selectedIds.size || !ready} onClick={() => handle.current?.focus(selectedIds)}>
+              <span aria-hidden="true">◎</span>
             </button>
           </div>
           {chosen && chosen.kind !== 'repository' && (
@@ -564,19 +581,8 @@ export function City() {
           <span className="city-attribution">ATLAS · STATIC REPOSITORY CITY</span>
         </div>
       )}
+      <Timeline />
       <div className="city-overlay-controls">
-        <label>
-          Dependencies
-          <select
-            aria-label="Dependencies"
-            value={state.direction}
-            onChange={(e) => dispatch({ type: 'edges', direction: e.target.value as typeof state.direction })}
-          >
-            <option value="outgoing">Imports → targets</option>
-            <option value="incoming">Consumers → selected file</option>
-            <option value="both">Imports and consumers</option>
-          </select>
-        </label>
         <label className="city-check">
           <input
             type="checkbox"
@@ -599,7 +605,8 @@ export function City() {
         data-overlay-count
         data-overlay-ready={overlayReady && overlay.key === currentOverlayKey}
       >
-        Overlay: {overlay.arcs.length} of {overlay.total} relationships; {overlay.omitted} omitted ({overlay.unplaced}{' '}
+        Overlay: {overlay.arcs.length} of {overlay.total} relationships drawn (one per connected pair and kind, never one per
+        import statement); {overlay.omitted} omitted ({overlay.unplaced}{' '}
         without visible plots/terminals). Arrows point to imported targets; a ring and a name mark each connected file: → it is imported by the
         selection, ← it imports the selection. Value = blue solid · type = purple · dynamic
         = amber · resource = green. {overlay.policy}.

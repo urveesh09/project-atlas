@@ -91,6 +91,28 @@ async function openViewer(): Promise<{ page: Page; requests: string[]; errors: s
   return { page, requests, errors };
 }
 
+/** Reads the provenance JSON from a PNG `iTXt` chunk, parsed here independently of the viewer. */
+function embeddedProvenance(png: Buffer): Record<string, unknown> {
+  for (let at = 8; at + 12 <= png.length; ) {
+    const length = png.readUInt32BE(at);
+    const type = png.subarray(at + 4, at + 8).toString('latin1');
+    if (type === 'iTXt') {
+      const data = png.subarray(at + 8, at + 8 + length);
+      const keyword = data.subarray(0, data.indexOf(0)).toString('latin1');
+      if (keyword === 'atlas.provenance') {
+        // keyword NUL, flag 0, method 0, language NUL, translated keyword NUL, text
+        let i = data.indexOf(0) + 3;
+        i = data.indexOf(0, i) + 1;
+        i = data.indexOf(0, i) + 1;
+        return JSON.parse(data.subarray(i).toString('utf8')) as Record<string, unknown>;
+      }
+    }
+    if (type === 'IEND') break;
+    at += 12 + length;
+  }
+  throw new Error('The PNG carries no atlas.provenance text');
+}
+
 const focusedText = (page: Page) =>
   page.evaluate(() => (document.activeElement as HTMLElement | null)?.innerText ?? '');
 
@@ -303,16 +325,23 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     page.on('download', (d) => downloads.push(d));
     await page.getByRole('button', { name: 'Export PNG', exact: true }).click();
     await expect.poll(() => page.locator('.city-message').innerText(), { timeout: 5000 }).toContain('Exported PNG');
-    await expect.poll(() => downloads.length).toBe(2);
-    const png = downloads.find((d) => d.suggestedFilename() === 'atlas-city.png')!;
-    const json = downloads.find((d) => d.suggestedFilename().endsWith('.json'))!;
+    // One download carries its own provenance (ADR-047); metadata is a separate, explicit action.
+    await expect.poll(() => downloads.length).toBe(1);
+    const png = downloads[0]!;
+    expect(png.suggestedFilename()).toBe('atlas-city.png');
     const { readFileSync } = await import('node:fs');
     const bytes = readFileSync((await png.path())!);
     expect(bytes.subarray(1, 4).toString()).toBe('PNG');
     expect(bytes.readUInt32BE(16)).toBeLessThanOrEqual(2048);
     expect(bytes.readUInt32BE(20)).toBeLessThanOrEqual(2048);
     expect(bytes.readUInt32BE(16) * bytes.readUInt32BE(20)).toBeLessThanOrEqual(4_000_000);
+    const embedded = embeddedProvenance(bytes);
+    await page.getByRole('button', { name: 'Export metadata', exact: true }).click();
+    await expect.poll(() => downloads.length).toBe(2);
+    const json = downloads[1]!;
+    expect(json.suggestedFilename()).toBe('atlas-city.metadata.json');
     const metadata = JSON.parse(readFileSync((await json.path())!, 'utf8'));
+    expect({ ...embedded, camera: null }).toEqual({ ...metadata, camera: null });
     expect(metadata.lens).toBe('fan-in');
     expect(metadata.mode).toBe('map');
     expect(metadata.selectedPath).toBe('src/server/pricing.ts');
@@ -348,6 +377,67 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).click();
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
     expect(await audit(page)).toEqual([]);
+  });
+});
+
+/**
+ * Beta 2 activation (ADR-047): a guided start whose tasks name real targets, counts that
+ * name their units, and an expanded workspace that keeps search and evidence.
+ */
+describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', () => {
+  let page: Page;
+  let errors: string[];
+  beforeAll(async () => {
+    ({ page, errors } = await openViewer());
+    await page.waitForSelector('#overview-title');
+  });
+
+  it('starts with tasks that select their named targets', async () => {
+    const tasks = page.getByRole('list', { name: 'Suggested tasks' });
+    const trace = tasks.getByRole('button', { name: /Trace a file’s dependencies/ });
+    const named = (await trace.innerText()).split('\n')[1]!.split(',')[0]!.trim();
+    await trace.click();
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(named);
+    expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('Dependencies');
+    expect(await page.getByRole('combobox', { name: 'Dependencies', exact: true }).inputValue()).toBe('both');
+    const note = await page.locator('.count-note').innerText();
+    expect(note).toMatch(/internal import statements? reach \d+ files?/);
+    expect(note).toContain('type-only included');
+    await tasks.getByRole('button', { name: /Explore a package/ }).click();
+    await expect.poll(() => page.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('Overview');
+    await page.getByRole('button', { name: 'Hide', exact: true }).click();
+    expect(await page.locator('.start').count()).toBe(0);
+    await page.getByRole('button', { name: 'Show guided start' }).click();
+    expect(await page.locator('.start').count()).toBe(1);
+  });
+
+  it('expands into a workspace that keeps search, controls and evidence', async () => {
+    await page.getByRole('button', { name: 'Expand city', exact: true }).click();
+    await page.waitForSelector('.app.is-workspace');
+    const visible = async (selector: string) => page.locator(selector).first().isVisible();
+    expect(await visible('.search input')).toBe(true);
+    expect(await visible('.city-inspector')).toBe(true);
+    expect(await page.getByLabel('Lens', { exact: true }).isVisible()).toBe(true);
+    expect(await visible('.sidebar')).toBe(false);
+    // find → select → explain without leaving the workspace
+    await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).focus();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.type('pricing.ts');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.ts');
+    expect(await visible('.app.is-workspace')).toBe(true);
+    await page.getByRole('button', { name: 'Hide the evidence panel' }).click();
+    expect(await visible('.city-inspector')).toBe(false);
+    await page.getByRole('button', { name: 'Show the evidence panel' }).click();
+    await page.locator('.city-surface, [data-city-renderer]').first().focus();
+    await page.keyboard.press('Escape');
+    await expect.poll(() => page.locator('.app.is-workspace').count()).toBe(0);
+    expect(await page.locator('#inspector-title').innerText()).toBe('pricing.ts');
+    expect(await audit(page)).toEqual([]);
+  });
+
+  it('logged no page errors', () => {
+    expect(errors).toEqual([]);
   });
 });
 
@@ -481,11 +571,12 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
   });
 
   it('states the window, the sampling and the anchoring next to the strip', async () => {
+    // The strip is compact (ADR-047); its window and sampling are one click away, beside it.
+    await page.getByText('How to read history').click();
     const summary = await page.locator('.timeline-summary').innerText();
     expect(summary).toContain('12 mainline commits');
     expect(summary).toContain('12 analyzed snapshots');
     expect(summary).toContain('first commit');
-    await page.getByText('How to read history').click();
     const help = await page.locator('.timeline-help').innerText();
     expect(help).toContain('sampled');
     expect(help).toContain('one fixed plot');

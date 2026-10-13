@@ -82,7 +82,7 @@ async function copyRuntime(dir) {
   }
   // Workspace dependencies are satisfied by the copied closure. The viewer's React/
   // Three.js code is already inside its production assets; no server-side imports use it.
-  const dependencies = pkg.name === '@atlas/web' ? {} : Object.fromEntries(Object.entries(pkg.dependencies ?? {}).map(([name, version]) => [name, version.startsWith('workspace:') ? '0.1.0-dev' : version]));
+  const dependencies = pkg.name === '@atlas/web' ? {} : Object.fromEntries(Object.entries(pkg.dependencies ?? {}).map(([name, version]) => [name, version.startsWith('workspace:') ? pkg.version : version]));
   const metadata = { ...pkg, private: true, dependencies };
   delete metadata.devDependencies;
   delete metadata.scripts;

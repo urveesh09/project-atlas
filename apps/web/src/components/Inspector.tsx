@@ -22,7 +22,8 @@ const KIND_LABEL: Record<string, string> = {
 export function Inspector({ node }: { node: GraphNode }) {
   const { model, state, dispatch, select } = useViewer();
   const tabRefs = useRef(new Map<InspectorTab, HTMLButtonElement>());
-  const findings = model.index.diagnosticsFor(node.id).length;
+  // A file's tab counts its own findings; findings that only mention it are listed below them.
+  const findings = model.index.diagnosticsFor(node.id).filter((d) => node.kind !== 'file' || isAbout(d, node.id)).length;
 
   const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
     const index = TABS.indexOf(state.tab);
@@ -111,8 +112,8 @@ const METRICS: { key: keyof NodeMetrics; label: string; definition: string; cont
   { key: 'maxCyclomatic', label: 'Max complexity', definition: 'Highest cyclomatic complexity of any function (1 + decisions).', container: 'Maximum over files.' },
   { key: 'sumCyclomatic', label: 'Total complexity', definition: 'Sum over functions; grows with size.', container: 'Sum over files.' },
   { key: 'callableCount', label: 'Functions', definition: 'Functions, methods, constructors, accessors and arrows with a body.', container: 'Sum over files.' },
-  { key: 'fanIn', label: 'Direct consumers', definition: 'Files that import this one (value, re-export, require or dynamic import).' },
-  { key: 'fanOut', label: 'Direct dependencies', definition: 'Files this one imports under the same policy. Type-only and resources excluded.' },
+  { key: 'fanIn', label: 'Direct value consumers', definition: 'Unique files that import this one by value, re-export, require or dynamic import. Type-only imports are not counted.' },
+  { key: 'fanOut', label: 'Direct value dependencies', definition: 'Unique files this one imports under the same policy. Counts files, not import statements; type-only and resources excluded.' },
   { key: 'changedCommits', label: 'Changed commits', definition: 'Mainline commits in the window that changed this file, up to this snapshot.', container: 'Distinct commits changing any file here.' },
   { key: 'linesAdded', label: 'Lines added', definition: 'Text lines added by those changes (numstat); binary content has none.', container: 'Sum over files.' },
   { key: 'linesDeleted', label: 'Lines deleted', definition: 'Text lines deleted by those changes.', container: 'Sum over files.' },
@@ -215,18 +216,45 @@ function ChildrenSummary({ node }: { node: GraphNode }) {
   );
 }
 
+/**
+ * The exact committed file on GitHub (ADR-047), only for public-GitHub analyses: the
+ * analyzed commit, the file's path in that snapshot and, when known, the line. Every path
+ * segment is encoded, and nothing is fetched; the visitor follows the link deliberately.
+ */
+export function githubBlobUrl(remote: { owner: string; name: string } | null, commitOid: string, path: string, line: number | null): string | null {
+  if (!remote || !/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(commitOid)) return null;
+  const encoded = path.split('/').map(encodeURIComponent).join('/');
+  return `https://github.com/${encodeURIComponent(remote.owner)}/${encodeURIComponent(remote.name)}/blob/${commitOid}/${encoded}${line ? `#L${line}` : ''}`;
+}
+
 function SourceAction({ nodeId, line, label }: { nodeId: string; line: number | null; label: string }) {
   const { source, dispatch, model } = useViewer();
   const node = model.node(nodeId);
-  if (!source || node?.kind !== 'file') return null;
-  if (!source.attached) {
-    return <p className="note">Source is not attached{source.reason === 'NOT_REQUESTED' ? ' — start with atlas serve --repo <dir> to read it here.' : ` (${source.reason.toLowerCase().replaceAll('_', ' ')}).`}</p>;
+  if (node?.kind !== 'file') return null;
+  const github = model.manifest.repo.sourceKind === 'public-github' ? githubBlobUrl(model.manifest.repo.remote, model.commit.oid, node.path, line) : null;
+  const githubLink = github && (
+    <a className="button" href={github} target="_blank" rel="noopener noreferrer">
+      {line ? `Open line ${line} on GitHub` : 'Open on GitHub'}
+    </a>
+  );
+  if (!source || !source.attached) {
+    return (
+      <div className="source-links">
+        {githubLink}
+        {source && !source.attached && !github && (
+          <p className="note">Source is not attached{source.reason === 'NOT_REQUESTED' ? ' — start with atlas serve --repo <dir> to read it here.' : ` (${source.reason.toLowerCase().replaceAll('_', ' ')}).`}</p>
+        )}
+      </div>
+    );
   }
-  if (node.language === null) return <p className="note">Source is shown only for analyzable TS/JS files.</p>;
+  if (node.language === null) return <div className="source-links">{githubLink}<p className="note">Source is shown only for analyzable TS/JS files.</p></div>;
   return (
-    <button type="button" className="button" onClick={() => dispatch({ type: 'source', nodeId, line })}>
-      {label}
-    </button>
+    <div className="source-links">
+      <button type="button" className="button" onClick={() => dispatch({ type: 'source', nodeId, line })}>
+        {label}
+      </button>
+      {githubLink}
+    </div>
   );
 }
 
@@ -277,9 +305,19 @@ function DependenciesTab({ node }: { node: GraphNode }) {
       </>
     );
   }
+  const metric = model.index.metrics.get(node.id);
+  const targets = new Set(internal.map((o) => o.targetId)).size;
+  const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
   return (
     <>
-      <Section title="Imports" count={internal.length} description="Files this file imports. Click a target to inspect it.">
+      {/* Several counts describe one file's relationships; each names its unit and policy (ADR-047). */}
+      <p className="count-note">
+        <strong>Reading the counts:</strong> {plural(internal.length, 'internal import statement')} reach {plural(targets, 'file')}
+        {metric?.fanOut !== null && metric?.fanOut !== undefined ? ` (${plural(metric.fanOut, 'direct value dependency', 'direct value dependencies')} in Overview, which excludes resources)` : ''}.{' '}
+        {plural(consumers.length, 'file')} import this one in any way, type-only included
+        {metric?.fanIn !== null && metric?.fanIn !== undefined ? `; ${plural(metric.fanIn, 'is a direct value consumer', 'are direct value consumers')}` : ''}.
+      </p>
+      <Section title="Imports" count={internal.length} description="Internal import statements, one row each; several can reach the same file. Click a target to inspect it.">
         <Paged
           items={internal}
           empty="No internal imports."
@@ -351,7 +389,7 @@ function DependenciesTab({ node }: { node: GraphNode }) {
 function ConsumerList({ consumers }: { consumers: [string, { kinds: Set<string>; lines: number[] }][] }) {
   const { model, select } = useViewer();
   return (
-    <Section title="Consumers" count={consumers.length} description="Files that import this file, with the importing statements.">
+    <Section title="Consumers" count={consumers.length} description="Unique files that import this file in any way, type-only included, with their importing lines.">
       <Paged
         items={consumers}
         empty="No file imports this one."
@@ -491,13 +529,46 @@ function FindingsTab({ node }: { node: GraphNode }) {
     return model.diagnostics.filter((d) => d.subjectIds.some((s) => inside.has(s)));
   }, [model, node]);
   if (list.length === 0) return <p className="empty">No findings under the default rules. Thresholds are repository-relative product defaults, not quality grades.</p>;
+  if (node.kind !== 'file')
+    return (
+      <ul className="findings">
+        {list.map((d) => (
+          <FindingCard key={d.id} diagnostic={d} focusId={node.id} />
+        ))}
+      </ul>
+    );
+  // A file's own findings first; then findings about other files that list this one (ADR-047).
+  const own = list.filter((d) => isAbout(d, node.id));
+  const mentions = list.filter((d) => !isAbout(d, node.id));
   return (
-    <ul className="findings">
-      {list.map((d) => (
-        <FindingCard key={d.id} diagnostic={d} focusId={node.id} />
-      ))}
-    </ul>
+    <>
+      <Section title="About this file" count={own.length}>
+        {own.length ? (
+          <ul className="findings">
+            {own.map((d) => (
+              <FindingCard key={d.id} diagnostic={d} focusId={node.id} />
+            ))}
+          </ul>
+        ) : (
+          <p className="empty">None under the default rules.</p>
+        )}
+      </Section>
+      {mentions.length > 0 && (
+        <Section title="Findings about other files" count={mentions.length} description="This file appears in them, for example as one of a heavily imported file’s consumers. Each names its own subject.">
+          <ul className="findings">
+            {mentions.map((d) => (
+              <FindingCard key={d.id} diagnostic={d} focusId={node.id} />
+            ))}
+          </ul>
+        </Section>
+      )}
+    </>
   );
+}
+
+/** A finding is about a file when the file is its subject, or a member of its cycle. */
+export function isAbout(d: Diagnostic, id: string): boolean {
+  return d.subjectIds[0] === id || (d.ruleId === 'ATLAS_STATIC_CYCLE' && d.subjectIds.includes(id));
 }
 
 export function FindingCard({ diagnostic: d, focusId }: { diagnostic: Diagnostic; focusId: string | null }) {
@@ -515,7 +586,7 @@ export function FindingCard({ diagnostic: d, focusId }: { diagnostic: Diagnostic
       <p className="finding-message">{formatDiagnosticMessage(d)}</p>
       {subject && subject.id !== focusId && (
         <p className="finding-subject">
-          In{' '}
+          {d.ruleId === 'ATLAS_STATIC_CYCLE' ? 'Reported on' : 'About'}{' '}
           <button type="button" className="link" onClick={() => select(subject.id)}>
             {model.title(subject)}
           </button>

@@ -2,7 +2,21 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-11):** the four product pillars and Phase 6 candidate tooling are implemented. Evidence includes the real corpus, the portable CLI candidate and the 20-sample near-limit large-history gate under 4 CPU/2 GiB (p95 202.37 s, [ADR-037](adr/ADR-037-export-hashing-and-structural-proofs.md)). All eight CI jobs pass on `7480ad6`. G6 remains open for the exact dense/temporal capacity-fixture matrix, human, reference-hardware and deployment acceptance items R6-01…R6-07 in the [release audit](release/release-audit.md). Runtime instrumentation remains deferred. Agents: read [AGENTS.md](../AGENTS.md).
+**Current milestone (2026-10-13):** Beta 2, *activation and trust*. The public demo
+(<https://urveesh09.github.io/project-atlas/>) is a static viewer on a bundled vuejs/core
+analysis. The packages are `0.1.0-beta.1`. `main` requires a pull request and nine named
+checks (ADR-046). Beta 2 work is recorded at the end of Phase 6 below (ADR-046, ADR-047).
+
+Unchanged since 2026-10-11:
+- The four product pillars and the Phase 6 candidate tooling are implemented.
+- Evidence includes the real corpus and the portable CLI. The 20-sample near-limit
+  large-history gate passed under 4 CPU/2 GiB (p95 202.37 s, [ADR-037](adr/ADR-037-export-hashing-and-structural-proofs.md)).
+- G6 remains open for the exact dense/temporal capacity-fixture matrix, human,
+  reference-hardware and deployment acceptance items R6-01…R6-07 in the
+  [release audit](release/release-audit.md).
+- Runtime instrumentation remains deferred.
+
+Agents: read [AGENTS.md](../AGENTS.md).
 
 ## Phase 0: prove constraints and lock contracts
 
@@ -639,6 +653,30 @@ Checks:
 - `pnpm verify`: 640 passed, 80 skipped.
 - `actionlint`: clean.
 - `check-repository-baseline`: exact bytes for all three repositories.
+
+### Beta 2: activation, workspace and release identity (2026-10-13)
+
+[ADR-047](adr/ADR-047-beta-2-activation-workspace-and-release-identity.md) answers the
+Beta 1 assessment's first-use findings:
+- a guided start whose three tasks name targets derived from the analysis;
+- the city on the first screen, with the stage at y = 408 at 1366×768 (was 572) and
+  y = 429 on a 390 px phone (was 1326);
+- Expand as a full-screen workspace that keeps search, the controls and an evidence panel;
+- counts that name their units, and findings split by subject;
+- no horizontal overflow at 320 px on the demo build;
+- overlap-free 2D map labels;
+- one PNG export with its provenance embedded (`iTXt` `atlas.provenance`);
+- exact GitHub source links for public analyses;
+- version `0.1.0-beta.1`, shown in the viewer.
+
+A user guide, [Analyze your own repository](guides/analyze-your-repository.md), is
+linked from the demo.
+
+Checks:
+- `pnpm verify`: 648 passed, 80 skipped.
+- Viewer end-to-end tests: 30 of 30 on the GPU and with `CI=1`.
+- `pnpm verify:distribution`: passed.
+- Orbits on the GT 730: p95 16.7–16.8 ms in every style, normal and expanded.
 
 ### Reproduce verification
 

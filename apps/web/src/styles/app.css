@@ -212,7 +212,38 @@ button {
 .topbar-actions {
   margin-inline-start: auto;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
+}
+.app-version {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.shortcuts-about {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+/* Narrow screens: every header action wraps and stays reachable (WCAG 1.4.10 reflow). */
+@media (max-width: 560px) {
+  .topbar {
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .topbar-actions {
+    margin-inline-start: 0;
+    width: 100%;
+  }
+  .topbar-actions .button {
+    min-height: 32px;
+    padding: 4px 9px;
+    font-size: 13px;
+  }
+  .repo {
+    flex-wrap: wrap;
+  }
 }
 .shortcuts {
   background: var(--panel-2);
@@ -559,6 +590,23 @@ h2:focus-visible {
   color: var(--muted);
   font-style: italic;
 }
+.count-note {
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 12px;
+}
+.count-note strong {
+  color: var(--text);
+}
+.source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
 .rows {
   list-style: none;
   margin: 0;
@@ -870,15 +918,39 @@ select {
 
 /* Responsive and motion ------------------------------------------------------ */
 @media (max-width: 900px) {
+  /* Small screens scroll as one page; nothing is pinned over the city (ADR-047). */
+  .app {
+    height: auto;
+    min-height: 100%;
+  }
   .layout,
   .app.with-source .layout {
-    grid-template-columns: 1fr;
-    grid-auto-rows: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .content {
+    overflow: visible;
+  }
+  /* Tables wrap their cells to the screen; the page never scrolls sideways (WCAG 1.4.10). */
+  .content table.table,
+  .content table.metrics {
+    table-layout: fixed;
+    width: 100%;
+  }
+  .content table.table :is(th, td),
+  .content table.metrics :is(th, td) {
+    overflow-wrap: anywhere;
   }
   .sidebar {
     max-height: 40vh;
     border-inline-end: 0;
     border-bottom: 1px solid var(--border);
+  }
+  /* The city comes first on small screens; the tree follows it (ADR-047). */
+  .layout > .sidebar {
+    order: 2;
+    border-bottom: 0;
+    border-top: 1px solid var(--border);
   }
   .content {
     padding: 16px;
@@ -912,7 +984,16 @@ select {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px 14px;
+  gap: 2px 14px;
+}
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.timeline-row > .timeline-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .timeline-title {
   font-size: 0.82rem;
@@ -922,9 +1003,8 @@ select {
   color: var(--brand);
 }
 .timeline-summary {
-  margin: 0;
+  margin: 4px 0 0;
   color: var(--muted);
-  flex: 1 1 320px;
 }
 .timeline-summary strong {
   color: var(--text);
@@ -933,9 +1013,11 @@ select {
   margin-left: 8px;
 }
 .timeline-help {
-  flex-basis: 100%;
   color: var(--muted);
   font-size: 0.9rem;
+}
+.timeline-help[open] {
+  flex-basis: 100%;
 }
 .timeline-help summary {
   cursor: pointer;
@@ -952,7 +1034,7 @@ select {
 .timeline-track {
   position: relative;
   height: 56px;
-  margin: 10px 22px 4px;
+  margin: 0 22px;
 }
 .timeline-axis {
   position: absolute;
@@ -1024,14 +1106,17 @@ select {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  margin-top: 6px;
+}
+.timeline-controls:empty {
+  display: none;
 }
 .timeline-current {
   margin: 0;
   flex: 1 1 260px;
-  text-align: center;
   color: var(--muted);
+  font-size: 12px;
 }
 .timeline-current strong {
   color: var(--text);
@@ -1165,8 +1250,10 @@ select {
   .timeline-track {
     margin: 10px 12px 4px;
   }
-  .timeline-current {
-    text-align: left;
+  .timeline-row {
+    flex-wrap: wrap;
+  }
+  .timeline-row > .timeline-scroll {
     flex-basis: 100%;
     order: -1;
   }

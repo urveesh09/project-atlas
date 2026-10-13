@@ -1,6 +1,6 @@
 {
   "name": "@atlas/test-fixtures",
-  "version": "0.1.0-dev",
+  "version": "0.1.0-beta.1",
   "private": true,
   "description": "Authored fixture repositories, demo history builder and adversarial inputs (data only).",
   "license": "MIT",

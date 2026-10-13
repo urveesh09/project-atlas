@@ -1,6 +1,6 @@
 {
   "name": "@atlas/cli",
-  "version": "0.1.0-dev",
+  "version": "0.1.0-beta.1",
   "private": true,
   "description": "The atlas command: doctor, analyze, inspect, verify and serve.",
   "license": "MIT",
