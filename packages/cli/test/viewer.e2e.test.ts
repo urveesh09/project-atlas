@@ -323,6 +323,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     await page.waitForSelector('[data-city-renderer="map"]');
     const downloads: import('playwright').Download[] = [];
     page.on('download', (d) => downloads.push(d));
+    await page.locator('.city-share summary').click();
     await page.getByRole('button', { name: 'Export PNG', exact: true }).click();
     await expect.poll(() => page.locator('.city-message').innerText(), { timeout: 5000 }).toContain('Exported PNG');
     // One download carries its own provenance (ADR-047); metadata is a separate, explicit action.
@@ -433,6 +434,62 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await page.keyboard.press('Escape');
     await expect.poll(() => page.locator('.app.is-workspace').count()).toBe(0);
     expect(await page.locator('#inspector-title').innerText()).toBe('pricing.ts');
+    expect(await audit(page)).toEqual([]);
+  });
+
+  it('highlights files by path pattern, with an exact count the table agrees with', async () => {
+    await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('table');
+    const highlight = page.getByRole('searchbox', { name: 'Highlight paths' });
+    await highlight.fill('src/server, !*.test.ts');
+    const note = await page.locator('#city-pattern-help').innerText();
+    const [, matched, total] = /Highlight: (\d+) of (\d+) files match/.exec(note)!;
+    expect(Number(matched)).toBeGreaterThan(0);
+    expect(await page.locator('.city-table caption').innerText()).toContain(`${matched} displayed of ${total}`);
+    const paths = await page.locator('.city-table tbody th').allInnerTexts();
+    expect(paths.length).toBe(Math.min(40, Number(matched)));
+    expect(paths.every((p) => p.startsWith('src/server/') && !p.endsWith('.test.ts'))).toBe(true);
+    await highlight.fill('a'.repeat(300));
+    expect(await page.locator('#city-pattern-help').innerText()).toContain('longer than 256');
+    await highlight.fill('src/server');
+  });
+
+  it('counts the buildings in every legend band', async () => {
+    await page.getByRole('combobox', { name: 'Lens', exact: true }).selectOption('fan-in');
+    const counts = (await page.locator('.city-legend .legend-count').allInnerTexts()).map((t) => Number(t.replaceAll(',', '')));
+    const total = Number(/of ([\d,]+) files match/.exec(await page.locator('#city-pattern-help').innerText())![1]!.replaceAll(',', ''));
+    expect(counts).toHaveLength(6);
+    expect(counts.reduce((a, b) => a + b, 0)).toBe(total);
+  });
+
+  it('saves, applies, exports and imports named views', async () => {
+    const views = page.locator('.city-views');
+    await views.locator('summary').click();
+    await views.getByRole('textbox', { name: 'Name' }).fill('Server consumers');
+    await views.getByRole('button', { name: 'Save current view' }).click();
+    await expect.poll(() => views.locator('[role="status"]').innerText()).toContain('Saved the view');
+    // Change everything the view holds, then apply it again.
+    await page.getByRole('combobox', { name: 'Lens', exact: true }).selectOption('structure');
+    await page.getByRole('searchbox', { name: 'Highlight paths' }).fill('');
+    await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('map');
+    await views.getByRole('button', { name: 'Server consumers', exact: true }).click();
+    await expect.poll(() => page.getByRole('combobox', { name: 'Lens', exact: true }).inputValue()).toBe('fan-in');
+    expect(await page.getByRole('combobox', { name: 'View', exact: true }).inputValue()).toBe('table');
+    expect(await page.getByRole('searchbox', { name: 'Highlight paths' }).inputValue()).toBe('src/server');
+    const download = page.waitForEvent('download');
+    await views.getByRole('button', { name: 'Export views' }).click();
+    const file = await (await download).path();
+    const { readFileSync } = await import('node:fs');
+    const exported = JSON.parse(readFileSync(file!, 'utf8'));
+    expect(exported.format).toBe('atlas.views/1');
+    expect(exported.views[0]).toMatchObject({ name: 'Server consumers', lens: 'fan-in', mode: 'table', pattern: 'src/server' });
+    await views.getByRole('button', { name: 'Delete the view Server consumers' }).click();
+    expect(await views.getByRole('button', { name: 'Server consumers', exact: true }).count()).toBe(0);
+    await views.locator('input[type="file"]').setInputFiles(file!);
+    await expect.poll(() => views.locator('[role="status"]').innerText()).toContain('Imported 1 view');
+    expect(await views.getByRole('button', { name: 'Server consumers', exact: true }).count()).toBe(1);
+    await views.locator('summary').click();
+    await page.getByRole('searchbox', { name: 'Highlight paths' }).fill('');
+    await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('3d');
     expect(await audit(page)).toEqual([]);
   });
 

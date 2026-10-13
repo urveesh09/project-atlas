@@ -344,9 +344,13 @@ try {
           if (total === 300) {
             const downloads = [], capture = (d) => downloads.push(d); page.on('download', capture);
             try {
+              // Exports live in the Share menu; the PNG carries its provenance inside (ADR-047).
+              await page.locator('.city-share summary').click();
               await page.getByRole('button', { name: 'Export PNG', exact: true }).click();
               await page.waitForFunction(() => document.querySelector('.city-message')?.textContent.includes('Exported PNG'));
-              if (downloads.length !== 2) throw new Error('Export must deliver PNG and metadata');
+              await page.getByRole('button', { name: 'Export metadata', exact: true }).click();
+              await page.waitForFunction(() => document.querySelector('.city-message')?.textContent.includes('atlas-city.metadata.json'));
+              if (downloads.length !== 2) throw new Error('Export must deliver the PNG, then the metadata on request');
               await downloads.find((d) => d.suggestedFilename().endsWith('.png')).saveAs(path.join(images, 'phase3-city-export.png'));
               await downloads.find((d) => d.suggestedFilename().endsWith('.json')).saveAs(path.join(out, 'phase3-image-metadata.json'));
             } finally { page.off('download', capture); }

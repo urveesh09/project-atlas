@@ -678,6 +678,24 @@ Checks:
 - `pnpm verify:distribution`: passed.
 - Orbits on the GT 730: p95 16.7–16.8 ms in every style, normal and expanded.
 
+### Beta 2: editions and free parity (2026-10-13)
+
+[ADR-048](adr/ADR-048-editions-and-free-parity.md) records the edition policy:
+everything shipped stays free (MIT), a later Team edition adds hosted continuity, and
+billing waits for pilot evidence. A dated, sourced
+[comparison with CodeCharta](product/editions-and-comparison.md) marks where ATLAS is
+behind and orders the catch-up work. This change closes five gaps:
+- `.gitignore`-style path highlighting with exact counts;
+- saved views with validated import and export;
+- per-band legend counts;
+- copy image to the clipboard;
+- a Share menu.
+
+Checks:
+- `pnpm verify`: 657 passed, 80 skipped.
+- Viewer end-to-end tests: 33 of 33 on the GPU and with `CI=1`.
+- The demo first screen is unchanged: the stage starts at y = 408 at 1366×768.
+
 ### Reproduce verification
 
 ```sh

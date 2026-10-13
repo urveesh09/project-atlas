@@ -22,6 +22,13 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   - *Open on GitHub* links to the exact commit and line for public analyses;
   - PNG exports that carry their provenance inside the file, plus *Export metadata*;
   - a guide, [Analyze your own repository](docs/guides/analyze-your-repository.md).
+- Free parity with CodeCharta ([ADR-048](docs/adr/ADR-048-editions-and-free-parity.md),
+  [comparison](docs/product/editions-and-comparison.md)):
+  - `.gitignore`-style path highlighting with exact counts;
+  - saved views with import and export;
+  - per-band legend counts;
+  - copy image;
+  - a Share menu.
 - City: keyboard driving (arrows or W A S D, Q/E turn, Shift+arrows tilt, +/− zoom), and
   dependency strokes with arrowheads, rings and direction-marked names on connected files
   ([ADR-045](docs/adr/ADR-045-pointer-picks-keyboard-driving-and-dependency-strokes.md)).
