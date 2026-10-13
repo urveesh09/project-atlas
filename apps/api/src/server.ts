@@ -1,4 +1,4 @@
-import { readFile, realpath, stat } from 'node:fs/promises';
+import { open, realpath } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { isIP, type AddressInfo } from 'node:net';
 import nodePath from 'node:path';
@@ -61,14 +61,25 @@ const VIEWER_CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'uns
 /** Client routes that render the single-page viewer (no server-side state in the path). */
 const VIEWER_ROUTES = /^\/(?:|a\/analysis_[0-9a-f]{64}|jobs\/job_[0-9a-f]{32})$/;
 
+/** A regular file whose real path is `full`, read through one handle (no check-then-read gap). */
+async function readRegularFile(full: string): Promise<Buffer | null> {
+  if ((await realpath(full).catch(() => null)) !== full) return null;
+  const handle = await open(full, 'r').catch(() => null);
+  if (!handle) return null;
+  try {
+    return (await handle.stat()).isFile() ? await handle.readFile() : null;
+  } finally {
+    await handle.close();
+  }
+}
+
 async function serveStatic(res: ServerResponse, root: string, pathname: string): Promise<boolean> {
   const relative = VIEWER_ROUTES.test(pathname) ? 'index.html' : pathname.startsWith('/assets/') ? pathname.slice(1) : null;
   if (!relative || relative.split('/').some((s) => s === '..' || s === '' || s.startsWith('.'))) return false;
   const full = nodePath.resolve(root, ...relative.split('/'));
   if (!full.startsWith(root + nodePath.sep)) return false;
-  const info = await stat(full).catch(() => null);
-  if (!info?.isFile() || (await realpath(full)) !== full) return false;
-  const bytes = await readFile(full);
+  const bytes = await readRegularFile(full);
+  if (!bytes) return false;
   res.writeHead(200, {
     'Content-Type': STATIC_TYPES[nodePath.extname(full)] ?? 'application/octet-stream',
     'Content-Length': bytes.length,

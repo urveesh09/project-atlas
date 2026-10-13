@@ -612,6 +612,34 @@ Evidence:
 - Orbits stay at the 16.7 ms cap, with or without the overlay.
 - `pnpm verify`: 635 passed. Viewer e2e: 27 of 27 on the GPU and with `CI=1`.
 
+### Beta 2: security triage and enforced checks (2026-10-13)
+
+An external Beta 1 assessment of `677a19f` found 15 untriaged CodeQL alerts, 48 Scorecard
+findings and a `main` ruleset that required neither CI nor a pull request.
+[ADR-046](adr/ADR-046-security-triage-and-enforced-checks.md) records a disposition for
+every alert.
+
+- **Fixed:**
+  - polynomial matching of repository-controlled workspace globs (a real stall risk
+    in analysis);
+  - quadratic `.git/config` comment stripping;
+  - three check-then-read file races.
+
+  Two oracle suites compare the new code with the replaced expressions on 40,000+ random
+  inputs.
+- **Dismissed with reasons:** dedicated-worker message handlers, the S3 client's
+  intended upload, and test or maintainer tooling.
+- **Actions pinned:** every workflow action is pinned to a full commit SHA with its
+  version, which fixes 43 Scorecard findings.
+- **Rules on `main`:** a pull request and nine named checks are required, with no bypass.
+  Approvals stay at zero because there is one maintainer. Secret scanning and push
+  protection are on. Branches are deleted after merge.
+
+Checks:
+- `pnpm verify`: 640 passed, 80 skipped.
+- `actionlint`: clean.
+- `check-repository-baseline`: exact bytes for all three repositories.
+
 ### Reproduce verification
 
 ```sh
