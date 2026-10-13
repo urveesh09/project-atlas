@@ -33,7 +33,8 @@ describe('workspace globs', () => {
     const pathParts = ['a', 'b', 'ab', 'aab', 'axb', 'x.y', 'xzy', '', 'ba', 'a\nb'];
     let compared = 0;
     for (let n = 0; n < 6000; n++) {
-      const glob = Array.from({ length: 1 + Math.floor(next() * 4) }, () => pick(globParts)).join('/');
+      const body = Array.from({ length: 1 + Math.floor(next() * 4) }, () => pick(globParts)).join('/');
+      const glob = pick(['', '', './', '/']) + body + pick(['', '', '/', '//']);
       const expected = referenceRegExp(glob);
       const actual = compileWorkspaceGlob(glob);
       expect(actual === null).toBe(expected === null);
@@ -65,6 +66,7 @@ describe('workspace globs', () => {
     const started = performance.now();
     expect(compileWorkspaceGlob(hostile)!.test(dir)).toBe(false);
     expect(compileWorkspaceGlob('*'.repeat(500) + 'b')!.test('a'.repeat(20_000))).toBe(false);
+    expect(compileWorkspaceGlob(`a${'/'.repeat(100_000)}b`)!.test('a/b')).toBe(false);
     expect(performance.now() - started).toBeLessThan(2_000);
   });
 });
