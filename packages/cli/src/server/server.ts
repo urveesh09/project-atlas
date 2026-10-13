@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { readFile, realpath, stat } from 'node:fs/promises';
+import { open, realpath } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { MANIFEST_PATH, directorySource } from '@atlas/artifact/node';
@@ -54,6 +54,18 @@ const SECURITY_HEADERS: Record<string, string> = {
   'Cross-Origin-Resource-Policy': 'same-origin',
   'X-Frame-Options': 'DENY',
 };
+
+/** A regular file whose real path is `full`, read through one handle (no check-then-read gap). */
+async function readRegularFile(full: string): Promise<Buffer | null> {
+  if ((await realpath(full).catch(() => null)) !== full) return null;
+  const handle = await open(full, 'r').catch(() => null);
+  if (!handle) return null;
+  try {
+    return (await handle.stat()).isFile() ? await handle.readFile() : null;
+  } finally {
+    await handle.close();
+  }
+}
 
 function token(): string {
   return randomBytes(32).toString('base64url');
@@ -132,9 +144,9 @@ export async function startViewerServer(options: ViewerServerOptions): Promise<R
     if (relative.includes('\0') || relative.includes('\\') || relative.split('/').some((s) => s === '..' || s.startsWith('.'))) return send(res, 404, 'Not found');
     const full = path.resolve(viewerRoot, ...relative.split('/'));
     if (!full.startsWith(viewerRoot + path.sep)) return send(res, 404, 'Not found');
-    const info = await stat(full).catch(() => null);
-    if (!info?.isFile() || (await realpath(full)) !== full) return send(res, 404, 'Not found');
-    return send(res, 200, await readFile(full), MIME[path.extname(full)] ?? 'application/octet-stream', { 'Cache-Control': relative.startsWith('assets/') ? 'max-age=3600' : 'no-store' });
+    const bytes = await readRegularFile(full);
+    if (!bytes) return send(res, 404, 'Not found');
+    return send(res, 200, bytes, MIME[path.extname(full)] ?? 'application/octet-stream', { 'Cache-Control': relative.startsWith('assets/') ? 'max-age=3600' : 'no-store' });
   };
 
   const server: Server = createServer((req, res) => {

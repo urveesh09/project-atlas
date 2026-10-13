@@ -6,6 +6,15 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 
 ## [Unreleased]
 
+### Security
+- Workspace globs from analyzed repositories are matched without backtracking. A crafted
+  glob could stall analysis
+  ([ADR-046](docs/adr/ADR-046-security-triage-and-enforced-checks.md)).
+- `.git/config` parsing is linear; metadata and static assets are read through one file
+  handle.
+- Workflow actions are pinned to commit SHAs. `main` requires a pull request and CI;
+  secret scanning and push protection are on.
+
 ### Added
 - City: keyboard driving (arrows or W A S D, Q/E turn, Shift+arrows tilt, +/− zoom), and
   dependency strokes with arrowheads, rings and direction-marked names on connected files

@@ -76,20 +76,72 @@ export function parsePnpmWorkspacePackages(text: string): string[] {
   return out;
 }
 
-/** Workspace globs: `*` within a segment, `**` across segments; leading `!` negates. */
-export function workspaceGlobToRegExp(glob: string): RegExp | null {
+export interface WorkspaceGlob {
+  test(dir: string): boolean;
+}
+
+/** `*` and `?` within one path segment, by the two-pointer method: no backtracking blow-up. */
+function segmentMatches(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let resume = 0;
+  while (t < text.length) {
+    if (p < pattern.length && (pattern[p] === '?' || (pattern[p] !== '*' && pattern[p] === text[t]))) {
+      p++;
+      t++;
+    } else if (p < pattern.length && pattern[p] === '*') {
+      star = p++;
+      resume = t;
+    } else if (star >= 0) {
+      p = star + 1;
+      t = ++resume;
+    } else return false;
+  }
+  while (p < pattern.length && pattern[p] === '*') p++;
+  return p === pattern.length;
+}
+
+const LINE_TERMINATOR = /[\n\r\u2028\u2029]/;
+
+/**
+ * Workspace globs: `*` within a segment, `**` across segments; leading `!` negates.
+ * Globs come from the analyzed repository, so matching is a bounded table over segments
+ * rather than a generated regular expression whose backtracking the repository controls.
+ * Semantics: a `**` before another segment spans zero or more non-empty segments; a
+ * trailing `**` spans the rest of the path (at least the separator after its prefix).
+ */
+export function compileWorkspaceGlob(glob: string): WorkspaceGlob | null {
   const cleaned = glob.replace(/^\.\//, '').replace(/\/+$/, '');
   if (cleaned === '' || cleaned.includes('..') || cleaned.startsWith('/')) return null;
-  let pattern = '';
   const segments = cleaned.split('/');
-  segments.forEach((segment, index) => {
-    if (segment === '**') pattern += index === segments.length - 1 ? '.*' : '(?:[^/]+/)*';
-    else {
-      pattern += segment.replace(/[.+^${}()|[\]\\]/g, '\\$&').replaceAll('*', '[^/]*').replaceAll('?', '[^/]');
-      if (index < segments.length - 1) pattern += '/';
-    }
-  });
-  return new RegExp(`^${pattern.replace(/\/$/, '')}$`);
+  return {
+    test(dir: string): boolean {
+      const parts = dir.split('/');
+      // reach[i][j]: the first i glob segments can consume exactly the first j path parts.
+      let reach = new Uint8Array(parts.length + 1);
+      reach[0] = 1;
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i]!;
+        const next = new Uint8Array(parts.length + 1);
+        if (segment === '**' && i === segments.length - 1) {
+          for (let j = 0; j < parts.length; j++) {
+            if (reach[j] && !LINE_TERMINATOR.test(parts.slice(j).join('/'))) return true;
+          }
+          return false;
+        }
+        for (let j = 0; j <= parts.length; j++) {
+          if (!reach[j]) continue;
+          if (segment === '**') {
+            next[j] = 1;
+            for (let k = j; k < parts.length && parts[k] !== ''; k++) next[k + 1] = 1;
+          } else if (j < parts.length && segmentMatches(segment, parts[j]!)) next[j + 1] = 1;
+        }
+        reach = next;
+      }
+      return reach[parts.length] === 1;
+    },
+  };
 }
 
 export function discoverWorkspace(fs: SnapshotFS): WorkspaceMap {
@@ -105,11 +157,11 @@ export function discoverWorkspace(fs: SnapshotFS): WorkspaceMap {
   }
   const pnpm = fs.readText('pnpm-workspace.yaml');
   if (pnpm !== null) globs.push(...parsePnpmWorkspacePackages(pnpm.slice(0, LIMITS.configFileBytes)));
-  const include: RegExp[] = [];
-  const exclude: RegExp[] = [];
+  const include: WorkspaceGlob[] = [];
+  const exclude: WorkspaceGlob[] = [];
   for (const glob of globs.slice(0, 256)) {
     const negated = glob.startsWith('!');
-    const re = workspaceGlobToRegExp(negated ? glob.slice(1) : glob);
+    const re = compileWorkspaceGlob(negated ? glob.slice(1) : glob);
     if (!re) warnings.push({ code: 'WORKSPACE_GLOB_UNSUPPORTED', path: null });
     else (negated ? exclude : include).push(re);
   }

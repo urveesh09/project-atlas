@@ -1,4 +1,4 @@
-import { lstat, readFile, realpath, stat } from 'node:fs/promises';
+import { lstat, open, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { IngestError } from './errors.js';
 import { peelToCommit } from './objects.js';
@@ -29,14 +29,22 @@ export interface LocalRepository {
 const MAX_METADATA_BYTES = 1024 * 1024;
 
 async function readSmall(file: string, limit = MAX_METADATA_BYTES): Promise<string | null> {
+  // One handle for the check and the read, so the file cannot be swapped between them.
+  const handle = await open(file, 'r').catch(() => null);
+  if (!handle) return null;
   try {
-    const info = await stat(file);
+    const info = await handle.stat();
     if (!info.isFile()) return null;
     if (info.size > limit) throw new IngestError('LOCAL_OBJECT_STORE_UNSUPPORTED', 'Repository metadata file is too large');
-    return await readFile(file, 'utf8');
+    const bytes = Buffer.alloc(limit + 1);
+    const { bytesRead } = await handle.read(bytes, 0, limit + 1, 0);
+    if (bytesRead > limit) throw new IngestError('LOCAL_OBJECT_STORE_UNSUPPORTED', 'Repository metadata file is too large');
+    return bytes.subarray(0, bytesRead).toString('utf8');
   } catch (error) {
     if (error instanceof IngestError) throw error;
     return null;
+  } finally {
+    await handle.close();
   }
 }
 
@@ -64,8 +72,20 @@ export function parseGitConfigData(text: string): Map<string, string> {
       section = header[2] === undefined ? header[1]!.toLowerCase() : `${header[1]!.toLowerCase()}.${header[2]}`;
       continue;
     }
-    const kv = /^([A-Za-z][A-Za-z0-9-]*)\s*(?:=\s*(.*))?$/.exec(line);
-    if (kv && section) values.set(`${section}.${kv[1]!.toLowerCase()}`, (kv[2] ?? 'true').replace(/\s*[#;].*$/, '').replace(/^"(.*)"$/, '$1'));
+    // Scanned by index rather than by `\s*`-heavy patterns: a crafted config line must not
+    // make matching quadratic (ADR-046). Same results as the regular expressions it replaced.
+    const key = /^[A-Za-z][A-Za-z0-9-]*/.exec(line)?.[0];
+    if (!key || !section) continue;
+    const rest = line.slice(key.length).trimStart();
+    let value = 'true';
+    if (rest !== '') {
+      if (rest[0] !== '=') continue;
+      value = rest.slice(1).trimStart();
+      if (/[\r\u2028\u2029]/.test(value)) continue;
+    }
+    const comment = value.search(/[#;]/);
+    if (comment >= 0) value = value.slice(0, comment).trimEnd();
+    values.set(`${section}.${key.toLowerCase()}`, value.replace(/^"(.*)"$/, '$1'));
   }
   return values;
 }

@@ -10,7 +10,7 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
 2. [docs/implementation-status.md](docs/implementation-status.md): what is done, with evidence.
 3. [docs/release/release-audit.md](docs/release/release-audit.md): requirement → evidence
    trace, and the open acceptance items R6-01…R6-07.
-4. [docs/adr/](docs/adr/): ADR-001…ADR-045. Every non-obvious design choice lives here.
+4. [docs/adr/](docs/adr/): ADR-001…ADR-046. Every non-obvious design choice lives here.
    Check for an ADR before "fixing" something that looks odd.
 
 **Current state (2026-10-11):** the four pillars and Phase 6 candidate tooling are
@@ -86,6 +86,10 @@ run compiled `dist/`. Rebuild before benchmarks or container tests.
 and live GitHub. The variables and setup are in [hosted development → Test gates](docs/hosted-development.md#test-gates).
 With physical gates enabled, Vitest runs one file at a time (`vitest.config.ts`) because
 fault tests deliberately exhaust memory and PIDs.
+
+**Changes land through pull requests.** `main` requires a pull request and nine named
+checks, with no bypass ([ADR-046](docs/adr/ADR-046-security-triage-and-enforced-checks.md)).
+Work on a branch, push it and open a pull request; it merges once the checks pass.
 
 **CI** (`.github/workflows/ci.yml`): eight jobs. They are verify on Windows and Ubuntu,
 hosted gates, live GitHub, corpus on both OSes, a cross-OS determinism comparison, and the
