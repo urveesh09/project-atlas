@@ -1,6 +1,6 @@
 {
   "name": "@atlas/analyzer-ts",
-  "version": "0.1.0-dev",
+  "version": "0.1.0-beta.1",
   "private": true,
   "description": "TS/JS language adapter: syntax facts, declarations, imports and virtual-filesystem module resolution.",
   "license": "MIT",

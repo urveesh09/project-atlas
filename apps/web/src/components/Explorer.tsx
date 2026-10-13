@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { WorkspaceProvider, useWorkspace } from '../app/workspace';
 import { useViewer } from '../app/context';
 import { shortOid } from '../app/model';
 import { Inspector } from './Inspector';
@@ -9,7 +10,7 @@ import { Tree } from './Tree';
 import { City } from './City';
 import { ComparePanel } from './ComparePanel';
 import { Tombstone } from './HistoryPanel';
-import { Timeline } from './Timeline';
+import { DEMO, OWN_REPOSITORY_GUIDE, StartPanel } from './StartPanel';
 import { ResultActions } from '../hosted/ResultActions';
 
 /**
@@ -17,8 +18,21 @@ import { ResultActions } from '../hosted/ResultActions';
  * publication adds its expiry, a new-analysis route and owner deletion; it never offers
  * to upload anything.
  */
-export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => void; hosted?: { analysisId: string; expiresAt: string | null } | null }) {
+type ExplorerProps = { onOpenOther: () => void; hosted?: { analysisId: string; expiresAt: string | null } | null };
+export const ATLAS_VERSION = typeof __ATLAS_VERSION__ === 'string' ? __ATLAS_VERSION__ : 'dev';
+
+export function Explorer(props: ExplorerProps) {
+  const root = useRef<HTMLDivElement>(null);
+  return (
+    <WorkspaceProvider target={root}>
+      <ExplorerShell {...props} root={root} />
+    </WorkspaceProvider>
+  );
+}
+
+function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { root: RefObject<HTMLDivElement | null> }) {
   const { model, state, select, dispatch } = useViewer();
+  const workspace = useWorkspace();
   const searchRef = useRef<HTMLInputElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   // Hiding the tree is a per-viewer layout preference, like the city style.
@@ -63,7 +77,10 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
   }, [dispatch, helpOpen, select, state.selectedId, state.tombstone, state.source]);
 
   return (
-    <div className={`app${state.source ? ' with-source' : ''}${treeHidden ? ' tree-hidden' : ''}`}>
+    <div
+      ref={root}
+      className={`app${state.source ? ' with-source' : ''}${treeHidden ? ' tree-hidden' : ''}${workspace.mode !== 'no' ? ` is-workspace${workspace.drawer ? '' : ' drawer-closed'}` : ''}`}
+    >
       <a className="skip" href="#main-content">
         Skip to content
       </a>
@@ -74,6 +91,9 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
           </span>
           <span className="brand-name">ATLAS</span>
         </button>
+        <span className="app-version" title={`ATLAS viewer ${ATLAS_VERSION}`}>
+          {ATLAS_VERSION}
+        </span>
         <div className="repo">
           <span className="repo-name">{model.manifest.repo.displayName}</span>
           <code className="repo-commit" title={model.commit.oid}>
@@ -90,10 +110,10 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
           <button type="button" className="button ghost" aria-expanded={helpOpen} aria-controls="shortcuts" onClick={() => setHelpOpen((o) => !o)}>
             Keys
           </button>
-          {import.meta.env.VITE_ATLAS_DEMO_BASE && (
-            // Static demo builds (ADR-044) point visitors at running ATLAS on their own code.
-            <a className="button ghost" href="https://github.com/urveesh09/project-atlas#try-it" target="_blank" rel="noopener">
-              Run on your repository
+          {DEMO && (
+            // Static demo builds (ADR-044, ADR-047) point visitors at running ATLAS on their own code.
+            <a className="button ghost" href={OWN_REPOSITORY_GUIDE} target="_blank" rel="noopener noreferrer">
+              Your repository
             </a>
           )}
           {hosted ? (
@@ -121,6 +141,9 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
             <div><dt><kbd>Esc</kbd></dt><dd>Close panel, then clear selection</dd></div>
             <div><dt><kbd>?</kbd></dt><dd>Show or hide this help</dd></div>
           </dl>
+          <p className="shortcuts-about">
+            ATLAS viewer {ATLAS_VERSION} · analysis by {model.manifest.analyzer.version} · artifact {model.manifest.artifactVersion.replace('atlas.artifact/', '')}
+          </p>
         </section>
       )}
       <div className="layout">
@@ -128,7 +151,7 @@ export function Explorer({ onOpenOther, hosted = null }: { onOpenOther: () => vo
           <Tree />
         </nav>
         <main id="main-content" className="content city-content" tabIndex={-1}>
-          <Timeline />
+          <StartPanel />
           <City />
           <div className="city-inspector">
             {state.tombstone ? (

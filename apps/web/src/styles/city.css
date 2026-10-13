@@ -6,26 +6,31 @@
 .city-content .city { min-width: 0; }
 @media (max-width: 1350px) { .city-content { display: block; } }
 .with-source .city-content { display: block; }
-.city-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 22px 24px 16px; }
-.city-heading h1 { font-size: clamp(22px, 2.5vw, 32px); letter-spacing: -.04em; margin: 0; font-weight: 650; }
-.city-heading > span { font-size: 12px; color: var(--muted); white-space: nowrap; }
-.city-heading .eyebrow { letter-spacing: .14em; font-size: 10px; color: var(--brand); margin: 0 0 6px; font-weight: 700; }
-.city-toolbar, .city-overlay-controls, .city-reach { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; padding: 12px 20px; }
+.city-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; padding: 12px 16px 2px; }
+.city-heading h1 { font-size: 17px; letter-spacing: -.01em; margin: 0; font-weight: 650; overflow-wrap: anywhere; }
+.city-heading h1 span { font-weight: 400; color: var(--muted); }
+.city-counts { font-size: 12px; color: var(--muted); }
+/* The long explanation is one click away, so the city starts on the first screen (ADR-047). */
+.city-about { margin-inline-start: auto; font-size: 12px; }
+.city-about[open] { flex-basis: 100%; margin-inline-start: 0; }
+.city-about summary { cursor: pointer; color: var(--accent); min-height: 24px; display: inline-flex; align-items: center; }
+.city-about .city-note { padding: 0; margin: 2px 0 4px; }
+.city-toolbar, .city-overlay-controls, .city-reach { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; padding: 8px 16px; }
 .city label { display: flex; gap: 4px; flex-direction: column; color: var(--muted); font-size: 11px; }
-.city button, .city select { min-height: 44px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--panel-2); padding: 8px 12px; font: inherit; font-size: 12px; cursor: pointer; }
-.city select { max-width: 240px; width: 100%; }
+.city button, .city select { min-height: 36px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--panel-2); padding: 8px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+.city select { max-width: 220px; width: 100%; }
 .city button:hover:not(:disabled), .city select:hover { border-color: var(--accent); }
 .city button:disabled { opacity: .5; cursor: default; }
-.city .city-check { flex-direction: row; gap: 8px; align-items: center; min-height: 44px; padding: 0 6px; font-size: 12px; }
+.city .city-check { flex-direction: row; gap: 8px; align-items: center; min-height: 36px; padding: 0 6px; font-size: 12px; }
+/* Touch screens keep 44px targets. */
+@media (pointer: coarse) { .city button, .city select, .city .city-check { min-height: 44px; } }
 .city input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 .city-note { color: var(--muted); font-size: 11px; padding: 0 20px; margin: 6px 0 12px; }
-.city-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 20px 14px; font-size: 11px; }
+.city-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 4px 16px 8px; font-size: 11px; }
 .city-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .city-legend i { width: 15px; height: 15px; border: 1px solid var(--muted); border-radius: 3px; }
 .city-stage { height: clamp(320px, 54vh, 720px); position: relative; background: #e9e4d7; overflow: hidden; isolation: isolate; }
 /* Expanded city: the browser's full screen, or a fixed overlay where full screen is refused. */
-.city-stage:fullscreen { height: 100vh; width: 100vw; }
-.city-stage.is-expanded { position: fixed; inset: 0; height: auto; z-index: 60; }
 .city-surface, .city-canvas { width: 100%; height: 100%; display: block; touch-action: none; }
 .city-surface:focus { outline: none; }
 .city-surface:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
@@ -41,6 +46,9 @@
 .city-hover span { display: block; font-size: 11px; color: #bcc7d7; }
 /* Floating view controls, top right; translucent so the city stays the subject. */
 .city-nav { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; z-index: 2; }
+/* Camera buttons in a column on the right edge, like a map's zoom control. */
+.city-nav.city-nav-camera { top: 66px; flex-direction: column; }
+.city-exports { display: inline-flex; gap: 8px; margin-inline-start: auto; }
 .city .city-nav button { min-width: 44px; padding: 6px 10px; font-size: 17px; line-height: 1; background: rgba(250, 248, 242, 0.9); border-color: rgba(38, 51, 68, 0.18); box-shadow: 0 1px 4px rgba(24, 35, 49, 0.16); backdrop-filter: blur(6px); }
 .city .city-nav button[aria-pressed=true] { background: #182331; color: #eef1f5; }
 /* Selection card, bottom left: the folder trail (each step selectable) and key numbers. */
@@ -80,3 +88,61 @@
   .city-table-wrap { padding: 10px; }
 }
 .city-content > .timeline, .city-content > .compare { grid-column: 1 / -1; }
+
+/* History sits under the stage like a scrubber (ADR-047). */
+.city > .timeline { border: 0; border-top: 1px solid var(--border); border-radius: 0; margin: 0; padding: 8px 16px; background: var(--panel); }
+
+/* Guided start (ADR-047). */
+.start { grid-column: 1 / -1; position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 44px 10px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+.start-text { flex: 1 1 240px; min-width: 0; }
+.start h2 { margin: 0; font-size: 14px; }
+.start p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.start-tasks { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; flex: 3 1 480px; min-width: 0; overflow-x: auto; }
+.start-tasks li { flex: 1 0 168px; min-width: 0; }
+.start-tasks button { width: 100%; height: 100%; min-height: 44px; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); text-align: start; cursor: pointer; font: inherit; }
+.start-tasks button:hover { border-color: var(--accent); }
+.start-tasks strong { font-size: 13px; }
+.start-tasks span { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.start-own { display: inline-block; margin-top: 4px; font-weight: 600; font-size: 13px; color: var(--accent); }
+.start-hide { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+.start-hide:hover { background: var(--panel-2); color: var(--text); }
+@media (max-width: 640px) {
+  .start p { display: none; }
+}
+.start-reopen { grid-column: 1 / -1; margin: -8px 0 0; font-size: 12px; text-align: end; }
+
+/* Expanded workspace (ADR-047): the explorer itself goes full screen. Search, controls and
+   the evidence drawer stay; the tree, guided start and long notes step aside. */
+.app.is-workspace { position: fixed; inset: 0; z-index: 60; background: var(--bg); }
+.app.is-workspace .sidebar, .app.is-workspace .shortcuts, .app.is-workspace .start, .app.is-workspace .start-reopen,
+.app.is-workspace .city-heading, .app.is-workspace .city-about { display: none; }
+.app.is-workspace .layout, .app.is-workspace.with-source .layout { grid-template-columns: minmax(0, 1fr); }
+.app.is-workspace .topbar { padding: 6px 12px; gap: 10px; }
+.app.is-workspace .city-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 10px; padding: 10px; }
+.app.is-workspace.drawer-closed .city-content { grid-template-columns: minmax(0, 1fr); }
+.app.is-workspace.drawer-closed .city-inspector { display: none; }
+.app.is-workspace .city-content > .city-inspector { position: sticky; top: 0; max-height: calc(100vh - 80px); overflow-y: auto; }
+.app.is-workspace .city { margin-bottom: 10px; }
+.app.is-workspace .city-stage { height: calc(100vh - 250px); min-height: 300px; }
+@media (max-width: 900px) {
+  .app.is-workspace .city-content { display: block; }
+  .app.is-workspace .city-content > .city-inspector { position: static; max-height: none; }
+}
+
+/* Labels beside their controls on wider screens: the toolbar takes two short rows. */
+@media (min-width: 641px) {
+  .city-toolbar { align-items: center; gap: 6px 12px; }
+  .city-toolbar label:not(.city-check) { flex-direction: row; align-items: center; gap: 6px; font-size: 12px; }
+  .city-toolbar select { width: auto; min-height: 32px; padding: 4px 8px; }
+  .city-toolbar .city-check { min-height: 32px; }
+  .city-exports button { min-height: 32px; padding: 4px 10px; }
+}
+@media (min-width: 641px) and (pointer: coarse) {
+  .city-toolbar select, .city-exports button, .city-toolbar .city-check { min-height: 44px; }
+}
+/* Phones: the city right under its title; its controls follow (ADR-047). */
+@media (max-width: 640px) {
+  .city { display: flex; flex-direction: column; }
+  .city > .city-heading { order: -2; }
+  .city > .city-stage { order: -1; height: clamp(300px, 62vh, 520px); }
+}

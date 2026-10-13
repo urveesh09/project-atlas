@@ -1,6 +1,6 @@
 {
   "name": "@atlas/layout",
-  "version": "0.1.0-dev",
+  "version": "0.1.0-beta.1",
   "private": true,
   "description": "Deterministic integer city layout: hierarchical square-shelf packing and seeded styling.",
   "license": "MIT",

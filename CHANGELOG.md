@@ -16,6 +16,12 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   secret scanning and push protection are on.
 
 ### Added
+- Beta 2 first use ([ADR-047](docs/adr/ADR-047-beta-2-activation-workspace-and-release-identity.md)):
+  - a guided start with three tasks that name real targets;
+  - Expand as a full-screen workspace with search, controls and an evidence panel;
+  - *Open on GitHub* links to the exact commit and line for public analyses;
+  - PNG exports that carry their provenance inside the file, plus *Export metadata*;
+  - a guide, [Analyze your own repository](docs/guides/analyze-your-repository.md).
 - City: keyboard driving (arrows or W A S D, Q/E turn, Shift+arrows tilt, +/− zoom), and
   dependency strokes with arrowheads, rings and direction-marked names on connected files
   ([ADR-045](docs/adr/ADR-045-pointer-picks-keyboard-driving-and-dependency-strokes.md)).
@@ -37,7 +43,17 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   living sea ([ADR-038](docs/adr/ADR-038-decorative-city-architecture.md) to
   [ADR-041](docs/adr/ADR-041-living-city.md)).
 
+### Changed
+- The city takes the first screen. History is a compact strip under it, the long notes
+  sit behind *How to read*, and camera buttons are on the stage. On phones the city comes
+  before the tree.
+- Counts name their units and policies, and a file's findings are split from findings
+  about other files.
+- Packages are versioned `0.1.0-beta.1`; the viewer shows its version.
+
 ### Fixed
+- The demo page was 337 px wide on a 320 px screen and clipped a header action.
+- 2D map package labels overlapped.
 - Clicking a building scrolled the page to the inspector heading (ADR-045).
 - After a snapshot change, a failing occlusion worker re-baked the first snapshot
   (ADR-043).

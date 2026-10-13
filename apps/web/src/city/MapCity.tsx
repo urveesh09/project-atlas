@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { facadeColor, lensValue, type CityBuilding, type CityData, type CityLens } from '@atlas/layout';
 import { EDGE_COLORS, edgeClass, type OverlayResult } from './overlay';
+import { placeMapLabels, type MapLabelCandidate } from './map-labels';
 import type { CityHandle } from './types';
 
 /** Same immutable rectangles as 3D; never reruns the layout. No WebGL dependency. */
@@ -147,18 +148,54 @@ export function MapCity(props: {
         context.lineTo(ex - 8 * Math.cos(angle + 0.45), ez - 8 * Math.sin(angle + 0.45));
         context.stroke();
       }
+      // Labels never overlap (ADR-047): the selected file, then its package, then larger
+      // packages; each name shortens to its district or is left out.
       context.font = `${12 * scaleFactor}px system-ui`;
       context.textAlign = 'center';
-      for (const d of city.districts.filter((d) => d.kind === 'package').slice(0, 20)) {
-        const text = d.label.slice(0, 42),
-          px = x(d.rect.x + d.rect.width / 2),
-          pz = z(d.rect.z + 70),
-          width = context.measureText(text).width + 10;
-        context.fillStyle = '#faf8f2';
-        context.fillRect(px - width / 2, pz - 12, width, 18);
-        context.fillStyle = '#263344';
-        context.fillText(text, px, pz + 1);
+      context.textBaseline = 'middle';
+      const labelHeight = 18 * scaleFactor;
+      const candidates: MapLabelCandidate[] = [];
+      const only = selected.size === 1 ? city.buildings.find((b) => selected.has(b.nodeId)) : undefined;
+      if (only) {
+        candidates.push({
+          key: 'selection',
+          text: only.path.split('/').at(-1) ?? only.path,
+          priority: 0,
+          weight: 0,
+          x: x(only.rect.x + only.rect.width / 2),
+          y: z(only.rect.z) - labelHeight,
+          maxWidth: 320 * scaleFactor,
+        });
       }
+      for (const d of city.districts) {
+        if (d.kind !== 'package') continue;
+        const w = d.rect.width * s,
+          h = d.rect.depth * s;
+        if (h < labelHeight * 1.5) continue;
+        const holdsSelection = only !== undefined && only.rect.x >= d.rect.x && only.rect.x < d.rect.x + d.rect.width && only.rect.z >= d.rect.z && only.rect.z < d.rect.z + d.rect.depth;
+        candidates.push({
+          text: d.label,
+          priority: holdsSelection ? 1 : 2,
+          weight: w * h,
+          x: x(d.rect.x + d.rect.width / 2),
+          y: z(d.rect.z) + labelHeight * 0.75,
+          maxWidth: w - 8 * scaleFactor,
+        });
+      }
+      const placed = placeMapLabels(candidates, (t) => context.measureText(t).width, target, {
+        height: labelHeight,
+        padding: 5 * scaleFactor,
+        gap: 4 * scaleFactor,
+        max: 24,
+      });
+      for (const label of placed) {
+        const focus = label.key === 'selection';
+        context.fillStyle = focus ? '#153d5c' : '#faf8f2';
+        context.fillRect(label.x, label.y, label.width, label.height);
+        context.fillStyle = focus ? '#ffffff' : '#263344';
+        context.fillText(label.text, label.x + label.width / 2, label.y + label.height / 2 + scaleFactor);
+      }
+      context.textBaseline = 'alphabetic';
     };
     const invalidate = () => {
       if (!frame)
