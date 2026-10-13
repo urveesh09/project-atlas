@@ -243,6 +243,13 @@ export function MapCity(props: {
       north: reset,
       focus,
       cameraState: () => ({ ...view.current }),
+      restoreCamera: (state) => {
+        const c = state as { x?: unknown; z?: unknown; scale?: unknown } | null;
+        if (c && Number.isFinite(c.x) && Number.isFinite(c.z) && typeof c.scale === 'number' && c.scale > 0) {
+          view.current = { x: c.x as number, z: c.z as number, scale: Math.min(2, Math.max(0.001, c.scale)) };
+          invalidate();
+        }
+      },
       exportPng: async () => {
         const scale = Math.min(2048 / el.width, 2048 / el.height, Math.sqrt(4_000_000 / (el.width * el.height)));
         const out = document.createElement('canvas');

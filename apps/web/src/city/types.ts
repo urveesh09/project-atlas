@@ -5,6 +5,8 @@ export interface CityHandle {
   focus(ids: ReadonlySet<string>): void;
   exportPng(): Promise<Blob>;
   cameraState(): unknown;
+  /** Return to a camera from `cameraState` (saved views, ADR-048); invalid input is ignored. */
+  restoreCamera?(state: unknown): void;
   /** Fly to the previous (-1) or next (+1) remembered camera view, where supported. */
   travel?(step: -1 | 1): void;
 }

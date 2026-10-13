@@ -61,6 +61,11 @@ export default function ThreeCity(props: {
       focus: (ids) => view.focus(ids),
       exportPng: () => view.exportPng(),
       cameraState: () => view.cameraState(),
+      restoreCamera: (state) => {
+        const c = state as { position?: unknown; target?: unknown; zoom?: unknown } | null;
+        const vector = (v: unknown): v is number[] => Array.isArray(v) && v.length === 3 && v.every((n) => Number.isFinite(n));
+        if (c && vector(c.position) && vector(c.target) && typeof c.zoom === 'number' && c.zoom > 0) view.restoreCamera({ position: c.position, target: c.target, zoom: c.zoom });
+      },
       travel: (step) => view.travel(step),
     });
     if (new URLSearchParams(location.search).get('atlasBenchmark') === '1') window.__atlasCity = view;

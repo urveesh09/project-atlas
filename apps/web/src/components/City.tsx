@@ -13,6 +13,9 @@ import type { CityGhost, ViewHistory } from '../city/renderer';
 import { overlayKey, type OverlayResult } from '../city/overlay';
 import { addProvenance, downloadBlob, embedPngText, exportMetadata, PROVENANCE_KEYWORD } from '../city/export';
 import { CITY_THEMES, CITY_THEME_LABEL, type CityTheme } from '../city/themes';
+import { compilePathPattern } from '../app/path-pattern';
+import type { SavedView } from '../app/saved-views';
+import { SavedViews } from './SavedViews';
 import '../styles/city.css';
 
 const ThreeCity = lazy(() => import('../city/ThreeCity'));
@@ -157,12 +160,88 @@ export function City() {
     }
     return ids;
   }, [model, state.selectedId]);
+  // Highlight by path pattern (ADR-048): matching files stay bright, the rest dim.
+  const [pattern, setPattern] = useState('');
+  const compiled = useMemo(() => {
+    try {
+      return { matcher: compilePathPattern(pattern), error: null as string | null };
+    } catch (error) {
+      return { matcher: null, error: error instanceof Error ? error.message : 'Invalid pattern' };
+    }
+  }, [pattern]);
   const filter = useMemo(
     () => (b: CityBuilding) =>
-      state.filter === 'all' ||
-      (state.filter === 'findings' ? model.diagnosticCount(b.nodeId) > 0 : b.role === state.filter),
-    [model, state.filter],
+      (state.filter === 'all' || (state.filter === 'findings' ? model.diagnosticCount(b.nodeId) > 0 : b.role === state.filter)) &&
+      (!compiled.matcher || compiled.matcher.test(b.path)),
+    [model, state.filter, compiled],
   );
+  // Buildings per legend band, so a colour also reads as a count.
+  const bands = useMemo(() => {
+    if (state.lens === 'structure') return null;
+    const stops = LENS_STOPS[state.lens as MetricLens];
+    const counts = new Array<number>(stops.length).fill(0);
+    let unknown = 0;
+    for (const b of model.city.buildings) {
+      const value = lensValue(b, state.lens);
+      if (value === null) {
+        unknown++;
+        continue;
+      }
+      let band = 0;
+      while (band + 1 < stops.length && value >= stops[band + 1]!) band++;
+      counts[band]!++;
+    }
+    return { counts, unknown };
+  }, [model, state.lens]);
+  // Saved views (ADR-048) restore the camera once the chosen view has drawn.
+  const pendingCamera = useRef<SavedView['camera']>(null);
+  const currentView = (): Omit<SavedView, 'name' | 'savedAt'> => {
+    const camera = handle.current?.cameraState() as SavedView['camera'] | undefined;
+    return {
+      lens: state.lens,
+      mode: state.mode,
+      filter: state.filter,
+      direction: state.direction,
+      includeTypes: state.includeTypes,
+      pattern,
+      selectedPath: state.selectedId ? model.pathOf(state.selectedId) : null,
+      theme,
+      camera: camera ?? null,
+    };
+  };
+  const applyView = (view: SavedView) => {
+    dispatch({ type: 'mode', mode: view.mode });
+    if (lenses.includes(view.lens)) dispatch({ type: 'lens', lens: view.lens });
+    dispatch({ type: 'filter', filter: view.filter });
+    dispatch({ type: 'edges', direction: view.direction, includeTypes: view.includeTypes });
+    setPattern(view.pattern);
+    if (view.theme && (CITY_THEMES as readonly string[]).includes(view.theme)) {
+      setTheme(view.theme as CityTheme);
+      store(THEME_KEY, view.theme);
+    }
+    const target = view.selectedPath === null ? null : [...model.index.nodes.values()].find((n) => n.kind !== 'repository' && 'path' in n && n.path === view.selectedPath);
+    select(target?.id ?? null);
+    pendingCamera.current = view.camera;
+    setMessage(`Applied the view “${view.name}”.${view.selectedPath && !target ? ` ${view.selectedPath} is not in this snapshot, so nothing is selected.` : ''}`);
+  };
+  useEffect(() => {
+    const camera = pendingCamera.current;
+    if (!camera || !ready || !handle.current?.restoreCamera) return;
+    // A 3D camera only fits the 3D city, and a map view only the map.
+    if (('position' in camera) === (state.mode === '3d')) handle.current.restoreCamera(camera);
+    pendingCamera.current = null;
+  });
+  const copyImage = async () => {
+    if (!handle.current) return;
+    try {
+      const blob = await handle.current.exportPng();
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      setMessage('Copied the view to the clipboard as an image. Use Export PNG to keep its provenance.');
+    } catch {
+      setMessage('This browser did not allow copying an image. Export PNG saves it instead.');
+    }
+  };
+  const canCopy = typeof ClipboardItem === 'function' && typeof navigator.clipboard?.write === 'function';
   const files = useMemo(
     () => model.city.buildings.filter(filter).sort((a, b) => compareUtf8(a.path, b.path)),
     [model, filter],
@@ -389,15 +468,38 @@ export function City() {
             Low detail
           </label>
         )}
+        <label className="city-pattern">
+          Highlight
+          <input
+            type="search"
+            aria-label="Highlight paths"
+            aria-describedby="city-pattern-help"
+            aria-invalid={compiled.error ? true : undefined}
+            value={pattern}
+            spellCheck={false}
+            placeholder="*.test.ts, packages/core, !**/dist/**"
+            onChange={(e) => setPattern(e.target.value)}
+          />
+        </label>
+        <SavedViews current={currentView} apply={applyView} />
         {state.mode !== 'table' && (
-          <span className="city-exports">
-            <button type="button" disabled={!ready || exporting} onClick={() => void exportImage()}>
-              Export PNG
-            </button>
-            <button type="button" disabled={!ready} onClick={exportMetadataFile}>
-              Export metadata
-            </button>
-          </span>
+          <details className="city-views city-share">
+            <summary>Share</summary>
+            <div className="city-views-panel">
+              {canCopy && (
+                <button type="button" disabled={!ready} onClick={() => void copyImage()}>
+                  Copy image
+                </button>
+              )}
+              <button type="button" disabled={!ready || exporting} onClick={() => void exportImage()}>
+                Export PNG
+              </button>
+              <button type="button" disabled={!ready} onClick={exportMetadataFile}>
+                Export metadata
+              </button>
+              <p className="city-views-empty">The PNG carries its provenance inside the file: repository, commit, lens and analyzer.</p>
+            </div>
+          </details>
         )}
       </div>
       <div className="city-legend" aria-label="City lens legend">
@@ -411,9 +513,12 @@ export function City() {
                 <i style={{ background: METRIC_PALETTE[i] }} aria-hidden="true" />
                 {n}
                 {i === 4 ? '+' : LENS_STOPS[state.lens as MetricLens][i + 1]! - 1 === n ? '' : `–${LENS_STOPS[state.lens as MetricLens][i + 1]! - 1}`}
+                {bands && <span className="legend-count">{bands.counts[i]!.toLocaleString('en-US')}</span>}
               </span>
             ))}
-            <span>× unknown</span>
+            <span>
+              × unknown{bands && <span className="legend-count">{bands.unknown.toLocaleString('en-US')}</span>}
+            </span>
           </>
         )}
         {LENS_NOTE[state.lens] && <span className="legend-note">{LENS_NOTE[state.lens]}</span>}
@@ -434,6 +539,11 @@ export function City() {
           </p>
         </details>
       </div>
+      <p id="city-pattern-help" className={`city-note${compiled.error ? ' city-note-error' : ''}`} hidden={!pattern && !compiled.error}>
+        {compiled.error
+          ? `Highlight: ${compiled.error}.`
+          : `Highlight: ${files.length.toLocaleString('en-US')} of ${model.city.buildings.length.toLocaleString('en-US')} files match. Separate patterns with commas; * and ? stay in one folder, ** spans folders, a name without / matches anywhere, ! excludes.`}
+      </p>
       {state.filter !== 'all' && (
         <p className="city-note">
           Display filter active: {files.length} matching files. Other buildings are dimmed; metrics and coordinates

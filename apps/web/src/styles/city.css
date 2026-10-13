@@ -48,7 +48,6 @@
 .city-nav { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; z-index: 2; }
 /* Camera buttons in a column on the right edge, like a map's zoom control. */
 .city-nav.city-nav-camera { top: 66px; flex-direction: column; }
-.city-exports { display: inline-flex; gap: 8px; margin-inline-start: auto; }
 .city .city-nav button { min-width: 44px; padding: 6px 10px; font-size: 17px; line-height: 1; background: rgba(250, 248, 242, 0.9); border-color: rgba(38, 51, 68, 0.18); box-shadow: 0 1px 4px rgba(24, 35, 49, 0.16); backdrop-filter: blur(6px); }
 .city .city-nav button[aria-pressed=true] { background: #182331; color: #eef1f5; }
 /* Selection card, bottom left: the folder trail (each step selectable) and key numbers. */
@@ -135,10 +134,10 @@
   .city-toolbar label:not(.city-check) { flex-direction: row; align-items: center; gap: 6px; font-size: 12px; }
   .city-toolbar select { width: auto; min-height: 32px; padding: 4px 8px; }
   .city-toolbar .city-check { min-height: 32px; }
-  .city-exports button { min-height: 32px; padding: 4px 10px; }
+  .city-views > summary { min-height: 32px; }
 }
 @media (min-width: 641px) and (pointer: coarse) {
-  .city-toolbar select, .city-exports button, .city-toolbar .city-check { min-height: 44px; }
+  .city-toolbar select, .city-views > summary, .city-toolbar .city-check, .city-pattern input { min-height: 44px; }
 }
 /* Phones: the city right under its title; its controls follow (ADR-047). */
 @media (max-width: 640px) {
@@ -146,3 +145,24 @@
   .city > .city-heading { order: -2; }
   .city > .city-stage { order: -1; height: clamp(300px, 62vh, 520px); }
 }
+
+/* Highlight and saved views (ADR-048). */
+.city-pattern input { min-height: 32px; width: min(280px, 60vw); border: 1px solid var(--border); border-radius: 7px; background: var(--panel-2); color: var(--text); padding: 4px 8px; font: inherit; font-size: 12px; font-family: var(--mono); }
+.city-pattern input[aria-invalid=true] { border-color: var(--error); }
+.city-note-error { color: var(--error); }
+.legend-count { margin-inline-start: 3px; padding: 0 5px; border-radius: 8px; background: var(--panel-2); color: var(--muted); font-variant-numeric: tabular-nums; }
+.city-views { position: relative; font-size: 12px; }
+.city-views > summary { min-height: 32px; display: inline-flex; align-items: center; padding: 4px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel-2); cursor: pointer; list-style: none; }
+.city-views > summary::-webkit-details-marker { display: none; }
+.city-views > summary::after { content: '▾'; margin-inline-start: 6px; color: var(--muted); }
+.city-views-panel { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: min(320px, 86vw); padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 30px rgb(0 0 0 / 0.25); display: grid; gap: 10px; }
+.city-views-panel ul { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; }
+.city-views-panel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; }
+.city .city-views-delete { min-height: 28px; min-width: 28px; padding: 0 8px; }
+.city-views-panel form { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+.city-views-panel form label { flex: 1 1 140px; }
+.city-views-panel input[type=text] { min-height: 32px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel-2); color: var(--text); padding: 4px 8px; font: inherit; width: 100%; }
+.city-views-files { display: flex; gap: 8px; flex-wrap: wrap; }
+.city-views-empty, .city-views-note { margin: 0; color: var(--muted); }
+.city-share .city-views-panel { left: auto; right: 0; width: min(260px, 86vw); }
+.city-share { margin-inline-start: auto; }
