@@ -462,7 +462,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
   });
 
   it('saves, applies, exports and imports named views', async () => {
-    const views = page.locator('.city-views');
+    const views = page.locator('.city-saved');
     await views.locator('summary').click();
     await views.getByRole('textbox', { name: 'Name' }).fill('Server consumers');
     await views.getByRole('button', { name: 'Save current view' }).click();
@@ -491,6 +491,43 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await page.getByRole('searchbox', { name: 'Highlight paths' }).fill('');
     await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('3d');
     expect(await audit(page)).toEqual([]);
+  });
+
+  it('focuses on a folder and hides paths, keeping every plot fixed (ADR-051)', async () => {
+    const view = page.getByRole('combobox', { name: 'View', exact: true });
+    const caption = async () => /(\d+) displayed of (\d+)/.exec(await page.locator('.city-table caption').innerText())!.slice(1).map(Number) as [number, number];
+    await page.getByRole('searchbox', { name: 'Highlight paths' }).fill('');
+    await view.selectOption('table');
+    const [, total] = await caption();
+    await view.selectOption('map');
+    await page.waitForSelector('[data-city-renderer="map"]');
+    await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).fill('pricing.ts');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.ts');
+    const crumbs = page.locator('.city-trail button');
+    await crumbs.last().click();
+    const focus = page.getByRole('button', { name: /^Focus on / });
+    const folder = (await focus.getAttribute('aria-label'))!.replace('Focus on ', '');
+    await focus.click();
+    await view.selectOption('table');
+    const [shown] = await caption();
+    expect(shown).toBeGreaterThan(0);
+    expect(shown).toBeLessThan(total);
+    const rows = await page.locator('.city-table tbody th').allInnerTexts();
+    expect(rows.every((p) => p.startsWith(`${folder}/`))).toBe(true);
+    expect(await page.locator('.city-table caption').innerText()).toContain(`${total - shown} hidden by the scope`);
+    const scope = page.locator('.city-scope');
+    await scope.locator('summary').click();
+    expect(await scope.locator('summary').innerText()).toContain(`${total - shown} hidden`);
+    await scope.getByRole('textbox', { name: 'Hide paths' }).fill('*.test.ts, *.spec.ts');
+    const [afterHide] = await caption();
+    expect(afterHide).toBeLessThanOrEqual(shown);
+    expect((await page.locator('.city-table tbody th').allInnerTexts()).some((p) => /\.(test|spec)\.ts$/.test(p))).toBe(false);
+    expect(await audit(page)).toEqual([]);
+    await scope.getByRole('button', { name: 'Show everything' }).click();
+    expect((await caption())[0]).toBe(total);
+    await scope.locator('summary').click();
+    await view.selectOption('3d');
   });
 
   it('logged no page errors', () => {

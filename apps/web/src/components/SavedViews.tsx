@@ -42,7 +42,7 @@ export function SavedViews({ current, apply }: { current(): Omit<SavedView, 'nam
     }
   };
   return (
-    <details className="city-views">
+    <details className="city-views city-saved">
       <summary>
         <Icon name="bookmark" />
         Saved views{views.length ? ` (${views.length})` : ''}

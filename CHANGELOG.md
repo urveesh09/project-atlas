@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Scope ([ADR-051](docs/adr/ADR-051-scope-focus-and-hide.md)): focus on a folder or package
+  and hide paths by pattern. Plots stay fixed, every count names what is hidden, and saved
+  views keep the scope.
 - Change colouring in Compare ([ADR-050](docs/adr/ADR-050-change-colouring-in-compare.md)):
   - colour snapshot B by the signed change of code lines, complexity, fan-in, fan-out or
     hotspot score since A;

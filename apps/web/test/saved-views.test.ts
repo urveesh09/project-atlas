@@ -10,6 +10,8 @@ const view: SavedView = {
   direction: 'both',
   includeTypes: false,
   pattern: 'packages/runtime-*/**, !*.test.ts',
+  focus: 'packages/runtime-core',
+  hide: '**/__tests__/**',
   selectedPath: 'packages/runtime-core/src/renderer.ts',
   theme: 'western',
   camera: { position: [1, 2, 3], target: [0, 0, 0], zoom: 1 },
@@ -19,6 +21,15 @@ describe('saved views', () => {
   it('round-trip through an exported file', () => {
     const text = serializeSavedViews('vuejs/core', [view]);
     expect(parseSavedViewsFile(text)).toEqual({ views: [view], skipped: 0, repository: 'vuejs/core' });
+  });
+
+  it('reads views saved before scope existed as showing everything, and bounds scope fields (ADR-051)', () => {
+    const { focus: _focus, hide: _hide, ...old } = view;
+    expect(parseSavedView(old)).toEqual({ ...view, focus: null, hide: '' });
+    expect(parseSavedView({ ...view, focus: '/packages/runtime-core/' })?.focus).toBe('packages/runtime-core');
+    expect(parseSavedView({ ...view, focus: 'x'.repeat(1025) })).toBeNull();
+    expect(parseSavedView({ ...view, focus: 7 })).toBeNull();
+    expect(parseSavedView({ ...view, hide: 'x'.repeat(20_000) })).toBeNull();
   });
 
   it('treat imported files as untrusted: bad entries are skipped, never coerced into code', () => {

@@ -16,6 +16,8 @@ import { CITY_THEMES, CITY_THEME_LABEL, type CityTheme } from '../city/themes';
 import { compilePathPattern } from '../app/path-pattern';
 import type { SavedView } from '../app/saved-views';
 import { SavedViews } from './SavedViews';
+import { ScopeMenu } from './ScopeMenu';
+import { NO_SCOPE, compileScope, type Scope } from '../app/scope';
 import { Icon } from './Icon';
 import { CHANGE_BANDS, CHANGE_COLORS, CHANGE_LABEL, CHANGE_METRICS, changeBandLabel, changePaint, formatChange, type ChangeMetric } from '../city/change';
 import '../styles/city.css';
@@ -168,6 +170,23 @@ export function City() {
     }
     return ids;
   }, [model, state.selectedId]);
+  // Scope (ADR-051): focus on a folder and hide paths. Hidden files leave their plots empty.
+  const [scope, setScope] = useState<Scope>(NO_SCOPE);
+  const scoped = useMemo(() => compileScope(scope), [scope]);
+  const city = useMemo(
+    () => (scoped.active ? { ...model.city, buildings: model.city.buildings.filter((b) => scoped.visible(b.path)) } : model.city),
+    [model.city, scoped],
+  );
+  // Dependency strokes to a hidden file are dropped and counted, never drawn to an empty plot.
+  const shownOverlay = useMemo(() => {
+    if (!scoped.active) return overlay;
+    const shown = (id: string) => {
+      const n = model.node(id);
+      return n?.kind !== 'file' || scoped.visible(n.path);
+    };
+    const arcs = overlay.arcs.filter((a) => shown(a.sourceId) && shown(a.targetId));
+    return arcs.length === overlay.arcs.length ? overlay : { ...overlay, arcs, omitted: overlay.omitted + (overlay.arcs.length - arcs.length) };
+  }, [overlay, scoped, model]);
   // Highlight by path pattern (ADR-048): matching files stay bright, the rest dim.
   const [pattern, setPattern] = useState('');
   const compiled = useMemo(() => {
@@ -189,7 +208,7 @@ export function City() {
     const stops = LENS_STOPS[state.lens as MetricLens];
     const counts = new Array<number>(stops.length).fill(0);
     let unknown = 0;
-    for (const b of model.city.buildings) {
+    for (const b of city.buildings) {
       const value = lensValue(b, state.lens);
       if (value === null) {
         unknown++;
@@ -200,7 +219,7 @@ export function City() {
       counts[band]!++;
     }
     return { counts, unknown };
-  }, [model, state.lens]);
+  }, [city, state.lens]);
   // Saved views (ADR-048) restore the camera once the chosen view has drawn.
   const pendingCamera = useRef<SavedView['camera']>(null);
   const currentView = (): Omit<SavedView, 'name' | 'savedAt'> => {
@@ -212,6 +231,8 @@ export function City() {
       direction: state.direction,
       includeTypes: state.includeTypes,
       pattern,
+      focus: scope.focus,
+      hide: scope.hide,
       selectedPath: state.selectedId ? model.pathOf(state.selectedId) : null,
       theme,
       camera: camera ?? null,
@@ -223,6 +244,7 @@ export function City() {
     dispatch({ type: 'filter', filter: view.filter });
     dispatch({ type: 'edges', direction: view.direction, includeTypes: view.includeTypes });
     setPattern(view.pattern);
+    setScope({ focus: view.focus, hide: view.hide });
     if (view.theme && (CITY_THEMES as readonly string[]).includes(view.theme)) {
       setTheme(view.theme as CityTheme);
       store(THEME_KEY, view.theme);
@@ -251,8 +273,8 @@ export function City() {
   };
   const canCopy = typeof ClipboardItem === 'function' && typeof navigator.clipboard?.write === 'function';
   const files = useMemo(
-    () => model.city.buildings.filter(filter).sort((a, b) => compareUtf8(a.path, b.path)),
-    [model, filter],
+    () => city.buildings.filter(filter).sort((a, b) => compareUtf8(a.path, b.path)),
+    [city, filter],
   );
   const edges = useMemo(() => {
     if (!state.selectedId || model.node(state.selectedId)?.kind !== 'file') return [];
@@ -308,21 +330,23 @@ export function City() {
     if (!state.compare || !result || comparison.a !== state.compare.a || comparison.b !== state.compare.b || model.frame !== state.compare.b) return [];
     const marks: CityGhost[] = [];
     for (const f of result.deleted) {
+      if (!scoped.visible(f.path)) continue;
       const plot = dataset.plotOf.get(f.lineageId);
       if (plot) marks.push({ rect: plot.rect, kind: 'deleted', height: dataset.heightIn(state.compare.a, f.lineageId) ?? 0.8 });
     }
     for (const f of result.added) {
+      if (!scoped.visible(f.path)) continue;
       const plot = dataset.plotOf.get(f.lineageId);
       if (plot) marks.push({ rect: plot.rect, kind: 'added', height: dataset.heightIn(state.compare.b, f.lineageId) ?? 0.8 });
     }
     return marks;
-  }, [comparison, dataset, model.frame, state.compare]);
+  }, [comparison, dataset, model.frame, state.compare, scoped]);
   // Only while B of a ready comparison is the frame on screen; otherwise the lens colours.
   const comparisonResult =
     state.compare && comparison?.result && comparison.a === state.compare.a && comparison.b === state.compare.b && model.frame === state.compare.b ? comparison.result : null;
   const paint = useMemo(
-    () => (comparisonResult && changeMetric !== 'off' ? changePaint(comparisonResult, model.city.buildings, changeMetric) : null),
-    [comparisonResult, model.city, changeMetric],
+    () => (comparisonResult && changeMetric !== 'off' ? changePaint(comparisonResult, city.buildings, changeMetric) : null),
+    [comparisonResult, city, changeMetric],
   );
   const showReach = async () => {
     if (!queries || !state.selectedId) return;
@@ -344,7 +368,15 @@ export function City() {
     }
   };
   const currentMetadata = () =>
-    exportMetadata(model, state, overlay, handle.current?.cameraState() ?? null, state.mode === '3d' ? theme : null, paint ? { metric: paint.metric, counts: paint.counts } : null);
+    exportMetadata(
+      model,
+      state,
+      shownOverlay,
+      handle.current?.cameraState() ?? null,
+      state.mode === '3d' ? theme : null,
+      paint ? { metric: paint.metric, counts: paint.counts } : null,
+      scoped.active ? { focus: scoped.focus, hide: scope.hide, shownFiles: city.buildings.length, hiddenFiles: model.city.buildings.length - city.buildings.length } : null,
+    );
   const exportMetadataFile = () => {
     downloadBlob(new Blob([JSON.stringify(currentMetadata(), null, 2)], { type: 'application/json' }), 'atlas-city.metadata.json');
     setMessage('Started the download of atlas-city.metadata.json: the provenance of the current view.');
@@ -519,6 +551,7 @@ export function City() {
             onChange={(e) => setPattern(e.target.value)}
           />
         </label>
+        <ScopeMenu scope={scope} compiled={scoped} shown={city.buildings.length} total={model.city.buildings.length} setScope={setScope} />
         <SavedViews current={currentView} apply={applyView} />
         {state.mode !== 'table' && (
           <details className="city-views city-share">
@@ -602,7 +635,7 @@ export function City() {
       <p id="city-pattern-help" className={`city-note${compiled.error ? ' city-note-error' : ''}`} hidden={!pattern && !compiled.error}>
         {compiled.error
           ? `Highlight: ${compiled.error}.`
-          : `Highlight: ${files.length.toLocaleString('en-US')} of ${model.city.buildings.length.toLocaleString('en-US')} files match. Separate patterns with commas; * and ? stay in one folder, ** spans folders, a name without / matches anywhere, ! excludes.`}
+          : `Highlight: ${files.length.toLocaleString('en-US')} of ${city.buildings.length.toLocaleString('en-US')} ${scoped.active ? 'shown ' : ''}files match. Separate patterns with commas; * and ? stay in one folder, ** spans folders, a name without / matches anywhere, ! excludes.`}
       </p>
       {state.filter !== 'all' && (
         <p className="city-note">
@@ -619,13 +652,13 @@ export function City() {
         <div className="city-stage">
           {state.mode === 'map' ? (
             <MapCity
-              city={model.city}
+              city={city}
               ghosts={ghosts}
               lens={state.lens}
               paint={paint}
               selected={selectedIds}
               filter={filter}
-              overlay={overlay}
+              overlay={shownOverlay}
               focusNonce={state.focusNonce}
               select={(id) => select(id)}
               register={registerMap}
@@ -642,12 +675,12 @@ export function City() {
                 <ThreeCity
                   layoutKey={dataset.layout.layoutId}
                   ghosts={ghosts}
-                  city={model.city}
+                  city={city}
                   lens={state.lens}
                   paint={paint}
                   selected={selectedIds}
                   filter={filter}
-                  overlay={overlay}
+                  overlay={shownOverlay}
                   focusNonce={state.focusNonce}
                   lowQuality={lowQuality}
                   theme={theme}
@@ -744,6 +777,33 @@ export function City() {
                   ? `${ROLE_LABEL[chosen.role]} · ${formatNumber(chosenBuilding?.metric?.codeLines)} code lines${paint && chosenBuilding ? ` · ${CHANGE_LABEL[paint.metric]}: ${formatChange(paint.of(chosenBuilding))}` : state.lens === 'structure' ? '' : ` · ${LENS_LABEL[state.lens]}: ${formatNumber(chosenBuilding ? lensValue(chosenBuilding, state.lens) : null)}`}`
                   : `${selectedIds.size.toLocaleString('en-US')} file${selectedIds.size === 1 ? '' : 's'} highlighted`}
               </span>
+              {chosen.kind !== 'file' && 'path' in chosen && chosen.path !== '' && (
+                <div className="city-card-actions">
+                  <button
+                    type="button"
+                    aria-label={`Focus on ${chosen.path}`}
+                    onClick={() => {
+                      setScope({ ...scope, focus: chosen.path });
+                      dispatch({ type: 'focus' });
+                    }}
+                  >
+                    <Icon name="scope" size={14} />
+                    Focus
+                  </button>
+                  <button type="button" aria-label={`Hide ${chosen.path}`} onClick={() => setScope({ ...scope, hide: scope.hide.trim() ? `${scope.hide.trim()}, /${chosen.path}` : `/${chosen.path}` })}>
+                    <Icon name="hide" size={14} />
+                    Hide
+                  </button>
+                </div>
+              )}
+              {chosen.kind === 'file' && scoped.active && !scoped.visible(chosen.path) && (
+                <p className="city-card-note">
+                  Hidden by the scope.{' '}
+                  <button type="button" className="city-crumb" onClick={() => setScope(NO_SCOPE)}>
+                    Show everything
+                  </button>
+                </p>
+              )}
             </div>
           )}
           {state.mode === '3d' && (
@@ -849,8 +909,9 @@ export function City() {
         <div className="city-table-wrap">
           <table className="city-table">
             <caption>
-              Included files · {files.length} displayed of {model.city.buildings.length}. Values retain their analysis
-              policy.
+              Included files · {files.length} displayed of {model.city.buildings.length}
+              {scoped.active ? ` · ${(model.city.buildings.length - city.buildings.length).toLocaleString('en-US')} hidden by the scope` : ''}. Values retain their
+              analysis policy.
             </caption>
             <thead>
               <tr>
