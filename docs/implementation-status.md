@@ -795,6 +795,19 @@ Checks:
 - vuejs/core demo: 18 packages, 57 dependencies between them, 3 layers, and one 11-package
   cycle.
 
+### 3D-print export (2026-10-14)
+
+[ADR-055](adr/ADR-055-3d-print-export.md) closes catch-up item 7.
+- The city exports as a coloured 3MF and as an STL.
+- The model holds only data: a base, district plinths, and one box per file at its
+  on-screen height.
+
+Checks:
+- Unit tests, and viewer end-to-end tests at 38 of 38.
+- On the vuejs/core demo, trimesh reads 804 closed shells.
+- lib3mf 2.5.0 reads the 3MF in strict mode with no warnings: 10 colours, every triangle
+  coloured.
+
 ### Reproduce verification
 
 ```sh

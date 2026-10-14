@@ -633,6 +633,29 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await view.selectOption('3d');
   });
 
+  it('exports the city for 3D printing as a coloured 3MF and an STL (ADR-055)', async () => {
+    const share = page.locator('.city-share');
+    const { readFileSync } = await import('node:fs');
+    await share.locator('summary').click();
+    let download = page.waitForEvent('download');
+    await share.getByRole('button', { name: '3D print, coloured (3MF)' }).click();
+    const threeMf = readFileSync((await (await download).path())!);
+    expect(threeMf.subarray(0, 4).toString('latin1')).toBe('PK\x03\x04');
+    expect(threeMf.toString('latin1')).toContain('3D/3dmodel.model');
+    const buildings = Number(/([\d,]+) buildings/.exec(await page.locator('.city-message').innerText())![1]!.replaceAll(',', ''));
+    expect(buildings).toBeGreaterThan(0);
+    download = page.waitForEvent('download');
+    await share.getByRole('button', { name: '3D print (STL)' }).click();
+    const stl = readFileSync((await (await download).path())!);
+    const triangles = stl.readUInt32LE(80);
+    expect(stl.length).toBe(84 + triangles * 50);
+    // A base, the nested district plinths and one box per building, 12 triangles each.
+    expect(triangles % 12).toBe(0);
+    expect(triangles / 12).toBeGreaterThan(buildings);
+    expect(await page.locator('.city-message').innerText()).toContain('STL has no colours');
+    await share.locator('summary').click();
+  });
+
   it('logged no page errors', () => {
     expect(errors).toEqual([]);
   });

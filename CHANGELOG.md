@@ -7,6 +7,8 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- 3D-print export ([ADR-055](docs/adr/ADR-055-3d-print-export.md)): coloured 3MF and STL of
+  the city shown.
 - Package graph view ([ADR-054](docs/adr/ADR-054-package-dependency-view.md)):
   - layered package dependencies, with cycles named and edges that close them flagged;
   - a complete table.

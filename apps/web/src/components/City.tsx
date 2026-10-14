@@ -1,5 +1,5 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { LENS_STOPS, METRIC_PALETTE, UNKNOWN_COLOR, bandIndex, lensValue, type CityBuilding, type CityLens, type MetricLens } from '@atlas/layout';
+import { LENS_STOPS, METRIC_PALETTE, UNKNOWN_COLOR, bandIndex, facadeColor, lensValue, type CityBuilding, type CityLens, type MetricLens } from '@atlas/layout';
 import type { ReachResult } from '@atlas/graph';
 import { POLICIES } from '@atlas/graph';
 import { compareAscii, compareUtf8 } from '@atlas/schema';
@@ -20,6 +20,7 @@ import { ScopeMenu } from './ScopeMenu';
 import { BandsMenu } from './BandsMenu';
 import { NotesMenu } from './NotesMenu';
 import { PackageGraphView } from './PackageGraphView';
+import { buildPrintModel, to3mf, toStl } from '../city/print3d';
 import { MARK_COLOURS, loadNotes, storeNotes, type Annotation } from '../app/annotations';
 import { distribution } from '../app/bands';
 import type { CityPaint } from '../city/types';
@@ -341,6 +342,21 @@ export function City() {
     if (('position' in camera) === (state.mode === '3d')) handle.current.restoreCamera(camera);
     pendingCamera.current = null;
   });
+  // 3D print (ADR-055): the city shown (scope applied), in the colours shown.
+  const exportPrint = (format: '3mf' | 'stl') => {
+    try {
+      const shownPaint = paint ?? lensPaint;
+      const model3d = buildPrintModel(city, (b) => (shownPaint ? shownPaint.color(b) : facadeColor(b, state.lens)));
+      const title = `ATLAS · ${model.manifest.repo.displayName} · ${shortOid(model.graph.commitOid)} · ${paint ? `change in ${CHANGE_LABEL[paint.metric].toLowerCase()}` : LENS_LABEL[state.lens]} · ${model.manifest.analyzer.version} · static analysis`;
+      const bytes = format === '3mf' ? to3mf(model3d, title) : toStl(model3d, title);
+      downloadBlob(new Blob([bytes as BlobPart], { type: format === '3mf' ? 'model/3mf' : 'model/stl' }), `atlas-city.${format}`);
+      setMessage(
+        `Exported atlas-city.${format}: ${model3d.buildings.toLocaleString('en-US')} buildings on a ${Math.round(model3d.width)} × ${Math.round(model3d.depth)} mm base, ${Math.round(model3d.height)} mm tall. ${format === '3mf' ? 'Each building keeps its colour on screen.' : 'STL has no colours; 3MF keeps them.'} Decorative parts are left out; heights are code lines on the city's logarithmic scale.`,
+      );
+    } catch (error) {
+      setMessage(`3D print export is unavailable: ${error instanceof Error ? error.message : 'the model could not be built'}.`);
+    }
+  };
   const copyImage = async () => {
     if (!handle.current) return;
     try {
@@ -690,6 +706,14 @@ export function City() {
               <button type="button" className="menu-item" disabled={!ready} onClick={exportMetadataFile}>
                 <Icon name="file" />
                 Export metadata
+              </button>
+              <button type="button" className="menu-item" onClick={() => exportPrint('3mf')}>
+                <Icon name="cube" />
+                3D print, coloured (3MF)
+              </button>
+              <button type="button" className="menu-item" onClick={() => exportPrint('stl')}>
+                <Icon name="cube" />
+                3D print (STL)
               </button>
               <p className="city-views-empty">The PNG carries its provenance inside the file: repository, commit, lens and analyzer.</p>
             </div>

@@ -39,7 +39,7 @@ partial, — = absent. "Since" names the ATLAS ADR.
 | **Folder marking** | Folder colours, keep highlight | ✓ Six named marker colours with notes on folders and packages, listed in the legend, shared as `atlas.notes/1` files (ADR-053) |
 | **Labels** | Top-N labels, configurable | ✓ Priority labels with direction marks in 3D (ADR-042, ADR-045); overlap-free map labels (ADR-047) |
 | **Navigation** | Mouse, view cube | ✓ Mouse, touch, keyboard driving, previous/next view, expanded workspace with evidence (ADR-045, ADR-047) |
-| **Export** | Screenshot to file or clipboard; 3D print model | ✓ PNG with embedded provenance, metadata JSON, copy image (ADR-047, ADR-048). — No 3D print yet |
+| **Export** | Screenshot to file or clipboard; 3D print model | ✓ PNG with embedded provenance, metadata JSON, copy image (ADR-047, ADR-048); 3D print as coloured 3MF and STL, validated by lib3mf in strict mode (ADR-055) |
 | **Accessibility** | Not documented | ✓ WCAG 2.2 AA target: keyboard everywhere, semantic table, automated axe checks in CI |
 | **Safety** | Local analysis | ✓ Never runs repository code; offline analysis; source-free, hash-verified artifacts |
 | **Hosted analysis of public repositories** | — | ◐ Implemented and tested, not deployed (R6-06) |
@@ -61,7 +61,7 @@ before it ships.
 5. ~~**Package dependency view.**~~ Done in [ADR-054](../adr/ADR-054-package-dependency-view.md). Originally: layered package graph with cycles and upward edges.
 6. **More languages:** the largest gap. It needs the owner's direction and a resolver
    design per language (AGENTS.md: new scope needs an ADR).
-7. **3D print export.**
+7. ~~**3D print export.**~~ Done in [ADR-055](../adr/ADR-055-3d-print-export.md).
 
 ## Where ATLAS is already ahead
 
