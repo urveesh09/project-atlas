@@ -749,6 +749,20 @@ Checks:
 - Viewer end-to-end tests: 34 of 34.
 - vuejs/core demo, focused on `@vue/runtime-core`: 116 of 702 buildings drawn.
 
+### Metric lenses, bands and built-in views (2026-10-14)
+
+[ADR-052](adr/ADR-052-metric-lenses-bands-and-presets.md) closes catch-up item 3.
+- Ten grouped colour lenses: code lines, functions, total complexity, fan-out and lines
+  changed join the existing lenses.
+- A *Bands* menu with a distribution chart, editable band starts, an even split and a
+  reset.
+- Seven built-in views. Saved views keep custom bands.
+- Height and area stay fixed by design.
+
+Checks:
+- Unit: layout lens, band and saved-view tests.
+- Viewer end-to-end tests: 35 of 35.
+
 ### Reproduce verification
 
 ```sh

@@ -13,15 +13,43 @@ import {
  * usable history; `attention` is the separately named structure-only score offered when it
  * does not (plan §10.3). Neither is ever relabelled as the other.
  */
-export type CityLens = 'structure' | 'complexity' | 'fan-in' | 'churn' | 'hotspot' | 'attention';
-export const CITY_LENSES = ['structure', 'complexity', 'fan-in', 'churn', 'hotspot', 'attention'] as const;
+export type CityLens =
+  | 'structure'
+  | 'code-lines'
+  | 'complexity'
+  | 'total-complexity'
+  | 'functions'
+  | 'fan-in'
+  | 'fan-out'
+  | 'churn'
+  | 'lines-changed'
+  | 'hotspot'
+  | 'attention';
+export const CITY_LENSES = [
+  'structure',
+  'code-lines',
+  'complexity',
+  'total-complexity',
+  'functions',
+  'fan-in',
+  'fan-out',
+  'churn',
+  'lines-changed',
+  'hotspot',
+  'attention',
+] as const;
 export const DISTRICT_PALETTE = ['#78a9ac', '#d9ad73', '#9c94bf', '#8fb894', '#cf91a0', '#84a9ce'] as const;
 export const METRIC_PALETTE = ['#b9d7da', '#7dbbc6', '#478baf', '#496891', '#785688'] as const;
 export const UNKNOWN_COLOR = '#aeb4bc';
 export const LENS_STOPS = {
+  'code-lines': [0, 50, 150, 400, 1000],
   complexity: [0, 5, 10, 20, 40],
+  'total-complexity': [0, 10, 30, 80, 200],
+  functions: [0, 5, 15, 30, 60],
   'fan-in': [0, 1, 5, 10, 25],
+  'fan-out': [0, 3, 8, 15, 30],
   churn: [0, 1, 3, 6, 12],
+  'lines-changed': [0, 20, 100, 400, 1500],
   hotspot: [0, 20, 40, 60, 80],
   attention: [0, 20, 40, 60, 80],
 } as const;
@@ -163,27 +191,43 @@ export function lensValue(building: CityBuilding, lens: CityLens): number | null
   switch (lens) {
     case 'structure':
       return null;
+    case 'code-lines':
+      return building.metric?.codeLines ?? null;
     case 'complexity':
       return building.metric?.maxCyclomatic ?? null;
+    case 'total-complexity':
+      return building.metric?.sumCyclomatic ?? null;
+    case 'functions':
+      return building.metric?.callableCount ?? null;
     case 'fan-in':
       return building.metric?.fanIn ?? null;
+    case 'fan-out':
+      return building.metric?.fanOut ?? null;
     case 'churn':
       // Unavailable history stays unknown, never "unchanged".
       return building.metric && building.metric.availability.history !== 'unavailable' ? building.metric.changedCommits : null;
+    case 'lines-changed': {
+      const m = building.metric;
+      if (!m || m.availability.history === 'unavailable' || m.linesAdded === null || m.linesDeleted === null) return null;
+      return m.linesAdded + m.linesDeleted;
+    }
     case 'hotspot':
       return building.metric?.hotspotScore ?? null;
     case 'attention':
       return building.attention;
   }
 }
-export function facadeColor(building: CityBuilding, lens: CityLens): string {
+/** Band index of a value: the last stop it reaches. */
+export function bandIndex(value: number, stops: readonly number[]): number {
+  let band = 0;
+  while (band + 1 < stops.length && value >= stops[band + 1]!) band++;
+  return band;
+}
+export function facadeColor(building: CityBuilding, lens: CityLens, stops?: readonly number[]): string {
   if (lens === 'structure') return building.packageColor;
   const value = lensValue(building, lens);
   if (value === null) return UNKNOWN_COLOR;
-  const stops = LENS_STOPS[lens];
-  let band = 0;
-  while (band + 1 < stops.length && value >= stops[band + 1]!) band++;
-  return METRIC_PALETTE[band]!;
+  return METRIC_PALETTE[bandIndex(value, stops ?? LENS_STOPS[lens])]!;
 }
 
 export type GateSide = 'north' | 'east' | 'south' | 'west';
