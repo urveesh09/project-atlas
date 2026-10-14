@@ -36,7 +36,7 @@ partial, — = absent. "Since" names the ATLAS ADR.
 | **Layouts** | Five (treemap, street, sunburst, radial…) | ◐ One deterministic, history-stable city; 3D, 2D map and an accessible table |
 | **Search and filters** | Glob search greys out misses; flatten and exclude rules | ✓ Search by file, package or declaration; glob highlight with `!` excludes and exact counts (ADR-048); role and findings filters; focus on a folder and hide paths with plots kept fixed (ADR-051) |
 | **Saved configurations** | Scenarios: built-in and custom, import/export | ✓ Saved views with import/export, validated on import (ADR-048); seven built-in views (ADR-052) |
-| **Folder marking** | Folder colours, keep highlight | — Planned as local annotations |
+| **Folder marking** | Folder colours, keep highlight | ✓ Six named marker colours with notes on folders and packages, listed in the legend, shared as `atlas.notes/1` files (ADR-053) |
 | **Labels** | Top-N labels, configurable | ✓ Priority labels with direction marks in 3D (ADR-042, ADR-045); overlap-free map labels (ADR-047) |
 | **Navigation** | Mouse, view cube | ✓ Mouse, touch, keyboard driving, previous/next view, expanded workspace with evidence (ADR-045, ADR-047) |
 | **Export** | Screenshot to file or clipboard; 3D print model | ✓ PNG with embedded provenance, metadata JSON, copy image (ADR-047, ADR-048). — No 3D print yet |
@@ -57,7 +57,7 @@ before it ships.
 3. ~~**Metric choice and thresholds.**~~ Done in [ADR-052](../adr/ADR-052-metric-lenses-bands-and-presets.md). Originally: more colour metrics (code lines, total complexity,
    functions, lines changed), adjustable band thresholds, a distribution chart, built-in
    view presets.
-4. **Annotations:** local folder colours and notes, exportable with saved views.
+4. ~~**Annotations.**~~ Done in [ADR-053](../adr/ADR-053-annotations-and-compact-menus.md). Originally: local folder colours and notes, exportable with saved views.
 5. **Package dependency view:** layered package graph with cycles and upward edges.
 6. **More languages:** the largest gap. It needs the owner's direction and a resolver
    design per language (AGENTS.md: new scope needs an ADR).

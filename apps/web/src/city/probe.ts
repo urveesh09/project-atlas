@@ -11,6 +11,8 @@ export interface CityProbe {
     lens: string;
     /** Key of the colours replacing the lens (change colouring), or null. */
     paint: string | null;
+    /** Districts tinted by annotations (ADR-053). */
+    marks: number;
     theme: string;
     animated: boolean;
     lite: boolean;

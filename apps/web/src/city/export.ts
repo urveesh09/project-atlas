@@ -14,6 +14,8 @@ export function exportMetadata(
   scope: { focus: string | null; hide: string; shownFiles: number; hiddenFiles: number } | null = null,
   /** Lens colour bands (ADR-052): the band starts used, and whether the user set them. */
   lensBands: { stops: number[]; custom: boolean } | null = null,
+  /** Annotation marks shown (ADR-053): paths and colours; note text stays in the notes file. */
+  marks: { path: string; colour: string }[] = [],
 ) {
   return {
     exportVersion: 'atlas.image/1',
@@ -35,6 +37,7 @@ export function exportMetadata(
     changeColour,
     scope,
     lensBands,
+    marks,
     mode: state.mode,
     selectedPath: state.selectedId ? model.pathOf(state.selectedId) : null,
     filter: state.filter,

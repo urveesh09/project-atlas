@@ -14,6 +14,8 @@ export default function ThreeCity(props: {
   lens: CityLens;
   /** Colours that replace the lens colours (change colouring, ADR-050). */
   paint: CityPaint | null;
+  /** Annotation colours by layout district ID (ADR-053). */
+  marks: ReadonlyMap<string, string>;
   selected: ReadonlySet<string>;
   filter(b: CityBuilding): boolean;
   overlay: OverlayResult;
@@ -87,6 +89,9 @@ export default function ThreeCity(props: {
       latest.current.fail('This snapshot could not be drawn in 3D. The map and table show it.');
     }
   }, [props.city, props.layoutKey, props.lowQuality, props.theme]);
+  useEffect(() => {
+    renderer.current?.setMarks(props.marks);
+  }, [props.marks, props.layoutKey, props.lowQuality, props.theme]);
   useEffect(() => {
     renderer.current?.setGhosts(props.ghosts);
   }, [props.ghosts, props.layoutKey, props.lowQuality, props.theme]);

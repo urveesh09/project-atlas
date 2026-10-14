@@ -567,6 +567,42 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await lens.selectOption('structure');
   });
 
+  it('marks a folder with a colour and a note, lists it, and shares it as a file (ADR-053)', async () => {
+    const view = page.getByRole('combobox', { name: 'View', exact: true });
+    await view.selectOption('map');
+    await page.waitForSelector('[data-city-renderer="map"]');
+    await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).fill('pricing.ts');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.ts');
+    await page.locator('.city-trail button').last().click();
+    const notes = page.locator('.city-notes');
+    await notes.locator('summary').click();
+    const target = await notes.locator('form code').innerText();
+    await notes.getByRole('radio', { name: 'Green' }).check();
+    await notes.getByRole('textbox', { name: 'Note' }).fill('Pricing rules live here.');
+    await notes.getByRole('button', { name: 'Mark', exact: true }).click();
+    expect(await notes.locator('summary').innerText()).toContain('Notes (1)');
+    expect(await page.locator('.legend-marks').innerText()).toContain(target);
+    expect(await page.locator('.city-card-mark').innerText()).toContain('Pricing rules live here.');
+    expect(await page.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith('atlas.notes.')))).toBe(true);
+    const download = page.waitForEvent('download');
+    await notes.getByRole('button', { name: 'Export notes' }).click();
+    const file = await (await download).path();
+    const { readFileSync } = await import('node:fs');
+    const exported = JSON.parse(readFileSync(file!, 'utf8'));
+    expect(exported.format).toBe('atlas.notes/1');
+    expect(exported.notes).toEqual([expect.objectContaining({ path: target, colour: 'green', note: 'Pricing rules live here.' })]);
+    await notes.getByRole('button', { name: 'Remove mark' }).click();
+    expect(await page.locator('.legend-marks').count()).toBe(0);
+    await notes.locator('input[type="file"]').setInputFiles(file!);
+    await expect.poll(() => notes.locator('[role="status"]').innerText()).toContain('Imported 1 note');
+    expect(await page.locator('.legend-marks').innerText()).toContain(target);
+    expect(await audit(page)).toEqual([]);
+    await notes.getByRole('button', { name: 'Remove mark' }).click();
+    await notes.locator('summary').click();
+    await view.selectOption('3d');
+  });
+
   it('logged no page errors', () => {
     expect(errors).toEqual([]);
   });

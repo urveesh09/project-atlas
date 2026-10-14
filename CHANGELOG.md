@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Annotations ([ADR-053](docs/adr/ADR-053-annotations-and-compact-menus.md)):
+  - colour and note on folders and packages;
+  - listed in the legend, kept locally, shared as `atlas.notes/1`.
 - Metric lenses and bands ([ADR-052](docs/adr/ADR-052-metric-lenses-bands-and-presets.md)):
   - ten colour lenses, including code lines, functions, total complexity, fan-out and lines
     changed;
@@ -21,6 +24,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   - signed values in the cards and the file table.
 
 ### Fixed
+- Primary buttons inside the city had text at 2.27:1 contrast.
+- The new city menus had pushed the laptop first screen down 38 px; compact summaries
+  restore it.
 - An open compare panel covered the city on screens wider than 1350 px.
 
 ### Changed
