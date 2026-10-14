@@ -1,6 +1,7 @@
 import { CITY_LENSES, type CityLens } from '@atlas/layout';
 import { PATH_PATTERN_LIMITS } from './path-pattern';
 import { SCOPE_LIMITS, normalizeFocus } from './scope';
+import { invalidStops } from './bands';
 
 /**
  * Saved views (ADR-048): a named bundle of how the city is shown: lens, view, filters,
@@ -21,6 +22,8 @@ export interface SavedView {
   direction: 'outgoing' | 'incoming' | 'both';
   includeTypes: boolean;
   pattern: string;
+  /** Band starts for the view's lens (ADR-052); null keeps the defaults. */
+  stops: number[] | null;
   /** Scope (ADR-051); absent in views saved before it, which then show everything. */
   focus: string | null;
   hide: string;
@@ -60,6 +63,8 @@ export function parseSavedView(v: unknown): SavedView | null {
   if (!oneOf(CITY_LENSES, o['lens']) || !oneOf(MODES, o['mode']) || !oneOf(FILTERS, o['filter']) || !oneOf(DIRECTIONS, o['direction'])) return null;
   const pattern = typeof o['pattern'] === 'string' ? o['pattern'] : '';
   if (pattern.length > PATH_PATTERN_LIMITS.patterns * (PATH_PATTERN_LIMITS.length + 2)) return null;
+  const rawStops = o['stops'];
+  if (rawStops !== null && rawStops !== undefined && (!Array.isArray(rawStops) || invalidStops(rawStops as number[]) !== null)) return null;
   const hide = typeof o['hide'] === 'string' ? o['hide'] : '';
   if (hide.length > SCOPE_LIMITS.hide) return null;
   const focus = o['focus'];
@@ -76,6 +81,7 @@ export function parseSavedView(v: unknown): SavedView | null {
     direction: o['direction'],
     includeTypes: o['includeTypes'] === true,
     pattern,
+    stops: Array.isArray(rawStops) && o['lens'] !== 'structure' ? (rawStops as number[]).slice() : null,
     focus: typeof focus === 'string' ? normalizeFocus(focus) : null,
     hide,
     selectedPath: typeof selected === 'string' ? selected : null,

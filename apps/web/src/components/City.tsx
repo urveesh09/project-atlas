@@ -1,5 +1,5 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { LENS_STOPS, METRIC_PALETTE, lensValue, type CityBuilding, type CityLens, type MetricLens } from '@atlas/layout';
+import { LENS_STOPS, METRIC_PALETTE, UNKNOWN_COLOR, bandIndex, lensValue, type CityBuilding, type CityLens, type MetricLens } from '@atlas/layout';
 import type { ReachResult } from '@atlas/graph';
 import { POLICIES } from '@atlas/graph';
 import { compareAscii, compareUtf8 } from '@atlas/schema';
@@ -15,8 +15,11 @@ import { addProvenance, downloadBlob, embedPngText, exportMetadata, PROVENANCE_K
 import { CITY_THEMES, CITY_THEME_LABEL, type CityTheme } from '../city/themes';
 import { compilePathPattern } from '../app/path-pattern';
 import type { SavedView } from '../app/saved-views';
-import { SavedViews } from './SavedViews';
+import { SavedViews, type ViewPreset } from './SavedViews';
 import { ScopeMenu } from './ScopeMenu';
+import { BandsMenu } from './BandsMenu';
+import { distribution } from '../app/bands';
+import type { CityPaint } from '../city/types';
 import { NO_SCOPE, compileScope, type Scope } from '../app/scope';
 import { Icon } from './Icon';
 import { CHANGE_BANDS, CHANGE_COLORS, CHANGE_LABEL, CHANGE_METRICS, changeBandLabel, changePaint, formatChange, type ChangeMetric } from '../city/change';
@@ -35,13 +38,28 @@ const EMPTY: OverlayResult = {
 };
 export const LENS_LABEL: Record<CityLens, string> = {
   structure: 'Package structure',
+  'code-lines': 'Code lines',
   complexity: 'Max callable complexity',
+  'total-complexity': 'Total complexity (sum over callables)',
+  functions: 'Functions and methods',
   'fan-in': 'Fan-in (unique consumers)',
+  'fan-out': 'Fan-out (unique dependencies)',
   churn: 'Changed commits (up to this snapshot)',
+  'lines-changed': 'Lines changed (added + deleted, up to this snapshot)',
   hotspot: 'Hotspot score (0–100, HEAD cohort)',
   attention: 'Structure attention (no history; 0–100)',
 };
+/** Lens picker groups (ADR-052); height stays code lines in every lens (plan §11.5). */
+const LENS_GROUPS: { label: string; lenses: CityLens[] }[] = [
+  { label: 'Structure', lenses: ['structure'] },
+  { label: 'Size', lenses: ['code-lines', 'functions'] },
+  { label: 'Complexity', lenses: ['complexity', 'total-complexity'] },
+  { label: 'Dependencies', lenses: ['fan-in', 'fan-out'] },
+  { label: 'History', lenses: ['churn', 'lines-changed', 'hotspot', 'attention'] },
+];
 const LENS_NOTE: Partial<Record<CityLens, string>> = {
+  'lines-changed': 'Lines added plus lines deleted by mainline commits in the analyzed window, counted only up to the snapshot shown.',
+  'total-complexity': 'The sum of cyclomatic complexity over every function and method in the file: large files with many simple functions score high too.',
   churn: 'Mainline commits in the analyzed window that changed each file, counted only up to the snapshot shown.',
   hotspot: '0.40 complexity + 0.25 fan-in + 0.35 changed commits, as percentiles of the selected commit’s source cohort. A candidate for inspection, not a defect.',
   attention: '0.60 complexity + 0.40 fan-in percentiles. Shown instead of the hotspot score because usable history is absent; it is not the same score.',
@@ -83,7 +101,7 @@ const typing = (target: EventTarget | null) => target instanceof HTMLElement && 
 
 export function City() {
   const { dataset, model, state, dispatch, select, queries, comparison } = useViewer();
-  const lenses: CityLens[] = ['structure', 'complexity', 'fan-in', 'churn', dataset.hotspotAvailable ? 'hotspot' : 'attention'];
+  const lenses: CityLens[] = ['structure', 'code-lines', 'functions', 'complexity', 'total-complexity', 'fan-in', 'fan-out', 'churn', 'lines-changed', dataset.hotspotAvailable ? 'hotspot' : 'attention'];
   const handle = useRef<CityHandle | null>(null);
   const [readyMode, setReadyMode] = useState<'3d' | 'map' | null>(null),
     [message, setMessage] = useState(''),
@@ -203,23 +221,25 @@ export function City() {
     [model, state.filter, compiled],
   );
   // Buildings per legend band, so a colour also reads as a count.
-  const bands = useMemo(() => {
-    if (state.lens === 'structure') return null;
-    const stops = LENS_STOPS[state.lens as MetricLens];
-    const counts = new Array<number>(stops.length).fill(0);
-    let unknown = 0;
-    for (const b of city.buildings) {
-      const value = lensValue(b, state.lens);
-      if (value === null) {
-        unknown++;
-        continue;
-      }
-      let band = 0;
-      while (band + 1 < stops.length && value >= stops[band + 1]!) band++;
-      counts[band]!++;
-    }
-    return { counts, unknown };
-  }, [city, state.lens]);
+  // Band starts per lens (ADR-052): the defaults, or the user's own until reset.
+  const [customStops, setCustomStops] = useState<Partial<Record<MetricLens, number[]>>>({});
+  const metricLens = state.lens === 'structure' ? null : (state.lens as MetricLens);
+  const stops: readonly number[] | null = metricLens ? (customStops[metricLens] ?? LENS_STOPS[metricLens]) : null;
+  const lensValues = useMemo(() => (metricLens ? city.buildings.map((b) => lensValue(b, metricLens)) : []), [city, metricLens]);
+  const bands = useMemo(() => (stops ? distribution(lensValues, stops) : null), [lensValues, stops]);
+  // Custom bands recolour through the same hook as change colouring.
+  const lensPaint = useMemo<CityPaint | null>(() => {
+    if (!metricLens || !customStops[metricLens]) return null;
+    const own = customStops[metricLens];
+    return {
+      key: `bands:${metricLens}:${own.join(',')}`,
+      color: (b) => {
+        const v = lensValue(b, metricLens);
+        return v === null ? UNKNOWN_COLOR : METRIC_PALETTE[bandIndex(v, own)]!;
+      },
+      unknown: (b) => lensValue(b, metricLens) === null,
+    };
+  }, [metricLens, customStops]);
   // Saved views (ADR-048) restore the camera once the chosen view has drawn.
   const pendingCamera = useRef<SavedView['camera']>(null);
   const currentView = (): Omit<SavedView, 'name' | 'savedAt'> => {
@@ -231,6 +251,7 @@ export function City() {
       direction: state.direction,
       includeTypes: state.includeTypes,
       pattern,
+      stops: metricLens ? (customStops[metricLens] ?? null) : null,
       focus: scope.focus,
       hide: scope.hide,
       selectedPath: state.selectedId ? model.pathOf(state.selectedId) : null,
@@ -245,6 +266,15 @@ export function City() {
     dispatch({ type: 'edges', direction: view.direction, includeTypes: view.includeTypes });
     setPattern(view.pattern);
     setScope({ focus: view.focus, hide: view.hide });
+    if (view.lens !== 'structure') {
+      const lens = view.lens as MetricLens;
+      setCustomStops((all) => {
+        const next = { ...all };
+        if (view.stops) next[lens] = view.stops;
+        else delete next[lens];
+        return next;
+      });
+    }
     if (view.theme && (CITY_THEMES as readonly string[]).includes(view.theme)) {
       setTheme(view.theme as CityTheme);
       store(THEME_KEY, view.theme);
@@ -254,6 +284,27 @@ export function City() {
     pendingCamera.current = view.camera;
     setMessage(`Applied the view “${view.name}”.${view.selectedPath && !target ? ` ${view.selectedPath} is not in this snapshot, so nothing is selected.` : ''}`);
   };
+  // Built-in views (ADR-052): a lens and a filter, nothing else changes.
+  const presets: ViewPreset[] = (
+    [
+      ['Hotspots', dataset.hotspotAvailable ? 'hotspot' : 'attention', 'source', dataset.hotspotAvailable ? 'Complex, depended-on files that change often' : 'Complex, depended-on files (no history)'],
+      ['Largest files', 'code-lines', 'source', 'Source files by code lines'],
+      ['Most complex', 'complexity', 'source', 'The most branching function in each file'],
+      ['Most depended on', 'fan-in', 'all', 'Files with the most direct consumers'],
+      ['Most dependencies', 'fan-out', 'all', 'Files that import the most others'],
+      ['Most changed', 'churn', 'all', 'Commits per file in the analyzed window'],
+      ['Tests', 'structure', 'test', 'Where the tests are'],
+    ] as const
+  ).map(([name, lens, filter, description]) => ({
+    name,
+    description,
+    apply: () => {
+      dispatch({ type: 'lens', lens });
+      dispatch({ type: 'filter', filter });
+      setPattern('');
+      setMessage(`Applied the built-in view “${name}”: ${LENS_LABEL[lens].toLowerCase()}${filter === 'all' ? '' : `, ${filter} files`}.`);
+    },
+  }));
   useEffect(() => {
     const camera = pendingCamera.current;
     if (!camera || !ready || !handle.current?.restoreCamera) return;
@@ -376,6 +427,7 @@ export function City() {
       state.mode === '3d' ? theme : null,
       paint ? { metric: paint.metric, counts: paint.counts } : null,
       scoped.active ? { focus: scoped.focus, hide: scope.hide, shownFiles: city.buildings.length, hiddenFiles: model.city.buildings.length - city.buildings.length } : null,
+      stops ? { stops: [...stops], custom: Boolean(metricLens && customStops[metricLens]) } : null,
     );
   const exportMetadataFile = () => {
     downloadBlob(new Blob([JSON.stringify(currentMetadata(), null, 2)], { type: 'application/json' }), 'atlas-city.metadata.json');
@@ -461,13 +513,37 @@ export function City() {
               dispatch({ type: 'lens', lens: e.target.value as typeof state.lens });
             }}
           >
-            {lenses.map((lens) => (
-              <option key={lens} value={lens}>
-                {LENS_LABEL[lens]}
-              </option>
+            {LENS_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.lenses
+                  .filter((lens) => lenses.includes(lens))
+                  .map((lens) => (
+                    <option key={lens} value={lens}>
+                      {LENS_LABEL[lens]}
+                    </option>
+                  ))}
+              </optgroup>
             ))}
           </select>
         </label>
+        {metricLens && stops && bands && !paint && (
+          <BandsMenu
+            label={LENS_LABEL[metricLens]}
+            stops={stops}
+            defaults={LENS_STOPS[metricLens]}
+            custom={Boolean(customStops[metricLens])}
+            values={lensValues.filter((v): v is number => v !== null)}
+            dist={bands}
+            setStops={(next) =>
+              setCustomStops((all) => {
+                const copy = { ...all };
+                if (next) copy[metricLens] = next;
+                else delete copy[metricLens];
+                return copy;
+              })
+            }
+          />
+        )}
         {state.compare && (
           <label>
             Colour
@@ -552,7 +628,7 @@ export function City() {
           />
         </label>
         <ScopeMenu scope={scope} compiled={scoped} shown={city.buildings.length} total={model.city.buildings.length} setScope={setScope} />
-        <SavedViews current={currentView} apply={applyView} />
+        <SavedViews current={currentView} apply={applyView} presets={presets} />
         {state.mode !== 'table' && (
           <details className="city-views city-share">
             <summary>
@@ -595,11 +671,11 @@ export function City() {
           <span>Stable package colors; inspect package names below and in the tree.</span>
         ) : (
           <>
-            {LENS_STOPS[state.lens as MetricLens].map((n, i) => (
+            {stops!.map((n, i) => (
               <span key={n}>
                 <i style={{ background: METRIC_PALETTE[i] }} aria-hidden="true" />
                 {n}
-                {i === 4 ? '+' : LENS_STOPS[state.lens as MetricLens][i + 1]! - 1 === n ? '' : `–${LENS_STOPS[state.lens as MetricLens][i + 1]! - 1}`}
+                {i === 4 ? '+' : stops![i + 1]! - 1 === n ? '' : `–${stops![i + 1]! - 1}`}
                 {bands && <span className="legend-count">{bands.counts[i]!.toLocaleString('en-US')}</span>}
               </span>
             ))}
@@ -655,7 +731,7 @@ export function City() {
               city={city}
               ghosts={ghosts}
               lens={state.lens}
-              paint={paint}
+              paint={paint ?? lensPaint}
               selected={selectedIds}
               filter={filter}
               overlay={shownOverlay}
@@ -677,7 +753,7 @@ export function City() {
                   ghosts={ghosts}
                   city={city}
                   lens={state.lens}
-                  paint={paint}
+                  paint={paint ?? lensPaint}
                   selected={selectedIds}
                   filter={filter}
                   overlay={shownOverlay}

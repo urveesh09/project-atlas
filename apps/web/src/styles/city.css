@@ -218,3 +218,21 @@
 .city-scope textarea[aria-invalid=true] { border-color: var(--error); }
 .scope-focus p { margin: 2px 0 0; overflow-wrap: anywhere; }
 .city-scope .city-views-panel label { flex-direction: column; align-items: stretch; gap: 4px; font-size: 12px; color: var(--text); }
+
+/* Bands and built-in views (ADR-052). */
+.city-bands .city-views-panel { width: min(320px, 88vw); }
+.bands-chart { width: 100%; height: auto; display: block; }
+.bands-axis { font-size: 9px; fill: var(--muted); font-family: var(--mono); }
+.bands-count { font-size: 10px; fill: var(--text); font-variant-numeric: tabular-nums; }
+.bands-stops { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; border: 0; padding: 0; margin: 0; min-width: 0; }
+.bands-stops legend { font-size: 12px; color: var(--text); padding: 0; margin-bottom: 4px; }
+.city .bands-stops label { flex-direction: row; align-items: center; gap: 4px; }
+.bands-stops i, .bands-first i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgb(0 0 0 / 0.2); }
+.bands-first { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 12px; color: var(--text); }
+.bands-stops input { width: 64px; min-height: 30px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--field); color: var(--text); padding: 2px 6px; font: inherit; font-size: 12px; font-family: var(--mono); }
+.bands-stops input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); box-shadow: 0 0 0 5px var(--accent-soft); }
+.bands-stops input[aria-invalid=true] { border-color: var(--error); }
+@media (pointer: coarse) { .bands-stops input { min-height: 44px; } }
+.city-views-presets { display: grid; gap: 6px; }
+.city-views-presets li { flex-wrap: wrap; gap: 0 8px; }
+.city-views-presets li > span { flex-basis: 100%; font-size: 11px; color: var(--muted); }

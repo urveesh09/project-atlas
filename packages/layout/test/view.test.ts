@@ -8,6 +8,9 @@ import {
   routeDependency,
   UNKNOWN_COLOR,
   METRIC_PALETTE,
+  CITY_LENSES,
+  LENS_STOPS,
+  bandIndex,
 } from '@atlas/layout';
 
 describe('canonical city projection and visual grammar', () => {
@@ -35,6 +38,31 @@ describe('canonical city projection and visual grammar', () => {
     expect(facadeColor({ ...b, metric: { ...metric, maxCyclomatic: 20 } }, 'complexity')).toBe(METRIC_PALETTE[3]);
     expect(facadeColor({ ...b, metric: { ...metric, fanIn: 25 } }, 'fan-in')).toBe(METRIC_PALETTE[4]);
     expect(facadeColor(missing, 'structure')).toBe(b.packageColor);
+  });
+  it('reads every metric lens from its own field, keeps unavailable history unknown and honours custom stops', () => {
+    const { graph, layout } = buildHandcraftedArtifact(),
+      b = prepareCity(graph, layout).buildings.find((b) => b.path === 'src/main.ts')!;
+    const metric = { ...graph.metrics.find((m) => m.nodeId === b.nodeId)!, codeLines: 120, sumCyclomatic: 31, callableCount: 4, fanOut: 9, linesAdded: 70, linesDeleted: 40 };
+    const with_ = { ...b, metric: { ...metric, availability: { ...metric.availability, history: 'complete' as const } } };
+    expect(lensValue(with_, 'code-lines')).toBe(120);
+    expect(lensValue(with_, 'total-complexity')).toBe(31);
+    expect(lensValue(with_, 'functions')).toBe(4);
+    expect(lensValue(with_, 'fan-out')).toBe(9);
+    expect(lensValue(with_, 'lines-changed')).toBe(110);
+    expect(lensValue({ ...with_, metric: { ...with_.metric, linesDeleted: null } }, 'lines-changed')).toBeNull();
+    expect(lensValue({ ...with_, metric: { ...with_.metric, availability: { ...metric.availability, history: 'unavailable' as const } } }, 'lines-changed')).toBeNull();
+    expect(facadeColor(with_, 'code-lines')).toBe(METRIC_PALETTE[1]);
+    expect(facadeColor(with_, 'code-lines', [0, 10, 20, 100, 1000])).toBe(METRIC_PALETTE[3]);
+    // Every metric lens has five ascending stops starting at zero.
+    for (const lens of CITY_LENSES) {
+      if (lens === 'structure') continue;
+      const stops = LENS_STOPS[lens];
+      expect(stops).toHaveLength(5);
+      expect(stops[0]).toBe(0);
+      for (let i = 1; i < stops.length; i++) expect(stops[i]!).toBeGreaterThan(stops[i - 1]!);
+      expect(bandIndex(stops[4]!, stops)).toBe(4);
+      expect(bandIndex(stops[1]! - 1, stops)).toBe(0);
+    }
   });
   it('does not mutate or reorder canonical data when lenses change', () => {
     const fixture = buildHandcraftedArtifact(),

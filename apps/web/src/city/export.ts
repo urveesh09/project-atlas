@@ -12,6 +12,8 @@ export function exportMetadata(
   changeColour: { metric: string; counts: Record<string, number> } | null = null,
   /** Scope (ADR-051): what the image leaves out. */
   scope: { focus: string | null; hide: string; shownFiles: number; hiddenFiles: number } | null = null,
+  /** Lens colour bands (ADR-052): the band starts used, and whether the user set them. */
+  lensBands: { stops: number[]; custom: boolean } | null = null,
 ) {
   return {
     exportVersion: 'atlas.image/1',
@@ -32,6 +34,7 @@ export function exportMetadata(
     lens: state.lens,
     changeColour,
     scope,
+    lensBands,
     mode: state.mode,
     selectedPath: state.selectedId ? model.pathOf(state.selectedId) : null,
     filter: state.filter,

@@ -9,7 +9,22 @@ import { Icon } from './Icon';
  * shareable as a small JSON file. Applying one restores lens, view, filters, dependency
  * options, highlight, selection, style and camera.
  */
-export function SavedViews({ current, apply }: { current(): Omit<SavedView, 'name' | 'savedAt'>; apply(view: SavedView): void }) {
+export interface ViewPreset {
+  name: string;
+  description: string;
+  apply(): void;
+}
+
+export function SavedViews({
+  current,
+  apply,
+  presets = [],
+}: {
+  current(): Omit<SavedView, 'name' | 'savedAt'>;
+  apply(view: SavedView): void;
+  /** Built-in views (ADR-052): fixed starting points, applied without a camera. */
+  presets?: readonly ViewPreset[];
+}) {
   const { model, dispatch } = useViewer();
   const repoId = model.manifest.repo.repoId;
   const repository = model.manifest.repo.displayName;
@@ -48,6 +63,22 @@ export function SavedViews({ current, apply }: { current(): Omit<SavedView, 'nam
         Saved views{views.length ? ` (${views.length})` : ''}
       </summary>
       <div className="city-views-panel">
+        {presets.length > 0 && (
+          <div className="city-views-presets">
+            <strong>Built-in views</strong>
+            <ul aria-label="Built-in views">
+              {presets.map((p) => (
+                <li key={p.name}>
+                  <button type="button" className="link" onClick={p.apply}>
+                    {p.name}
+                  </button>
+                  <span>{p.description}</span>
+                </li>
+              ))}
+            </ul>
+            <strong>Your views</strong>
+          </div>
+        )}
         {views.length > 0 ? (
           <ul aria-label="Saved views">
             {views.map((v) => (

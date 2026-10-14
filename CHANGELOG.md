@@ -7,6 +7,11 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Metric lenses and bands ([ADR-052](docs/adr/ADR-052-metric-lenses-bands-and-presets.md)):
+  - ten colour lenses, including code lines, functions, total complexity, fan-out and lines
+    changed;
+  - editable band starts with a distribution chart and an even split;
+  - seven built-in views.
 - Scope ([ADR-051](docs/adr/ADR-051-scope-focus-and-hide.md)): focus on a folder or package
   and hide paths by pattern. Plots stay fixed, every count names what is hidden, and saved
   views keep the scope.

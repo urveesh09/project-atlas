@@ -530,6 +530,43 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await view.selectOption('3d');
   });
 
+  it('colours by any metric, with editable bands, a distribution and built-in views (ADR-052)', async () => {
+    const lens = page.getByRole('combobox', { name: 'Lens', exact: true });
+    const legendCounts = async () => (await page.locator('.city-legend .legend-count').allInnerTexts()).map((t) => Number(t.replaceAll(',', '')));
+    const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+    await lens.selectOption('code-lines');
+    await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0–49');
+    const total = sum(await legendCounts());
+    expect(total).toBeGreaterThan(0);
+    const bands = page.locator('.city-bands');
+    await bands.locator('summary').click();
+    expect(await bands.getByRole('img').getAttribute('aria-label')).toMatch(/^Distribution over the files shown: 0–49: \d+/);
+    await bands.getByRole('spinbutton', { name: 'Band 2 starts at' }).fill('10');
+    await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0–9');
+    expect(sum(await legendCounts())).toBe(total);
+    expect(await bands.locator('summary').innerText()).toContain('custom');
+    // An invalid edit is reported and the last valid bands stay in use.
+    await bands.getByRole('spinbutton', { name: 'Band 3 starts at' }).fill('5');
+    expect(await page.locator('#bands-problem').innerText()).toContain('must start above');
+    expect(await page.locator('.city-legend').innerText()).toContain('0–9');
+    await bands.getByRole('button', { name: 'Even split' }).click();
+    expect(sum(await legendCounts())).toBe(total);
+    expect(await audit(page)).toEqual([]);
+    await bands.getByRole('button', { name: 'Reset' }).click();
+    await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0–49');
+    await bands.locator('summary').click();
+    const saved = page.locator('.city-saved');
+    await saved.locator('summary').click();
+    await saved.getByRole('button', { name: 'Most depended on', exact: true }).click();
+    expect(await lens.inputValue()).toBe('fan-in');
+    await saved.getByRole('button', { name: 'Largest files', exact: true }).click();
+    expect(await lens.inputValue()).toBe('code-lines');
+    expect(await page.getByRole('combobox', { name: 'Display filter' }).inputValue()).toBe('source');
+    await saved.locator('summary').click();
+    await page.getByRole('combobox', { name: 'Display filter' }).selectOption('all');
+    await lens.selectOption('structure');
+  });
+
   it('logged no page errors', () => {
     expect(errors).toEqual([]);
   });

@@ -10,6 +10,7 @@ const view: SavedView = {
   direction: 'both',
   includeTypes: false,
   pattern: 'packages/runtime-*/**, !*.test.ts',
+  stops: [0, 20, 40, 60, 90],
   focus: 'packages/runtime-core',
   hide: '**/__tests__/**',
   selectedPath: 'packages/runtime-core/src/renderer.ts',
@@ -30,6 +31,14 @@ describe('saved views', () => {
     expect(parseSavedView({ ...view, focus: 'x'.repeat(1025) })).toBeNull();
     expect(parseSavedView({ ...view, focus: 7 })).toBeNull();
     expect(parseSavedView({ ...view, hide: 'x'.repeat(20_000) })).toBeNull();
+  });
+
+  it('keeps valid band starts and refuses broken ones (ADR-052)', () => {
+    const { stops: _stops, ...old } = view;
+    expect(parseSavedView(old)?.stops).toBeNull();
+    for (const stops of [[0, 5, 5, 9, 10], [1, 2, 3, 4, 5], [0, 1, 2, 3], [0, 1, 2, 3, 'x'], [0, 1.5, 2, 3, 4], [0, 1, 2, 3, 2e6], 'x'])
+      expect(parseSavedView({ ...view, stops })).toBeNull();
+    expect(parseSavedView({ ...view, lens: 'structure' })?.stops).toBeNull();
   });
 
   it('treat imported files as untrusted: bad entries are skipped, never coerced into code', () => {
