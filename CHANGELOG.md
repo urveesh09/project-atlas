@@ -6,6 +6,14 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 
 ## [Unreleased]
 
+### Changed
+- Refined controls ([ADR-049](docs/adr/ADR-049-refined-controls-and-icons.md)):
+  - one style for buttons, selects and fields in light and dark;
+  - switch toggles, menus with icons, and a drawn icon set for the stage controls;
+  - history dots no longer sit inside button boxes.
+
+## [0.1.0-beta.1] - 2026-10-14
+
 ### Security
 - Workspace globs from analyzed repositories are matched without backtracking. A crafted
   glob could stall analysis

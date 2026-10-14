@@ -12,6 +12,7 @@ import { ComparePanel } from './ComparePanel';
 import { Tombstone } from './HistoryPanel';
 import { DEMO, OWN_REPOSITORY_GUIDE, StartPanel } from './StartPanel';
 import { ResultActions } from '../hosted/ResultActions';
+import { Icon } from './Icon';
 
 /**
  * The functional explorer: tree, search, inspector and overview, all plain HTML. A hosted
@@ -105,14 +106,17 @@ function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { r
         <Search ref={searchRef} />
         <div className="topbar-actions">
           <button type="button" className="button ghost" aria-expanded={!treeHidden} aria-controls="repository-tree" onClick={toggleTree}>
+            <Icon name="tree" />
             {treeHidden ? 'Show tree' : 'Hide tree'}
           </button>
           <button type="button" className="button ghost" aria-expanded={helpOpen} aria-controls="shortcuts" onClick={() => setHelpOpen((o) => !o)}>
+            <Icon name="keyboard" />
             Keys
           </button>
           {DEMO && (
             // Static demo builds (ADR-044, ADR-047) point visitors at running ATLAS on their own code.
-            <a className="button ghost" href={OWN_REPOSITORY_GUIDE} target="_blank" rel="noopener noreferrer">
+            <a className="button accent" href={OWN_REPOSITORY_GUIDE} target="_blank" rel="noopener noreferrer">
+              <Icon name="external" />
               Your repository
             </a>
           )}
@@ -120,6 +124,7 @@ function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { r
             <ResultActions analysisId={hosted.analysisId} expiresAt={hosted.expiresAt} />
           ) : (
             <button type="button" className="button ghost" onClick={onOpenOther}>
+              <Icon name="folder" />
               Open artifact…
             </button>
           )}

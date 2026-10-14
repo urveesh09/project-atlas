@@ -759,7 +759,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
       expect(await small.getByRole('button', { name: 'Step through' }).count()).toBe(0);
       expect(await small.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toContain('Snapshot 12 of 12');
       expect(await small.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await small.getByRole('button', { name: '‹ Earlier' }).click();
+      await small.getByRole('button', { name: 'Earlier' }).click();
       await expect.poll(() => small.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toMatch(/^Snapshot 11 of 12/);
       expect(await audit(small)).toEqual([]);
     } finally {

@@ -16,6 +16,7 @@ import { CITY_THEMES, CITY_THEME_LABEL, type CityTheme } from '../city/themes';
 import { compilePathPattern } from '../app/path-pattern';
 import type { SavedView } from '../app/saved-views';
 import { SavedViews } from './SavedViews';
+import { Icon } from './Icon';
 import '../styles/city.css';
 
 const ThreeCity = lazy(() => import('../city/ThreeCity'));
@@ -484,17 +485,23 @@ export function City() {
         <SavedViews current={currentView} apply={applyView} />
         {state.mode !== 'table' && (
           <details className="city-views city-share">
-            <summary>Share</summary>
+            <summary>
+              <Icon name="share" />
+              Share
+            </summary>
             <div className="city-views-panel">
               {canCopy && (
-                <button type="button" disabled={!ready} onClick={() => void copyImage()}>
+                <button type="button" className="menu-item" disabled={!ready} onClick={() => void copyImage()}>
+                  <Icon name="copy" />
                   Copy image
                 </button>
               )}
-              <button type="button" disabled={!ready || exporting} onClick={() => void exportImage()}>
+              <button type="button" className="menu-item" disabled={!ready || exporting} onClick={() => void exportImage()}>
+                <Icon name="download" />
                 Export PNG
               </button>
-              <button type="button" disabled={!ready} onClick={exportMetadataFile}>
+              <button type="button" className="menu-item" disabled={!ready} onClick={exportMetadataFile}>
+                <Icon name="file" />
                 Export metadata
               </button>
               <p className="city-views-empty">The PNG carries its provenance inside the file: repository, commit, lens and analyzer.</p>
@@ -615,15 +622,15 @@ export function City() {
             {state.mode === '3d' && (
               <>
                 <button type="button" aria-label="Previous view" title="Previous view ( [ )" disabled={!views.back || !ready} onClick={() => handle.current?.travel?.(-1)}>
-                  <span aria-hidden="true">←</span>
+                  <Icon name="back" />
                 </button>
                 <button type="button" aria-label="Next view" title="Next view ( ] )" disabled={!views.forward || !ready} onClick={() => handle.current?.travel?.(1)}>
-                  <span aria-hidden="true">→</span>
+                  <Icon name="forward" />
                 </button>
               </>
             )}
             <button type="button" aria-label="Reset city" title="Show the whole city" disabled={!ready} onClick={() => handle.current?.reset()}>
-              <span aria-hidden="true">⌂</span>
+              <Icon name="home" />
             </button>
             {expanded !== 'no' && (
               <button
@@ -633,7 +640,7 @@ export function City() {
                 title={workspace.drawer ? 'Hide the evidence panel' : 'Show the evidence panel'}
                 onClick={() => workspace.setDrawer(!workspace.drawer)}
               >
-                <span aria-hidden="true">☰</span>
+                <Icon name="panel" />
               </button>
             )}
             <button
@@ -643,21 +650,21 @@ export function City() {
               title={expanded === 'no' ? 'Expand into a full-screen workspace (F)' : 'Leave the workspace (F or Esc)'}
               onClick={toggleExpanded}
             >
-              <span aria-hidden="true">{expanded === 'no' ? '⤢' : '⤡'}</span>
+              <Icon name={expanded === 'no' ? 'expand' : 'collapse'} />
             </button>
           </div>
           <div className="city-nav city-nav-camera" role="toolbar" aria-label="Camera">
             <button type="button" aria-label="Zoom in" title="Zoom in (+)" disabled={!ready} onClick={() => handle.current?.zoom(1.3)}>
-              <span aria-hidden="true">+</span>
+              <Icon name="plus" />
             </button>
             <button type="button" aria-label="Zoom out" title="Zoom out (−)" disabled={!ready} onClick={() => handle.current?.zoom(1 / 1.3)}>
-              <span aria-hidden="true">−</span>
+              <Icon name="minus" />
             </button>
             <button type="button" aria-label="North" title="Turn to face north" disabled={!ready} onClick={() => handle.current?.north()}>
-              <span aria-hidden="true">N</span>
+              <Icon name="north" />
             </button>
             <button type="button" aria-label="Focus selection" title="Fly to the selection" disabled={!selectedIds.size || !ready} onClick={() => handle.current?.focus(selectedIds)}>
-              <span aria-hidden="true">◎</span>
+              <Icon name="focus" />
             </button>
           </div>
           {chosen && chosen.kind !== 'repository' && (

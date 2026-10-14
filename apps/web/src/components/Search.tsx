@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { SearchHit } from '@atlas/graph';
 import { useViewer } from '../app/context';
+import { Icon } from './Icon';
 
 /**
  * Search combobox (ARIA 1.2 pattern): the input keeps focus, the active option is
@@ -62,7 +63,7 @@ export const Search = forwardRef<HTMLInputElement>(function Search(_props, ref) 
         Search files, packages and declarations
       </label>
       <span className="search-icon" aria-hidden="true">
-        ⌕
+        <Icon name="search" />
       </span>
       <input
         ref={ref}
