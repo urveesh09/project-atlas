@@ -9,6 +9,8 @@ export interface CityProbe {
     ghosts: number;
     added: number;
     lens: string;
+    /** Key of the colours replacing the lens (change colouring), or null. */
+    paint: string | null;
     theme: string;
     animated: boolean;
     lite: boolean;

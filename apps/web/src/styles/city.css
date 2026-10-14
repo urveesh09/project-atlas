@@ -1,5 +1,8 @@
 .city { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--panel); margin-bottom: 28px; box-shadow: var(--shadow-xs); }
 .city-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 330px); align-items: start; gap: 20px; padding: 20px; }
+/* Rows take their content's height. In the fixed-height explorer an auto row could shrink to
+   the city's minimum (it clips overflow), letting the compare panel cover it (ADR-050). */
+.city-content { grid-auto-rows: max-content; }
 .city-inspector { min-width: 0; }
 /* Beside the city, the inspector stays in view while the page scrolls, so a pick never has to move the page. */
 @media (min-width: 1351px) { .city-content > .city-inspector { position: sticky; top: 0; max-height: calc(100vh - 96px); overflow-y: auto; } }

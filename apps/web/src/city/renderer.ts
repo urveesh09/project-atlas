@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { CityPaint } from './types';
 import { districtColor, facadeColor, lensValue, type CityBuilding, type CityData, type CityLens } from '@atlas/layout';
 import type { Rect } from '@atlas/schema';
 import { EDGE_COLORS, edgeClass, type OverlayResult } from './overlay';
@@ -276,6 +277,7 @@ export class CityRenderer {
   private down: { x: number; y: number } | null = null;
   private selected = new Set<string>();
   private lens: CityLens = 'structure';
+  private paint: CityPaint | null = null;
   private filter: (b: CityBuilding) => boolean = () => true;
   private width = 1;
   private height = 1;
@@ -807,7 +809,7 @@ export class CityRenderer {
     this.city = city;
     this.layoutBuildings();
     const present = new Set([...this.selected].filter((id) => this.buildingIndex.has(id)));
-    this.applyStyle(this.lens, present, this.filter);
+    this.applyStyle(this.lens, present, this.filter, this.paint);
   }
 
   /** Mark deleted (ghost) and added plots for an A -> B comparison; [] clears them. */
@@ -1455,17 +1457,19 @@ export class CityRenderer {
       if (!at) continue;
       const alpha = THREE.MathUtils.clamp(1.35 - (0.4 * c.away) / distance, 0.45, 1);
       // The swatch repeats the facade colour only while the structure lens shows package colour.
-      if (pill(c.d.label, at, { swatch: this.lens === 'structure' ? districtColor(c.d.id) : null, alpha: c.d === home ? 1 : alpha })) shown++;
+      if (pill(c.d.label, at, { swatch: this.lens === 'structure' && !this.paint ? districtColor(c.d.id) : null, alpha: c.d === home ? 1 : alpha })) shown++;
     }
   }
-  applyStyle(lens: CityLens, selected: ReadonlySet<string>, filter: (b: CityBuilding) => boolean) {
+  applyStyle(lens: CityLens, selected: ReadonlySet<string>, filter: (b: CityBuilding) => boolean, paint: CityPaint | null = null) {
     const recolor =
       this.lens !== lens ||
+      (this.paint?.key ?? null) !== (paint?.key ?? null) ||
       this.filter !== filter ||
       this.styled !== this.city ||
       [...this.bodies, ...this.partList].some((g) => g.mesh.count > 0 && !g.mesh.instanceColor && g.tinted);
     this.styled = this.city;
     this.lens = lens;
+    this.paint = paint;
     this.selected = new Set(selected);
     this.filter = filter;
     let count = 0,
@@ -1473,12 +1477,12 @@ export class CityRenderer {
     const tones = recolor ? new Float32Array(this.city.buildings.length * 3) : null;
     if (recolor)
       this.city.buildings.forEach((b, i) => {
-        color.set(facadeColor(b, lens));
+        color.set(paint ? paint.color(b) : facadeColor(b, lens));
         if (!filter(b)) color.lerp(white, 0.8);
         this.bodies[this.bodyBatch[i]!]!.mesh.setColorAt(this.bodySlot[i]!, color);
         tones!.set([color.r, color.g, color.b], i * 3);
         const p = center(b.rect);
-        if ((lens !== 'structure' && lensValue(b, lens) === null) || b.parseStatus !== 'parsed') {
+        if ((paint ? paint.unknown(b) : lens !== 'structure' && lensValue(b, lens) === null) || b.parseStatus !== 'parsed') {
           for (const angle of [Math.PI / 4, -Math.PI / 4]) {
             matrix
               .makeRotationY(angle)
@@ -1809,6 +1813,7 @@ export class CityRenderer {
       ghosts: this.ghosts.count,
       added: this.addedMarkers.count,
       lens: this.lens,
+      paint: this.paint?.key ?? null,
       theme: this.theme,
       animated: this.animated,
       lite: this.lite,

@@ -697,10 +697,37 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     const stats = await page.evaluate(() => window.__atlasCity!.stats());
     expect(stats.ghosts).toBe(1);
     expect(stats.added).toBe(4);
+    // Change colouring (ADR-050): on by default in code lines, legend bands sum to B's files.
+    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint ?? '').toMatch(/:codeLines$/);
+    const colour = page.getByRole('combobox', { name: 'Colour by change' });
+    expect(await colour.inputValue()).toBe('codeLines');
+    expect(await page.locator('.city-legend strong').first().innerText()).toMatch(/^Change \d+ → \d+: code lines$/);
+    const bandCounts = (await page.locator('.city-legend .legend-count').allInnerTexts()).map((t) => Number(t.replaceAll(',', '')));
+    expect(bandCounts).toHaveLength(7);
+    expect(bandCounts.reduce((a, b) => a + b, 0)).toBe(stats.buildings);
+    expect(bandCounts[5]).toBe(4);
+    await colour.selectOption('fanIn');
+    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint ?? '').toMatch(/:fanIn$/);
+    await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('table');
+    expect(await page.locator('.city-table thead').innerText()).toMatch(/Fan-in, snapshot \d+ → \d+/);
+    expect(await page.locator('.city-table .change-cell').count()).toBeGreaterThan(0);
+    await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('3d');
+    await page.waitForFunction(() => window.__atlasCity !== undefined);
+    // Picking a lens asks for lens colours.
+    await page.getByLabel('Lens', { exact: true }).selectOption('complexity');
+    expect(await colour.inputValue()).toBe('off');
+    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint).toBeNull();
+    await page.getByLabel('Lens', { exact: true }).selectOption('structure');
     const text = await page.locator('.compare').innerText();
     expect(text).toContain('src/ui/Cargo.tsx → src/ui/Manifest.tsx');
     expect(text).toMatch(/mainline activity in this interval/i);
     expect(await page.locator('.compare section').last().locator('li').count()).toBe(6);
+    // Beside-the-city layout: the compare panel follows the city and never covers it (ADR-050).
+    const viewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const [cityBox, compareBox] = await Promise.all([page.locator('section.city').boundingBox(), page.locator('section.compare').boundingBox()]);
+    expect(compareBox!.y).toBeGreaterThanOrEqual(cityBox!.y + cityBox!.height);
+    await page.setViewportSize(viewport);
     expect(await audit(page)).toEqual([]);
     // Explicit timeline navigation changes B and the comparison legend together.
     await goTo(11);

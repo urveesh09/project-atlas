@@ -2,7 +2,15 @@ import type { ViewerModel } from '../app/model';
 import type { ViewState } from '../app/state';
 import type { OverlayResult } from './overlay';
 
-export function exportMetadata(model: ViewerModel, state: ViewState, overlay: OverlayResult, camera: unknown, cityStyle: string | null = null) {
+export function exportMetadata(
+  model: ViewerModel,
+  state: ViewState,
+  overlay: OverlayResult,
+  camera: unknown,
+  cityStyle: string | null = null,
+  /** Change colouring in a comparison (ADR-050): the metric and the files per band. */
+  changeColour: { metric: string; counts: Record<string, number> } | null = null,
+) {
   return {
     exportVersion: 'atlas.image/1',
     analysisId: model.manifest.analysisId,
@@ -20,6 +28,7 @@ export function exportMetadata(model: ViewerModel, state: ViewState, overlay: Ov
     layoutVersion: model.dataset.layout.layoutVersion,
     layoutId: model.dataset.layout.layoutId,
     lens: state.lens,
+    changeColour,
     mode: state.mode,
     selectedPath: state.selectedId ? model.pathOf(state.selectedId) : null,
     filter: state.filter,

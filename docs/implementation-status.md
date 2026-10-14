@@ -713,6 +713,28 @@ Checks:
   dark.
 - Viewer end-to-end tests: 33 of 33 on the GPU and with `CI=1`.
 
+### Change colouring in Compare (2026-10-14)
+
+[ADR-050](adr/ADR-050-change-colouring-in-compare.md) closes the first catch-up item of
+ADR-048.
+- While a comparison is ready, the city can be coloured by the signed change of one of six
+  metrics from snapshot A to B. It defaults to code lines.
+- The bands come from the worker's existing `metricChanges`.
+- New files are purple, and a value unknown on either side stays unknown.
+- The cards, the file table and the exports show the signed numbers.
+
+It also fixes a layout defect: wider than 1350 px, an open compare panel covered the city,
+because an auto grid row shrank to 30 px.
+
+Checks:
+- Unit: three tests, including a 400-pair random agreement check per metric against
+  `metricDeltas`.
+- Viewer end-to-end tests: 33 of 33 on the GPU and with `CI=1`. The compare scenario now
+  checks the change legend, the table column, the return to lens colours and the
+  no-overlap layout.
+- On the vuejs/core demo, snapshots 11 → 12 in code lines: 514 unchanged, 9 more, 4 much
+  more and 175 unknown (not TS/JS), 702 files in all.
+
 ### Reproduce verification
 
 ```sh
