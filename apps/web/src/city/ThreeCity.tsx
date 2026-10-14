@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { CityBuilding, CityData, CityLens } from '@atlas/layout';
 import { CityRenderer, type CityGhost, type ViewHistory } from './renderer';
-import type { CityHandle } from './types';
+import type { CityHandle, CityPaint } from './types';
 import type { OverlayResult } from './overlay';
 import type { CityTheme } from './themes';
 import type {} from './probe';
@@ -12,6 +12,8 @@ export default function ThreeCity(props: {
   ghosts: readonly CityGhost[];
   city: CityData;
   lens: CityLens;
+  /** Colours that replace the lens colours (change colouring, ADR-050). */
+  paint: CityPaint | null;
   selected: ReadonlySet<string>;
   filter(b: CityBuilding): boolean;
   overlay: OverlayResult;
@@ -89,8 +91,8 @@ export default function ThreeCity(props: {
     renderer.current?.setGhosts(props.ghosts);
   }, [props.ghosts, props.layoutKey, props.lowQuality, props.theme]);
   useEffect(() => {
-    renderer.current?.applyStyle(props.lens, props.selected, props.filter);
-  }, [props.city, props.lens, props.selected, props.filter, props.lowQuality, props.theme]);
+    renderer.current?.applyStyle(props.lens, props.selected, props.filter, props.paint);
+  }, [props.city, props.lens, props.paint, props.selected, props.filter, props.lowQuality, props.theme]);
   useEffect(() => {
     renderer.current?.setOverlay(props.overlay);
   }, [props.overlay, props.city, props.lowQuality, props.theme]);

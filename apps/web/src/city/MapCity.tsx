@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { facadeColor, lensValue, type CityBuilding, type CityData, type CityLens } from '@atlas/layout';
 import { EDGE_COLORS, edgeClass, type OverlayResult } from './overlay';
 import { placeMapLabels, type MapLabelCandidate } from './map-labels';
-import type { CityHandle } from './types';
+import type { CityHandle, CityPaint } from './types';
 
 /** Same immutable rectangles as 3D; never reruns the layout. No WebGL dependency. */
 export function MapCity(props: {
@@ -10,6 +10,8 @@ export function MapCity(props: {
   /** Compare marks: outlined ghosts for deleted plots, a diamond for added files. */
   ghosts: readonly { rect: { x: number; z: number; width: number; depth: number }; kind: 'deleted' | 'added' }[];
   lens: CityLens;
+  /** Colours that replace the lens colours (change colouring, ADR-050). */
+  paint: CityPaint | null;
   selected: ReadonlySet<string>;
   filter(b: CityBuilding): boolean;
   overlay: OverlayResult;
@@ -31,7 +33,7 @@ export function MapCity(props: {
     let frame = 0;
     const { city } = props;
     const draw = (target = el, context = ctx, scaleFactor = 1) => {
-      const { lens, selected, filter, overlay } = latest.current;
+      const { lens, paint, selected, filter, overlay } = latest.current;
       const v = view.current,
         s = v.scale * scaleFactor,
         tx = v.x * scaleFactor,
@@ -49,7 +51,7 @@ export function MapCity(props: {
       }
       for (const b of city.buildings) {
         context.globalAlpha = filter(b) ? 1 : 0.2;
-        context.fillStyle = facadeColor(b, lens);
+        context.fillStyle = paint ? paint.color(b) : facadeColor(b, lens);
         const bx = x(b.rect.x),
           bz = z(b.rect.z),
           w = b.rect.width * s,
@@ -79,7 +81,7 @@ export function MapCity(props: {
             context.rect(bx + w / 4, bz + h / 4, w / 2, h / 2);
           }
           context.stroke();
-          if ((lens !== 'structure' && lensValue(b, lens) === null) || b.parseStatus !== 'parsed') {
+          if ((paint ? paint.unknown(b) : lens !== 'structure' && lensValue(b, lens) === null) || b.parseStatus !== 'parsed') {
             context.beginPath();
             context.moveTo(bx, bz);
             context.lineTo(bx + w, bz + h);
@@ -358,7 +360,7 @@ export function MapCity(props: {
   }, [props.city, props.register]);
   useEffect(() => {
     drawRef.current();
-  }, [props.lens, props.selected, props.filter, props.overlay, props.ghosts]);
+  }, [props.lens, props.paint, props.selected, props.filter, props.overlay, props.ghosts]);
   useEffect(() => {
     if (props.focusNonce) {
       /* The toolbar invokes the registered handle directly. */

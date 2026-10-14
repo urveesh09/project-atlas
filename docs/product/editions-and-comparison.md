@@ -1,6 +1,6 @@
 # ATLAS editions and how ATLAS compares with CodeCharta
 
-Last reviewed: 2026-10-13, against the CodeCharta documentation in its public repository
+Last reviewed: 2026-10-14, against the CodeCharta documentation in its public repository
 ([maibornwolff/codecharta](https://github.com/maibornwolff/codecharta), `gh-pages/src/content/docs`).
 The comparison is updated whenever either product changes; a claim without a source here
 is not a claim. Decision record: [ADR-048](../adr/ADR-048-editions-and-free-parity.md).
@@ -31,7 +31,7 @@ partial, — = absent. "Since" names the ATLAS ADR.
 | **Languages** | Many, through parsers and importers (SonarQube, tokei, coverage, CSV and others) | ◐ TypeScript and JavaScript deeply; other files as sized plots without metrics |
 | **Dependency accuracy** | Dependency parser, experimental dependency view | ✓ Compiler-grade TS/JS resolution: every import statement with its line, kind, confidence and an unresolved reason; type-only kept separate |
 | **Evidence for each number** | Metric values per building | ✓ Every count names its unit and policy (ADR-047); findings with rule, threshold, evidence and limits; hotspot factors listed |
-| **History** | Compare two loaded maps (delta colours) | ✓ Up to 12 sampled snapshots on fixed plots, lineage across renames, tombstones; exact added/deleted/changed lists between any two snapshots. ◐ No delta colouring yet (planned) |
+| **History** | Compare two loaded maps (delta colours) | ✓ Up to 12 sampled snapshots on fixed plots, lineage across renames, tombstones; exact added/deleted/changed lists between any two snapshots; change colouring in six metrics with signed values in the table and cards (ADR-050) |
 | **Metric mapping** | Choose the metric for area, height and colour; thresholds, gradient modes, distribution chart | ◐ Five colour lenses with numeric legends and per-band counts (ADR-048); height fixed to code lines; no custom thresholds yet |
 | **Layouts** | Five (treemap, street, sunburst, radial…) | ◐ One deterministic, history-stable city; 3D, 2D map and an accessible table |
 | **Search and filters** | Glob search greys out misses; flatten and exclude rules | ✓ Search by file, package or declaration; glob highlight with `!` excludes and exact counts (ADR-048); role and findings filters. ◐ No hide/exclude yet (planned) |
@@ -50,8 +50,8 @@ partial, — = absent. "Since" names the ATLAS ADR.
 These are the free-edition gaps, ordered by user value against effort. Each needs an ADR
 before it ships.
 
-1. **Delta colouring in Compare:** colour by the change in a metric between snapshots,
-   with signed numbers.
+1. ~~**Delta colouring in Compare.**~~ Done in [ADR-050](../adr/ADR-050-change-colouring-in-compare.md):
+   six metrics, signed numbers, unknowns kept unknown.
 2. **Hide and focus:** exclude paths from view (a stable plot stays empty, so history
    stays comparable), and focus on one folder.
 3. **Metric choice and thresholds:** more colour metrics (code lines, total complexity,

@@ -6,6 +6,15 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 
 ## [Unreleased]
 
+### Added
+- Change colouring in Compare ([ADR-050](docs/adr/ADR-050-change-colouring-in-compare.md)):
+  - colour snapshot B by the signed change of code lines, complexity, fan-in, fan-out or
+    hotspot score since A;
+  - signed values in the cards and the file table.
+
+### Fixed
+- An open compare panel covered the city on screens wider than 1350 px.
+
 ### Changed
 - Refined controls ([ADR-049](docs/adr/ADR-049-refined-controls-and-icons.md)):
   - one style for buttons, selects and fields in light and dark;

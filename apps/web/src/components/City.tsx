@@ -17,6 +17,7 @@ import { compilePathPattern } from '../app/path-pattern';
 import type { SavedView } from '../app/saved-views';
 import { SavedViews } from './SavedViews';
 import { Icon } from './Icon';
+import { CHANGE_BANDS, CHANGE_COLORS, CHANGE_LABEL, CHANGE_METRICS, changeBandLabel, changePaint, formatChange, type ChangeMetric } from '../city/change';
 import '../styles/city.css';
 
 const ThreeCity = lazy(() => import('../city/ThreeCity'));
@@ -106,6 +107,12 @@ export function City() {
     [reachPage, setReachPage] = useState(0);
   const reachTicket = useRef(0);
   const [views, setViews] = useState<ViewHistory>(NO_VIEWS);
+  // Change colouring (ADR-050): on by default for each new comparison, in code lines.
+  const [changeMetric, setChangeMetric] = useState<ChangeMetric | 'off'>('codeLines');
+  const comparisonOpen = state.compare !== null;
+  useEffect(() => {
+    if (comparisonOpen) setChangeMetric('codeLines');
+  }, [comparisonOpen]);
   // Expanded workspace (ADR-047): the whole explorer, so search and evidence stay at hand.
   const workspace = useWorkspace();
   const expanded = workspace.mode;
@@ -310,6 +317,13 @@ export function City() {
     }
     return marks;
   }, [comparison, dataset, model.frame, state.compare]);
+  // Only while B of a ready comparison is the frame on screen; otherwise the lens colours.
+  const comparisonResult =
+    state.compare && comparison?.result && comparison.a === state.compare.a && comparison.b === state.compare.b && model.frame === state.compare.b ? comparison.result : null;
+  const paint = useMemo(
+    () => (comparisonResult && changeMetric !== 'off' ? changePaint(comparisonResult, model.city.buildings, changeMetric) : null),
+    [comparisonResult, model.city, changeMetric],
+  );
   const showReach = async () => {
     if (!queries || !state.selectedId) return;
     const ticket = ++reachTicket.current;
@@ -329,7 +343,8 @@ export function City() {
         setMessage('Reach query is unavailable. Direct dependencies remain in the inspector.');
     }
   };
-  const currentMetadata = () => exportMetadata(model, state, overlay, handle.current?.cameraState() ?? null, state.mode === '3d' ? theme : null);
+  const currentMetadata = () =>
+    exportMetadata(model, state, overlay, handle.current?.cameraState() ?? null, state.mode === '3d' ? theme : null, paint ? { metric: paint.metric, counts: paint.counts } : null);
   const exportMetadataFile = () => {
     downloadBlob(new Blob([JSON.stringify(currentMetadata(), null, 2)], { type: 'application/json' }), 'atlas-city.metadata.json');
     setMessage('Started the download of atlas-city.metadata.json: the provenance of the current view.');
@@ -346,7 +361,7 @@ export function City() {
       const metadata = currentMetadata();
       const blob = await addProvenance(
         await handle.current.exportPng(),
-        `ATLAS · ${model.manifest.repo.displayName} · ${shortOid(model.graph.commitOid)} ${model.commit.committerTime.slice(0, 10)}${model.isHead ? '' : ` (snapshot ${model.frame + 1}/${dataset.frames.length})`}${state.compare ? ` · compare ${state.compare.a + 1}→${state.compare.b + 1}` : ''} · ${LENS_LABEL[state.lens]}${model.manifest.coverage.history.status === 'partial' || model.graph.coverage.limitsHit.length ? ' · PARTIAL COVERAGE' : ''} · ${model.manifest.analyzer.version} · static analysis`,
+        `ATLAS · ${model.manifest.repo.displayName} · ${shortOid(model.graph.commitOid)} ${model.commit.committerTime.slice(0, 10)}${model.isHead ? '' : ` (snapshot ${model.frame + 1}/${dataset.frames.length})`}${state.compare ? ` · compare ${state.compare.a + 1}→${state.compare.b + 1}` : ''} · ${paint ? `change in ${CHANGE_LABEL[paint.metric].toLowerCase()}` : LENS_LABEL[state.lens]}${model.manifest.coverage.history.status === 'partial' || model.graph.coverage.limitsHit.length ? ' · PARTIAL COVERAGE' : ''} · ${model.manifest.analyzer.version} · static analysis`,
       );
       // One download that carries its own provenance (ADR-047): browsers may hold back a
       // second automatic download, so the metadata travels inside the PNG as a text chunk.
@@ -408,7 +423,11 @@ export function City() {
           <select
             aria-label="Lens"
             value={state.lens}
-            onChange={(e) => dispatch({ type: 'lens', lens: e.target.value as typeof state.lens })}
+            onChange={(e) => {
+              // Picking a lens asks for its colours, so change colouring steps aside.
+              if (paint) setChangeMetric('off');
+              dispatch({ type: 'lens', lens: e.target.value as typeof state.lens });
+            }}
           >
             {lenses.map((lens) => (
               <option key={lens} value={lens}>
@@ -417,6 +436,24 @@ export function City() {
             ))}
           </select>
         </label>
+        {state.compare && (
+          <label>
+            Colour
+            <select
+              aria-label="Colour by change"
+              value={changeMetric}
+              disabled={!comparisonResult}
+              onChange={(e) => setChangeMetric(e.target.value as ChangeMetric | 'off')}
+            >
+              <option value="off">Lens values</option>
+              {CHANGE_METRICS.map((m) => (
+                <option key={m} value={m}>
+                  Change in {CHANGE_LABEL[m].toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
           Display filter
           <select
@@ -510,8 +547,18 @@ export function City() {
         )}
       </div>
       <div className="city-legend" aria-label="City lens legend">
-        <strong>{LENS_LABEL[state.lens]}</strong>
-        {state.lens === 'structure' ? (
+        <strong>{paint && state.compare ? `Change ${state.compare.a + 1} → ${state.compare.b + 1}: ${CHANGE_LABEL[paint.metric].toLowerCase()}` : LENS_LABEL[state.lens]}</strong>
+        {paint ? (
+          <>
+            {CHANGE_BANDS.map((band) => (
+              <span key={band}>
+                <i style={{ background: CHANGE_COLORS[band] }} aria-hidden="true" />
+                {band === 'unknown' ? '× unknown' : changeBandLabel(band, paint.metric)}
+                <span className="legend-count">{paint.counts[band].toLocaleString('en-US')}</span>
+              </span>
+            ))}
+          </>
+        ) : state.lens === 'structure' ? (
           <span>Stable package colors; inspect package names below and in the tree.</span>
         ) : (
           <>
@@ -528,7 +575,13 @@ export function City() {
             </span>
           </>
         )}
-        {LENS_NOTE[state.lens] && <span className="legend-note">{LENS_NOTE[state.lens]}</span>}
+        {paint ? (
+          <span className="legend-note">
+            Each building of snapshot {state.compare!.b + 1} is coloured by how its {CHANGE_LABEL[paint.metric].toLowerCase()} changed since snapshot {state.compare!.a + 1}: blue = less, orange = more. A value unknown on either side stays unknown.
+          </span>
+        ) : (
+          LENS_NOTE[state.lens] && <span className="legend-note">{LENS_NOTE[state.lens]}</span>
+        )}
         {ghosts.length > 0 && (
           <span className="legend-note">
             Compare marks: <span aria-hidden="true">▢</span> outlined ghost = deleted since A · <span aria-hidden="true">◆</span> raised diamond = added in B.
@@ -569,6 +622,7 @@ export function City() {
               city={model.city}
               ghosts={ghosts}
               lens={state.lens}
+              paint={paint}
               selected={selectedIds}
               filter={filter}
               overlay={overlay}
@@ -590,6 +644,7 @@ export function City() {
                   ghosts={ghosts}
                   city={model.city}
                   lens={state.lens}
+                  paint={paint}
                   selected={selectedIds}
                   filter={filter}
                   overlay={overlay}
@@ -615,6 +670,7 @@ export function City() {
                 {state.lens === 'structure'
                   ? (model.index.packageOf(hovered.id)?.packageName ?? 'root package')
                   : formatNumber(hoveredBuilding ? lensValue(hoveredBuilding, state.lens) : null)}
+                {paint && hoveredBuilding && ` · ${CHANGE_LABEL[paint.metric]}: ${formatChange(paint.of(hoveredBuilding))}`}
               </span>
             </div>
           )}
@@ -685,7 +741,7 @@ export function City() {
               <strong>{chosen.kind === 'file' ? (chosen.path.split('/').at(-1) ?? chosen.path) : model.title(chosen)}</strong>
               <span>
                 {chosen.kind === 'file'
-                  ? `${ROLE_LABEL[chosen.role]} · ${formatNumber(chosenBuilding?.metric?.codeLines)} code lines${state.lens === 'structure' ? '' : ` · ${LENS_LABEL[state.lens]}: ${formatNumber(chosenBuilding ? lensValue(chosenBuilding, state.lens) : null)}`}`
+                  ? `${ROLE_LABEL[chosen.role]} · ${formatNumber(chosenBuilding?.metric?.codeLines)} code lines${paint && chosenBuilding ? ` · ${CHANGE_LABEL[paint.metric]}: ${formatChange(paint.of(chosenBuilding))}` : state.lens === 'structure' ? '' : ` · ${LENS_LABEL[state.lens]}: ${formatNumber(chosenBuilding ? lensValue(chosenBuilding, state.lens) : null)}`}`
                   : `${selectedIds.size.toLocaleString('en-US')} file${selectedIds.size === 1 ? '' : 's'} highlighted`}
               </span>
             </div>
@@ -806,6 +862,11 @@ export function City() {
                 <th scope="col">Changed commits</th>
                 <th scope="col">{dataset.hotspotAvailable ? 'Hotspot' : 'Structure attention'}</th>
                 <th scope="col">Status</th>
+                {paint && state.compare && (
+                  <th scope="col">
+                    {CHANGE_LABEL[paint.metric]}, snapshot {state.compare.a + 1} → {state.compare.b + 1}
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -828,6 +889,7 @@ export function City() {
                   <td>{formatNumber(lensValue(b, 'churn'))}</td>
                   <td>{formatNumber(lensValue(b, dataset.hotspotAvailable ? 'hotspot' : 'attention'))}</td>
                   <td>{b.parseStatus}</td>
+                  {paint && <td className="change-cell">{formatChange(paint.of(b))}</td>}
                 </tr>
               ))}
             </tbody>
