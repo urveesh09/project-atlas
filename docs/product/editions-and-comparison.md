@@ -33,7 +33,7 @@ partial, — = absent. "Since" names the ATLAS ADR.
 | **Evidence for each number** | Metric values per building | ✓ Every count names its unit and policy (ADR-047); findings with rule, threshold, evidence and limits; hotspot factors listed |
 | **History** | Compare two loaded maps (delta colours) | ✓ Up to 12 sampled snapshots on fixed plots, lineage across renames, tombstones; exact added/deleted/changed lists between any two snapshots; change colouring in six metrics with signed values in the table and cards (ADR-050) |
 | **Metric mapping** | Choose the metric for area, height and colour; thresholds, gradient modes, distribution chart | ✓ Ten colour lenses (size, complexity, dependencies, history), editable bands with a distribution chart and even split, built-in views (ADR-052). Height stays code lines and area stays the history-stable layout by design |
-| **Layouts** | Five (treemap, street, sunburst, radial…) | ◐ One deterministic, history-stable city; 3D, 2D map and an accessible table |
+| **Layouts** | Five (treemap, street, sunburst, radial…) | ◐ One deterministic, history-stable city; 3D, 2D map and an accessible table; a layered package dependency graph with cycles (ADR-054) |
 | **Search and filters** | Glob search greys out misses; flatten and exclude rules | ✓ Search by file, package or declaration; glob highlight with `!` excludes and exact counts (ADR-048); role and findings filters; focus on a folder and hide paths with plots kept fixed (ADR-051) |
 | **Saved configurations** | Scenarios: built-in and custom, import/export | ✓ Saved views with import/export, validated on import (ADR-048); seven built-in views (ADR-052) |
 | **Folder marking** | Folder colours, keep highlight | ✓ Six named marker colours with notes on folders and packages, listed in the legend, shared as `atlas.notes/1` files (ADR-053) |
@@ -58,7 +58,7 @@ before it ships.
    functions, lines changed), adjustable band thresholds, a distribution chart, built-in
    view presets.
 4. ~~**Annotations.**~~ Done in [ADR-053](../adr/ADR-053-annotations-and-compact-menus.md). Originally: local folder colours and notes, exportable with saved views.
-5. **Package dependency view:** layered package graph with cycles and upward edges.
+5. ~~**Package dependency view.**~~ Done in [ADR-054](../adr/ADR-054-package-dependency-view.md). Originally: layered package graph with cycles and upward edges.
 6. **More languages:** the largest gap. It needs the owner's direction and a resolver
    design per language (AGENTS.md: new scope needs an ADR).
 7. **3D print export.**
