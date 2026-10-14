@@ -827,6 +827,27 @@ reported as parse failures.
 Next: resolution (ADR-057), then integration with the contract and version change
 (ADR-058).
 
+### Python support, part 2: resolution (2026-10-14)
+
+[ADR-057](adr/ADR-057-python-resolution.md) adds Python projects and import resolution to
+`@atlas/analyzer-py`.
+- **Projects.** From `pyproject.toml` (PEP 621, Poetry, uv, PDM, setuptools, Hatch,
+  maturin), `setup.cfg`, `setup.py` (literals only), requirements files and Pipfile.
+- **Precedence.** Python's `sys.path` order: relative imports, then the standard library
+  (unless shadowed by a script directory), import roots, other runtimes, then declared or
+  undeclared distributions.
+- **Submodules.** Each submodule named in a from-import becomes its own edge.
+- **Reasons.** Namespace packages, guarded imports, exclusions, case mismatches and
+  beyond-top-level imports each carry a reason.
+
+Still not wired into the pipeline.
+
+Checks:
+- 10 resolution tests on a monorepo fixture.
+- On the installed `pip` (395 files), 1,852 exact internal resolutions. The run found four
+  mistakes, now fixed: phantom externals, Python 2 imports, malformed names, and optional
+  imports.
+
 ### Reproduce verification
 
 ```sh

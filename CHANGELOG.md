@@ -13,6 +13,11 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
     mismatches.
 
   It is not yet used by analysis.
+- Python support, part 2 ([ADR-057](docs/adr/ADR-057-python-resolution.md)):
+  - projects and dependencies from every common Python manifest;
+  - import resolution with Python's own precedence.
+
+  It is not yet used by analysis.
 - 3D-print export ([ADR-055](docs/adr/ADR-055-3d-print-export.md)): coloured 3MF and STL of
   the city shown.
 - Package graph view ([ADR-054](docs/adr/ADR-054-package-dependency-view.md)):
