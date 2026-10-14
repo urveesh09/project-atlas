@@ -4,6 +4,7 @@
     { "path": "packages/schema" },
     { "path": "packages/ingest" },
     { "path": "packages/analyzer-ts" },
+    { "path": "packages/analyzer-py" },
     { "path": "packages/graph" },
     { "path": "packages/history" },
     { "path": "packages/layout" },

@@ -7,6 +7,14 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Python support, part 1 ([ADR-056](docs/adr/ADR-056-python-support-design-and-facts.md)):
+  - a Python adapter that extracts imports, declarations, code lines and complexity;
+  - checked against CPython's own `ast` on the full standard library, with 0
+    mismatches.
+
+  It is not yet used by analysis.
+- 3D-print export ([ADR-055](docs/adr/ADR-055-3d-print-export.md)): coloured 3MF and STL of
+  the city shown.
 - Package graph view ([ADR-054](docs/adr/ADR-054-package-dependency-view.md)):
   - layered package dependencies, with cycles named and edges that close them flagged;
   - a complete table.

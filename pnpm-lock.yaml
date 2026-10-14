@@ -169,6 +169,15 @@ importers:
         specifier: workspace:*
         version: link:../test-fixtures
 
+  packages/analyzer-py:
+    dependencies:
+      '@atlas/schema':
+        specifier: workspace:*
+        version: link:../schema
+      web-tree-sitter:
+        specifier: 0.25.10
+        version: 0.25.10
+
   packages/analyzer-ts:
     dependencies:
       '@atlas/schema':
@@ -922,6 +931,14 @@ packages:
       jsdom:
         optional: true
 
+  web-tree-sitter@0.25.10:
+    resolution: {integrity: sha512-Y09sF44/13XvgVKgO2cNDw5rGk6s26MgoZPXLESvMXeefBf7i6/73eFurre0IsTW6E14Y0ArIzhUMmjoc7xyzA==}
+    peerDependencies:
+      '@types/emscripten': ^1.40.0
+    peerDependenciesMeta:
+      '@types/emscripten':
+        optional: true
+
   why-is-node-running@3.2.1:
     resolution: {integrity: sha512-Tb2FUhB4vUsGQlfSquQLYkApkuPAFQXGFzxWKHHumVz2dK+X1RUm/HnID4+TfIGYJ1kTcwOaCk/buYCEJr6YjQ==}
     engines: {node: '>=20.11'}
@@ -1379,6 +1396,8 @@ snapshots:
       '@types/node': 24.19.2
     transitivePeerDependencies:
       - msw
+
+  web-tree-sitter@0.25.10: {}
 
   why-is-node-running@3.2.1: {}
 

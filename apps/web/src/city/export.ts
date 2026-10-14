@@ -85,7 +85,7 @@ export async function addProvenance(blob: Blob, title: string): Promise<Blob> {
 export const PROVENANCE_KEYWORD = 'atlas.provenance';
 
 let crcTable: Uint32Array | null = null;
-function crc32(bytes: Uint8Array): number {
+export function crc32(bytes: Uint8Array): number {
   if (!crcTable) {
     crcTable = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {
