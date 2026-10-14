@@ -1,5 +1,6 @@
 import { CITY_LENSES, type CityLens } from '@atlas/layout';
 import { PATH_PATTERN_LIMITS } from './path-pattern';
+import { SCOPE_LIMITS, normalizeFocus } from './scope';
 
 /**
  * Saved views (ADR-048): a named bundle of how the city is shown: lens, view, filters,
@@ -20,6 +21,9 @@ export interface SavedView {
   direction: 'outgoing' | 'incoming' | 'both';
   includeTypes: boolean;
   pattern: string;
+  /** Scope (ADR-051); absent in views saved before it, which then show everything. */
+  focus: string | null;
+  hide: string;
   selectedPath: string | null;
   theme: string | null;
   camera: { position: number[]; target: number[]; zoom: number } | { x: number; z: number; scale: number } | null;
@@ -56,6 +60,10 @@ export function parseSavedView(v: unknown): SavedView | null {
   if (!oneOf(CITY_LENSES, o['lens']) || !oneOf(MODES, o['mode']) || !oneOf(FILTERS, o['filter']) || !oneOf(DIRECTIONS, o['direction'])) return null;
   const pattern = typeof o['pattern'] === 'string' ? o['pattern'] : '';
   if (pattern.length > PATH_PATTERN_LIMITS.patterns * (PATH_PATTERN_LIMITS.length + 2)) return null;
+  const hide = typeof o['hide'] === 'string' ? o['hide'] : '';
+  if (hide.length > SCOPE_LIMITS.hide) return null;
+  const focus = o['focus'];
+  if (focus !== null && focus !== undefined && (typeof focus !== 'string' || focus.length > SCOPE_LIMITS.focus)) return null;
   const selected = o['selectedPath'];
   if (selected !== null && selected !== undefined && (typeof selected !== 'string' || selected.length > SAVED_VIEW_LIMITS.path)) return null;
   const savedAt = typeof o['savedAt'] === 'string' && !Number.isNaN(Date.parse(o['savedAt'])) ? new Date(o['savedAt']).toISOString() : new Date(0).toISOString();
@@ -68,6 +76,8 @@ export function parseSavedView(v: unknown): SavedView | null {
     direction: o['direction'],
     includeTypes: o['includeTypes'] === true,
     pattern,
+    focus: typeof focus === 'string' ? normalizeFocus(focus) : null,
+    hide,
     selectedPath: typeof selected === 'string' ? selected : null,
     theme: oneOf(THEMES, o['theme']) ? o['theme'] : null,
     camera: camera(o['camera']),

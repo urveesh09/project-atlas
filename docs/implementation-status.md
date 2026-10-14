@@ -735,6 +735,20 @@ Checks:
 - On the vuejs/core demo, snapshots 11 → 12 in code lines: 514 unchanged, 9 more, 4 much
   more and 175 unknown (not TS/JS), 702 files in all.
 
+### Scope: focus and hide (2026-10-14)
+
+[ADR-051](adr/ADR-051-scope-focus-and-hide.md) closes catch-up item 2.
+- Focus on a folder or package, and hide paths by pattern.
+- Hidden files leave their plots empty, so the layout never reflows.
+- Strokes, ghosts, legends and change colours follow the scope. Analysis, search and
+  findings still cover everything.
+- Saved views store the scope.
+
+Checks:
+- Unit: scope and saved-view tests.
+- Viewer end-to-end tests: 34 of 34.
+- vuejs/core demo, focused on `@vue/runtime-core`: 116 of 702 buildings drawn.
+
 ### Reproduce verification
 
 ```sh

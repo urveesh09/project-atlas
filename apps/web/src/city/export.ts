@@ -10,6 +10,8 @@ export function exportMetadata(
   cityStyle: string | null = null,
   /** Change colouring in a comparison (ADR-050): the metric and the files per band. */
   changeColour: { metric: string; counts: Record<string, number> } | null = null,
+  /** Scope (ADR-051): what the image leaves out. */
+  scope: { focus: string | null; hide: string; shownFiles: number; hiddenFiles: number } | null = null,
 ) {
   return {
     exportVersion: 'atlas.image/1',
@@ -29,6 +31,7 @@ export function exportMetadata(
     layoutId: model.dataset.layout.layoutId,
     lens: state.lens,
     changeColour,
+    scope,
     mode: state.mode,
     selectedPath: state.selectedId ? model.pathOf(state.selectedId) : null,
     filter: state.filter,

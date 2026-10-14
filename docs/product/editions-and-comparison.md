@@ -34,7 +34,7 @@ partial, — = absent. "Since" names the ATLAS ADR.
 | **History** | Compare two loaded maps (delta colours) | ✓ Up to 12 sampled snapshots on fixed plots, lineage across renames, tombstones; exact added/deleted/changed lists between any two snapshots; change colouring in six metrics with signed values in the table and cards (ADR-050) |
 | **Metric mapping** | Choose the metric for area, height and colour; thresholds, gradient modes, distribution chart | ◐ Five colour lenses with numeric legends and per-band counts (ADR-048); height fixed to code lines; no custom thresholds yet |
 | **Layouts** | Five (treemap, street, sunburst, radial…) | ◐ One deterministic, history-stable city; 3D, 2D map and an accessible table |
-| **Search and filters** | Glob search greys out misses; flatten and exclude rules | ✓ Search by file, package or declaration; glob highlight with `!` excludes and exact counts (ADR-048); role and findings filters. ◐ No hide/exclude yet (planned) |
+| **Search and filters** | Glob search greys out misses; flatten and exclude rules | ✓ Search by file, package or declaration; glob highlight with `!` excludes and exact counts (ADR-048); role and findings filters; focus on a folder and hide paths with plots kept fixed (ADR-051) |
 | **Saved configurations** | Scenarios: built-in and custom, import/export | ✓ Saved views with import/export, validated on import (ADR-048). ◐ No built-in presets yet |
 | **Folder marking** | Folder colours, keep highlight | — Planned as local annotations |
 | **Labels** | Top-N labels, configurable | ✓ Priority labels with direction marks in 3D (ADR-042, ADR-045); overlap-free map labels (ADR-047) |
@@ -52,7 +52,7 @@ before it ships.
 
 1. ~~**Delta colouring in Compare.**~~ Done in [ADR-050](../adr/ADR-050-change-colouring-in-compare.md):
    six metrics, signed numbers, unknowns kept unknown.
-2. **Hide and focus:** exclude paths from view (a stable plot stays empty, so history
+2. ~~**Hide and focus.**~~ Done in [ADR-051](../adr/ADR-051-scope-focus-and-hide.md). Originally: exclude paths from view (a stable plot stays empty, so history
    stays comparable), and focus on one folder.
 3. **Metric choice and thresholds:** more colour metrics (code lines, total complexity,
    functions, lines changed), adjustable band thresholds, a distribution chart, built-in
