@@ -12,6 +12,8 @@ export function MapCity(props: {
   lens: CityLens;
   /** Colours that replace the lens colours (change colouring, ADR-050). */
   paint: CityPaint | null;
+  /** Annotation colours by layout district ID (ADR-053). */
+  marks: ReadonlyMap<string, string>;
   selected: ReadonlySet<string>;
   filter(b: CityBuilding): boolean;
   overlay: OverlayResult;
@@ -33,7 +35,7 @@ export function MapCity(props: {
     let frame = 0;
     const { city } = props;
     const draw = (target = el, context = ctx, scaleFactor = 1) => {
-      const { lens, paint, selected, filter, overlay } = latest.current;
+      const { lens, paint, marks, selected, filter, overlay } = latest.current;
       const v = view.current,
         s = v.scale * scaleFactor,
         tx = v.x * scaleFactor,
@@ -45,6 +47,13 @@ export function MapCity(props: {
       for (const d of city.districts) {
         context.fillStyle = d.kind === 'package' ? '#cbcbb5' : d.depth % 2 ? '#e2ddc8' : '#d5d3bf';
         context.fillRect(x(d.rect.x), z(d.rect.z), d.rect.width * s, d.rect.depth * s);
+        const mark = marks.get(d.id);
+        if (mark) {
+          context.globalAlpha = 0.5;
+          context.fillStyle = mark;
+          context.fillRect(x(d.rect.x), z(d.rect.z), d.rect.width * s, d.rect.depth * s);
+          context.globalAlpha = 1;
+        }
         context.strokeStyle = '#7a887f';
         context.lineWidth = scaleFactor;
         context.strokeRect(x(d.rect.x), z(d.rect.z), d.rect.width * s, d.rect.depth * s);
@@ -360,7 +369,7 @@ export function MapCity(props: {
   }, [props.city, props.register]);
   useEffect(() => {
     drawRef.current();
-  }, [props.lens, props.paint, props.selected, props.filter, props.overlay, props.ghosts]);
+  }, [props.lens, props.paint, props.marks, props.selected, props.filter, props.overlay, props.ghosts]);
   useEffect(() => {
     if (props.focusNonce) {
       /* The toolbar invokes the registered handle directly. */

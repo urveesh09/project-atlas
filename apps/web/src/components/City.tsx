@@ -18,12 +18,15 @@ import type { SavedView } from '../app/saved-views';
 import { SavedViews, type ViewPreset } from './SavedViews';
 import { ScopeMenu } from './ScopeMenu';
 import { BandsMenu } from './BandsMenu';
+import { NotesMenu } from './NotesMenu';
+import { MARK_COLOURS, loadNotes, storeNotes, type Annotation } from '../app/annotations';
 import { distribution } from '../app/bands';
 import type { CityPaint } from '../city/types';
 import { NO_SCOPE, compileScope, type Scope } from '../app/scope';
 import { Icon } from './Icon';
 import { CHANGE_BANDS, CHANGE_COLORS, CHANGE_LABEL, CHANGE_METRICS, changeBandLabel, changePaint, formatChange, type ChangeMetric } from '../city/change';
 import '../styles/city.css';
+import { MenuSummary } from './MenuSummary';
 
 const ThreeCity = lazy(() => import('../city/ThreeCity'));
 const EMPTY: OverlayResult = {
@@ -205,6 +208,31 @@ export function City() {
     const arcs = overlay.arcs.filter((a) => shown(a.sourceId) && shown(a.targetId));
     return arcs.length === overlay.arcs.length ? overlay : { ...overlay, arcs, omitted: overlay.omitted + (overlay.arcs.length - arcs.length) };
   }, [overlay, scoped, model]);
+  // Annotations (ADR-053): marks on folders and packages, kept per repository in this browser.
+  const [notes, setNotesState] = useState<Annotation[]>(() => loadNotes(model.manifest.repo.repoId));
+  const setNotes = (next: Annotation[], message: string) => {
+    setNotesState(next);
+    const kept = storeNotes(model.manifest.repo.repoId, model.manifest.repo.displayName, next);
+    dispatch({ type: 'announce', message: kept ? message : `${message} This browser did not keep it; export the notes to save them.` });
+  };
+  // A mark covers its folder's nested districts too; the nearest mark wins.
+  const districtMarks = useMemo(() => {
+    const out = new Map<string, string>();
+    if (!notes.length) return out;
+    for (const d of city.districts) {
+      const node = d.nodeId ? model.node(d.nodeId) : undefined;
+      const path = node && 'path' in node ? node.path : d.path;
+      let best: Annotation | null = null;
+      for (const a of notes) if ((path === a.path || path.startsWith(`${a.path}/`)) && (!best || a.path.length > best.path.length)) best = a;
+      if (best) out.set(d.id, MARK_COLOURS[best.colour].hex);
+    }
+    return out;
+  }, [notes, city, model]);
+  const selectPath = (path: string) => {
+    const node = [...model.index.nodes.values()].find((n) => (n.kind === 'directory' || n.kind === 'package') && n.path === path);
+    if (node) select(node.id);
+    else setMessage(`${path} is not in this snapshot.`);
+  };
   // Highlight by path pattern (ADR-048): matching files stay bright, the rest dim.
   const [pattern, setPattern] = useState('');
   const compiled = useMemo(() => {
@@ -428,6 +456,7 @@ export function City() {
       paint ? { metric: paint.metric, counts: paint.counts } : null,
       scoped.active ? { focus: scoped.focus, hide: scope.hide, shownFiles: city.buildings.length, hiddenFiles: model.city.buildings.length - city.buildings.length } : null,
       stops ? { stops: [...stops], custom: Boolean(metricLens && customStops[metricLens]) } : null,
+      notes.map(({ path, colour }) => ({ path, colour })),
     );
   const exportMetadataFile = () => {
     downloadBlob(new Blob([JSON.stringify(currentMetadata(), null, 2)], { type: 'application/json' }), 'atlas-city.metadata.json');
@@ -629,12 +658,16 @@ export function City() {
         </label>
         <ScopeMenu scope={scope} compiled={scoped} shown={city.buildings.length} total={model.city.buildings.length} setScope={setScope} />
         <SavedViews current={currentView} apply={applyView} presets={presets} />
+        <NotesMenu
+          repository={model.manifest.repo.displayName}
+          notes={notes}
+          setNotes={setNotes}
+          target={chosen && chosen.kind !== 'file' && 'path' in chosen && chosen.path !== '' ? chosen.path : null}
+          select={selectPath}
+        />
         {state.mode !== 'table' && (
           <details className="city-views city-share">
-            <summary>
-              <Icon name="share" />
-              Share
-            </summary>
+            <MenuSummary icon="share" label="Share" />
             <div className="city-views-panel">
               {canCopy && (
                 <button type="button" className="menu-item" disabled={!ready} onClick={() => void copyImage()}>
@@ -696,6 +729,19 @@ export function City() {
             Compare marks: <span aria-hidden="true">▢</span> outlined ghost = deleted since A · <span aria-hidden="true">◆</span> raised diamond = added in B.
           </span>
         )}
+        {notes.length > 0 && (
+          <span className="legend-marks">
+            Marked:
+            {notes.slice(0, 12).map((n) => (
+              <button key={n.path} type="button" className="legend-mark" onClick={() => selectPath(n.path)}>
+                <i style={{ background: MARK_COLOURS[n.colour].hex }} aria-hidden="true" />
+                {n.path}
+                <span className="sr-only">, {MARK_COLOURS[n.colour].label}</span>
+              </button>
+            ))}
+            {notes.length > 12 && <span>and {notes.length - 12} more in Notes</span>}
+          </span>
+        )}
         <details className="city-about">
           <summary>How to read the city</summary>
           <p className="city-note">
@@ -732,6 +778,7 @@ export function City() {
               ghosts={ghosts}
               lens={state.lens}
               paint={paint ?? lensPaint}
+              marks={districtMarks}
               selected={selectedIds}
               filter={filter}
               overlay={shownOverlay}
@@ -754,6 +801,7 @@ export function City() {
                   city={city}
                   lens={state.lens}
                   paint={paint ?? lensPaint}
+                  marks={districtMarks}
                   selected={selectedIds}
                   filter={filter}
                   overlay={shownOverlay}
@@ -853,6 +901,18 @@ export function City() {
                   ? `${ROLE_LABEL[chosen.role]} · ${formatNumber(chosenBuilding?.metric?.codeLines)} code lines${paint && chosenBuilding ? ` · ${CHANGE_LABEL[paint.metric]}: ${formatChange(paint.of(chosenBuilding))}` : state.lens === 'structure' ? '' : ` · ${LENS_LABEL[state.lens]}: ${formatNumber(chosenBuilding ? lensValue(chosenBuilding, state.lens) : null)}`}`
                   : `${selectedIds.size.toLocaleString('en-US')} file${selectedIds.size === 1 ? '' : 's'} highlighted`}
               </span>
+              {chosen.kind !== 'file' &&
+                'path' in chosen &&
+                (() => {
+                  const mark = notes.find((n) => n.path === chosen.path);
+                  return mark ? (
+                    <p className="city-card-mark">
+                      <i style={{ background: MARK_COLOURS[mark.colour].hex }} aria-hidden="true" />
+                      <span className="sr-only">Marked {MARK_COLOURS[mark.colour].label.toLowerCase()}. </span>
+                      {mark.note || 'Marked, no note.'}
+                    </p>
+                  ) : null;
+                })()}
               {chosen.kind !== 'file' && 'path' in chosen && chosen.path !== '' && (
                 <div className="city-card-actions">
                   <button

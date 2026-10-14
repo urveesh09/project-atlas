@@ -763,6 +763,24 @@ Checks:
 - Unit: layout lens, band and saved-view tests.
 - Viewer end-to-end tests: 35 of 35.
 
+### Annotations and compact menus (2026-10-14)
+
+[ADR-053](adr/ADR-053-annotations-and-compact-menus.md) closes catch-up item 4.
+- Six named marker colours with notes on folders and packages. A mark tints its districts
+  in 3D and on the map.
+- Marked folders are listed in the legend; the card shows the note.
+- Notes are kept locally and shared as validated `atlas.notes/1` files.
+
+Two fixes:
+- **First screen.** The new menus had pushed the 1366×768 stage to y = 446. Compact
+  icon-and-badge summaries restore y = 408.
+- **Contrast.** A primary button inside the city showed text at 2.27:1, caught by axe; the
+  global button reset now has no specificity.
+
+Checks:
+- Viewer end-to-end tests: 36 of 36 on the GPU and with `CI=1`.
+- `pnpm verify`: 676 passed.
+
 ### Reproduce verification
 
 ```sh

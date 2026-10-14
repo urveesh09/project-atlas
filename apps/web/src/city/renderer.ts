@@ -208,6 +208,10 @@ export class CityRenderer {
   private partShade = new Float32Array(0);
   private readonly families = new Map<string, number>();
   private readonly districtDepth: Map<string, number>;
+  /** District surfaces by layout district ID, with their ground colour (annotations, ADR-053). */
+  private readonly districtSurfaces = new Map<string, { index: number; base: THREE.Color }>();
+  private districtMesh: THREE.InstancedMesh | null = null;
+  private marks: ReadonlyMap<string, string> = new Map();
   private readonly decorations: THREE.InstancedMesh[] = [];
   private readonly sun: THREE.DirectionalLight;
   private readonly sky: THREE.Mesh | null = null;
@@ -526,8 +530,10 @@ export class CityRenderer {
         k * 2,
         color.set(root ? ground.rootSurface : pkg ? ground.packageSurface : ground.directory[d.depth % 2]!),
       );
+      this.districtSurfaces.set(d.id, { index: k * 2, base: color.clone() });
     });
     this.finish(districtMesh);
+    this.districtMesh = districtMesh;
     this.districtDepth = new Map(city.districts.map((d) => [d.id, d.depth]));
     const coloured = () => this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     const place = (mesh: THREE.InstancedMesh, list: readonly { x: number; y: number; z: number; rotation?: number }[], scale = 1) => {
@@ -813,6 +819,22 @@ export class CityRenderer {
   }
 
   /** Mark deleted (ghost) and added plots for an A -> B comparison; [] clears them. */
+  /** Tint marked district surfaces (ADR-053): layout district ID to a marker colour. */
+  setMarks(marks: ReadonlyMap<string, string>) {
+    const mesh = this.districtMesh;
+    if (this.disposed || !mesh) return;
+    const touched = new Set([...this.marks.keys(), ...marks.keys()]);
+    this.marks = marks;
+    for (const id of touched) {
+      const surface = this.districtSurfaces.get(id);
+      if (!surface) continue;
+      const mark = marks.get(id);
+      mesh.setColorAt(surface.index, mark ? color.copy(surface.base).lerp(new THREE.Color(mark), 0.62) : surface.base);
+    }
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    this.invalidate();
+  }
+
   setGhosts(ghosts: readonly CityGhost[]) {
     let deleted = 0,
       added = 0;
@@ -1814,6 +1836,7 @@ export class CityRenderer {
       added: this.addedMarkers.count,
       lens: this.lens,
       paint: this.paint?.key ?? null,
+      marks: this.marks.size,
       theme: this.theme,
       animated: this.animated,
       lite: this.lite,

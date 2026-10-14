@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { METRIC_PALETTE, UNKNOWN_COLOR } from '@atlas/layout';
 import { evenStops, invalidStops, type Distribution } from '../app/bands';
-import { Icon } from './Icon';
+import { MenuSummary } from './MenuSummary';
 
 const fmt = (n: number | null) => (n === null ? '—' : n.toLocaleString('en-US'));
 
@@ -31,10 +31,7 @@ export function BandsMenu(props: {
     bar = (width - gap * (bars.length - 1)) / bars.length;
   return (
     <details className="city-views city-bands">
-      <summary>
-        <Icon name="bands" />
-        Bands{custom ? ' (custom)' : ''}
-      </summary>
+      <MenuSummary icon="bands" label={`Bands${custom ? ' (custom)' : ''}`} badge={custom ? '•' : null} />
       <div className="city-views-panel">
         <strong>{label}</strong>
         <svg className="bands-chart" viewBox={`0 0 ${width} ${height + 30}`} role="img" aria-label={`Distribution over the files shown: ${bars.map((b) => `${b.label === '×' ? 'unknown' : b.label}: ${b.count}`).join(', ')}`}>

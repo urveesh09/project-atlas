@@ -126,7 +126,8 @@ kbd {
 }
 
 /* Buttons and links ------------------------------------------------------------ */
-button {
+/* No specificity, so the city's :where() control styles (and their variants) win (ADR-053). */
+:where(button) {
   font: inherit;
   color: inherit;
 }
