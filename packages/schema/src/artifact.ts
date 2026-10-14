@@ -69,8 +69,9 @@ export const FrameDescriptorSchema = z.strictObject({
 });
 
 export const ArtifactManifestSchema = z.strictObject({
-  artifactVersion: z.enum(['atlas.artifact/1.0.0', 'atlas.artifact/1.1.0', 'atlas.artifact/1.2.0', 'atlas.artifact/1.3.0']),
-  schemaVersion: z.literal('atlas.graph/1.0.0'),
+  artifactVersion: z.enum(['atlas.artifact/1.0.0', 'atlas.artifact/1.1.0', 'atlas.artifact/1.2.0', 'atlas.artifact/1.3.0', 'atlas.artifact/1.4.0']),
+  /** 1.1.0 adds Python (ADR-058); 1.0.0 artifacts remain valid. */
+  schemaVersion: z.enum(['atlas.graph/1.0.0', 'atlas.graph/1.1.0']),
   analysisId: AnalysisIdSchema,
   analysisKey: AnalysisKeySchema,
   repo: RepositoryDescriptorSchema,

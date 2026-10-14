@@ -78,7 +78,7 @@ export const FileNodeSchema = z.strictObject({
   path: RepoPathSchema,
   blobOid: GitOidSchema,
   blobSha256: Hex64Schema.nullable(),
-  language: z.enum(['typescript', 'javascript']).nullable(),
+  language: z.enum(['typescript', 'javascript', 'python']).nullable(),
   role: FileRoleSchema,
   byteSize: CountSchema,
   parseStatus: ParseStatusSchema,
@@ -89,12 +89,19 @@ export const FileNodeSchema = z.strictObject({
 export const ExternalPackageNodeSchema = z.strictObject({
   ...nodeBase,
   kind: z.literal('external-package'),
-  ecosystem: z.literal('npm'),
+  /** npm packages, or PyPI distributions (ADR-058) by their PEP 503 normalized name. */
+  ecosystem: z.enum(['npm', 'pypi']),
   packageName: LabelSchema,
   declaredRanges: z.array(DeclaredRangeSchema).max(1024),
 });
 
-export const BuiltinNodeSchema = z.strictObject({ ...nodeBase, kind: z.literal('builtin'), moduleName: LabelSchema });
+export const BuiltinNodeSchema = z.strictObject({
+  ...nodeBase,
+  kind: z.literal('builtin'),
+  moduleName: LabelSchema,
+  /** Absent for Node.js built-ins (the original meaning); `python` for the Python standard library and other runtimes' modules (ADR-058). */
+  runtime: z.literal('python').optional(),
+});
 
 export const GraphNodeSchema = z.discriminatedUnion('kind', [
   RepositoryNodeSchema,
@@ -239,3 +246,13 @@ export type ImportObservation = z.infer<typeof ImportObservationSchema>;
 export type Diagnostic = z.infer<typeof DiagnosticSchema>;
 export type NodeMetrics = z.infer<typeof NodeMetricsSchema>;
 export type GraphSnapshot = z.infer<typeof GraphSnapshotSchema>;
+
+/**
+ * Canonical perimeter name of an external package or built-in, shared by layout anchors,
+ * frame comparison and the viewer (ADR-058): `npm:react`, `builtin:fs`, and for Python
+ * `pypi:requests` and `builtin:python:os`. TS/JS names are unchanged.
+ */
+export function perimeterName(node: { kind: 'external-package'; ecosystem: 'npm' | 'pypi'; packageName: string } | { kind: 'builtin'; moduleName: string; runtime?: 'python' | undefined }): string {
+  if (node.kind === 'external-package') return `${node.ecosystem}:${node.packageName}`;
+  return node.runtime === 'python' ? `builtin:python:${node.moduleName}` : `builtin:${node.moduleName}`;
+}

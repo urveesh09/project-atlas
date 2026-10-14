@@ -427,7 +427,7 @@ export function validateManifest(input: unknown): ValidationResult<ArtifactManif
     // frames they hold decoded at once.
     uncompressed += chunk.uncompressedBytes;
     if (chunk.encoding) {
-      const versions = chunk.encoding === 'atlas.graph.indexed/1' ? ['atlas.artifact/1.1.0', 'atlas.artifact/1.2.0', 'atlas.artifact/1.3.0'] : ['atlas.artifact/1.3.0'];
+      const versions = chunk.encoding === 'atlas.graph.indexed/1' ? ['atlas.artifact/1.1.0', 'atlas.artifact/1.2.0', 'atlas.artifact/1.3.0', 'atlas.artifact/1.4.0'] : ['atlas.artifact/1.3.0', 'atlas.artifact/1.4.0'];
       const place = chunk.encoding.startsWith('atlas.graph.') ? chunk.path.startsWith('graphs/') : chunk.encoding === 'atlas.history.compact/1' ? chunk.path === 'history/history.json.gz' : chunk.path === 'layout/layout.json.gz';
       if (!place || !versions.includes(manifest.artifactVersion) || chunk.encodedSha256 === undefined || chunk.decodedBytes === undefined) {
         sink.add('CHUNK_ENCODING', chunk.path, 'Encoded graph chunks require a supporting artifact version and complete encoded/decoded integrity metadata');

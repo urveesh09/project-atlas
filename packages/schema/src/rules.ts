@@ -133,6 +133,19 @@ const REASONS: Record<string, string> = {
   PARSE_TIMEOUT: 'parsing exceeded its time limit',
   PARSER_CRASHED: 'the parser process stopped unexpectedly',
   PARSER_STACK_LIMIT: 'nesting is too deep for the parser',
+  // Python (ADR-057, ADR-058)
+  RELATIVE_BEYOND_TOP_LEVEL: 'the relative import climbs above its top-level package',
+  OPTIONAL_TARGET_MISSING: 'an optional (guarded) import whose target is not committed',
+  NAMESPACE_PACKAGE: 'a namespace package has no file of its own',
+  STDLIB_SHADOWED: 'a module in the script directory shadows the standard library',
+  WORKSPACE_PROJECT_MODULE: 'found in another project of this repository',
+  REPOSITORY_ROOT_MODULE: 'found at the repository root, outside the project roots',
+  AMBIGUOUS_MODULE_ROOT: 'more than one import root has this module',
+  PYTHON2_STDLIB: 'a Python 2 standard-library module',
+  PYPY_BUILTIN: 'a PyPy built-in module',
+  TYPESHED_ONLY: 'a module that exists only for type checkers',
+  OPTIONAL_EXTERNAL_IMPORT: 'an optional (guarded) import of an undeclared distribution',
+  RELATIVE_DYNAMIC_IMPORT_WITHOUT_PACKAGE: 'a relative import_module without a known package',
 };
 
 export function describeReason(code: string): string {
@@ -147,6 +160,8 @@ export function formatDiagnosticMessage(diagnostic: Pick<Diagnostic, 'messageCod
   switch (diagnostic.messageCode) {
     case 'PARSE_ERROR':
       return `Syntax error TS${str(p['tsCode'])}${Number(p['errorCount']) > 1 ? ` (and ${Number(p['errorCount']) - 1} more)` : ''}; no dependency or complexity facts were extracted.`;
+    case 'PYTHON_SYNTAX_ERROR':
+      return `Python syntax error at line ${str(p['line'])}${Number(p['missingToken']) === 1 ? ' (a token is missing)' : ''}${Number(p['errorCount']) > 1 ? ` (and ${Number(p['errorCount']) - 1} more)` : ''}; no dependency or complexity facts were extracted.`;
     case 'PARSE_FAILED':
       return `Not parsed: ${describeReason(str(p['reason']))}.`;
     case 'LOCAL_IMPORT_UNRESOLVED':

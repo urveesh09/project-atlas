@@ -1,4 +1,4 @@
-import type { FileFacts } from '@atlas/analyzer-ts';
+import type { SyntaxFacts as FileFacts } from './facts.js';
 import { aggregateEdges, findStaticCycles } from '@atlas/graph';
 import { compareAscii, type GraphNode, type GraphSnapshot, type SnapshotCoverage } from '@atlas/schema';
 import { buildObservations, parseSupportedFiles } from './dependencies.js';
@@ -41,8 +41,8 @@ export async function analyzeStaticSnapshot(input: {
 
   input.onProgress?.('dependencies');
   const declaredExternals = new Map<string, GraphNode>();
-  for (const node of hierarchy.nodes) if (node.kind === 'external-package') declaredExternals.set(node.packageName, node);
-  const { observations, perimeterNodes } = buildObservations({ snapshotId: snap, facts: parsed.facts, resolver: hierarchy.resolver, fileNodeIds: hierarchy.fileNodeIds, declaredExternals });
+  for (const node of hierarchy.nodes) if (node.kind === 'external-package') declaredExternals.set(node.ecosystem === 'pypi' ? `pypi:${node.packageName}` : node.packageName, node);
+  const { observations, perimeterNodes } = buildObservations({ snapshotId: snap, facts: parsed.facts, resolver: hierarchy.resolver, pythonResolver: hierarchy.pythonResolver, fileNodeIds: hierarchy.fileNodeIds, declaredExternals });
   const aggregation = aggregateEdges(snap, observations);
 
   // File nodes gain their parse status and declarations.

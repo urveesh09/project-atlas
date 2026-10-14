@@ -1,4 +1,6 @@
-import type { FileFacts, SnapshotResolver } from '@atlas/analyzer-ts';
+import type { SnapshotResolver } from '@atlas/analyzer-ts';
+import type { PythonResolver } from '@atlas/analyzer-py';
+import type { SyntaxFacts as FileFacts } from './facts.js';
 import { LIMITS, compareAscii, nodeId, observationId, utf8ByteLength, type DeclaredRange, type GraphNode, type ImportObservation } from '@atlas/schema';
 import { factCacheKey, type FactCache } from './fact-cache.js';
 import type { InventoryFile } from './inventory.js';
@@ -56,8 +58,10 @@ export function buildObservations(input: {
   snapshotId: string;
   facts: Map<string, FileFacts>;
   resolver: SnapshotResolver;
+  /** Python resolution (ADR-058); null when the snapshot has no Python. */
+  pythonResolver?: PythonResolver | null;
   fileNodeIds: Map<string, string>;
-  /** External package nodes already created from manifests (name -> node). */
+  /** External package nodes already created from manifests (`name`, or `pypi:name` for Python). */
   declaredExternals: Map<string, GraphNode>;
 }): ObservationBuild {
   const { snapshotId: snap, resolver, fileNodeIds } = input;
@@ -68,6 +72,10 @@ export function buildObservations(input: {
     const facts = input.facts.get(path)!;
     const sourceId = fileNodeIds.get(path);
     if (!sourceId || facts.parseStatus !== 'parsed') continue;
+    if (facts.language === 'python') {
+      if (input.pythonResolver) for (const imp of facts.imports) for (const r of input.pythonResolver.resolveAll(path, imp)) observations.push(pythonObservation(snap, sourceId, r));
+      continue;
+    }
     for (const imp of facts.imports) {
       let resolution = resolver.resolve(path, imp);
       let specifier = imp.specifier;
@@ -117,4 +125,49 @@ export function buildObservations(input: {
   // observations, which differ by kind; IDs are therefore unique. Sort canonically.
   observations.sort((a, b) => compareAscii(a.id, b.id));
   return { observations, perimeterNodes: [...perimeter.values()] };
+
+  /** One Python resolution as an observation, adding PyPI and standard-library perimeter nodes. */
+  function pythonObservation(snapId: string, sourceId: string, r: ReturnType<PythonResolver['resolveAll']>[number]): ImportObservation {
+    let specifier = r.specifier;
+    let status: ImportObservation['status'] = r.status;
+    let reasonCode = r.reasonCode;
+    let confidence = r.confidence;
+    let targetId: string | null = null;
+    if (specifier !== null && utf8ByteLength(specifier) > LIMITS.labelBytes) {
+      specifier = null;
+      status = 'unsupported';
+      reasonCode = 'SPECIFIER_TOO_LONG';
+      confidence = null;
+    } else if (status === 'resolved-internal') {
+      targetId = fileNodeIds.get(r.targetPath!) ?? null;
+      if (targetId === null) {
+        status = 'excluded-target';
+        reasonCode = 'TARGET_EXCLUDED';
+        confidence = null;
+      }
+    } else if (status === 'resolved-external') {
+      const name = r.externalName!;
+      targetId = nodeId(snapId, 'external-package', `pypi:${name}`);
+      if (!input.declaredExternals.has(`pypi:${name}`) && !perimeter.has(targetId)) {
+        perimeter.set(targetId, { id: targetId, kind: 'external-package', label: name, parentId: null, lineageId: null, ecosystem: 'pypi', packageName: name, declaredRanges: [] as DeclaredRange[] });
+      }
+    } else if (status === 'builtin') {
+      const name = r.externalName!;
+      targetId = nodeId(snapId, 'builtin', `python:${name}`);
+      if (!perimeter.has(targetId)) perimeter.set(targetId, { id: targetId, kind: 'builtin', label: name, parentId: null, lineageId: null, moduleName: name, runtime: 'python' });
+    }
+    const resolved = status === 'resolved-internal' || status === 'resolved-external' || status === 'builtin';
+    return {
+      id: observationId(snapId, sourceId, r.kind, r.range, specifier),
+      sourceId,
+      kind: r.kind,
+      specifier,
+      range: r.range,
+      status,
+      targetId,
+      reasonCode: resolved ? reasonCode : (reasonCode ?? 'UNRESOLVED'),
+      resolverMode: r.resolverMode,
+      confidence: resolved ? confidence : null,
+    };
+  }
 }

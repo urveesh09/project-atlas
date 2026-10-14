@@ -1,4 +1,4 @@
-import { compareAscii, compareUtf8, type EdgeKind, type FileNode, type FileRole, type GraphNode, type GraphSnapshot, type NodeMetrics } from '@atlas/schema';
+import { compareAscii, compareUtf8, perimeterName as canonicalPerimeterName, type EdgeKind, type FileNode, type FileRole, type GraphNode, type GraphSnapshot, type NodeMetrics } from '@atlas/schema';
 
 /**
  * Two-frame comparison inside one artifact (plan §7.4). Frames are compared A -> B in the
@@ -62,8 +62,7 @@ function containerPath(nodes: ReadonlyMap<string, GraphNode>, node: FileNode): s
 }
 
 function perimeterName(node: GraphNode): string | null {
-  if (node.kind === 'external-package') return `npm:${node.packageName}`;
-  if (node.kind === 'builtin') return `builtin:${node.moduleName}`;
+  if (node.kind === 'external-package' || node.kind === 'builtin') return canonicalPerimeterName(node);
   return null;
 }
 

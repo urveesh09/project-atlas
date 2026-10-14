@@ -1,4 +1,4 @@
-import type { FileFacts } from '@atlas/analyzer-ts';
+import type { SyntaxFacts as FileFacts } from './facts.js';
 import { GraphIndex, type StaticCycle } from '@atlas/graph';
 import { compareAscii, type Availability, type GraphNode, type GraphSnapshot, type NodeMetrics } from '@atlas/schema';
 

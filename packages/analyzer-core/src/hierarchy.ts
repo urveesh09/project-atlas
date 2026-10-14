@@ -1,4 +1,5 @@
 import { SnapshotFS, SnapshotResolver, type PackageManifest } from '@atlas/analyzer-ts';
+import { PathIndex, PythonResolver, discoverPythonProjects, isPythonManifest, type PythonProject } from '@atlas/analyzer-py';
 import {
   compareAscii,
   compareUtf8,
@@ -28,6 +29,8 @@ export interface HierarchyResult {
   fileNodeIds: Map<string, string>;
   packageRoots: string[];
   resolver: SnapshotResolver;
+  /** Python import resolution (ADR-058); null when the snapshot has no Python. */
+  pythonResolver: PythonResolver | null;
 }
 
 export interface HierarchyInput {
@@ -76,6 +79,41 @@ export function buildHierarchy(input: HierarchyInput): HierarchyResult {
   };
   addPackage('', rootManifest);
   for (const member of members) addPackage(member.root, member);
+
+  // Python projects (ADR-058), only when the snapshot has Python: TS/JS-only snapshots are
+  // unchanged. A project becomes a package when it holds Python source; a root project names
+  // the root package unless a package.json already does.
+  const hasPython = inventory.files.some((f) => f.language === 'python');
+  const excludedPaths = [...inventory.excluded.flatMap((e) => (e.path === null ? [] : [e.path])), ...inventory.omitted];
+  const pythonDirs = new Set<string>();
+  for (const f of inventory.files) if (f.language === 'python') for (let dir = repoDirname(f.path); ; dir = repoDirname(dir)) {
+    if (pythonDirs.has(dir)) break;
+    pythonDirs.add(dir);
+    if (dir === '') break;
+  }
+  const discovery = hasPython
+    ? discoverPythonProjects(
+        inventory.files.filter((f) => isPythonManifest(f.path)).map((f) => ({ path: f.path, text: f.text })),
+        (dir) => pythonDirs.has(dir),
+      )
+    : { projects: [] as PythonProject[], warnings: [] };
+  for (const w of discovery.warnings) warnings.push(w);
+  const pythonPackage = new Map<string, PythonProject>();
+  for (const project of discovery.projects) {
+    if (project.root === '') {
+      const root = nodes.get(packageByRoot.get('')!.id);
+      if (!rootManifest && root?.kind === 'package' && project.name) nodes.set(root.id, { ...root, label: project.name, packageName: project.name, manifestPath: project.manifestPath, workspace: true });
+      pythonPackage.set('', project);
+      continue;
+    }
+    if (!pythonDirs.has(project.root)) continue;
+    if (!packageByRoot.has(project.root)) {
+      const id = nodeId(snap, 'package', project.root);
+      packageByRoot.set(project.root, { id, manifest: null });
+      add({ id, kind: 'package', label: project.name ?? repoBasename(project.root), parentId: repositoryId, lineageId: null, path: project.root, manifestPath: project.manifestPath, packageName: project.name, workspace: project.workspace });
+    }
+    pythonPackage.set(project.root, project);
+  }
   const packageRoots = [...packageByRoot.keys()].sort((a, b) => b.length - a.length || compareUtf8(a, b));
   const owningPackage = (path: string) => packageRoots.find((root) => isWithinRepoPath(path, root))!;
 
@@ -161,6 +199,40 @@ export function buildHierarchy(input: HierarchyInput): HierarchyResult {
     });
   }
 
+  // Python declared dependencies: another project in this repository, or a PyPI distribution.
+  if (discovery.projects.length > 0) {
+    const projectByName = new Map(discovery.projects.filter((p) => p.normalizedName && packageByRoot.has(p.root)).map((p) => [p.normalizedName!, p]));
+    const pypiRanges = new Map<string, DeclaredRange[]>();
+    for (const project of discovery.projects) {
+      // A manifest without Python source (docs/requirements.txt) declares for its owning package.
+      const owner = packageByRoot.get(pythonPackage.has(project.root) ? project.root : owningPackage(project.manifestPath))!;
+      for (const [name, declarations] of project.dependencies) {
+        const internal = projectByName.get(name);
+        if (internal && internal !== project) {
+          const target = packageByRoot.get(internal.root)!;
+          if (target.id !== owner.id) declare(owner.id, target.id, declarations.length);
+          continue;
+        }
+        const ranges = pypiRanges.get(name) ?? [];
+        for (const d of declarations) ranges.push({ packageNodeId: owner.id, field: d.field, range: d.range });
+        pypiRanges.set(name, ranges);
+        declare(owner.id, nodeId(snap, 'external-package', `pypi:${name}`), declarations.length);
+      }
+    }
+    for (const [name, ranges] of pypiRanges) {
+      add({
+        id: nodeId(snap, 'external-package', `pypi:${name}`),
+        kind: 'external-package',
+        label: name,
+        parentId: null,
+        lineageId: null,
+        ecosystem: 'pypi',
+        packageName: name,
+        declaredRanges: ranges.sort((a, b) => compareAscii(a.packageNodeId, b.packageNodeId) || compareAscii(a.field, b.field) || compareUtf8(a.range, b.range)),
+      });
+    }
+  }
+
   // Project references between packages are structural build relationships.
   for (const context of resolver.projects.contexts) {
     if (!context.configPath) continue;
@@ -185,5 +257,6 @@ export function buildHierarchy(input: HierarchyInput): HierarchyResult {
     fileNodeIds,
     packageRoots,
     resolver,
+    pythonResolver: hasPython ? new PythonResolver(new PathIndex(inventory.files.map((f) => f.path), excludedPaths), discovery.projects) : null,
   };
 }

@@ -1,4 +1,6 @@
 export * from './errors.js';
+export * from './facts.js';
+export * from './worker-path.js';
 export * from './globs.js';
 export * from './classify.js';
 export * from './options.js';
