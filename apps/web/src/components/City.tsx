@@ -19,6 +19,7 @@ import { SavedViews, type ViewPreset } from './SavedViews';
 import { ScopeMenu } from './ScopeMenu';
 import { BandsMenu } from './BandsMenu';
 import { NotesMenu } from './NotesMenu';
+import { PackageGraphView } from './PackageGraphView';
 import { MARK_COLOURS, loadNotes, storeNotes, type Annotation } from '../app/annotations';
 import { distribution } from '../app/bands';
 import type { CityPaint } from '../city/types';
@@ -141,7 +142,7 @@ export function City() {
   const expanded = workspace.mode;
   const toggleExpanded = workspace.toggle;
   useEffect(() => {
-    if (state.mode === 'table') return;
+    if (state.mode === 'table' || state.mode === 'packages') return;
     const onKey = (event: KeyboardEvent) => {
       if (typing(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.key === 'f' || event.key === 'F') {
@@ -529,8 +530,11 @@ export function City() {
             <option value="3d">3D city</option>
             <option value="map">2D map</option>
             <option value="table">File table</option>
+            <option value="packages">Package graph</option>
           </select>
         </label>
+        {state.mode !== 'packages' && (
+          <>
         <label>
           Lens
           <select
@@ -657,7 +661,10 @@ export function City() {
           />
         </label>
         <ScopeMenu scope={scope} compiled={scoped} shown={city.buildings.length} total={model.city.buildings.length} setScope={setScope} />
+          </>
+        )}
         <SavedViews current={currentView} apply={applyView} presets={presets} />
+        {state.mode !== 'packages' && (
         <NotesMenu
           repository={model.manifest.repo.displayName}
           notes={notes}
@@ -665,7 +672,8 @@ export function City() {
           target={chosen && chosen.kind !== 'file' && 'path' in chosen && chosen.path !== '' ? chosen.path : null}
           select={selectPath}
         />
-        {state.mode !== 'table' && (
+        )}
+        {(state.mode === '3d' || state.mode === 'map') && (
           <details className="city-views city-share">
             <MenuSummary icon="share" label="Share" />
             <div className="city-views-panel">
@@ -688,6 +696,7 @@ export function City() {
           </details>
         )}
       </div>
+      {state.mode !== 'packages' && (
       <div className="city-legend" aria-label="City lens legend">
         <strong>{paint && state.compare ? `Change ${state.compare.a + 1} → ${state.compare.b + 1}: ${CHANGE_LABEL[paint.metric].toLowerCase()}` : LENS_LABEL[state.lens]}</strong>
         {paint ? (
@@ -754,6 +763,7 @@ export function City() {
           </p>
         </details>
       </div>
+      )}
       <p id="city-pattern-help" className={`city-note${compiled.error ? ' city-note-error' : ''}`} hidden={!pattern && !compiled.error}>
         {compiled.error
           ? `Highlight: ${compiled.error}.`
@@ -770,7 +780,8 @@ export function City() {
           {message}
         </p>
       )}
-      {state.mode !== 'table' && (
+      {state.mode === 'packages' && <PackageGraphView />}
+      {(state.mode === '3d' || state.mode === 'map') && (
         <div className="city-stage">
           {state.mode === 'map' ? (
             <MapCity
@@ -951,6 +962,8 @@ export function City() {
         </div>
       )}
       <Timeline />
+      {state.mode !== 'packages' && (
+        <>
       <div className="city-overlay-controls">
         <label className="city-check">
           <input
@@ -1040,6 +1053,8 @@ export function City() {
             </div>
           )}
         </div>
+      )}
+        </>
       )}
       {state.mode === 'table' && (
         <div className="city-table-wrap">

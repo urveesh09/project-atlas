@@ -781,6 +781,20 @@ Checks:
 - Viewer end-to-end tests: 36 of 36 on the GPU and with `CI=1`.
 - `pnpm verify`: 676 passed.
 
+### Package dependency view (2026-10-14)
+
+[ADR-054](adr/ADR-054-package-dependency-view.md) closes catch-up item 5.
+- A *Package graph* view: packages in layers above their dependencies, with cycles found
+  and edges that close a cycle flagged.
+- Wide layers wrap onto further rows; selecting a package dims what is unrelated.
+- A complete table and keyboard-selectable boxes.
+
+Checks:
+- Unit: 150 random graphs checked against the layout invariants.
+- Viewer end-to-end tests: 37 of 37.
+- vuejs/core demo: 18 packages, 57 dependencies between them, 3 layers, and one 11-package
+  cycle.
+
 ### Reproduce verification
 
 ```sh

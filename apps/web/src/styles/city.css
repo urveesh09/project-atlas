@@ -270,3 +270,29 @@
   .city-toolbar .city-views > summary .menu-badge { display: inline-block; }
   .city-toolbar .city-pattern input { width: min(220px, 48cqi); }
 }
+
+/* Package dependency view (ADR-054). */
+.pkg-view { display: grid; gap: 8px; padding: 8px 16px 12px; min-width: 0; }
+.pkg-view > .city-note { padding: 0; margin: 0; }
+.pkg-scroll { overflow: auto; max-height: min(70vh, 760px); border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); overscroll-behavior: contain; }
+.pkg-scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.pkg-svg { display: block; margin: 0 auto; }
+.pkg-edge { fill: none; stroke: color-mix(in srgb, var(--accent) 75%, var(--muted)); opacity: 0.7; transition: opacity 0.15s var(--ease); }
+.pkg-edge.is-cycle { stroke: var(--error); stroke-dasharray: 6 4; opacity: 0.9; }
+.pkg-edge.is-dim { opacity: 0.1; }
+.pkg-edge.is-near { opacity: 1; }
+.pkg-arrow { fill: color-mix(in srgb, var(--accent) 75%, var(--muted)); }
+.pkg-arrow-cycle { fill: var(--error); }
+.pkg-node { cursor: pointer; transition: opacity 0.15s var(--ease); }
+.pkg-node rect { fill: var(--control); stroke: var(--control-border); stroke-width: 1.2; }
+.pkg-node:hover rect { stroke: var(--accent); stroke-width: 2; }
+.pkg-node:focus { outline: none; }
+.pkg-node:focus-visible rect { stroke: var(--focus); stroke-width: 3; }
+.pkg-node.is-cycle rect { stroke: var(--error); }
+.pkg-node.is-selected rect { fill: var(--accent-soft); stroke: var(--brand); stroke-width: 2.5; }
+.pkg-node.is-dim { opacity: 0.4; }
+.pkg-label { font: 600 12px var(--sans); fill: var(--text); pointer-events: none; }
+.pkg-meta { font: 10px var(--mono); fill: var(--muted); pointer-events: none; }
+.pkg-cycles { border-inline-start: 3px solid var(--error); padding: 4px 10px; font-size: 12px; }
+.pkg-cycles ul { margin: 4px 0 0; padding-inline-start: 18px; overflow-wrap: anywhere; }
+.pkg-view .city-table-wrap { padding: 0; }

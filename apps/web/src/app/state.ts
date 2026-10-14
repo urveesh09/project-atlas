@@ -10,7 +10,7 @@ export const TABS: readonly InspectorTab[] = ['overview', 'dependencies', 'findi
 
 export interface ViewState {
   lens: CityLens;
-  mode: '3d' | 'map' | 'table';
+  mode: '3d' | 'map' | 'table' | 'packages';
   filter: 'all' | 'source' | 'test' | 'findings';
   direction: 'outgoing' | 'incoming' | 'both';
   includeTypes: boolean;
@@ -142,7 +142,7 @@ export function parseFragment(hash: string): FragmentState {
     mode = params.get('mode'),
     frame = params.get('frame');
   if (lens !== null && !(CITY_LENSES as readonly string[]).includes(lens)) rejected = true;
-  if (mode !== null && !['3d', 'map', 'table'].includes(mode)) rejected = true;
+  if (mode !== null && !['3d', 'map', 'table', 'packages'].includes(mode)) rejected = true;
   if (frame !== null && !/^snap_[0-9a-f]{64}$/.test(frame)) rejected = true;
   const file = params.get('file');
   const tab = params.get('tab');

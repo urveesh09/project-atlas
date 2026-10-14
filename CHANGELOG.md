@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Package graph view ([ADR-054](docs/adr/ADR-054-package-dependency-view.md)):
+  - layered package dependencies, with cycles named and edges that close them flagged;
+  - a complete table.
 - Annotations ([ADR-053](docs/adr/ADR-053-annotations-and-compact-menus.md)):
   - colour and note on folders and packages;
   - listed in the legend, kept locally, shared as `atlas.notes/1`.

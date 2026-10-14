@@ -17,7 +17,7 @@ export interface SavedView {
   name: string;
   savedAt: string;
   lens: CityLens;
-  mode: '3d' | 'map' | 'table';
+  mode: '3d' | 'map' | 'table' | 'packages';
   filter: 'all' | 'source' | 'test' | 'findings';
   direction: 'outgoing' | 'incoming' | 'both';
   includeTypes: boolean;
@@ -37,7 +37,7 @@ export interface SavedViewsFile {
   views: SavedView[];
 }
 
-const MODES = ['3d', 'map', 'table'] as const;
+const MODES = ['3d', 'map', 'table', 'packages'] as const;
 const FILTERS = ['all', 'source', 'test', 'findings'] as const;
 const DIRECTIONS = ['outgoing', 'incoming', 'both'] as const;
 const THEMES = ['modern', 'eastern', 'western'] as const;

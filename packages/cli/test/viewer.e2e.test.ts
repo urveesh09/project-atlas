@@ -603,6 +603,36 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await view.selectOption('3d');
   });
 
+  it('draws the package dependency graph with layers, cycles and a matching table (ADR-054)', async () => {
+    const view = page.getByRole('combobox', { name: 'View', exact: true });
+    await view.selectOption('packages');
+    await page.waitForSelector('.pkg-view');
+    const counts = async () => {
+      const [, pkgs, deps] = /([\d,]+) packages · ([\d,]+) dependencies/.exec(await page.locator('.pkg-summary').innerText())!;
+      return [Number(pkgs!.replaceAll(',', '')), Number(deps!.replaceAll(',', ''))] as const;
+    };
+    const [packages, dependencies] = await counts();
+    expect(packages).toBeGreaterThan(1);
+    expect(await page.locator('.pkg-node').count()).toBe(packages);
+    expect(await page.locator('.pkg-edge').count()).toBe(dependencies);
+    expect(await page.locator('.pkg-table tbody tr').count()).toBe(Math.min(200, dependencies));
+    // Keyboard: a package box selects its package.
+    const node = page.locator('.pkg-node').first();
+    const name = (await node.getAttribute('aria-label'))!.split(':')[0]!;
+    await node.focus();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toContain(name);
+    expect(await node.getAttribute('aria-pressed')).toBe('true');
+    // Type-only imports can only add package dependencies.
+    const types = page.getByRole('checkbox', { name: 'Include type-only imports' });
+    await types.check();
+    expect((await counts())[1]).toBeGreaterThanOrEqual(dependencies);
+    expect(await audit(page)).toEqual([]);
+    await types.uncheck();
+    expect((await counts())[1]).toBe(dependencies);
+    await view.selectOption('3d');
+  });
+
   it('logged no page errors', () => {
     expect(errors).toEqual([]);
   });
