@@ -15,6 +15,7 @@ const ALLOWED = {
   '@atlas/schema': [],
   '@atlas/ingest': ['@atlas/schema'],
   '@atlas/analyzer-ts': ['@atlas/schema'],
+  '@atlas/analyzer-py': ['@atlas/schema'],
   '@atlas/graph': ['@atlas/schema'],
   '@atlas/history': ['@atlas/schema', '@atlas/ingest'],
   '@atlas/layout': ['@atlas/schema'],

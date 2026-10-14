@@ -808,6 +808,25 @@ Checks:
 - lib3mf 2.5.0 reads the 3MF in strict mode with no warnings: 10 colours, every triangle
   coloured.
 
+### Python support, part 1: syntax facts (2026-10-14)
+
+[ADR-056](adr/ADR-056-python-support-design-and-facts.md) records the owner's direction:
+Python as deep as TS/JS, with no regression. It adds `@atlas/analyzer-py`.
+- **Parser.** The tree-sitter Python grammar 0.25.0, vendored as WASM with its hash, run by
+  `web-tree-sitter` 0.25.10.
+- **Facts.** The same records as TS/JS: imports by kind (type-only, re-export, dynamic,
+  guarded), declarations, code lines and per-callable complexity.
+- **Not yet wired.** The analyzer pipeline does not use the adapter yet, so artifacts are
+  unchanged and the baseline stays exact.
+
+Check: a CPython `ast`/`tokenize` oracle over the 1,848-file standard library of
+CPython 3.14.5. Of 1,841 files parsed by both, 0 mismatch in imports, declarations,
+complexity or code lines. 3 files (0.16 %) use syntax newer than the grammar and are
+reported as parse failures.
+
+Next: resolution (ADR-057), then integration with the contract and version change
+(ADR-058).
+
 ### Reproduce verification
 
 ```sh

@@ -1,0 +1,22 @@
+{
+  "name": "@atlas/analyzer-py",
+  "version": "0.1.0-beta.1",
+  "private": true,
+  "description": "Python language adapter: syntax facts, declarations, imports and complexity from the tree-sitter Python grammar.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "grammar"
+  ],
+  "dependencies": {
+    "@atlas/schema": "workspace:*",
+    "web-tree-sitter": "0.25.10"
+  }
+}
