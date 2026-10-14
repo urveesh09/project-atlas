@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useViewer } from '../app/context';
 import { formatDate, shortOid } from '../app/model';
+import { Icon } from './Icon';
 
 /**
  * The sampled snapshot strip (plan §3.3, §12.2, P4.6). Only analyzed frames are
@@ -122,8 +123,9 @@ export function Timeline() {
         </details>
       </div>
       <div className="timeline-row">
-        <button type="button" className="button" disabled={state.frame === 0} onClick={() => go(state.frame - 1)}>
-          ‹ Earlier
+        <button type="button" className="button quiet" disabled={state.frame === 0} onClick={() => go(state.frame - 1)}>
+          <Icon name="chevronLeft" />
+          Earlier
         </button>
         <div className="timeline-scroll">
           <div className="timeline-track" style={{ minWidth: frames.length * 48 }}>
@@ -159,8 +161,9 @@ export function Timeline() {
             </ol>
           </div>
         </div>
-        <button type="button" className="button" disabled={state.frame >= frames.length - 1} onClick={() => go(state.frame + 1)}>
-          Later ›
+        <button type="button" className="button quiet" disabled={state.frame >= frames.length - 1} onClick={() => go(state.frame + 1)}>
+          Later
+          <Icon name="chevronRight" />
         </button>
       </div>
       <div className="timeline-controls">
@@ -174,6 +177,7 @@ export function Timeline() {
               setPlaying(!playing);
             }}
           >
+            <Icon name={playing ? 'pause' : 'play'} />
             {playing ? 'Pause' : 'Step through'}
           </button>
         )}
@@ -184,6 +188,7 @@ export function Timeline() {
             aria-pressed={state.compare !== null}
             onClick={() => void setCompare(state.compare ? null : { a: state.frame === 0 ? 0 : state.frame - 1, b: state.frame === 0 ? 1 : state.frame })}
           >
+            <Icon name={state.compare ? 'close' : 'compare'} />
             {state.compare ? 'Close comparison' : 'Compare snapshots…'}
           </button>
         )}

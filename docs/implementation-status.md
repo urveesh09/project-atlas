@@ -696,6 +696,23 @@ Checks:
 - Viewer end-to-end tests: 33 of 33 on the GPU and with `CI=1`.
 - The demo first screen is unchanged: the stage starts at y = 408 at 1366×768.
 
+### Refined controls and icons (2026-10-14)
+
+[ADR-049](adr/ADR-049-refined-controls-and-icons.md) replaces the default-looking controls.
+- One token-based style for buttons, selects and fields, with primary, ghost, quiet, accent
+  and danger variants.
+- Themed select chevrons; switch-style city toggles; menus with turning chevrons and icon
+  rows.
+- A drawn icon set in place of text glyphs; glass trays for the stage controls.
+- It fixes the history dots, which a higher-specificity `.city button` rule had drawn
+  inside button boxes.
+
+Checks:
+- First-screen measurements are unchanged: the stage starts at y = 408 at 1366×768 and
+  y = 429 at 390 px, and at y = 465 at 320 px (was 469). No horizontal overflow in light or
+  dark.
+- Viewer end-to-end tests: 33 of 33 on the GPU and with `CI=1`.
+
 ### Reproduce verification
 
 ```sh

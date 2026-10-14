@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useViewer } from '../app/context';
 import { downloadBlob } from '../city/export';
 import { loadSavedViews, mergeSavedViews, parseSavedViewsFile, serializeSavedViews, storeSavedViews, SAVED_VIEW_LIMITS, type SavedView } from '../app/saved-views';
+import { Icon } from './Icon';
 
 /**
  * Named views of the city (ADR-048), kept in this browser for this repository and
@@ -42,7 +43,10 @@ export function SavedViews({ current, apply }: { current(): Omit<SavedView, 'nam
   };
   return (
     <details className="city-views">
-      <summary>Saved views{views.length ? ` (${views.length})` : ''}</summary>
+      <summary>
+        <Icon name="bookmark" />
+        Saved views{views.length ? ` (${views.length})` : ''}
+      </summary>
       <div className="city-views-panel">
         {views.length > 0 ? (
           <ul aria-label="Saved views">
@@ -52,7 +56,7 @@ export function SavedViews({ current, apply }: { current(): Omit<SavedView, 'nam
                   {v.name}
                 </button>
                 <button type="button" className="city-views-delete" aria-label={`Delete the view ${v.name}`} onClick={() => update(views.filter((x) => x.name !== v.name), `Deleted the view “${v.name}”.`)}>
-                  ×
+                  <Icon name="close" size={14} />
                 </button>
               </li>
             ))}
@@ -70,7 +74,7 @@ export function SavedViews({ current, apply }: { current(): Omit<SavedView, 'nam
             Name
             <input type="text" value={name} maxLength={SAVED_VIEW_LIMITS.name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Runtime hotspots" />
           </label>
-          <button type="submit" disabled={!name.trim()}>
+          <button type="submit" className="primary" disabled={!name.trim()}>
             Save current view
           </button>
         </form>
@@ -83,9 +87,11 @@ export function SavedViews({ current, apply }: { current(): Omit<SavedView, 'nam
               setNote('Started the download of atlas-views.json.');
             }}
           >
+            <Icon name="download" />
             Export views
           </button>
           <button type="button" onClick={() => fileInput.current?.click()}>
+            <Icon name="upload" />
             Import views…
           </button>
           <input

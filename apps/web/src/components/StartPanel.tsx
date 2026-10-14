@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useViewer } from '../app/context';
 import { shortOid } from '../app/model';
+import { Icon } from './Icon';
 
 const KEY = 'atlas.startHidden';
 export const DEMO = Boolean(import.meta.env.VITE_ATLAS_DEMO_BASE);
@@ -95,9 +96,14 @@ export function StartPanel() {
                 dispatch({ type: 'focus' });
               }}
             >
-              <strong>Explore a package</strong>
-              <span>
-                {model.title(largest)}, the largest ({targets.largest!.files.toLocaleString('en-US')} files)
+              <span className="start-task-icon">
+                <Icon name="package" size={18} />
+              </span>
+              <span className="start-task-text">
+                <strong>Explore a package</strong>
+                <span>
+                  {model.title(largest)}, the largest ({targets.largest!.files.toLocaleString('en-US')} files)
+                </span>
               </span>
             </button>
           </li>
@@ -113,9 +119,14 @@ export function StartPanel() {
                 dispatch({ type: 'focus' });
               }}
             >
-              <strong>Trace a file’s dependencies</strong>
-              <span>
-                {traced.path.split('/').at(-1)}, imported by {traced.fanIn.toLocaleString('en-US')} files
+              <span className="start-task-icon">
+                <Icon name="link" size={18} />
+              </span>
+              <span className="start-task-text">
+                <strong>Trace a file’s dependencies</strong>
+                <span>
+                  {traced.path.split('/').at(-1)}, imported by {traced.fanIn.toLocaleString('en-US')} files
+                </span>
               </span>
             </button>
           </li>
@@ -123,14 +134,19 @@ export function StartPanel() {
         {frames > 1 && (
           <li>
             <button type="button" onClick={() => void setCompare({ a: frames - 2, b: frames - 1 })}>
-              <strong>Compare two snapshots</strong>
-              <span>What changed between the last two of {frames}</span>
+              <span className="start-task-icon">
+                <Icon name="compare" size={18} />
+              </span>
+              <span className="start-task-text">
+                <strong>Compare two snapshots</strong>
+                <span>What changed between the last two of {frames}</span>
+              </span>
             </button>
           </li>
         )}
       </ul>
       <button type="button" className="start-hide" aria-label="Hide" title="Hide the guided start" onClick={() => hide(true)}>
-        <span aria-hidden="true">×</span>
+        <Icon name="close" />
       </button>
     </section>
   );
