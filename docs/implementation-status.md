@@ -843,7 +843,10 @@ Next: resolution (ADR-057), then integration with the contract and version chang
 Still not wired into the pipeline.
 
 Checks:
-- 10 resolution tests on a monorepo fixture.
+- 11 resolution tests on a monorepo fixture.
+- CodeQL's three `js/polynomial-redos` findings on manifest parsing (2026-10-15) are fixed
+  with single-pass scanning. Before the old patterns were removed, the new scan matched
+  them on 400,000 random lines.
 - On the installed `pip` (395 files), 1,852 exact internal resolutions. The run found four
   mistakes, now fixed: phantom externals, Python 2 imports, malformed names, and optional
   imports.

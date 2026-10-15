@@ -103,6 +103,18 @@ describe('Python projects (ADR-057)', () => {
     expect(distributionCandidates('yaml')).toEqual(['pyyaml', 'yaml']);
   });
 
+  it('scans manifest lines in linear time (CodeQL js/polynomial-redos)', () => {
+    // Each input took quadratic time with the earlier backtracking patterns.
+    expect(parseRequirement(`a${' '.repeat(200_000)}x`)).toBeNull();
+    expect(parseRequirement(`0${' '.repeat(200_000)}>=1`)).toEqual({ name: '0', range: '>=1' });
+    expect(parseRequirement(' #'.repeat(100_000))).toBeNull();
+    expect(parseRequirement(`x [${'e'.repeat(501)}] >=1`)).toBeNull();
+    expect(parseRequirement('_x>=1')).toBeNull();
+    expect(distributionCandidates(`a${'_'.repeat(200_000)}a`).at(-1)).toBe('a-a');
+    expect(distributionCandidates('__main__')).toEqual(['main']);
+    expect(distributionCandidates('___')).toEqual(['-']);
+  });
+
   it('reads only literals from setup.py and warns about the rest', () => {
     const found = discoverPythonProjects([{ path: 'x/setup.py', text: 'from setuptools import setup\nsetup(name=NAME, install_requires=reqs())\n' }], () => true);
     expect(found.projects[0]!.name).toBeNull();

@@ -93,7 +93,11 @@ export function distributionCandidates(module: string): string[] {
   }
   if (Object.hasOwn(IMPORT_TO_DISTRIBUTION, top)) out.push(IMPORT_TO_DISTRIBUTION[top]!);
   // A distribution name starts and ends with a letter or digit.
-  const trimmed = top.replace(/^_+|_+$/g, '');
+  let start = 0;
+  let end = top.length;
+  while (start < end && top[start] === '_') start++;
+  while (end > start && top[end - 1] === '_') end--;
+  const trimmed = top.slice(start, end);
   out.push(normalizeDistribution(trimmed === '' ? top : trimmed));
   return [...new Set(out)];
 }

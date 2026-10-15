@@ -61,12 +61,41 @@ export function normalizeDistribution(name: string): string {
   return name.toLowerCase().replace(/[-_.]+/g, '-');
 }
 
-/** Parses one PEP 508 requirement line: name and version specifier only. */
+const isSpace = (ch: string): boolean => /\s/.test(ch);
+const isAlnum = (ch: string): boolean => /[A-Za-z0-9]/.test(ch);
+const isNameChar = (ch: string): boolean => /[A-Za-z0-9._-]/.test(ch);
+
+/**
+ * Parses one PEP 508 requirement line: name and version specifier only. Manifests are
+ * repository data, so the line is scanned in one pass rather than by backtracking patterns.
+ */
 export function parseRequirement(line: string): { name: string; range: string } | null {
-  const text = line.replace(/\s+#.*$/, '').trim();
-  const match = /^([A-Za-z0-9](?:[A-Za-z0-9._-]{0,200}[A-Za-z0-9])?)\s*(?:\[[^\]]{0,500}\])?\s*(.*)$/.exec(text);
-  if (!match) return null;
-  let rest = match[2]!;
+  // A comment starts at a `#` that follows whitespace.
+  let end = line.length;
+  for (let i = 1; i < line.length; i++) {
+    if (line[i] === '#' && isSpace(line[i - 1]!)) {
+      end = i;
+      break;
+    }
+  }
+  const text = line.slice(0, end).trim();
+  if (text.includes('\n') || text.length === 0 || !isAlnum(text[0]!)) return null;
+  // The name: name characters, starting and ending with a letter or digit, at most 202 long.
+  let nameEnd = 1;
+  while (nameEnd < text.length && isNameChar(text[nameEnd]!)) nameEnd++;
+  while (!isAlnum(text[nameEnd - 1]!)) nameEnd--;
+  if (nameEnd > 202) return null;
+  // Optional extras in brackets, with whitespace on either side.
+  let at = nameEnd;
+  while (at < text.length && isSpace(text[at]!)) at++;
+  if (text[at] === '[') {
+    const close = text.indexOf(']', at + 1);
+    if (close >= 0 && close - at - 1 <= 500) {
+      at = close + 1;
+      while (at < text.length && isSpace(text[at]!)) at++;
+    }
+  }
+  let rest = text.slice(at);
   const marker = rest.indexOf(';');
   if (marker >= 0) rest = rest.slice(0, marker);
   rest = rest.trim();
@@ -76,7 +105,7 @@ export function parseRequirement(line: string): { name: string; range: string } 
     if (!/^[<>=!~(]/.test(rest)) return null;
     range = rest.replace(/^\(|\)$/g, '').replace(/\s+/g, '').slice(0, 200) || '*';
   }
-  return { name: match[1]!, range };
+  return { name: text.slice(0, nameEnd), range };
 }
 
 const record = (value: unknown): Record<string, unknown> | null => (value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null);

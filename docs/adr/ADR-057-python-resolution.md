@@ -100,11 +100,14 @@ byte changes.
 
 ## Verification
 
-- `packages/analyzer-py/test/resolve.test.ts` has 10 tests on a monorepo fixture covering:
+- `packages/analyzer-py/test/resolve.test.ts` has 11 tests on a monorepo fixture covering:
   - discovery, roots, workspace members, dependency fields and ranges, `-r` includes,
     ignored fixtures, `setup.py` literals only, invalid TOML;
   - requirement parsing, normalization, linear workspace globs (a 200-star pattern stays
     fast), distribution candidates;
+  - linear-time requirement scanning: CodeQL flagged three backtracking patterns
+    (`js/polynomial-redos`) on manifest text. The single-pass replacement matched the old
+    patterns on 400,000 random lines before they were removed;
   - relative, submodule, standard-library and shadowing cases;
   - source roots from tests, workspace and `setup.py` projects;
   - declared and undeclared externals;
