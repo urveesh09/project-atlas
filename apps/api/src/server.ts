@@ -55,6 +55,7 @@ export function clientAddress(req: IncomingMessage, proxy?: TrustedProxy): strin
 const STATIC_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.json': 'application/json',
+  '.webp': 'image/webp', // entry-screen preview (ADR-058)
 };
 /** The viewer's CSP: same-origin scripts, workers and connections only (plan §8.6). */
 const VIEWER_CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";

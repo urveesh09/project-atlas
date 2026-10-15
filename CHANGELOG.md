@@ -7,6 +7,11 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Entry screens and sharing ([ADR-058](docs/adr/ADR-058-interface-polish.md)):
+  - the start screen and the hosted landing show a real render of the demo city;
+  - page titles name the repository;
+  - a description, a favicon, link-preview tags and no-JavaScript text;
+  - the demo adds a canonical link, a social card and structured data.
 - Python support, part 1 ([ADR-056](docs/adr/ADR-056-python-support-design-and-facts.md)):
   - a Python adapter that extracts imports, declarations, code lines and complexity;
   - checked against CPython's own `ast` on the full standard library, with 0
@@ -40,12 +45,30 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   - signed values in the cards and the file table.
 
 ### Fixed
+- On desktop the page itself scrolled (5,245 px at 1440×900), so a wheel over the header slid
+  the explorer away. Hidden tree labels now stay inside their panel
+  ([ADR-058](docs/adr/ADR-058-interface-polish.md)).
+- The overview's findings stopped at 20 without saying so; every finding is now reachable,
+  with the remaining count shown.
+- Status pills broke across lines.
+- The disabled "Analyze repository" button was hard to read.
+- "Open a local artifact folder…" did not look like a button.
+- The repository URL placeholder was clipped on phones.
 - Primary buttons inside the city had text at 2.27:1 contrast.
 - The new city menus had pushed the laptop first screen down 38 px; compact summaries
   restore it.
 - An open compare panel covered the city on screens wider than 1350 px.
 
 ### Changed
+- Interface polish ([ADR-058](docs/adr/ADR-058-interface-polish.md)):
+  - self-hosted Geist and Geist Mono outside the city stage;
+  - one corner-radius rule;
+  - 12 px help text;
+  - one label, "Analyze your repository";
+  - no dashes in visible text, and "n/a" for unavailable numbers;
+  - rule explanations behind "Why this is flagged" in long finding lists.
+
+  The city renders byte-identically.
 - Refined controls ([ADR-049](docs/adr/ADR-049-refined-controls-and-icons.md)):
   - one style for buttons, selects and fields in light and dark;
   - switch toggles, menus with icons, and a drawn icon set for the stage controls;

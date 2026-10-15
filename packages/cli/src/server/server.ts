@@ -41,6 +41,8 @@ const MIME: Record<string, string> = {
   '.json': 'application/json',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  // The entry-screen preview (ADR-058); with nosniff it needs its exact type.
+  '.webp': 'image/webp',
   '.woff2': 'font/woff2',
   '.map': 'application/json',
 };

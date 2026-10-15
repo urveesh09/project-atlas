@@ -25,8 +25,13 @@
   --seg-parsed: #8cc2e6;
   --seg-other: #b48ead;
   --seg-excluded: #3a4558;
-  --radius: 10px;
+  /* Shape (ADR-058), one rule: swatches and keys --radius-xs; controls, fields and rows
+     --radius-sm; panels, cards and menus --radius; page-level surfaces --radius-lg; pills
+     999px; dots 50%. The city stage keeps its own overlay shapes. */
+  --radius-xs: 4px;
   --radius-sm: 7px;
+  --radius: 10px;
+  --radius-lg: 14px;
   /* Controls (ADR-049): one surface, border and shadow for every button, select and field. */
   --control: #1c2331;
   --control-hover: #252f41;
@@ -39,8 +44,12 @@
   --shadow-md: 0 12px 32px rgb(0 0 0 / 0.38), 0 2px 6px rgb(0 0 0 / 0.22);
   --sheen: inset 0 1px 0 rgb(255 255 255 / 0.045);
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  --mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
-  --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Type (ADR-058): self-hosted Geist everywhere except the city stage, which keeps the
+     system faces its labels and exports were designed with. */
+  --system-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+  --system-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'Geist Mono Variable', var(--system-mono);
+  --sans: 'Geist Variable', var(--system-sans);
 }
 
 @media (prefers-color-scheme: light) {
@@ -98,7 +107,7 @@ kbd {
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .sr-only {
   position: absolute;
@@ -118,7 +127,7 @@ kbd {
   background: var(--brand);
   color: var(--accent-ink);
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   z-index: 10;
 }
 .skip:focus {
@@ -175,6 +184,14 @@ kbd {
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
+}
+/* A disabled primary action stays readable (ADR-058): a neutral control with muted text,
+   about 7:1 in both themes, instead of a faded accent. */
+.button.primary:disabled {
+  opacity: 1;
+  background: var(--control);
+  color: var(--muted);
+  border-color: var(--control-border);
 }
 .button[aria-pressed='true'],
 :where(.city button[aria-pressed='true']) {
@@ -265,7 +282,7 @@ kbd {
 .topbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 10px 16px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
@@ -298,6 +315,7 @@ kbd {
   color: var(--brand);
 }
 .status {
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 500;
   padding: 1px 9px;
@@ -335,6 +353,28 @@ kbd {
   font-size: 12px;
   color: var(--muted);
 }
+/* Narrow desktops (ADR-058): the header keeps one row. The version moves to the Keys panel,
+   where it is always shown, and the tree and keys toggles show only their icon. */
+@media (min-width: 561px) and (max-width: 1180px) {
+  .app-version {
+    display: none;
+  }
+  .topbar .search {
+    flex-basis: 200px;
+  }
+  .topbar-actions .button {
+    position: relative;
+  }
+  .topbar-actions .action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
 /* Narrow screens: every header action wraps and stays reachable (WCAG 1.4.10 reflow). */
 @media (max-width: 560px) {
   .topbar {
@@ -361,6 +401,7 @@ kbd {
   background: var(--panel-2);
   border-bottom: 1px solid var(--border);
   padding: 10px 16px;
+  animation: menu-in 0.14s var(--ease);
 }
 .shortcuts dl {
   display: flex;
@@ -382,7 +423,7 @@ kbd {
   text-align: center;
   border: 1px solid var(--control-border);
   border-bottom-width: 2px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   padding: 0 5px;
   background: var(--control);
   line-height: 1.5;
@@ -407,13 +448,17 @@ kbd {
 .app.tree-hidden .sidebar {
   display: none;
 }
+/* Every scroller is a positioning container, so the visually hidden labels inside it stay
+   inside it. Before (ADR-058) they were placed against the page, which grew to 5,245px. */
 .sidebar {
+  position: relative;
   border-inline-end: 1px solid var(--border);
   overflow: auto;
   background: var(--panel);
   padding: 8px 0;
 }
 .content {
+  position: relative;
   overflow: auto;
   padding: 20px 28px 48px;
   min-width: 0;
@@ -425,14 +470,14 @@ kbd {
 /* Search ------------------------------------------------------------------------ */
 .search {
   position: relative;
-  flex: 1 1 320px;
+  flex: 1 1 240px;
   max-width: 560px;
 }
 .search input {
   width: 100%;
   min-height: 40px;
   padding: 8px 40px 8px 36px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--control-border);
   background: var(--field);
   color: var(--text);
@@ -466,17 +511,24 @@ kbd {
   list-style: none;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius);
   box-shadow: var(--shadow-md);
   max-height: min(60vh, 520px);
   overflow: auto;
+  animation: menu-in 0.14s var(--ease);
+}
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 .search-result {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .search-result:hover {
@@ -512,7 +564,7 @@ kbd {
   margin-inline: 6px;
   padding-inline-end: 10px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   white-space: nowrap;
   transition: background-color 0.1s var(--ease);
 }
@@ -525,7 +577,7 @@ kbd {
 }
 .tree-row:focus-visible {
   outline-offset: -3px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .twisty {
   width: 14px;
@@ -632,6 +684,7 @@ h2:focus-visible {
   gap: 6px;
 }
 .chip {
+  white-space: nowrap;
   font-size: 12px;
   padding: 2px 9px;
   border-radius: 999px;
@@ -981,8 +1034,9 @@ select:focus-visible {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 1px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   border: 1px solid currentColor;
+  white-space: nowrap;
 }
 .badge-error {
   color: var(--error);
@@ -999,6 +1053,7 @@ select:focus-visible {
 
 /* Source panel --------------------------------------------------------------- */
 .source-panel {
+  position: relative;
   border-inline-start: 1px solid var(--border);
   background: var(--panel);
   display: grid;
@@ -1054,18 +1109,88 @@ select:focus-visible {
 /* Gate ----------------------------------------------------------------------- */
 .gate {
   display: grid;
-  place-items: center;
+  place-items: start center;
+  align-content: start;
+  gap: 20px;
   min-height: 100%;
-  padding: 24px 16px;
+  padding: clamp(24px, 9vh, 96px) 16px 24px;
   background: radial-gradient(ellipse at top, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%), var(--bg);
 }
 .gate-card {
   width: min(560px, 100%);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   padding: 28px;
   box-shadow: var(--shadow-md);
+}
+.gate-split {
+  width: min(1180px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 600px) minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+.gate-split .gate-card {
+  width: 100%;
+}
+.gate-figure {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.gate-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 8 / 5;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  background: #e9e4d7;
+}
+/* A second route sits under the card, not inside it under the button. */
+.gate-column {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.gate-foot {
+  margin: 0;
+  padding-inline: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.gate-figure figcaption {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 60ch;
+}
+/* One column below 960px: the card first, the example city under it. */
+@media (max-width: 960px) {
+  .gate-split {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(600px, 100%);
+    gap: 24px;
+  }
+}
+/* Entry screens arrive with a short rise: it orders the reading, card then example. */
+@media (prefers-reduced-motion: no-preference) {
+  .gate-card,
+  .gate-figure {
+    animation: gate-in 0.32s var(--ease) both;
+  }
+  .gate-figure {
+    animation-delay: 0.08s;
+  }
+}
+@keyframes gate-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 .gate-brand {
   margin: 0 0 12px;
@@ -1073,8 +1198,11 @@ select:focus-visible {
   letter-spacing: 0.1em;
 }
 .gate h1 {
-  font-size: 22px;
+  font-size: 24px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   margin: 0 0 8px;
+  text-wrap: balance;
 }
 .gate-note,
 .gate-small {
@@ -1407,7 +1535,7 @@ select:focus-visible {
   min-width: 44px;
   min-height: 44px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--panel-2);
   color: var(--muted);
   cursor: pointer;
@@ -1504,6 +1632,12 @@ select:focus-visible {
 .text-input[aria-invalid='true'] {
   border-color: var(--error);
 }
+@media (max-width: 480px) {
+  .text-input {
+    font-size: 13px;
+    padding-inline: 10px;
+  }
+}
 .check {
   display: flex;
   gap: 8px;
@@ -1534,7 +1668,7 @@ select:focus-visible {
   border-inline-start: 3px solid var(--error);
   padding: 8px 12px;
   background: color-mix(in srgb, var(--error) 10%, transparent);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
 }
 .button.danger {
@@ -1598,7 +1732,7 @@ a.button {
 }
 .count-list div {
   background: var(--raised);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 8px 10px;
 }
 .count-list dt {

@@ -56,6 +56,16 @@ function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { r
   };
   const selected = model.node(state.selectedId);
   const status = model.manifest.frames[model.frame]!.analysisStatus;
+  const repoName = model.manifest.repo.displayName;
+
+  // The tab and any shared bookmark name the repository being explored (ADR-058).
+  useEffect(() => {
+    const previous = document.title;
+    document.title = `${repoName} as a city · ATLAS`;
+    return () => {
+      document.title = previous;
+    };
+  }, [repoName]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -105,19 +115,21 @@ function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { r
         </div>
         <Search ref={searchRef} />
         <div className="topbar-actions">
-          <button type="button" className="button ghost" aria-expanded={!treeHidden} aria-controls="repository-tree" onClick={toggleTree}>
+          {/* On narrow desktops these two show only their icon; the name stays for assistive
+              technology and the tooltip, so the header keeps one row (ADR-058). */}
+          <button type="button" className="button ghost" aria-expanded={!treeHidden} aria-controls="repository-tree" onClick={toggleTree} title={treeHidden ? 'Show tree' : 'Hide tree'}>
             <Icon name="tree" />
-            {treeHidden ? 'Show tree' : 'Hide tree'}
+            <span className="action-label">{treeHidden ? 'Show tree' : 'Hide tree'}</span>
           </button>
-          <button type="button" className="button ghost" aria-expanded={helpOpen} aria-controls="shortcuts" onClick={() => setHelpOpen((o) => !o)}>
+          <button type="button" className="button ghost" aria-expanded={helpOpen} aria-controls="shortcuts" onClick={() => setHelpOpen((o) => !o)} title="Keys">
             <Icon name="keyboard" />
-            Keys
+            <span className="action-label">Keys</span>
           </button>
           {DEMO && (
             // Static demo builds (ADR-044, ADR-047) point visitors at running ATLAS on their own code.
             <a className="button accent" href={OWN_REPOSITORY_GUIDE} target="_blank" rel="noopener noreferrer">
               <Icon name="external" />
-              Your repository
+              Analyze your repository
             </a>
           )}
           {hosted ? (

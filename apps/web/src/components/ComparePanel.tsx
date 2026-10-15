@@ -80,7 +80,7 @@ export function ComparePanel() {
       </div>
       <p className="compare-direction">
         <strong>A → B</strong>: what differs going from snapshot {a + 1} ({formatDate(fa.commit.committerTime)}) to snapshot {b + 1} ({formatDate(fb.commit.committerTime)})
-        {backwards ? ' — B is older, so this reads backwards in time' : ''}. The city shows B on the same fixed plots: outlined ghosts mark files deleted since A and raised
+        {backwards ? ' (B is older, so this reads backwards in time)' : ''}. The city shows B on the same fixed plots: outlined ghosts mark files deleted since A and raised
         diamonds mark files added.
       </p>
       {error && (
@@ -156,7 +156,7 @@ export function ComparePanel() {
                 ...result.renamed.map((r) => ({ key: r.lineageId, text: `${r.fromPath} → ${r.toPath}`, lineageId: r.lineageId, meta: 'renamed (same lineage, same plot)' })),
                 ...result.moved
                   .filter((m) => !result.renamed.some((r) => r.lineageId === m.lineageId))
-                  .map((m) => ({ key: `${m.lineageId}:moved`, text: m.path, lineageId: m.lineageId, meta: `container ${m.fromParent || '—'} → ${m.toParent || '—'}` })),
+                  .map((m) => ({ key: `${m.lineageId}:moved`, text: m.path, lineageId: m.lineageId, meta: `container ${m.fromParent || 'repository root'} → ${m.toParent || 'repository root'}` })),
               ]}
               pageSize={20}
               empty="No renames or moves."

@@ -242,7 +242,7 @@ function SourceAction({ nodeId, line, label }: { nodeId: string; line: number | 
       <div className="source-links">
         {githubLink}
         {source && !source.attached && !github && (
-          <p className="note">Source is not attached{source.reason === 'NOT_REQUESTED' ? ' — start with atlas serve --repo <dir> to read it here.' : ` (${source.reason.toLowerCase().replaceAll('_', ' ')}).`}</p>
+          <p className="note">Source is not attached{source.reason === 'NOT_REQUESTED' ? '. Start with atlas serve --repo <dir> to read it here.' : ` (${source.reason.toLowerCase().replaceAll('_', ' ')}).`}</p>
         )}
       </div>
     );
@@ -530,13 +530,7 @@ function FindingsTab({ node }: { node: GraphNode }) {
   }, [model, node]);
   if (list.length === 0) return <p className="empty">No findings under the default rules. Thresholds are repository-relative product defaults, not quality grades.</p>;
   if (node.kind !== 'file')
-    return (
-      <ul className="findings">
-        {list.map((d) => (
-          <FindingCard key={d.id} diagnostic={d} focusId={node.id} />
-        ))}
-      </ul>
-    );
+    return <Paged items={list} pageSize={10} step={20} listClassName="findings" empty="" render={(d) => <FindingCard key={d.id} diagnostic={d} focusId={node.id} compact />} />;
   // A file's own findings first; then findings about other files that list this one (ADR-047).
   const own = list.filter((d) => isAbout(d, node.id));
   const mentions = list.filter((d) => !isAbout(d, node.id));
@@ -555,11 +549,7 @@ function FindingsTab({ node }: { node: GraphNode }) {
       </Section>
       {mentions.length > 0 && (
         <Section title="Findings about other files" count={mentions.length} description="This file appears in them, for example as one of a heavily imported file’s consumers. Each names its own subject.">
-          <ul className="findings">
-            {mentions.map((d) => (
-              <FindingCard key={d.id} diagnostic={d} focusId={node.id} />
-            ))}
-          </ul>
+          <Paged items={mentions} pageSize={10} step={20} listClassName="findings" empty="" render={(d) => <FindingCard key={d.id} diagnostic={d} focusId={node.id} compact />} />
         </Section>
       )}
     </>
@@ -571,7 +561,12 @@ export function isAbout(d: Diagnostic, id: string): boolean {
   return d.subjectIds[0] === id || (d.ruleId === 'ATLAS_STATIC_CYCLE' && d.subjectIds.includes(id));
 }
 
-export function FindingCard({ diagnostic: d, focusId }: { diagnostic: Diagnostic; focusId: string | null }) {
+/**
+ * One finding. `compact` is for long lists (a folder, the overview, mentions): the rule's
+ * general explanation, the same on every card of a rule, is one click away there (ADR-058).
+ * A file's own findings always show it.
+ */
+export function FindingCard({ diagnostic: d, focusId, compact = false }: { diagnostic: Diagnostic; focusId: string | null; compact?: boolean }) {
   const { model, select } = useViewer();
   const rule = RULE_CATALOG[d.ruleId as RuleId];
   const subject = model.node(d.subjectIds[0]);
@@ -625,7 +620,15 @@ export function FindingCard({ diagnostic: d, focusId }: { diagnostic: Diagnostic
           </ul>
         </details>
       )}
-      {rule && <p className="finding-explain">{rule.explanation}</p>}
+      {rule &&
+        (compact ? (
+          <details className="finding-detail">
+            <summary>Why this is flagged</summary>
+            <p className="finding-explain">{rule.explanation}</p>
+          </details>
+        ) : (
+          <p className="finding-explain">{rule.explanation}</p>
+        ))}
       {subject?.kind === 'file' && <SourceAction nodeId={subject.id} line={d.range?.startLine ?? null} label="View source at this line" />}
     </li>
   );
@@ -660,7 +663,7 @@ function HotspotExplanation({ node }: { node: Extract<GraphNode, { kind: 'file' 
     >
       <p className="hotspot-score">
         <strong>{full ? factors.score : factors.structureAttention}</strong> / 100
-        {!full && <span className="note"> — no usable history, so the full hotspot score is unavailable rather than recomputed without it.</span>}
+        {!full && <span className="note"> (no usable history, so the full hotspot score is unavailable rather than recomputed without it)</span>}
       </p>
       <table className="metrics">
         <thead>

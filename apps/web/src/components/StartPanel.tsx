@@ -81,7 +81,8 @@ export function StartPanel() {
         </p>
         {DEMO && (
           <a className="start-own" href={OWN_REPOSITORY_GUIDE} target="_blank" rel="noopener noreferrer">
-            Analyze your own repository →
+            Analyze your repository
+            <Icon name="external" size={14} />
           </a>
         )}
       </div>

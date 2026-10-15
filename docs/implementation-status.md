@@ -851,6 +851,37 @@ Checks:
   mistakes, now fixed: phantom externals, Python 2 imports, malformed names, and optional
   imports.
 
+### Interface polish (2026-10-15)
+
+[ADR-058](adr/ADR-058-interface-polish.md) is a preserving refresh: same brand, routes, form
+fields and legal copy. The city is untouched.
+- **Fixed:**
+  - the page scrolled on desktop (5,245 px at 1440×900), from 212 hidden tree labels placed
+    against the page;
+  - the overview silently capped findings at 20 of 132;
+  - a wrapped status pill;
+  - an unreadable disabled button;
+  - a borderless secondary action;
+  - a clipped placeholder.
+- **Changed:**
+  - self-hosted Geist type outside the stage;
+  - one radius rule;
+  - 12 px help text;
+  - one CTA label;
+  - no visible dashes;
+  - paged finding lists, with explanations one click away in lists.
+- **Added:**
+  - a real demo-city render on both entry screens;
+  - page titles, metadata, a favicon and `<noscript>` text;
+  - for the demo, a canonical link, a social card and structured data.
+
+Checks:
+- The city stage is byte-identical before and after in 3D and map, dark and light.
+- Viewer end-to-end: 39 of 39, also with `CI=1`.
+- The first attempt failed journey J3; that failure is recorded in the ADR.
+- Inspector length: 12,157 → 6,588 px at 1440 px.
+- `pnpm verify` (711 tests), the baseline and `verify:distribution` pass.
+
 ### Reproduce verification
 
 ```sh

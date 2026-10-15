@@ -3,7 +3,7 @@ import { METRIC_PALETTE, UNKNOWN_COLOR } from '@atlas/layout';
 import { evenStops, invalidStops, type Distribution } from '../app/bands';
 import { MenuSummary } from './MenuSummary';
 
-const fmt = (n: number | null) => (n === null ? '—' : n.toLocaleString('en-US'));
+const fmt = (n: number | null) => (n === null ? 'n/a' : n.toLocaleString('en-US'));
 
 /**
  * The Bands menu (ADR-052): the distribution of the lens metric over the files shown, as a
@@ -24,7 +24,7 @@ export function BandsMenu(props: {
   const parsed = [0, ...draft.map((d) => (d.trim() === '' ? NaN : Number(d)))];
   const problem = invalidStops(parsed);
   const peak = Math.max(1, ...dist.counts, dist.unknown);
-  const bars = [...dist.counts.map((count, i) => ({ count, color: METRIC_PALETTE[i]!, label: i === 4 ? `${stops[4]}+` : stops[i + 1]! - 1 === stops[i] ? `${stops[i]}` : `${stops[i]}–${stops[i + 1]! - 1}` })), { count: dist.unknown, color: UNKNOWN_COLOR, label: '×' }];
+  const bars = [...dist.counts.map((count, i) => ({ count, color: METRIC_PALETTE[i]!, label: i === 4 ? `${stops[4]}+` : stops[i + 1]! - 1 === stops[i] ? `${stops[i]}` : `${stops[i]}-${stops[i + 1]! - 1}` })), { count: dist.unknown, color: UNKNOWN_COLOR, label: '×' }];
   const width = 260,
     height = 92,
     gap = 6,

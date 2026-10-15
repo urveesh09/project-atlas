@@ -282,6 +282,18 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     expect(stats.drawCalls).toBeLessThan(30);
     expect(stats.pickCells).toBeGreaterThan(0);
   });
+  it('keeps the explorer inside the window and names the repository in the title (ADR-058)', async () => {
+    // Visually hidden tree labels once grew the page to thousands of pixels, so a wheel over
+    // the header slid the whole explorer away. Each panel scrolls; the page itself does not.
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - innerHeight)).toBeLessThanOrEqual(0);
+    await page.mouse.move(640, 24);
+    await page.mouse.wheel(0, 800);
+    await page.waitForTimeout(100);
+    expect(await page.evaluate(() => scrollY)).toBe(0);
+    const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
+    if (!loaded.ok) throw new Error('invalid');
+    expect(await page.title()).toBe(`${loaded.bundle.manifest.repo.displayName} as a city · ATLAS`);
+  });
   it('keeps the camera still on selection and across lenses', async () => {
     const before = await page.evaluate(() => window.__atlasCity!.cameraState());
     await choose('pricing.ts');
@@ -535,25 +547,25 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     const legendCounts = async () => (await page.locator('.city-legend .legend-count').allInnerTexts()).map((t) => Number(t.replaceAll(',', '')));
     const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
     await lens.selectOption('code-lines');
-    await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0–49');
+    await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0-49');
     const total = sum(await legendCounts());
     expect(total).toBeGreaterThan(0);
     const bands = page.locator('.city-bands');
     await bands.locator('summary').click();
-    expect(await bands.getByRole('img').getAttribute('aria-label')).toMatch(/^Distribution over the files shown: 0–49: \d+/);
+    expect(await bands.getByRole('img').getAttribute('aria-label')).toMatch(/^Distribution over the files shown: 0-49: \d+/);
     await bands.getByRole('spinbutton', { name: 'Band 2 starts at' }).fill('10');
-    await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0–9');
+    await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0-9');
     expect(sum(await legendCounts())).toBe(total);
     expect(await bands.locator('summary').innerText()).toContain('custom');
     // An invalid edit is reported and the last valid bands stay in use.
     await bands.getByRole('spinbutton', { name: 'Band 3 starts at' }).fill('5');
     expect(await page.locator('#bands-problem').innerText()).toContain('must start above');
-    expect(await page.locator('.city-legend').innerText()).toContain('0–9');
+    expect(await page.locator('.city-legend').innerText()).toContain('0-9');
     await bands.getByRole('button', { name: 'Even split' }).click();
     expect(sum(await legendCounts())).toBe(total);
     expect(await audit(page)).toEqual([]);
     await bands.getByRole('button', { name: 'Reset' }).click();
-    await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0–49');
+    await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0-49');
     await bands.locator('summary').click();
     const saved = page.locator('.city-saved');
     await saved.locator('summary').click();
@@ -1000,12 +1012,17 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
       page.on('request', (r) => requests.push({ url: r.url(), method: r.method() }));
       await page.goto(`${origin}/`);
       await page.getByRole('button', { name: 'Open artifact folder…' }).waitFor();
+      // The start screen shows a real render of the demo city, described for screen readers.
+      const preview = page.getByRole('img', { name: /vuejs\/core repository drawn as an ATLAS city/ });
+      await expect.poll(() => preview.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1120);
+      expect(await page.title()).toBe('ATLAS: your codebase as a city');
       const before = requests.length;
       await page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out'));
       await page.waitForSelector('#overview-title');
       const after = requests.slice(before);
-      // Only the loader worker script itself may be fetched; no artifact bytes are sent.
-      expect(after.every((r) => r.method === 'GET' && r.url.startsWith(origin) && /\/assets\/.*\.js$/.test(r.url))).toBe(
+      // Only the viewer's own static files may be fetched: the loader worker script and, since
+      // ADR-058, the bundled font subsets the explorer first uses. No artifact bytes are sent.
+      expect(after.every((r) => r.method === 'GET' && r.url.startsWith(origin) && /\/assets\/[^/]+\.(?:js|woff2)$/.test(r.url))).toBe(
         true,
       );
       expect(requests.filter((r) => r.method !== 'GET')).toEqual([]);

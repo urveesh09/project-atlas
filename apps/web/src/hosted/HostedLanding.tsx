@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Capabilities } from '@atlas/schema';
+import { CityPreview } from '../components/CityPreview';
 import { HostedApiError, submitAnalysis } from './api';
 import { errorText } from './messages';
 import { navigate } from './route';
@@ -46,6 +47,7 @@ export function HostedLanding({ capabilities, onOpenFolder }: { capabilities: Ca
 
   return (
     <main className="gate">
+      <div className="gate-split">
       <div className="gate-card hosted-card">
         <p className="gate-brand">
           <span className="brand-mark" aria-hidden="true">
@@ -104,13 +106,15 @@ export function HostedLanding({ capabilities, onOpenFolder }: { capabilities: Ca
               Explore the demo city
             </a>
           )}
-          <button type="button" className="button ghost" onClick={onOpenFolder}>
+          <button type="button" className="button" onClick={onOpenFolder}>
             Open a local artifact folder…
           </button>
         </div>
         <p className="gate-small">
           Private code: run <code>atlas analyze .</code> then <code>atlas serve ./atlas-output</code>. Local analysis never uploads anything; opened folders stay in this browser.
         </p>
+      </div>
+      <CityPreview />
       </div>
     </main>
   );

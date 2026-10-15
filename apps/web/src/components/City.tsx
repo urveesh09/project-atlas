@@ -51,8 +51,8 @@ export const LENS_LABEL: Record<CityLens, string> = {
   'fan-out': 'Fan-out (unique dependencies)',
   churn: 'Changed commits (up to this snapshot)',
   'lines-changed': 'Lines changed (added + deleted, up to this snapshot)',
-  hotspot: 'Hotspot score (0–100, HEAD cohort)',
-  attention: 'Structure attention (no history; 0–100)',
+  hotspot: 'Hotspot score (0-100, HEAD cohort)',
+  attention: 'Structure attention (no history; 0-100)',
 };
 /** Lens picker groups (ADR-052); height stays code lines in every lens (plan §11.5). */
 const LENS_GROUPS: { label: string; lenses: CityLens[] }[] = [
@@ -532,7 +532,7 @@ export function City() {
           <span>{model.isHead ? ' as a city' : ` on ${model.commit.committerTime.slice(0, 10)} (snapshot ${model.frame + 1} of ${dataset.frames.length})`}</span>
         </h1>
         <span className="city-counts">
-          {model.city.buildings.length.toLocaleString('en-US')} files · {model.city.districts.filter((d) => d.kind === 'package').length} packages · height = code lines
+          {model.city.buildings.length.toLocaleString('en-US')} files in {model.city.districts.filter((d) => d.kind === 'package').length} packages. Height shows code lines.
         </span>
       </div>
       <div className="city-toolbar" aria-label="City controls">
@@ -741,7 +741,7 @@ export function City() {
               <span key={n}>
                 <i style={{ background: METRIC_PALETTE[i] }} aria-hidden="true" />
                 {n}
-                {i === 4 ? '+' : stops![i + 1]! - 1 === n ? '' : `–${stops![i + 1]! - 1}`}
+                {i === 4 ? '+' : stops![i + 1]! - 1 === n ? '' : `-${stops![i + 1]! - 1}`}
                 {bands && <span className="legend-count">{bands.counts[i]!.toLocaleString('en-US')}</span>}
               </span>
             ))}
@@ -778,7 +778,7 @@ export function City() {
         <details className="city-about">
           <summary>How to read the city</summary>
           <p className="city-note">
-          Height = code lines, on a logarithmic scale. △ source · ⬡ test · ▱ declaration · □ kiosk. × marks unavailable
+          Height shows code lines, on a logarithmic scale. Shapes: △ source, ⬡ test, ▱ declaration, □ kiosk. × marks unavailable
           analysis. Roads separate folders; they are spacing. City style, building shapes, storeys, windows, walls,
           trees, paving, ground shading and the harbour are decorative and seeded per file; they carry no data. Roofs,
           eaves and battlements share their building's lens colour. A blue ring marks each selected building. Click the
@@ -1014,8 +1014,8 @@ export function City() {
         Overlay: {overlay.arcs.length} of {overlay.total} relationships drawn (one per connected pair and kind, never one per
         import statement); {overlay.omitted} omitted ({overlay.unplaced}{' '}
         without visible plots/terminals). Arrows point to imported targets; a ring and a name mark each connected file: → it is imported by the
-        selection, ← it imports the selection. Value = blue solid · type = purple · dynamic
-        = amber · resource = green. {overlay.policy}.
+        selection, ← it imports the selection. Colours: value imports blue solid, type purple, dynamic amber,
+        resource green. {overlay.policy}.
       </p>
       {!!edges.length && (
         <details className="city-details">
