@@ -37,16 +37,19 @@ export function Section({ title, count, children, description }: { title: string
   );
 }
 
-/** Show the first `pageSize` items with an explicit, keyboard-reachable "show more". */
-export function Paged<T>({ items, pageSize = 50, render, empty }: { items: readonly T[]; pageSize?: number; render: (item: T, index: number) => ReactNode; empty: ReactNode }) {
+/**
+ * Show the first `pageSize` items with an explicit, keyboard-reachable "show more" that adds
+ * `step` at a time (default `pageSize`). `listClassName` styles the list (rows by default).
+ */
+export function Paged<T>({ items, pageSize = 50, step = pageSize, listClassName = 'rows', render, empty }: { items: readonly T[]; pageSize?: number; step?: number; listClassName?: string; render: (item: T, index: number) => ReactNode; empty: ReactNode }) {
   const [visible, setVisible] = useState(pageSize);
   if (items.length === 0) return <p className="empty">{empty}</p>;
   return (
     <>
-      <ul className="rows">{items.slice(0, visible).map(render)}</ul>
+      <ul className={listClassName}>{items.slice(0, visible).map(render)}</ul>
       {items.length > visible && (
-        <button type="button" className="more" onClick={() => setVisible((v) => v + pageSize)}>
-          Show {Math.min(pageSize, items.length - visible).toLocaleString('en-US')} more of {(items.length - visible).toLocaleString('en-US')}
+        <button type="button" className="more" onClick={() => setVisible((v) => v + step)}>
+          Show {Math.min(step, items.length - visible).toLocaleString('en-US')} more of {(items.length - visible).toLocaleString('en-US')}
         </button>
       )}
     </>

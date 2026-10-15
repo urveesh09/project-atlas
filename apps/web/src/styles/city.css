@@ -1,9 +1,9 @@
-.city { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--panel); margin-bottom: 28px; box-shadow: var(--shadow-xs); }
+.city { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--panel); margin-bottom: 28px; box-shadow: var(--shadow-xs); }
 .city-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 330px); align-items: start; gap: 20px; padding: 20px; }
 /* Rows take their content's height. In the fixed-height explorer an auto row could shrink to
    the city's minimum (it clips overflow), letting the compare panel cover it (ADR-050). */
 .city-content { grid-auto-rows: max-content; }
-.city-inspector { min-width: 0; }
+.city-inspector { min-width: 0; position: relative; }
 /* Beside the city, the inspector stays in view while the page scrolls, so a pick never has to move the page. */
 @media (min-width: 1351px) { .city-content > .city-inspector { position: sticky; top: 0; max-height: calc(100vh - 96px); overflow-y: auto; } }
 .city-content .city { min-width: 0; }
@@ -19,7 +19,7 @@
 .city-about summary { cursor: pointer; color: var(--accent); min-height: 24px; display: inline-flex; align-items: center; }
 .city-about .city-note { padding: 0; margin: 2px 0 4px; }
 .city-toolbar, .city-overlay-controls, .city-reach { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; padding: 8px 16px; }
-.city label { display: flex; gap: 4px; flex-direction: column; color: var(--muted); font-size: 11px; }
+.city label { display: flex; gap: 4px; flex-direction: column; color: var(--muted); font-size: 12px; }
 /* Buttons inside the city take the shared control style from app.css (ADR-049). */
 :where(.city) :where(button, select) { font-size: 12px; }
 .city select { max-width: 220px; width: 100%; }
@@ -31,11 +31,14 @@
 .city .city-check input[type=checkbox]:hover { border-color: var(--control-border-hover); }
 .city .city-check input[type=checkbox]:checked { background-color: var(--accent); border-color: var(--accent); background-image: radial-gradient(circle, var(--accent-ink) 0 5px, transparent 5.6px); background-position: 12px center; }
 .city input[type=checkbox] { accent-color: var(--accent); }
-.city-note { color: var(--muted); font-size: 11px; padding: 0 20px; margin: 6px 0 12px; }
-.city-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 4px 16px 8px; font-size: 11px; }
+.city-note { color: var(--muted); font-size: 12px; line-height: 1.55; padding: 0 20px; margin: 6px 0 12px; }
+.city-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 4px 16px 8px; font-size: 12px; }
 .city-legend span { display: inline-flex; align-items: center; gap: 5px; }
-.city-legend i { width: 15px; height: 15px; border: 1px solid var(--muted); border-radius: 3px; }
+.city-legend i { width: 15px; height: 15px; border: 1px solid var(--muted); border-radius: var(--radius-xs); }
 .city-stage { height: clamp(320px, 54vh, 720px); position: relative; background: #e9e4d7; overflow: hidden; isolation: isolate; }
+/* The stage keeps the system faces it was designed with (ADR-058). */
+.city-stage { font-family: var(--system-sans); }
+.city-stage :is(code, kbd) { font-family: var(--system-mono); }
 /* Expanded city: the browser's full screen, or a fixed overlay where full screen is refused. */
 .city-surface, .city-canvas { width: 100%; height: 100%; display: block; touch-action: none; }
 .city-surface:focus { outline: none; }
@@ -77,7 +80,7 @@
 .city-details li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; font-size: 12px; }
 .city-details li button { flex-shrink: 0; }
 .city .link { background: none; border: 0; color: var(--accent); text-align: start; white-space: normal; overflow-wrap: anywhere; }
-.city-reach > span { font-size: 11px; color: var(--muted); align-self: center; }
+.city-reach > span { font-size: 12px; color: var(--muted); align-self: center; }
 .reach-results { flex-basis: 100%; }
 .reach-results li { overflow-wrap: anywhere; }
 .city-table-wrap { width: 100%; overflow-x: auto; padding: 12px 20px; }
@@ -102,21 +105,21 @@
 .city > .timeline { border: 0; border-top: 1px solid var(--border); border-radius: 0; margin: 0; padding: 8px 16px; background: var(--panel); }
 
 /* Guided start (ADR-047). */
-.start { grid-column: 1 / -1; position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 44px 10px 16px; border: 1px solid var(--border); border-radius: 14px; background: linear-gradient(120deg, color-mix(in srgb, var(--brand) 7%, var(--panel)), var(--panel) 45%); box-shadow: var(--shadow-xs); }
+.start { grid-column: 1 / -1; position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 44px 10px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: linear-gradient(120deg, color-mix(in srgb, var(--brand) 7%, var(--panel)), var(--panel) 45%); box-shadow: var(--shadow-xs); }
 .start-text { flex: 1 1 240px; min-width: 0; }
 .start h2 { margin: 0; font-size: 14px; }
 .start p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
 .start-tasks { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; flex: 3 1 480px; min-width: 0; overflow-x: auto; }
 .start-tasks li { flex: 1 0 168px; min-width: 0; }
-.start-tasks button { width: 100%; height: 100%; min-height: 44px; display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 7px 12px 7px 8px; border-radius: 10px; border: 1px solid var(--control-border); background: var(--control); color: var(--text); text-align: start; cursor: pointer; font: inherit; box-shadow: var(--shadow-xs), var(--sheen); transition: border-color .12s var(--ease), box-shadow .15s var(--ease), transform .15s var(--ease); }
+.start-tasks button { width: 100%; height: 100%; min-height: 44px; display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 7px 12px 7px 8px; border-radius: var(--radius); border: 1px solid var(--control-border); background: var(--control); color: var(--text); text-align: start; cursor: pointer; font: inherit; box-shadow: var(--shadow-xs), var(--sheen); transition: border-color .12s var(--ease), box-shadow .15s var(--ease), transform .15s var(--ease); }
 .start-tasks button:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--control-border)); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .start-tasks button:active { transform: none; box-shadow: var(--shadow-xs); }
-.start-task-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); }
+.start-task-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); }
 .start-task-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .start-tasks strong { font-size: 13px; }
-.start-task-text > span { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
-.start-own { display: inline-block; margin-top: 4px; font-weight: 600; font-size: 13px; color: var(--accent); }
-.start-hide { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; transition: background-color .12s var(--ease), color .12s var(--ease); }
+.start-task-text > span { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.start-own { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-weight: 600; font-size: 13px; color: var(--accent); }
+.start-hide { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: none; color: var(--muted); cursor: pointer; transition: background-color .12s var(--ease), color .12s var(--ease); }
 .start-hide:hover { background: var(--control-hover); color: var(--text); }
 @media (max-width: 640px) {
   .start p { display: none; }
@@ -170,7 +173,7 @@
 .city-pattern input[aria-invalid=true] { border-color: var(--error); }
 .city-note-error { color: var(--error); }
 .legend-count { margin-inline-start: 3px; padding: 0 6px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); font-variant-numeric: tabular-nums; }
-.city-legend i { border-radius: 4px; border-color: color-mix(in srgb, var(--muted) 50%, transparent); }
+.city-legend i { border-radius: var(--radius-xs); border-color: color-mix(in srgb, var(--muted) 50%, transparent); }
 .city-views { position: relative; font-size: 12px; }
 /* Menus open from a button-like summary; the chevron turns while open. */
 .city-views > summary { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--control); box-shadow: var(--shadow-xs), var(--sheen); cursor: pointer; list-style: none; font-weight: 500; transition: background-color .12s var(--ease), border-color .12s var(--ease); user-select: none; }
@@ -179,10 +182,10 @@
 .city-views > summary::-webkit-details-marker { display: none; }
 .city-views > summary::after { content: ''; width: 5px; height: 5px; margin: -3px 1px 0 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); transition: transform .15s var(--ease); }
 .city-views[open] > summary::after { transform: translateY(3px) rotate(-135deg); }
-.city-views-panel { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: min(320px, 86vw); padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-md); display: grid; gap: 10px; animation: city-menu-in .14s var(--ease); }
+.city-views-panel { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: min(320px, 86vw); padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); display: grid; gap: 10px; animation: city-menu-in .14s var(--ease); }
 @keyframes city-menu-in { from { opacity: 0; transform: translateY(-4px); } }
 .city-views-panel ul { list-style: none; margin: 0 -6px; padding: 0; max-height: 220px; overflow-y: auto; }
-.city-views-panel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 2px 8px; border-radius: 7px; }
+.city-views-panel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 2px 8px; border-radius: var(--radius-sm); }
 .city-views-panel li:hover { background: var(--control-hover); }
 .city .city-views-delete { min-height: 28px; min-width: 28px; padding: 0; border-color: transparent; background: transparent; box-shadow: none; color: var(--muted); }
 .city .city-views-delete:hover:not(:disabled) { color: var(--error); background: color-mix(in srgb, var(--error) 12%, transparent); border-color: transparent; }
@@ -191,7 +194,7 @@
 .city .menu-item:hover:not(:disabled) { background: var(--control-hover); border-color: transparent; }
 .city .menu-item .icon { color: var(--muted); }
 .city-share .city-views-panel { gap: 2px; padding: 6px; }
-.city-share .city-views-empty { padding: 6px 10px 4px; border-top: 1px solid var(--border); margin-top: 4px; font-size: 11px; }
+.city-share .city-views-empty { padding: 6px 10px 4px; border-top: 1px solid var(--border); margin-top: 4px; font-size: 12px; }
 .city-views-panel form { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
 .city-views-panel form label { flex: 1 1 140px; }
 .city-views-panel input[type=text] { min-height: 32px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--field); color: var(--text); padding: 4px 9px; font: inherit; width: 100%; }
@@ -227,7 +230,7 @@
 .bands-stops { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; border: 0; padding: 0; margin: 0; min-width: 0; }
 .bands-stops legend { font-size: 12px; color: var(--text); padding: 0; margin-bottom: 4px; }
 .city .bands-stops label { flex-direction: row; align-items: center; gap: 4px; }
-.bands-stops i, .bands-first i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgb(0 0 0 / 0.2); }
+.bands-stops i, .bands-first i { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-xs); border: 1px solid rgb(0 0 0 / 0.2); }
 .bands-first { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 12px; color: var(--text); }
 .bands-stops input { width: 64px; min-height: 30px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--field); color: var(--text); padding: 2px 6px; font: inherit; font-size: 12px; font-family: var(--mono); }
 .bands-stops input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); box-shadow: 0 0 0 5px var(--accent-soft); }
@@ -235,7 +238,7 @@
 @media (pointer: coarse) { .bands-stops input { min-height: 44px; } }
 .city-views-presets { display: grid; gap: 6px; }
 .city-views-presets li { flex-wrap: wrap; gap: 0 8px; }
-.city-views-presets li > span { flex-basis: 100%; font-size: 11px; color: var(--muted); }
+.city-views-presets li > span { flex-basis: 100%; font-size: 12px; color: var(--muted); }
 
 /* Notes (ADR-053): marker swatches, the marked list, legend chips and the card note. */
 .city-notes .city-views-panel { width: min(340px, 88vw); }
@@ -253,9 +256,9 @@
 @media (pointer: coarse) { .notes-colours i { width: 40px; height: 40px; } }
 .city-notes li { flex-wrap: wrap; justify-content: flex-start; gap: 0 6px; }
 .notes-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-.notes-text { flex-basis: 100%; padding-inline-start: 16px; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap; }
+.notes-text { flex-basis: 100%; padding-inline-start: 16px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap; }
 .legend-marks { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--muted); }
-.city .legend-mark { min-height: 26px; padding: 0 8px; gap: 5px; font-size: 11px; font-weight: 500; border-radius: 999px; box-shadow: none; }
+.city .legend-mark { min-height: 26px; padding: 0 8px; gap: 5px; font-size: 12px; font-weight: 500; border-radius: 999px; box-shadow: none; }
 .legend-mark i { width: 10px; height: 10px; border-radius: 50%; border: 0 !important; }
 .city-card-mark { display: flex; gap: 6px; align-items: baseline; margin: 6px 0 0; color: #263344; white-space: pre-wrap; }
 .city-card-mark i { flex: none; width: 10px; height: 10px; border-radius: 50%; transform: translateY(1px); }
@@ -274,7 +277,7 @@
 /* Package dependency view (ADR-054). */
 .pkg-view { display: grid; gap: 8px; padding: 8px 16px 12px; min-width: 0; }
 .pkg-view > .city-note { padding: 0; margin: 0; }
-.pkg-scroll { overflow: auto; max-height: min(70vh, 760px); border: 1px solid var(--border); border-radius: 12px; background: var(--panel-2); overscroll-behavior: contain; }
+.pkg-scroll { overflow: auto; max-height: min(70vh, 760px); border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel-2); overscroll-behavior: contain; }
 .pkg-scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .pkg-svg { display: block; margin: 0 auto; }
 .pkg-edge { fill: none; stroke: color-mix(in srgb, var(--accent) 75%, var(--muted)); opacity: 0.7; transition: opacity 0.15s var(--ease); }

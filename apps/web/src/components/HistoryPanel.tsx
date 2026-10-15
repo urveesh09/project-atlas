@@ -20,7 +20,7 @@ export function HistoryTab({ node }: { node: GraphNode }) {
     return (
       <div className="empty-state">
         <h3>History was not analyzed</h3>
-        <p>This artifact describes one commit only, so change counts, renames and comparisons are unavailable — not zero.</p>
+        <p>This artifact describes one commit only, so change counts, renames and comparisons are unavailable, not zero.</p>
       </div>
     );
   if (node.kind !== 'file' || !node.lineageId) return <ContainerHistory node={node} />;

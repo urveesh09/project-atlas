@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LoadResult } from '@atlas/artifact';
 import { ARTIFACT_VERSION, type Capabilities } from '@atlas/schema';
+import { CityPreview } from '../components/CityPreview';
 import { Explorer } from '../components/Explorer';
 import { PublicationUnavailableError, detectLocalSession, filesFromInput, loadInWorker, type SourceStatus } from '../data/load';
 import { detectHostedService } from '../hosted/api';
@@ -185,9 +186,7 @@ export function App() {
   }
   if (phase.kind === 'job') return <JobPage key={phase.jobId} jobId={phase.jobId} />;
   if (phase.kind === 'unavailable') return <Unavailable code={phase.code} />;
-  return (
-    <main className="gate">
-      {picker}
+  const card = (
       <div className="gate-card">
         <p className="gate-brand">
           <span className="brand-mark" aria-hidden="true">
@@ -230,9 +229,6 @@ export function App() {
             <button type="button" className="button primary" onClick={openPicker}>
               Open artifact folder…
             </button>
-            <p className="gate-small">
-              Or run <code>atlas serve ./atlas-output</code> to open it with source viewing. Reads {ARTIFACT_VERSION}.
-            </p>
           </>
         )}
         {phase.kind === 'failed' && (
@@ -248,8 +244,7 @@ export function App() {
             <ul className="issues">
               {phase.result.issues.slice(0, 8).map((issue, i) => (
                 <li key={i}>
-                  <code>{issue.code}</code> {issue.path && <span className="issue-path">{issue.path}</span>} —{' '}
-                  {issue.message}
+                  <code>{issue.code}</code> {issue.path && <span className="issue-path">{issue.path}</span>}: {issue.message}
                 </li>
               ))}
             </ul>
@@ -259,6 +254,24 @@ export function App() {
           </div>
         )}
       </div>
+  );
+  return (
+    <main className="gate">
+      {picker}
+      {phase.kind === 'landing' ? (
+        // The start screen shows what an analysis becomes (ADR-058); loading and errors stay focused.
+        <div className="gate-split">
+          <div className="gate-column">
+            {card}
+            <p className="gate-foot">
+              Or run <code>atlas serve ./atlas-output</code> to open it with source viewing. Reads {ARTIFACT_VERSION}.
+            </p>
+          </div>
+          <CityPreview />
+        </div>
+      ) : (
+        card
+      )}
     </main>
   );
 }

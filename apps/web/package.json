@@ -16,6 +16,8 @@
     "@atlas/graph": "workspace:*",
     "@atlas/layout": "workspace:*",
     "@atlas/schema": "workspace:*",
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
     "@react-three/fiber": "9.8.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",

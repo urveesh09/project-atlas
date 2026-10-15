@@ -3,10 +3,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ATLAS</title>
+    <title>ATLAS: your codebase as a city</title>
+    <meta name="description" content="See a Git repository as a 3D city: one building per file, with dependencies, history and the evidence behind every number. Analyzed code is never run." />
+    <meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f131b" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="./src/assets/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ATLAS" />
+    <meta property="og:title" content="ATLAS: your codebase as a city" />
+    <meta property="og:description" content="One building per file, with dependencies, history and the evidence behind every number." />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <p style="max-width: 60ch; margin: 48px auto; padding: 0 16px; font: 16px/1.5 system-ui, sans-serif">
+        ATLAS draws a Git repository as an explorable city, one building per file. The viewer needs JavaScript; turn it
+        on to open the city. The project is at <a href="https://github.com/urveesh09/project-atlas">github.com/urveesh09/project-atlas</a>.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

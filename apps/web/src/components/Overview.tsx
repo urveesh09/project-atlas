@@ -3,7 +3,7 @@ import { hotspotFactors } from '@atlas/graph';
 import { useViewer } from '../app/context';
 import { formatNumber, shortOid } from '../app/model';
 import { FindingCard } from './Inspector';
-import { Meter, Section, StackBar } from './ui';
+import { Meter, Paged, Section, StackBar } from './ui';
 
 /** Repository overview: what was analyzed, what was not, and where to look first. */
 export function Overview() {
@@ -47,7 +47,7 @@ export function Overview() {
       </header>
 
       <div className="cards">
-        <Section title="Files" count={c.discoveredFiles} description="Every committed entry is included, excluded or omitted — never silently dropped.">
+        <Section title="Files" count={c.discoveredFiles} description="Every committed entry is included, excluded or omitted, never silently dropped.">
           <StackBar
             label={`${c.parsedFiles} parsed, ${c.parseFailedFiles} failed, ${c.opaqueFiles} other included, ${c.excludedFiles} excluded, ${c.omittedFiles} omitted`}
             segments={[
@@ -88,15 +88,16 @@ export function Overview() {
       </div>
 
       <Section title="Findings" count={model.diagnostics.length} description="Built-in, repository-relative heuristics with evidence. Candidates for inspection, not verdicts.">
-        {model.diagnostics.length === 0 ? (
-          <p className="empty">No findings under the default rules.</p>
-        ) : (
-          <ul className="findings">
-            {model.diagnostics.slice(0, 20).map((d) => (
-              <FindingCard key={d.id} diagnostic={d} focusId={null} />
-            ))}
-          </ul>
-        )}
+        {/* Five first, then twenty at a time: the count above is the total, and every finding
+            is reachable (ADR-058). The list used to stop at twenty without saying so. */}
+        <Paged
+          items={model.diagnostics}
+          pageSize={5}
+          step={20}
+          listClassName="findings"
+          empty="No findings under the default rules."
+          render={(d) => <FindingCard key={d.id} diagnostic={d} focusId={null} compact />}
+        />
       </Section>
 
       <div className="cards">

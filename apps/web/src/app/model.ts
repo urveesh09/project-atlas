@@ -240,7 +240,7 @@ export const ROLE_LABEL: Record<string, string> = {
 };
 
 export function formatNumber(value: number | null | undefined): string {
-  return value === null || value === undefined ? '—' : value.toLocaleString('en-US');
+  return value === null || value === undefined ? 'n/a' : value.toLocaleString('en-US');
 }
 
 export function shortOid(oid: string): string {
