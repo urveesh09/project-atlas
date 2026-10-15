@@ -52,8 +52,8 @@ export function BandsMenu(props: {
           })}
         </svg>
         <p className="city-views-empty">
-          {dist.known.toLocaleString('en-US')} files with a value · median {fmt(dist.median)} · 90th percentile {fmt(dist.p90)} · max {fmt(dist.max)}
-          {dist.unknown ? ` · ${dist.unknown.toLocaleString('en-US')} unknown` : ''}
+          {dist.known.toLocaleString('en-US')} files with a value: median {fmt(dist.median)}, 90th percentile {fmt(dist.p90)}, max {fmt(dist.max)}.
+          {dist.unknown ? ` ${dist.unknown.toLocaleString('en-US')} unknown.` : ''}
         </p>
         <fieldset className="bands-stops">
           <legend>Band starts</legend>

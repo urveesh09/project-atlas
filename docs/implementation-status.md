@@ -885,6 +885,28 @@ Checks:
 - Inspector length: 12,157 → 6,588 px at 1440 px.
 - `pnpm verify` (711 tests), the baseline and `verify:distribution` pass.
 
+### Interface second pass (2026-10-15)
+
+[ADR-059](adr/ADR-059-interface-second-pass.md) reviewed the surfaces ADR-058 had not: job
+states, the unavailable page, the inspector, compare, map, table, package graph and phone.
+- **Fixed:**
+  - failed and cancelled jobs ticked all seven stages as done, because the worker clears the
+    stage;
+  - package nodes overflowed after the font change;
+  - inspector tables scrolled sideways;
+  - stale "em dash" copy.
+- **Changed:**
+  - six summary lines read as sentences;
+  - a bordered "New analysis" button.
+
+Checks:
+- The new hosted assertions fail on the old page (7 done) and pass with the fix: 6 of 6
+  hosted journeys, twice.
+- Viewer end-to-end: 39 of 39, also with `CI=1`.
+- 0 of 18 package nodes overrun.
+- The city stage is byte-identical.
+- `pnpm verify` (712 tests) and the baseline pass.
+
 ### Reproduce verification
 
 ```sh

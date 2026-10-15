@@ -94,18 +94,18 @@ export function Timeline() {
         <p className="timeline-current" aria-hidden="true">
           <strong>
             Snapshot {state.frame + 1} of {frames.length}
-          </strong>{' '}
-          · {formatDate(active.commit.committerTime)} · <code>{shortOid(active.commit.oid)}</code> · {active.coverage.includedFiles.toLocaleString('en-US')} files
-          {state.frame === dataset.headIndex && ' · selected commit'}
+          </strong>
+          : {formatDate(active.commit.committerTime)}, commit <code>{shortOid(active.commit.oid)}</code>, {active.coverage.includedFiles.toLocaleString('en-US')} files
+          {state.frame === dataset.headIndex && ' (the selected commit)'}
         </p>
         <details className="timeline-help">
           <summary>How to read history</summary>
           <p className="timeline-summary">
-            <strong>{coverage.commitsTraversed.toLocaleString('en-US')}</strong> mainline commits ·{' '}
-            {windowStart ? `${formatDate(windowStart)} → ${formatDate(frames.at(-1)!.commit.committerTime)}` : formatDate(active.commit.committerTime)} ·{' '}
+            <strong>{coverage.commitsTraversed.toLocaleString('en-US')}</strong> mainline commits,{' '}
+            {windowStart ? `${formatDate(windowStart)} → ${formatDate(frames.at(-1)!.commit.committerTime)}` : formatDate(active.commit.committerTime)};{' '}
             <strong>{frames.length}</strong> analyzed snapshot{frames.length === 1 ? '' : 's'}
-            {coverage.framesRequested > frames.length ? ` of ${coverage.framesRequested} requested` : ''} · {BOUNDARY[coverage.boundary] ?? coverage.boundary} ·{' '}
-            {commitsUpTo} of {coverage.commitsTraversed} window commits up to the snapshot shown
+            {coverage.framesRequested > frames.length ? ` of ${coverage.framesRequested} requested` : ''}; {BOUNDARY[coverage.boundary] ?? coverage.boundary};{' '}
+            {commitsUpTo} of {coverage.commitsTraversed} window commits up to the snapshot shown.
             {coverage.status === 'partial' && <span className="chip chip-warn timeline-chip">partial history</span>}
           </p>
           <ul>

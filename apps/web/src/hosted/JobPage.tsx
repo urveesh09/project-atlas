@@ -42,6 +42,9 @@ export function JobPage({ jobId }: { jobId: string }) {
   const done = status?.state === 'READY' || status?.state === 'PARTIAL';
   const elapsed = status ? (TERMINAL.has(status.state) ? Date.parse(status.updatedAt) : now) - Date.parse(status.createdAt) : 0;
   const failure = status?.error ? errorText(status.error.code) : null;
+  // The service clears the stage when a job fails or is cancelled, so the page cannot know
+  // where it stopped. It then claims no stage at all rather than ticking every one (ADR-059).
+  const stoppedAtUnknown = status !== null && (status.state === 'FAILED' || status.state === 'CANCELLED') && status.stage === null;
 
   return (
     <main className="gate">
@@ -66,6 +69,11 @@ export function JobPage({ jobId }: { jobId: string }) {
               {status.state === 'QUEUED' && status.queuePosition !== null ? `Position ${status.queuePosition} in the queue. ` : ''}
               Elapsed {formatElapsed(elapsed)}, including time in the queue.
             </p>
+            {stoppedAtUnknown ? (
+              <p className="gate-note stage-unknown">
+                {status.state === 'CANCELLED' ? 'It was cancelled' : 'It stopped'} before a result was published.
+              </p>
+            ) : (
             <ol className="stage-list" aria-label="Stages">
               {STAGES.map((s, i) => {
                 const state = status.state === 'FAILED' || status.state === 'CANCELLED' ? (i < current ? 'done' : i === current ? 'stopped' : 'todo') : i < current || done ? 'done' : i === current ? 'active' : 'todo';
@@ -78,6 +86,7 @@ export function JobPage({ jobId }: { jobId: string }) {
                 );
               })}
             </ol>
+            )}
             {describeCounts(status.counts).length > 0 && (
               <dl className="count-list" aria-label="Counts">
                 {describeCounts(status.counts).map((count) => (
@@ -115,7 +124,7 @@ export function JobPage({ jobId }: { jobId: string }) {
                 </button>
               )}
               {TERMINAL.has(status.state) && (
-                <a className="button ghost" href="/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
+                <a className="button" href="/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
                   {status.state === 'FAILED' && status.error?.retryable ? 'Try again' : 'New analysis'}
                 </a>
               )}
