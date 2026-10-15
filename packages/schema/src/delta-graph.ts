@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { canonicalJson, canonicalValueEqual, compareAscii } from './canonical.js';
 import { SnapshotCoverageSchema } from './coverage.js';
-import type { GraphNode, GraphSnapshot, NodeMetrics } from './graph.js';
-import { GraphSnapshotSchema } from './graph.js';
+import type { GraphNode, GraphSnapshot, NodeIdentity, NodeMetrics } from './graph.js';
+import { GraphSnapshotSchema, nodeIdentityKey } from './graph.js';
 import { edgeId, makeId, nodeId, observationId } from './ids.js';
 import { IndexedGraphSchema } from './indexed-graph.js';
 import { LIMITS } from './limits.js';
@@ -63,17 +63,8 @@ export type DeltaGraph = z.infer<typeof DeltaGraphSchema>;
 // Natural keys and forms
 // ---------------------------------------------------------------------------------------
 
-function nodeKey(node: GraphNode): string {
-  switch (node.kind) {
-    case 'repository':
-      return 'repository\u0000';
-    case 'builtin':
-      return `builtin\u0000${node.moduleName}`;
-    case 'external-package':
-      return `external-package\u0000${node.packageName}`;
-    default:
-      return `${node.kind}\u0000${node.path}`;
-  }
+function nodeKey(node: NodeIdentity): string {
+  return `${node.kind}\u0000${nodeIdentityKey(node)}`;
 }
 
 /** Node identity inputs from a natural key (the inverse of `nodeKey`). */
@@ -428,9 +419,7 @@ export function decodeDeltaGraph(input: unknown, base: GraphSnapshot, baseNatura
   const keptNodes = expandRuns(wire.nodes.keep, base.nodes.length);
   const nodeCount = keptNodes.length + wire.nodes.add.length;
   if (nodeCount > LIMITS.treeEntriesPerSnapshot) throw new RangeError('Delta graph exceeds the node limit');
-  const addedNodeKey = (n: (typeof wire.nodes.add)[number]) =>
-    n.kind === 'repository' ? 'repository\u0000' : n.kind === 'builtin' ? `builtin\u0000${n.moduleName}` : n.kind === 'external-package' ? `external-package\u0000${n.packageName}` : `${n.kind}\u0000${n.path}`;
-  const nodeKeys = [...keptNodes.map((i) => b.nodeKeys[i]!), ...wire.nodes.add.map(addedNodeKey)];
+  const nodeKeys = [...keptNodes.map((i) => b.nodeKeys[i]!), ...wire.nodes.add.map(nodeKey)];
   const nodeIds = nodeKeys.map((key) => nodeIdFromKey(snap, key));
   const nodeOrder = nodeIds.map((id, i) => [id, i] as const).sort((x, y) => compareAscii(x[0], y[0]));
   const positionOfKey = new Map<string, number>();

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { hotspotBaseline, hotspotFactors } from '@atlas/graph';
 import { openArtifactDirectory, type LoadResult } from '@atlas/artifact/node';
-import { RULE_CATALOG, compareAscii, compareUtf8, formatDiagnosticMessage, type GraphNode } from '@atlas/schema';
+import { RULE_CATALOG, codeLabels, compareAscii, compareUtf8, formatDiagnosticMessage, perimeterName, type GraphNode } from '@atlas/schema';
 import { EXIT, type CommandContext } from '../context.js';
 import { renderCityMap, type ArtifactView } from '../ui/city-map.js';
 import { bar, box, check, formatBytes, formatCount, heading, plural, stackedBar, swatch, truncateMiddle, wrapText } from '../ui/format.js';
@@ -172,7 +172,8 @@ export function buildInspectReport(bundle: ArtifactView, stats: Extract<LoadResu
     packages: graph.nodes
       .flatMap((n) => (n.kind === 'package' ? [{ name: n.packageName, path: n.path, workspace: n.workspace, files: files.get(n.id) ?? 0, directories: directories.get(n.id) ?? 0, declaredDependencies: declared.get(n.id) ?? 0 }] : []))
       .sort((a, b) => b.files - a.files || compareUtf8(a.path, b.path)),
-    externalPackages: graph.nodes.flatMap((n) => (n.kind === 'external-package' ? [n.packageName] : [])).sort(compareUtf8),
+    // npm names stay bare, as before; PyPI names carry their ecosystem (ADR-060).
+    externalPackages: graph.nodes.flatMap((n) => (n.kind === 'external-package' ? [n.ecosystem === 'npm' ? n.packageName : perimeterName(n)] : [])).sort(compareUtf8),
     coverageReasons: c.reasons,
     limitsHit: c.limitsHit,
     warnings: c.warnings,
@@ -214,7 +215,7 @@ const REASON_TEXT: Record<string, string> = {
   INVALID_ENCODING: 'not valid UTF-8',
   LFS_NOT_FETCHED: 'Git LFS pointers (content not fetched)',
   FLOW_UNSUPPORTED: 'Flow files (unsupported)',
-  LANGUAGE_UNSUPPORTED: 'unsupported languages (Vue, Svelte, MDX…)',
+  LANGUAGE_UNSUPPORTED: 'unsupported languages (Vue, Svelte, MDX, Cython, notebooks…)',
   SOURCE_BUDGET: 'over the total source budget',
   LOCKFILE_STRUCTURAL: 'lockfiles (structure only)',
 };
@@ -228,6 +229,7 @@ function describeReason(code: string): string {
 function render(ctx: CommandContext, report: InspectReport, bundle: ArtifactView, showMap: boolean): void {
   const s: Styler = ctx.out;
   const w = ctx.width;
+  const labels = codeLabels(bundle.head.nodes);
   const statusText = report.status === 'complete' ? s.fg(PALETTE.ok, 'complete') : s.fg(PALETTE.warn, report.status);
   ctx.print();
   for (const line of box(
@@ -282,7 +284,7 @@ function render(ctx: CommandContext, report: InspectReport, bundle: ArtifactView
     )}`,
   );
   ctx.print(
-    `  ${swatch(s, PALETTE.roles['source']!, '#')} ${formatCount(f.supported)} TS/JS  ${swatch(s, PALETTE.roles['opaque']!, '+')} ${formatCount(f.opaque)} other included  ${swatch(s, PALETTE.road, '.')} ${formatCount(f.excluded)} excluded  ${swatch(s, PALETTE.warn, '!')} ${formatCount(f.omitted)} omitted  ${s.dim(`of ${formatCount(f.discovered)} committed entries`)}`,
+    `  ${swatch(s, PALETTE.roles['source']!, '#')} ${formatCount(f.supported)} ${labels.code}  ${swatch(s, PALETTE.roles['opaque']!, '+')} ${formatCount(f.opaque)} other included  ${swatch(s, PALETTE.road, '.')} ${formatCount(f.excluded)} excluded  ${swatch(s, PALETTE.warn, '!')} ${formatCount(f.omitted)} omitted  ${s.dim(`of ${formatCount(f.discovered)} committed entries`)}`,
   );
   const roleLine = Object.entries(report.roles)
     .sort((a, b) => b[1] - a[1])
@@ -322,7 +324,7 @@ function render(ctx: CommandContext, report: InspectReport, bundle: ArtifactView
     )}`,
   );
   ctx.print(
-    `  ${swatch(s, PALETTE.accent, '#')} ${formatCount(im.internal)} internal  ${swatch(s, PALETTE.roles['asset']!, '+')} ${formatCount(im.external)} npm · ${formatCount(im.builtin)} node  ${swatch(s, PALETTE.warn, '?')} ${formatCount(im.unresolved)} unresolved  ${swatch(s, PALETTE.muted, '.')} ${formatCount(im.unsupported)} unsupported · ${formatCount(im.excludedTargets)} to excluded files`,
+    `  ${swatch(s, PALETTE.accent, '#')} ${formatCount(im.internal)} internal  ${swatch(s, PALETTE.roles['asset']!, '+')} ${formatCount(im.external)} ${labels.packagesShort} · ${formatCount(im.builtin)} ${labels.builtinsShort}  ${swatch(s, PALETTE.warn, '?')} ${formatCount(im.unresolved)} unresolved  ${swatch(s, PALETTE.muted, '.')} ${formatCount(im.unsupported)} unsupported · ${formatCount(im.excludedTargets)} to excluded files`,
   );
   if (report.parse.failed > 0) ctx.print(`  ${check(s, 'warn')} ${s.fg(PALETTE.warn, `${plural(report.parse.failed, 'file')} could not be parsed`)} ${s.dim('— no dependency or complexity claims are made for them')}`);
 

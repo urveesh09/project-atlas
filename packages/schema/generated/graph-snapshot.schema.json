@@ -1,6 +1,6 @@
 {
   "$id": "https://atlas.invalid/schemas/graph-snapshot.schema.json",
-  "title": "ATLAS graph-snapshot (atlas.graph/1.0.0)",
+  "title": "ATLAS graph-snapshot (atlas.graph/1.1.0)",
   "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
@@ -254,7 +254,8 @@
                     "type": "string",
                     "enum": [
                       "typescript",
-                      "javascript"
+                      "javascript",
+                      "python"
                     ]
                   },
                   {
@@ -426,7 +427,10 @@
               },
               "ecosystem": {
                 "type": "string",
-                "const": "npm"
+                "enum": [
+                  "npm",
+                  "pypi"
+                ]
               },
               "packageName": {
                 "type": "string"
@@ -513,6 +517,10 @@
               },
               "moduleName": {
                 "type": "string"
+              },
+              "runtime": {
+                "type": "string",
+                "const": "python"
               }
             },
             "required": [

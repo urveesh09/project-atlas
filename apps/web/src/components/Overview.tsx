@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { hotspotFactors } from '@atlas/graph';
+import { codeLabels } from '@atlas/schema';
 import { useViewer } from '../app/context';
 import { formatNumber, shortOid } from '../app/model';
 import { FindingCard } from './Inspector';
@@ -9,6 +10,7 @@ import { Meter, Paged, Section, StackBar } from './ui';
 export function Overview() {
   const { model, dataset, select } = useViewer();
   const c = model.graph.coverage;
+  const labels = useMemo(() => codeLabels(model.graph.nodes), [model]);
   const files = useMemo(
     () =>
       model.graph.metrics
@@ -58,7 +60,7 @@ export function Overview() {
             ]}
           />
           <dl className="facts">
-            <div><dt>Parsed TS/JS</dt><dd>{formatNumber(c.parsedFiles)}</dd></div>
+            <div><dt>Parsed {labels.code}</dt><dd>{formatNumber(c.parsedFiles)}</dd></div>
             <div><dt>Parse failed</dt><dd>{formatNumber(c.parseFailedFiles)}</dd></div>
             <div><dt>Other included</dt><dd>{formatNumber(c.opaqueFiles)}</dd></div>
             <div><dt>Excluded</dt><dd>{formatNumber(c.excludedFiles)}</dd></div>
@@ -78,8 +80,8 @@ export function Overview() {
           />
           <dl className="facts">
             <div><dt>Internal</dt><dd>{formatNumber(c.internalResolved)}</dd></div>
-            <div><dt>npm packages</dt><dd>{formatNumber(c.externalResolved)}</dd></div>
-            <div><dt>Node.js built-ins</dt><dd>{formatNumber(c.builtinResolved)}</dd></div>
+            <div><dt>{labels.packages}</dt><dd>{formatNumber(c.externalResolved)}</dd></div>
+            <div><dt>{labels.builtins}</dt><dd>{formatNumber(c.builtinResolved)}</dd></div>
             <div><dt>Unresolved</dt><dd>{formatNumber(c.unresolved)}</dd></div>
             <div><dt>Unsupported / excluded</dt><dd>{formatNumber(c.unsupported + c.excludedTargets)}</dd></div>
           </dl>

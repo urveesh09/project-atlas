@@ -25,8 +25,8 @@ export interface InventoryFile {
   blobSha256: string | null;
   byteSize: number;
   role: FileRole;
-  language: 'typescript' | 'javascript' | null;
-  /** True for TS/JS files whose content passed every check: Phase 2 parses these. */
+  language: 'typescript' | 'javascript' | 'python' | null;
+  /** True for TS/JS and Python files whose content passed every check: Phase 2 parses these. */
   supported: boolean;
   /** Why an included file is opaque, when it is not simply a non-code file. */
   opaqueReason: string | null;
@@ -235,10 +235,10 @@ async function classifyBatch(
       const text = bytes ? decodeText(bytes) : null;
       if (bytes && bytes.subarray(0, 8000).includes(0)) opaque('BINARY_CONTENT');
       else if (text === null) opaque('INVALID_ENCODING');
-      else if (cls.code && hasGeneratedHeader(text)) {
+      else if (cls.code && hasGeneratedHeader(text, cls.language === 'python')) {
         exclude(path, 'GENERATED_HEADER');
         return;
-      } else if (cls.code && hasFlowPragma(text)) opaque('FLOW_UNSUPPORTED');
+      } else if (cls.code && cls.language !== 'python' && hasFlowPragma(text)) opaque('FLOW_UNSUPPORTED');
       else if (cls.code && inventory.decodedSourceBytes + bytes!.length > options.limits.headDecodedSourceBytes) {
         opaque('SOURCE_BUDGET');
         inventory.limitsHit.add('SOURCE_BUDGET');

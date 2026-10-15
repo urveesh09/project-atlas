@@ -7,6 +7,21 @@ import { TABS, type InspectorTab } from '../app/state';
 import { AvailabilityNote, Chip, Paged, Section, SeverityBadge } from './ui';
 import { HistoryTab } from './HistoryPanel';
 
+const LANGUAGE_LABEL = { typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python' } as const;
+
+/**
+ * What a package or built-in is (ADR-060). Node.js and npm rows read as before; Python rows
+ * name their ecosystem, and an inferred built-in says which runtime it belongs to.
+ */
+function perimeterNote(o: ImportObservation, t: GraphNode | undefined, ranges: string): string {
+  if (o.status === 'builtin') {
+    if (t?.kind !== 'builtin' || t.runtime !== 'python') return 'Node.js built-in';
+    return o.reasonCode ? describeReason(o.reasonCode) : 'Python standard library';
+  }
+  const declared = ranges ? `declared ${ranges}` : o.reasonCode === 'OPTIONAL_EXTERNAL_IMPORT' ? 'optional, not declared in a manifest' : 'not declared in a manifest';
+  return t?.kind === 'external-package' && t.ecosystem === 'pypi' ? `PyPI, ${declared}` : declared;
+}
+
 const TAB_LABEL: Record<InspectorTab, string> = { overview: 'Overview', dependencies: 'Dependencies', findings: 'Findings', history: 'History' };
 
 const KIND_LABEL: Record<string, string> = {
@@ -61,7 +76,7 @@ export function Inspector({ node }: { node: GraphNode }) {
         <div className="chips">
           <Chip tone="accent">{node.kind === 'file' ? ROLE_LABEL[node.role] : node.kind}</Chip>
           {pkg && node.kind !== 'package' && <Chip>{model.title(pkg)}</Chip>}
-          {node.kind === 'file' && node.language && <Chip>{node.language === 'typescript' ? 'TypeScript' : 'JavaScript'}</Chip>}
+          {node.kind === 'file' && node.language && <Chip>{LANGUAGE_LABEL[node.language]}</Chip>}
           {node.kind === 'file' && <ParseChip status={node.parseStatus} />}
           <Chip tone="muted" title={model.commit.oid}>
             @ {shortOid(model.commit.oid)}
@@ -247,7 +262,7 @@ function SourceAction({ nodeId, line, label }: { nodeId: string; line: number | 
       </div>
     );
   }
-  if (node.language === null) return <div className="source-links">{githubLink}<p className="note">Source is shown only for analyzable TS/JS files.</p></div>;
+  if (node.language === null) return <div className="source-links">{githubLink}<p className="note">Source is shown only for TypeScript, JavaScript and Python files.</p></div>;
   return (
     <div className="source-links">
       <button type="button" className="button" onClick={() => dispatch({ type: 'source', nodeId, line })}>
@@ -346,7 +361,7 @@ function DependenciesTab({ node }: { node: GraphNode }) {
                   <code>{t ? model.title(t) : o.specifier}</code>
                 </span>
                 <span className="row-meta">
-                  {o.status === 'builtin' ? 'Node.js built-in' : ranges ? `declared ${ranges}` : 'not declared in a manifest'} · <Location obs={o} />
+                  {perimeterNote(o, t, ranges)} · <Location obs={o} />
                 </span>
               </li>
             );

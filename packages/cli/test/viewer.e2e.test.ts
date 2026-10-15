@@ -5,7 +5,7 @@ import path from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
-import { ARTIFACT_VERSION } from '@atlas/schema';
+import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION } from '@atlas/schema';
 import { run, type CliIO } from '@atlas/cli';
 import { viewerDirectory } from '../src/commands/serve.js';
 import { SourceAttachment } from '../src/server/source.js';
@@ -362,7 +362,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     const artifact = await readArtifactDirectory(path.join(work, 'harbor-out'));
     if (!artifact.ok) throw new Error('Invalid export reference artifact');
     expect(metadata.artifactVersion).toBe(ARTIFACT_VERSION);
-    expect(metadata.schemaVersion).toBe('atlas.graph/1.0.0');
+    expect(metadata.schemaVersion).toBe(GRAPH_SCHEMA_VERSION);
     expect(metadata.metricDefinitionVersion).toBe('atlas.metrics/1');
     expect(metadata.analyzer).toEqual(artifact.bundle.manifest.analyzer);
     expect(metadata.analysisKey).toBe(artifact.bundle.manifest.analysisKey);

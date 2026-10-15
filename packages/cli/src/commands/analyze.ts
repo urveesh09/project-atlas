@@ -27,7 +27,7 @@ const STAGE_LABEL: Record<ProgressEvent['stage'], string> = {
   history: 'Walk mainline history',
   inventory: 'Inventory files',
   hierarchy: 'Packages & configuration',
-  parse: 'Parse TS/JS',
+  parse: 'Parse source',
   dependencies: 'Resolve imports',
   findings: 'Metrics & findings',
   frames: 'Analyze history frames',

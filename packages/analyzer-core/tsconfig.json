@@ -6,5 +6,5 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src"],
-  "references": [{ "path": "../schema" }, { "path": "../ingest" }, { "path": "../analyzer-ts" }, { "path": "../graph" }, { "path": "../history" }, { "path": "../layout" }, { "path": "../artifact" }]
+  "references": [{ "path": "../schema" }, { "path": "../ingest" }, { "path": "../analyzer-ts" }, { "path": "../analyzer-py" }, { "path": "../graph" }, { "path": "../history" }, { "path": "../layout" }, { "path": "../artifact" }]
 }

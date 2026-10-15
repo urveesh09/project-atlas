@@ -5,6 +5,9 @@ import { HostedApiError, submitAnalysis } from './api';
 import { errorText } from './messages';
 import { navigate } from './route';
 
+/** Display names for the service's language capabilities (ADR-060). */
+const LANGUAGE_NAMES: Record<string, string> = { 'typescript-javascript': 'TypeScript and JavaScript', python: 'Python' };
+
 /** Accept only what the service accepts (plan §8.2); the service re-validates everything. */
 const ROOT_URL = /^https:\/\/github\.com\/[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}\/[A-Za-z0-9._-]{1,100}?(?:\.git)?\/?$/;
 
@@ -98,7 +101,7 @@ export function HostedLanding({ capabilities, onOpenFolder }: { capabilities: Ca
           </button>
         </form>
         <p className="gate-small">
-          TypeScript and JavaScript ({capabilities.languages[0]?.extensions.join(' ')}); other files appear as structure. Up to {limits['includedFilesPerSnapshot']?.toLocaleString('en')} files; analysis stops after {Number(limits['workerDeadlineMs']) / 1000} seconds.
+          {capabilities.languages.map((l, i) => `${i > 0 ? (i === capabilities.languages.length - 1 ? ' and ' : ', ') : ''}${LANGUAGE_NAMES[l.id] ?? l.id} (${l.extensions.join(' ')})`).join('')}; other files appear as structure. Up to {limits['includedFilesPerSnapshot']?.toLocaleString('en')} files; analysis stops after {Number(limits['workerDeadlineMs']) / 1000} seconds.
         </p>
         <div className="hosted-alternatives">
           {capabilities.demoAnalysisId && (

@@ -6,4 +6,3 @@ export * from './workspace.js';
 export * from './host.js';
 export * from './config.js';
 export * from './resolver.js';
-export * from './worker-path.js';

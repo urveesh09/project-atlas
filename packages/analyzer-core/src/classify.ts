@@ -1,4 +1,5 @@
 import { isDeclarationPath, isSupportedSourcePath } from '@atlas/analyzer-ts';
+import { isPythonManifest, isPythonSourcePath, isPythonStubPath } from '@atlas/analyzer-py';
 import { repoBasename, repoExtension, type FileRole } from '@atlas/schema';
 import { compileGlob, type CompiledGlob } from './globs.js';
 
@@ -13,9 +14,10 @@ export interface ExclusionRule {
 }
 
 const BUILTIN: readonly (readonly [reason: string, patterns: readonly string[]])[] = [
-  ['DEPENDENCY_DIRECTORY', ['node_modules/', 'bower_components/', 'jspm_packages/', 'vendor/']],
-  ['BUILD_OUTPUT', ['dist/', '.next/', '.nuxt/', '.svelte-kit/', '.output/', '.vercel/', '.netlify/', 'storybook-static/', '.docusaurus/', '.expo/', 'coverage/']],
-  ['CACHE_DIRECTORY', ['.cache/', '.turbo/', '.parcel-cache/', '.nx/', '.yarn/cache/', '.pnpm-store/', '.eslintcache']],
+  // Python virtual environments are installed dependencies, never project source (ADR-060).
+  ['DEPENDENCY_DIRECTORY', ['node_modules/', 'bower_components/', 'jspm_packages/', 'vendor/', '.venv/', 'venv/', '.tox/', '.nox/', 'site-packages/']],
+  ['BUILD_OUTPUT', ['dist/', '.next/', '.nuxt/', '.svelte-kit/', '.output/', '.vercel/', '.netlify/', 'storybook-static/', '.docusaurus/', '.expo/', 'coverage/', '*.egg-info/', '.eggs/']],
+  ['CACHE_DIRECTORY', ['.cache/', '.turbo/', '.parcel-cache/', '.nx/', '.yarn/cache/', '.pnpm-store/', '.eslintcache', '__pycache__/', '.mypy_cache/', '.pytest_cache/', '.ruff_cache/', '*.pyc', '*.pyo']],
   ['MINIFIED_BUNDLE', ['*.min.js', '*.min.mjs', '*.min.cjs', '*.min.css']],
   ['SOURCE_MAP', ['*.map']],
 ];
@@ -57,10 +59,25 @@ const CONFIG_NAMES = new Set([
   'lerna.json',
   'renovate.json',
   'biome.json',
+  // Python tooling (ADR-060); requirement files are matched by name pattern.
+  'pyproject.toml',
+  'setup.cfg',
+  'setup.py',
+  'noxfile.py',
+  'tox.ini',
+  'Pipfile',
+  'MANIFEST.in',
+  '.python-version',
+  'mypy.ini',
+  'pytest.ini',
+  '.flake8',
+  '.pylintrc',
+  'ruff.toml',
+  '.ruff.toml',
 ]);
 const CONFIG_PATTERNS = [/^tsconfig(?:\..+)?\.json$/, /^jsconfig(?:\..+)?\.json$/, /^\.(?:eslint|prettier|babel|stylelint|swc|mocha)rc(?:\..+)?$/, /^\.?[\w-]+\.config\.[cm]?[jt]s$/];
 
-const LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb']);
+const LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb', 'poetry.lock', 'Pipfile.lock', 'uv.lock', 'pdm.lock']);
 
 const ASSET_EXTENSIONS = new Set([
   '.css', '.scss', '.sass', '.less', '.styl',
@@ -71,15 +88,17 @@ const ASSET_EXTENSIONS = new Set([
 ]);
 
 /** Recognized languages ATLAS does not analyze in V0.1 (counted, kept as opaque buildings). */
-const UNSUPPORTED_LANGUAGES = new Set(['.vue', '.svelte', '.mdx', '.astro', '.coffee', '.elm', '.flow']);
+const UNSUPPORTED_LANGUAGES = new Set(['.vue', '.svelte', '.mdx', '.astro', '.coffee', '.elm', '.flow', '.pyx', '.pxd', '.ipynb']);
 
 const TEST_DIRECTORY = /(?:^|\/)(?:__tests__|__mocks__|tests?|spec|specs|e2e|__fixtures__)\//;
 const TEST_FILE = /\.(?:test|spec|e2e|bench)\.[cm]?[jt]sx?$/;
+/** pytest's default discovery names, and its fixture modules. */
+const PYTHON_TEST_FILE = /^(?:test_.+|.+_test|conftest)\.pyi?$/;
 
 export interface PathClassification {
   role: FileRole;
-  language: 'typescript' | 'javascript' | null;
-  /** TS/JS file that is a parse candidate (subject to content checks). */
+  language: 'typescript' | 'javascript' | 'python' | null;
+  /** TS/JS or Python file that is a parse candidate (subject to content checks). */
   code: boolean;
   config: boolean;
   lockfile: boolean;
@@ -89,22 +108,26 @@ export interface PathClassification {
 export function classifyPath(path: string): PathClassification {
   const base = repoBasename(path);
   const ext = repoExtension(path);
-  const code = isSupportedSourcePath(path);
-  const language = code ? (/\.[cm]?tsx?$|\.d\.[cm]?ts$/.test(path.toLowerCase()) ? 'typescript' : 'javascript') : null;
-  const config = CONFIG_NAMES.has(base) || CONFIG_PATTERNS.some((re) => re.test(base));
+  const python = isPythonSourcePath(path);
+  const code = isSupportedSourcePath(path) || python;
+  const language = python ? 'python' : code ? (/\.[cm]?tsx?$|\.d\.[cm]?ts$/.test(path.toLowerCase()) ? 'typescript' : 'javascript') : null;
+  const config = CONFIG_NAMES.has(base) || CONFIG_PATTERNS.some((re) => re.test(base)) || isPythonManifest(path);
   let role: FileRole;
-  if (isDeclarationPath(path)) role = 'declaration';
+  if (isDeclarationPath(path) || isPythonStubPath(path)) role = 'declaration';
   else if (config) role = 'config';
-  else if (code) role = TEST_DIRECTORY.test(path) || TEST_FILE.test(base) ? 'test' : 'source';
+  else if (code) role = TEST_DIRECTORY.test(path) || TEST_FILE.test(base) || (python && PYTHON_TEST_FILE.test(base)) ? 'test' : 'source';
   else if (ASSET_EXTENSIONS.has(ext)) role = 'asset';
   else role = 'opaque';
   return { role, language, code, config, lockfile: LOCKFILES.has(base), unsupportedLanguage: UNSUPPORTED_LANGUAGES.has(ext) };
 }
 
-/** Bounded generated-file header check (plan §8.5): only leading comments are inspected. */
-export function hasGeneratedHeader(text: string): boolean {
+/**
+ * Bounded generated-file header check (plan §8.5): only leading comments are inspected.
+ * Python files use `#` comments, such as protobuf's "Generated ... DO NOT EDIT!" (ADR-060).
+ */
+export function hasGeneratedHeader(text: string, python = false): boolean {
   const head = text.slice(0, 1024);
-  const comments = head.match(/^(?:\s*(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/|#![^\n]*))+/);
+  const comments = python ? head.match(/^(?:\s*#[^\n]*)+/) : head.match(/^(?:\s*(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/|#![^\n]*))+/);
   if (!comments) return false;
   return /@generated\b|\bDO NOT EDIT\b|\bauto-?generated\b|\bautomatically generated\b|\bThis file was generated\b/i.test(comments[0]);
 }

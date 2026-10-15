@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { EXTRACTOR_VERSION, PARSER_VERSION, type FileFacts } from '@atlas/analyzer-ts';
+import { EXTRACTOR_VERSION, PARSER_VERSION } from '@atlas/analyzer-ts';
+import { PYTHON_EXTRACTOR_VERSION, PYTHON_PARSER_VERSION, isPythonSourcePath } from '@atlas/analyzer-py';
+import type { SyntaxFacts as FileFacts } from './facts.js';
 import { canonicalJson, repoExtension, sha256Hex } from '@atlas/schema';
 
 /**
@@ -25,6 +27,8 @@ function scriptFamily(filePath: string): string {
 }
 
 export function factCacheKey(filePath: string, blobSha256: string): string {
+  // Python facts are keyed by the Python parser and extractor (ADR-060); TS/JS keys are unchanged.
+  if (isPythonSourcePath(filePath)) return sha256Hex(`atlas.facts/1\0${PYTHON_PARSER_VERSION}\0${PYTHON_EXTRACTOR_VERSION}\0${repoExtension(filePath) === '.pyi' ? 'pyi' : 'py'}\0${blobSha256}`);
   return sha256Hex(`atlas.facts/1\0${PARSER_VERSION}\0${EXTRACTOR_VERSION}\0${scriptFamily(filePath)}\0${blobSha256}`);
 }
 

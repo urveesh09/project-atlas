@@ -78,7 +78,7 @@ export const FileNodeSchema = z.strictObject({
   path: RepoPathSchema,
   blobOid: GitOidSchema,
   blobSha256: Hex64Schema.nullable(),
-  language: z.enum(['typescript', 'javascript']).nullable(),
+  language: z.enum(['typescript', 'javascript', 'python']).nullable(),
   role: FileRoleSchema,
   byteSize: CountSchema,
   parseStatus: ParseStatusSchema,
@@ -89,12 +89,19 @@ export const FileNodeSchema = z.strictObject({
 export const ExternalPackageNodeSchema = z.strictObject({
   ...nodeBase,
   kind: z.literal('external-package'),
-  ecosystem: z.literal('npm'),
+  /** npm packages, or PyPI distributions (ADR-060) by their PEP 503 normalized name. */
+  ecosystem: z.enum(['npm', 'pypi']),
   packageName: LabelSchema,
   declaredRanges: z.array(DeclaredRangeSchema).max(1024),
 });
 
-export const BuiltinNodeSchema = z.strictObject({ ...nodeBase, kind: z.literal('builtin'), moduleName: LabelSchema });
+export const BuiltinNodeSchema = z.strictObject({
+  ...nodeBase,
+  kind: z.literal('builtin'),
+  moduleName: LabelSchema,
+  /** Absent for Node.js built-ins (the original meaning); `python` for the Python standard library and other runtimes' modules (ADR-060). */
+  runtime: z.literal('python').optional(),
+});
 
 export const GraphNodeSchema = z.discriminatedUnion('kind', [
   RepositoryNodeSchema,
@@ -239,3 +246,74 @@ export type ImportObservation = z.infer<typeof ImportObservationSchema>;
 export type Diagnostic = z.infer<typeof DiagnosticSchema>;
 export type NodeMetrics = z.infer<typeof NodeMetricsSchema>;
 export type GraphSnapshot = z.infer<typeof GraphSnapshotSchema>;
+
+export interface CodeLabels {
+  /** The analyzed languages: "TS/JS", "Python" or "TS/JS and Python". */
+  code: string;
+  /** Resolved external packages and built-ins, as long and short labels. */
+  packages: string;
+  packagesShort: string;
+  builtins: string;
+  builtinsShort: string;
+}
+
+/**
+ * Labels naming what a snapshot analyzed (ADR-060). Coverage counts packages and built-ins
+ * across ecosystems, so their labels name the ecosystems present. A snapshot without Python
+ * keeps the original TS/JS wording.
+ */
+export function codeLabels(nodes: readonly GraphNode[]): CodeLabels {
+  let tsjs = false;
+  let python = false;
+  for (const n of nodes) {
+    if (n.kind === 'file') {
+      if (n.language === 'python') python = true;
+      else if (n.language !== null) tsjs = true;
+    } else if (n.kind === 'external-package') {
+      if (n.ecosystem === 'pypi') python = true;
+      else tsjs = true;
+    } else if (n.kind === 'builtin') {
+      if (n.runtime === 'python') python = true;
+      else tsjs = true;
+    }
+  }
+  if (!python) return { code: 'TS/JS', packages: 'npm packages', packagesShort: 'npm', builtins: 'Node.js built-ins', builtinsShort: 'node' };
+  if (!tsjs) return { code: 'Python', packages: 'PyPI packages', packagesShort: 'PyPI', builtins: 'Python built-ins', builtinsShort: 'built-in' };
+  return { code: 'TS/JS and Python', packages: 'npm and PyPI packages', packagesShort: 'packages', builtins: 'Node.js and Python built-ins', builtinsShort: 'built-in' };
+}
+
+/** The fields that identify a node occurrence; wire rows without IDs carry them too. */
+export type NodeIdentity =
+  | { kind: 'repository' }
+  | { kind: 'package' | 'directory' | 'file'; path: string }
+  | { kind: 'external-package'; ecosystem: 'npm' | 'pypi'; packageName: string }
+  | { kind: 'builtin'; moduleName: string; runtime?: 'python' | undefined };
+
+/**
+ * The canonical key hashed into a node occurrence ID (plan §7.1). The validator and both
+ * graph wire encodings derive IDs through this one function. Python perimeter nodes carry
+ * their ecosystem or runtime, so PyPI `six` and npm `six` stay distinct (ADR-060); npm and
+ * Node.js keys are unchanged.
+ */
+export function nodeIdentityKey(node: NodeIdentity): string {
+  switch (node.kind) {
+    case 'repository':
+      return '';
+    case 'external-package':
+      return node.ecosystem === 'pypi' ? `pypi:${node.packageName}` : node.packageName;
+    case 'builtin':
+      return node.runtime === 'python' ? `python:${node.moduleName}` : node.moduleName;
+    default:
+      return node.path;
+  }
+}
+
+/**
+ * Canonical perimeter name of an external package or built-in, shared by layout anchors,
+ * frame comparison and the viewer (ADR-060): `npm:react`, `builtin:fs`, and for Python
+ * `pypi:requests` and `builtin:python:os`. TS/JS names are unchanged.
+ */
+export function perimeterName(node: { kind: 'external-package'; ecosystem: 'npm' | 'pypi'; packageName: string } | { kind: 'builtin'; moduleName: string; runtime?: 'python' | undefined }): string {
+  if (node.kind === 'external-package') return `${node.ecosystem}:${node.packageName}`;
+  return node.runtime === 'python' ? `builtin:python:${node.moduleName}` : `builtin:${node.moduleName}`;
+}

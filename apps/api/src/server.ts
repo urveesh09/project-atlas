@@ -12,7 +12,10 @@ import { clientBucket, opaqueId, ServiceError, terminal } from './security.js';
 const serviceCapabilities = (demoAnalysisId: string | null) => CapabilitiesSchema.parse({ service: 'atlas', apiVersion: 'v1',
   schemaVersions: { artifact: ARTIFACT_VERSION, graph: GRAPH_SCHEMA_VERSION, layout: LAYOUT_VERSION, metrics: METRIC_DEFINITION_VERSION },
   profiles: [RELEASE_PROFILE], repositorySources: ['public-github'], limits: LIMITS,
-  languages: [{ id: 'typescript-javascript', extensions: ['.ts','.tsx','.mts','.cts','.js','.jsx','.mjs','.cjs'], capabilities: ['syntax','imports','declarations','complexity'] }],
+  languages: [
+    { id: 'typescript-javascript', extensions: ['.ts','.tsx','.mts','.cts','.js','.jsx','.mjs','.cjs'], capabilities: ['syntax','imports','declarations','complexity'] },
+    { id: 'python', extensions: ['.py','.pyi'], capabilities: ['syntax','imports','declarations','complexity'] }, // ADR-060
+  ],
   demoAnalysisId,
 });
 function json(res: ServerResponse, status: number, value: unknown) {

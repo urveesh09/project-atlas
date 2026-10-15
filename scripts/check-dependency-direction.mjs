@@ -20,7 +20,7 @@ const ALLOWED = {
   '@atlas/history': ['@atlas/schema', '@atlas/ingest'],
   '@atlas/layout': ['@atlas/schema'],
   '@atlas/artifact': ['@atlas/schema'],
-  '@atlas/analyzer-core': ['@atlas/schema', '@atlas/ingest', '@atlas/analyzer-ts', '@atlas/graph', '@atlas/history', '@atlas/layout', '@atlas/artifact'],
+  '@atlas/analyzer-core': ['@atlas/schema', '@atlas/ingest', '@atlas/analyzer-ts', '@atlas/analyzer-py', '@atlas/graph', '@atlas/history', '@atlas/layout', '@atlas/artifact'],
   '@atlas/cli': ['@atlas/schema', '@atlas/ingest', '@atlas/analyzer-ts', '@atlas/analyzer-core', '@atlas/artifact', '@atlas/graph', '@atlas/layout', '@atlas/web'],
   '@atlas/test-fixtures': ['@atlas/schema'],
   // The viewer consumes artifacts, schema, graph queries and layout output only.

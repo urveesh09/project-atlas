@@ -397,7 +397,8 @@
                     "type": "string",
                     "enum": [
                       "typescript",
-                      "javascript"
+                      "javascript",
+                      "python"
                     ]
                   },
                   {
@@ -565,7 +566,10 @@
               },
               "ecosystem": {
                 "type": "string",
-                "const": "npm"
+                "enum": [
+                  "npm",
+                  "pypi"
+                ]
               },
               "packageName": {
                 "type": "string"
@@ -649,6 +653,10 @@
               },
               "moduleName": {
                 "type": "string"
+              },
+              "runtime": {
+                "type": "string",
+                "const": "python"
               },
               "parentId": {
                 "anyOf": [

@@ -116,7 +116,7 @@ Details: [hosted development](hosted-development.md), [operations and runbooks](
 pnpm verify                  # types, viewer build, dependency rules, contracts, ~600 tests
 pnpm verify:distribution     # builds the portable CLI archive and tests it outside the repo
 node scripts/validate-real-repositories.mjs --acquire    # once, needs network
-node scripts/validate-real-repositories.mjs              # 5 offline repeats × 3 real repos
+node scripts/validate-real-repositories.mjs              # 5 offline repeats × 4 real repos
 ```
 
 Service-backed tests (PostgreSQL, S3, containers, browser, live GitHub) skip unless

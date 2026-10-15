@@ -1,5 +1,6 @@
 import { ArtifactPackError, packArtifact, type Compressor, type ManifestDraft, type PackedArtifact } from '@atlas/artifact';
-import { PARSER_VERSION } from '@atlas/analyzer-ts';
+import { initPythonParser } from '@atlas/analyzer-py';
+import { PARSER_VERSIONS as PARSER_VERSION } from './facts.js';
 import { churnByFrame, coChangePairs } from '@atlas/history';
 import { DIFF_POLICY, isIngestError, listTree, readCommit, readObjects, type CommitObject, type SafeGit } from '@atlas/ingest';
 import {
@@ -159,6 +160,9 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
   const remaining = () => deadlineMs - (performance.now() - startedAt);
 
   progress({ stage: 'resolve' });
+  // The Python grammar reads setup.py literals in this process (ADR-057); parsing itself
+  // happens in the bounded parser children.
+  await initPythonParser();
   const headCommit = await readCommit(git, commitOid, input.signal);
 
   // Repository-level atlas.config.json is committed data, read at the selected commit and
