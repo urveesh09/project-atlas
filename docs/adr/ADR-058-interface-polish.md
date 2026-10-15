@@ -70,7 +70,10 @@ legal copy:
    - The local start screen and the hosted landing pair their card with a real render of the
      demo city (vuejs/core at 4ab865a). Below 960px the image stacks under the card.
    - The image is the viewer drawing the demo artifact, not a mock-up.
-   - The card and image rise in once, and only without reduced motion.
+   - The card and image of the two entry screens rise in once, and only without reduced
+     motion.
+   - The rise moves without fading, so text never passes through low contrast. Job, result
+     and error pages appear at once.
    - Entry screens start at most 96px from the top instead of floating mid-window.
    - The second route ("Or run `atlas serve`…") sits under the card, not under its button.
    - The page keeps one header row from 1024px up:
@@ -103,6 +106,18 @@ legal copy:
   - The first version collapsed explanations on every card. Journey J3 failed, because it
     expects a file's own finding to explain itself ("not a runtime deadlock").
   - Explanations now collapse only in lists, and J3 passes.
+- **CI failure, cause and retest.**
+  - The first push failed *hosted service gates*. The hosted Chromium journey's axe audit
+    found "Start a new analysis" at 2.51:1 on the deleted-analysis page.
+  - Cause: the entry animation faded every gate card in from transparent, so axe sampled
+    blended colours (`#82a3b7` behind the button) partway through. The button is 6.9:1 once
+    the animation ends.
+  - The failure reproduced locally with PostgreSQL 17 (3.22:1, a different moment of the
+    same fade).
+  - Fix: motion is movement only, with no fade, here and in the two dropdowns added by
+    this ADR, and the rise is limited to the two entry screens.
+  - Retest: the hosted journeys pass 6 of 6, three times in a row, and the viewer suite
+    still passes 39 of 39.
 - **Retest of a header regression.**
   - Review also found the header wrapping at 1280px (111px instead of 61px).
   - Narrow desktops now get the treatment in Decision 7: the search yields width first, and

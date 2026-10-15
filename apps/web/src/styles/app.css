@@ -517,9 +517,9 @@ kbd {
   overflow: auto;
   animation: menu-in 0.14s var(--ease);
 }
+/* Movement only, never a fade: text keeps its full contrast at every moment (ADR-058). */
 @keyframes menu-in {
   from {
-    opacity: 0;
     transform: translateY(-4px);
   }
 }
@@ -1176,9 +1176,11 @@ select:focus-visible {
     gap: 24px;
   }
 }
-/* Entry screens arrive with a short rise: it orders the reading, card then example. */
+/* The two entry screens arrive with a short rise that orders the reading, card then example.
+   It moves without fading, so text never passes through low contrast (ADR-058). Job,
+   result and error pages appear at once. */
 @media (prefers-reduced-motion: no-preference) {
-  .gate-card,
+  .gate-split .gate-card,
   .gate-figure {
     animation: gate-in 0.32s var(--ease) both;
   }
@@ -1188,7 +1190,6 @@ select:focus-visible {
 }
 @keyframes gate-in {
   from {
-    opacity: 0;
     transform: translateY(8px);
   }
 }

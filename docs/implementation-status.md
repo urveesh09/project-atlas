@@ -878,7 +878,10 @@ fields and legal copy. The city is untouched.
 Checks:
 - The city stage is byte-identical before and after in 3D and map, dark and light.
 - Viewer end-to-end: 39 of 39, also with `CI=1`.
-- The first attempt failed journey J3; that failure is recorded in the ADR.
+- Two recorded failures, each fixed and retested (both in the ADR):
+  - the first attempt failed journey J3;
+  - the first push failed the hosted axe audit, because a fade-in was sampled mid-animation;
+    motion is now movement only.
 - Inspector length: 12,157 → 6,588 px at 1440 px.
 - `pnpm verify` (711 tests), the baseline and `verify:distribution` pass.
 
