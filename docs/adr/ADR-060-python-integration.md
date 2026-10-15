@@ -175,3 +175,7 @@ at path level (below).
     - `packaging` and `docutils` in `docs/conf.py`.
 - **Baseline.** `docs/release/real-repositories.json` is regenerated for analyzer
   `0.1.0-dev.6` with four repositories, five cold repeats each, and exact determinism.
+- **Cross-platform comparison.** `compare-repository-reports.mjs` asserted exactly three
+  repositories, so the first CI run failed on four. It now requires both the Windows and the
+  Linux report to cover exactly the committed corpus, each repository once, by numeric ID
+  and commit. A report missing a repository still fails.
