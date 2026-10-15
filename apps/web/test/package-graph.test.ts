@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { PackageRollup } from '@atlas/graph';
-import { buildPackageGraph, type PackageInput } from '../src/app/package-graph';
+import { buildPackageGraph, packageMeta, type PackageInput } from '../src/app/package-graph';
 
 const pkg = (id: string): PackageInput => ({ id, label: id, path: `packages/${id}`, files: 3 });
 const roll = (s: string, t: string, pairs = 1): PackageRollup => ({ sourcePackageId: s, targetPackageId: t, uniqueFilePairs: pairs, observations: pairs * 2, kinds: ['imports-value'] });
 
 describe('package dependency view (ADR-054)', () => {
+  it('sizes each node for the longer of its name and its counts line (ADR-059)', () => {
+    // A short name with many files: the counts line, not the name, sets the width.
+    const g = buildPackageGraph([{ id: 'ui', label: 'ui', path: 'packages/ui', files: 1234 }], [roll('ui', 'ui', 5678)], (l) => l.length * 7, (m) => m.length * 6.2);
+    expect(packageMeta(1234, 5678)).toBe('1234 files, 5678 internal');
+    expect(g.nodes[0]!.width).toBe(Math.ceil('1234 files, 5678 internal'.length * 6.2) + 28);
+    expect(packageMeta(3, 0)).toBe('3 files');
+  });
   it('layers dependencies below dependents and flags the edges that close a cycle', () => {
     const g = buildPackageGraph(['app', 'ui', 'core', 'utils', 'docs'].map(pkg), [
       roll('app', 'ui', 4),

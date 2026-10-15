@@ -45,6 +45,12 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   - signed values in the cards and the file table.
 
 ### Fixed
+- Failed and cancelled hosted jobs ticked every stage as done, including publishing; they
+  now say the run stopped before a result was published
+  ([ADR-059](docs/adr/ADR-059-interface-second-pass.md)).
+- Package graph nodes were narrower than their counts line.
+- The measurements table scrolled sideways in the inspector column.
+- Measurements still described the old em-dash placeholder.
 - On desktop the page itself scrolled (5,245 px at 1440×900), so a wheel over the header slid
   the explorer away. Hidden tree labels now stay inside their panel
   ([ADR-058](docs/adr/ADR-058-interface-polish.md)).
@@ -60,6 +66,8 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 - An open compare panel covered the city on screens wider than 1350 px.
 
 ### Changed
+- Summary lines read as sentences, with at most one middle dot; data rows keep their
+  separators ([ADR-059](docs/adr/ADR-059-interface-second-pass.md)).
 - Interface polish ([ADR-058](docs/adr/ADR-058-interface-polish.md)):
   - self-hosted Geist and Geist Mono outside the city stage;
   - one corner-radius rule;

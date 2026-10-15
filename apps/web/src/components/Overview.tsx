@@ -40,9 +40,8 @@ export function Overview() {
         </h2>
         <p className="lede">
           {model.isHead ? 'Commit' : `Snapshot ${model.frame + 1} of ${dataset.frames.length}: commit`} <code title={model.commit.oid}>{shortOid(model.commit.oid)}</code> from{' '}
-          {model.commit.committerTime.slice(0, 10)} ·{' '}
-          <span className={`status status-${status}`}>{status === 'complete' ? 'complete analysis' : 'partial analysis'}</span> · {formatNumber(repoMetrics?.codeLines)} lines of code in{' '}
-          {formatNumber(c.includedFiles)} files
+          {model.commit.committerTime.slice(0, 10)}: {formatNumber(repoMetrics?.codeLines)} lines of code in {formatNumber(c.includedFiles)} files.{' '}
+          <span className={`status status-${status}`}>{status === 'complete' ? 'complete analysis' : 'partial analysis'}</span>
         </p>
       </header>
 

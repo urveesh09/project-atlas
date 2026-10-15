@@ -1,7 +1,7 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import { POLICIES } from '@atlas/graph';
 import { useViewer } from '../app/context';
-import { PACKAGE_GRAPH, buildPackageGraph, type PackageGraphEdge, type PackageGraphNode } from '../app/package-graph';
+import { PACKAGE_GRAPH, buildPackageGraph, packageMeta, type PackageGraphEdge, type PackageGraphNode } from '../app/package-graph';
 
 const TABLE_ROWS = 200;
 const KIND_LABEL: Record<string, string> = {
@@ -89,8 +89,8 @@ export function PackageGraphView() {
   return (
     <div className="pkg-view">
       <p className="city-note pkg-summary" role="status">
-        {graph.nodes.length.toLocaleString('en-US')} packages · {graph.edges.length.toLocaleString('en-US')} dependencies between packages ·{' '}
-        {graph.layers} layers · {cyclicPackages ? `${cyclicPackages} packages in ${graph.cycles.length} cycle${graph.cycles.length === 1 ? '' : 's'}` : 'no package cycles'}. Each
+        {graph.nodes.length.toLocaleString('en-US')} packages, {graph.edges.length.toLocaleString('en-US')} dependencies between packages,{' '}
+        {graph.layers} layers, {cyclicPackages ? `${cyclicPackages} packages in ${graph.cycles.length} cycle${graph.cycles.length === 1 ? '' : 's'}` : 'no package cycles'}. Each
         package sits above the packages it depends on; a dashed red edge closes a cycle. {state.includeTypes ? 'Type-only imports included.' : 'Type-only imports excluded.'}
       </p>
       <label className="city-check">
@@ -142,7 +142,7 @@ export function PackageGraphView() {
                   {n.label.length > 30 ? `${n.label.slice(0, 29)}…` : n.label}
                 </text>
                 <text x={n.width / 2} y={29} textAnchor="middle" className="pkg-meta">
-                  {n.files} files{n.internalPairs ? ` · ${n.internalPairs} internal` : ''}
+                  {packageMeta(n.files, n.internalPairs)}
                 </text>
               </g>
             ))}

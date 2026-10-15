@@ -127,7 +127,7 @@ function OverviewTab({ node }: { node: GraphNode }) {
   return (
     <>
       {metrics ? (
-        <Section title="Measurements" description={container ? 'Aggregated over the files inside, as noted per row.' : 'Raw values; an em dash means not available, never zero.'}>
+        <Section title="Measurements" description={container ? 'Aggregated over the files inside, as noted per row.' : 'Raw values; n/a means not available, never zero.'}>
           <table className="metrics">
             <thead>
               <tr>
@@ -149,9 +149,9 @@ function OverviewTab({ node }: { node: GraphNode }) {
             </tbody>
           </table>
           <p className="availability">
-            Syntax <AvailabilityNote value={metrics.availability.syntax} /> {metrics.availability.syntax === 'complete' && 'complete'} · Dependencies{' '}
-            <AvailabilityNote value={metrics.availability.dependencies} /> {metrics.availability.dependencies === 'complete' && 'complete'} · History{' '}
-            <AvailabilityNote value={metrics.availability.history} /> {metrics.availability.history === 'complete' && 'complete'}
+            Syntax <AvailabilityNote value={metrics.availability.syntax} /> {metrics.availability.syntax === 'complete' && 'complete'}; dependencies{' '}
+            <AvailabilityNote value={metrics.availability.dependencies} /> {metrics.availability.dependencies === 'complete' && 'complete'}; history{' '}
+            <AvailabilityNote value={metrics.availability.history} /> {metrics.availability.history === 'complete' && 'complete'}.
           </p>
         </Section>
       ) : (

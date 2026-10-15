@@ -620,7 +620,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await view.selectOption('packages');
     await page.waitForSelector('.pkg-view');
     const counts = async () => {
-      const [, pkgs, deps] = /([\d,]+) packages · ([\d,]+) dependencies/.exec(await page.locator('.pkg-summary').innerText())!;
+      const [, pkgs, deps] = /([\d,]+) packages, ([\d,]+) dependencies/.exec(await page.locator('.pkg-summary').innerText())!;
       return [Number(pkgs!.replaceAll(',', '')), Number(deps!.replaceAll(',', ''))] as const;
     };
     const [packages, dependencies] = await counts();

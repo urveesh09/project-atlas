@@ -182,6 +182,9 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     await page.getByRole('heading', { name: 'Failed' }).waitFor({ timeout: 60_000 });
     await worker;
     expect(await page.getByRole('alert').innerText()).toContain('UPSTREAM_UNAVAILABLE');
+    // A failed job reports no stage; the page must not tick every stage as done (ADR-059).
+    expect(await page.locator('.stage-done').count()).toBe(0);
+    expect(await page.locator('.stage-unknown').innerText()).toBe('It stopped before a result was published.');
     expect(await page.getByRole('link', { name: 'Try again' }).isVisible()).toBe(true);
     await capture(page, 'job-failed');
     await context.close();
@@ -200,6 +203,8 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     await cancel.click();
     await page.getByRole('heading', { name: 'Cancelled' }).waitFor({ timeout: 60_000 });
     await worker;
+    expect(await page.locator('.stage-done').count()).toBe(0);
+    expect(await page.locator('.stage-unknown').innerText()).toBe('It was cancelled before a result was published.');
     expect((await h.pool.query('SELECT count(*)::int AS n FROM publications')).rows[0].n).toBe(0);
     await context.close();
   }, 120_000);

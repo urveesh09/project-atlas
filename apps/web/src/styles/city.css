@@ -4,6 +4,11 @@
    the city's minimum (it clips overflow), letting the compare panel cover it (ADR-050). */
 .city-content { grid-auto-rows: max-content; }
 .city-inspector { min-width: 0; position: relative; }
+/* The inspector column is narrow: its tables wrap inside it instead of scrolling sideways
+   (ADR-059). Numbers keep a fixed column; labels and definitions share the rest. */
+.city-inspector :is(table.metrics, table.table) { table-layout: fixed; }
+.city-inspector :is(table.metrics, table.table) :is(th, td) { overflow-wrap: anywhere; padding-inline: 6px; }
+.city-inspector table.metrics :is(th, td).num { width: 5em; }
 /* Beside the city, the inspector stays in view while the page scrolls, so a pick never has to move the page. */
 @media (min-width: 1351px) { .city-content > .city-inspector { position: sticky; top: 0; max-height: calc(100vh - 96px); overflow-y: auto; } }
 .city-content .city { min-width: 0; }

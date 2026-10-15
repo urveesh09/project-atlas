@@ -159,7 +159,7 @@ function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { r
             <div><dt><kbd>?</kbd></dt><dd>Show or hide this help</dd></div>
           </dl>
           <p className="shortcuts-about">
-            ATLAS viewer {ATLAS_VERSION} · analysis by {model.manifest.analyzer.version} · artifact {model.manifest.artifactVersion.replace('atlas.artifact/', '')}
+            ATLAS viewer {ATLAS_VERSION}, analysis by {model.manifest.analyzer.version}, artifact {model.manifest.artifactVersion.replace('atlas.artifact/', '')}
           </p>
         </section>
       )}

@@ -99,7 +99,21 @@ function components(ids: readonly string[], out: ReadonlyMap<string, readonly st
   return comp;
 }
 
-export function buildPackageGraph(packages: readonly PackageInput[], rollups: readonly PackageRollup[], measure: (label: string) => number = (l) => l.length * 7): PackageGraph {
+/** The second line of a package node: its file count and internal file pairs. */
+export function packageMeta(files: number, internalPairs: number): string {
+  return `${files} files${internalPairs ? `, ${internalPairs} internal` : ''}`;
+}
+
+/**
+ * `measure` gives a label's width; `measureMeta` gives the second line's. A node is as wide
+ * as the longer of the two (ADR-059), so neither line runs past its box.
+ */
+export function buildPackageGraph(
+  packages: readonly PackageInput[],
+  rollups: readonly PackageRollup[],
+  measure: (label: string) => number = (l) => l.length * 7,
+  measureMeta: (meta: string) => number = (m) => m.length * 6.2,
+): PackageGraph {
   const inputs = [...packages].sort(byLabel);
   const known = new Set(inputs.map((p) => p.id));
   const internal = new Map<string, number>();
@@ -145,7 +159,7 @@ export function buildPackageGraph(packages: readonly PackageInput[], rollups: re
     internalPairs: internal.get(p.id) ?? 0,
     x: 0,
     y: 0,
-    width: Math.min(220, Math.max(88, Math.ceil(measure(p.label)) + 28)),
+    width: Math.min(220, Math.max(88, Math.ceil(Math.max(measure(p.label), measureMeta(packageMeta(p.files, internal.get(p.id) ?? 0)))) + 28)),
   }));
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const rows: PackageGraphNode[][] = Array.from({ length: layers }, () => []);
