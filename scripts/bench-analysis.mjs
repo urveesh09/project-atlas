@@ -12,6 +12,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { capacityFiles, capacityLanguage } from './lib/capacity-language.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (name, fallback) => {
@@ -19,6 +20,9 @@ const arg = (name, fallback) => {
   return i > -1 ? Number(process.argv[i + 1]) : fallback;
 };
 const FILES = arg('files', 3000);
+if (!Number.isInteger(FILES) || FILES < 1 || FILES > 9850) throw new Error('Files must be 1..9850');
+const languageAt = process.argv.indexOf('--language');
+const language = capacityLanguage(languageAt < 0 ? 'typescript' : process.argv[languageAt + 1] ?? '');
 const RUNS = arg('runs', 20);
 const nameIndex = process.argv.indexOf('--report-name');
 const reportName = nameIndex < 0 ? 'phase2-analysis' : process.argv[nameIndex + 1];
@@ -78,7 +82,7 @@ for (let p = 0; p < PACKAGES; p++) {
 }
 
 console.error(`Generating ${Object.keys(files).length} files (${statements} import statements)…`);
-const fixture = createGitFixture([{ date: '2026-10-01T00:00:00Z', message: 'bench', files }]);
+const fixture = createGitFixture([{ date: '2026-10-01T00:00:00Z', message: 'bench', files: capacityFiles(files, language) }]);
 const { repo, git } = await openLocalRepository(fixture.dir);
 const head = await resolveLocalCommit(repo, git);
 const version = await gitVersion();
@@ -114,6 +118,7 @@ const pct = (p) => sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)];
 const c = last.result.draft.graphs[0].coverage;
 const report = {
   task: `HEAD analysis capacity — ${FILES > 3000 ? 'large' : 'medium'}`,
+  language,
   recordedAt: new Date().toISOString(),
   analyzerVersion: last.result.summary.analyzerVersion,
   selectedCommit: head,

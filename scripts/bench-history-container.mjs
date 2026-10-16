@@ -19,12 +19,20 @@ const option = (name, fallback) => {
 const image = option('image');
 if (!/^sha256:[0-9a-f]{64}$/.test(image ?? '')) throw new Error('--image must be a locally built immutable Docker image ID');
 const files = Number(option('files', '9740'));
+const head = process.argv.includes('--head');
+const language = option('language', 'typescript');
+if (!['typescript', 'python', 'mixed'].includes(language)) throw new Error('Invalid capacity language');
 const runs = Number(option('runs', '20'));
 const out = option('out', files > 3000 ? 'phase6-large-history-container' : 'phase6-medium-history-container');
-if (!Number.isInteger(files) || files < 1 || files > 9740 || !Number.isInteger(runs) || runs < 1 || runs > 100 || !/^[a-z0-9-]+$/.test(out)) throw new Error('Invalid fixture size, sample count or report name');
+if (!Number.isInteger(files) || files < 1 || files > (head ? 9850 : 9740) || !Number.isInteger(runs) || runs < 1 || runs > 100 || !/^[a-z0-9-]+$/.test(out)) throw new Error('Invalid fixture size, sample count or report name');
 const fixtureArg = option('fixture');
 if (!fixtureArg) throw new Error('--fixture is required; generate it with scripts/build-history-fixture.mjs');
 const fixture = await realpath(fixtureArg);
+let fixtureMetadata;
+try { fixtureMetadata = JSON.parse(await readFile(path.join(fixture, 'atlas-capacity-fixture.json'), 'utf8')); }
+catch (error) { if (error.code !== 'ENOENT' || language !== 'typescript' || head) throw error; }
+if (fixtureMetadata && (fixtureMetadata.language !== language || fixtureMetadata.mode !== (head ? 'head' : 'history') || fixtureMetadata.files !== files))
+  throw new Error('Prepared fixture does not match the requested language, mode and size');
 const parent = await realpath(path.join(root, '.atlas-tmp', 'capacity-fixtures'));
 if (!fixture.startsWith(parent + path.sep)) throw new Error('Use a prepared fixture generated under .atlas-tmp/capacity-fixtures');
 const inspect = JSON.parse(execFileSync('docker', ['image', 'inspect', image], { encoding: 'utf8', windowsHide: true, timeout: 15_000 }))[0];
@@ -57,6 +65,8 @@ const args = ['run', '--rm', '--pull=never', '--name', name, '--label', `${label
   '--fixture', '/fixture', '--runtime-root', '/atlas', '--report-dir', '/reports', '--require-container-limits', '--isolate-runs',
   '--files', String(files), '--runs', String(runs), '--out', out];
 if (process.argv.includes('--diagnostic-once')) args.push('--diagnostic-once');
+args.push('--language', language);
+if (head) args.push('--head');
 await writeFile(path.join(root, '.atlas-tmp', 'capacity-session.json'), JSON.stringify({ name, nonce, image, sourceCommit, benchmarkSourceCommit, benchmarkWorkingTreeDirty, fixture, reports, args }, null, 2));
 console.error(`Capacity container ${name}; image ${image}; source ${sourceCommit}`);
 const child = spawn('docker', args, { stdio: 'inherit', windowsHide: true });
@@ -72,7 +82,8 @@ try {
     try { report = JSON.parse(await readFile(path.join(reports, `${out}.json`), 'utf8')); } catch (error) { if (code === 0) throw error; }
     if (report) {
       if (report.environment.runtimeImage !== image || report.environment.sourceCommit !== sourceCommit) throw new Error('Capacity report runtime identity mismatch');
-      for (const extension of ['json', 'md']) await copyFile(path.join(reports, `${out}.${extension}`), path.join(root, 'docs', 'benchmarks', `${out}.${extension}`));
+      if (!process.argv.includes('--retain-only'))
+        for (const extension of ['json', 'md']) await copyFile(path.join(reports, `${out}.${extension}`), path.join(root, 'docs', 'benchmarks', `${out}.${extension}`));
     }
   }
   if (code !== 0) throw new Error(`Capacity container failed (exit ${code}); no gate pass is inferred`);

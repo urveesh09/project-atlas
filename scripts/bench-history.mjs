@@ -16,6 +16,8 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { capacityLanguage } from './lib/capacity-language.mjs';
+import { observeParserMemory } from './lib/parser-memory.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (name, fallback) => {
@@ -26,6 +28,9 @@ const FILES = arg('files', 3000);
 const RUNS = arg('runs', 20);
 const COMMITS = arg('commits', 40);
 const PACKAGES = 10;
+const headOnly = process.argv.includes('--head');
+const languageAt = process.argv.indexOf('--language');
+const language = capacityLanguage(languageAt < 0 ? 'typescript' : process.argv[languageAt + 1] ?? '');
 const out = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'phase4-history';
 if (!/^[a-z0-9-]+$/.test(out ?? '')) throw new Error('Report name must be lowercase letters, digits and hyphens');
 if (!Number.isInteger(RUNS) || RUNS < 1 || RUNS > 100) throw new Error('Runs must be 1..100');
@@ -76,11 +81,12 @@ const factsOf = (result) => {
   const chunk = (prefix) => m.chunks.filter((c) => c.path.startsWith(prefix)).reduce((a, c) => a + c.compressedBytes, 0);
   return {
     status: result.status,
-    complete: result.status === 'complete' && h.status === 'complete' && h.framesCompleted === 12,
+    complete: result.status === 'complete' && (headOnly ? m.frames.length === 1 : h.status === 'complete' && h.framesCompleted === 12),
     fixture: { headFiles: m.coverage.head.includedFiles, importStatements: m.coverage.head.observedImports, commits: h.commitsTraversed, frames: h.framesCompleted, boundary: h.boundary, renames: result.summary.history.renames, lineages: result.summary.history.lineages, historyStatus: h.status },
     analyzer: m.analyzer,
     selectedCommit: m.selectedCommit.oid,
     layoutId: result.draft.layout.layoutId,
+    parsedLanguages: Object.fromEntries(['typescript', 'javascript', 'python'].map((lang) => [lang, result.draft.graphs.at(-1).nodes.filter((node) => node.kind === 'file' && node.language === lang && node.parseStatus === 'parsed').length])),
     artifact: {
       version: m.artifactVersion,
       compressedBytes: m.chunks.reduce((a, c) => a + c.compressedBytes, 0),
@@ -100,7 +106,7 @@ const record = (runIndex, elapsed, facts) => {
   if (runIndex === 0) warmupMs = elapsed;
   else {
     timings.push(elapsed);
-    completeness.push({ complete: facts.complete, status: facts.status, frames: facts.fixture.frames, historyStatus: facts.fixture.historyStatus });
+    completeness.push({ complete: facts.complete, status: facts.status, frames: facts.fixture.frames, historyStatus: facts.fixture.historyStatus, parserMemory: facts.parserMemory });
   }
   lastFacts = facts;
   console.error(`  run ${runIndex}${runIndex === 0 ? ' (warm-up)' : ''}: ${(elapsed / 1000).toFixed(2)} s`);
@@ -128,6 +134,7 @@ if (isolateRuns) {
   }
 } else {
   const { analyzeCommit, ParserPool, MemoryFactCache } = await imp('packages/analyzer-core/dist/index.js');
+  const memory = observeParserMemory(ParserPool);
   const { gzipDeterministic, writeArtifactDirectory } = await imp('packages/artifact/dist/node-entry.js');
   const { localRepositoryId } = await imp('packages/schema/dist/index.js');
   let fixture;
@@ -136,7 +143,7 @@ if (isolateRuns) {
     fixture = { dir: fixturePath, dispose() {} }; // Caller owns it; never delete it.
   } else {
     const { buildMediumHistoryCommits } = await import(pathToFileURL(path.join(root, 'scripts/lib/medium-history.mjs')).href);
-    const { commits, baseFiles } = buildMediumHistoryCommits({ files: FILES, commits: COMMITS, packages: PACKAGES });
+    const { commits, baseFiles } = buildMediumHistoryCommits({ files: FILES, commits: headOnly ? 1 : COMMITS, packages: PACKAGES, language });
     console.error(`Building ${baseFiles} files and ${COMMITS} commits…`);
     const { createGitFixture } = await imp('packages/test-fixtures/dist/index.js');
     fixture = createGitFixture(commits);
@@ -158,6 +165,7 @@ if (isolateRuns) {
         git,
         commitOid: head,
         gitVersion: version,
+        ...(headOnly ? { options: { history: { enabled: false } } } : {}),
         repository: { repoId: localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f'), displayName: 'bench', sourceKind: 'local-git', remote: null, objectFormat: repo.objectFormat },
         ...(pool ? { pool } : {}),
         factCache: new MemoryFactCache(),
@@ -171,7 +179,7 @@ if (isolateRuns) {
       });
       const elapsed = performance.now() - started;
       if (childRun) {
-        console.log(`ATLAS_SAMPLE ${JSON.stringify({ elapsedMs: elapsed, facts: factsOf(result) })}`);
+        console.log(`ATLAS_SAMPLE ${JSON.stringify({ elapsedMs: elapsed, facts: { ...factsOf(result), parserMemory: memory.finish() } })}`);
         break;
       }
       record(runIndex, elapsed, factsOf(result));
@@ -182,6 +190,7 @@ if (isolateRuns) {
     if (keep > -1 && last) await writeArtifactDirectory(last.packed, path.resolve(process.argv[keep + 1]), { replace: true });
   } finally {
     await pool?.close();
+    if (!childRun) memory.finish();
     await git.dispose();
     fixture.dispose();
   }
@@ -189,7 +198,7 @@ if (isolateRuns) {
 }
 
 if (diagnosticOnly) {
-  console.log(JSON.stringify({ diagnosticOnly: true, isolateRuns, warmupMs, failedRun, status: lastFacts?.status, frames: lastFacts?.fixture.frames, nodeFlags: process.execArgv, resourceLimits, resourceUsage: resourceUsage(), memoryAfter: process.memoryUsage() }));
+  console.log(JSON.stringify({ diagnosticOnly: true, isolateRuns, warmupMs, failedRun, status: lastFacts?.status, frames: lastFacts?.fixture.frames, parsedLanguages: lastFacts?.parsedLanguages, parserMemory: lastFacts?.parserMemory, nodeFlags: process.execArgv, resourceLimits, resourceUsage: resourceUsage(), memoryAfter: process.memoryUsage() }));
   process.exit(failedRun ? 1 : 0);
 }
 if (!lastFacts) throw new Error(`No run completed (${JSON.stringify(failedRun)}); no report is written`);
@@ -197,7 +206,9 @@ if (!lastFacts) throw new Error(`No run completed (${JSON.stringify(failedRun)})
 const sorted = [...timings].sort((a, b) => a - b);
 const pct = (p) => (sorted.length === 0 ? NaN : sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)]);
 const report = {
-  task: `Historical analysis capacity — ${tier}, 12 frames`,
+  task: `${headOnly ? 'HEAD' : 'Historical'} analysis capacity — ${tier}, ${headOnly ? 1 : 12} frames`,
+  language,
+  mode: headOnly ? 'head' : 'history',
   recordedAt: new Date().toISOString(),
   environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length, memoryGiB: +(os.totalmem() / 2 ** 30).toFixed(1), node: process.version, nodeFlags: process.execArgv.join(' '), git: version, parserWorkers: 2, processPerRun: isolateRuns, containerLimits: resourceLimits, runtimeImage: process.env.ATLAS_CAPACITY_IMAGE ?? null, sourceCommit: process.env.ATLAS_CAPACITY_SOURCE_COMMIT ?? null, benchmarkSourceCommit: process.env.ATLAS_CAPACITY_BENCHMARK_COMMIT ?? null, benchmarkWorkingTreeDirty: process.env.ATLAS_CAPACITY_BENCHMARK_DIRTY ?? null },
   fixture: lastFacts.fixture,
@@ -207,21 +218,26 @@ const report = {
   sampleCompleteness: completeness,
   failedRun,
   analyzer: lastFacts.analyzer,
+  parsedLanguages: lastFacts.parsedLanguages,
   selectedCommit: lastFacts.selectedCommit,
   layoutId: lastFacts.layoutId,
   resourceUsage: resourceUsage(),
   secondsP50: +(pct(0.5) / 1000).toFixed(2),
   secondsP95: +(pct(0.95) / 1000).toFixed(2),
   secondsMax: +(sorted.at(-1) / 1000).toFixed(2),
-  budgetSecondsP95: tier === 'large' ? 240 : 90,
+  budgetSecondsP95: headOnly ? (tier === 'large' ? 60 : 15) : (tier === 'large' ? 240 : 90),
   artifact: { ...lastFacts.artifact, budgetBytes: (tier === 'large' ? 20 : 5) * 1024 * 1024 },
 };
 report.timePass = report.secondsP95 <= report.budgetSecondsP95;
 report.sizePass = report.artifact.compressedBytes <= report.artifact.budgetBytes;
 report.completenessPass = failedRun === null && completeness.every((sample) => sample.complete);
 report.sampleCountPass = timings.length >= 20;
+report.parserMemoryPass = completeness.every((sample) => sample.parserMemory?.available && sample.parserMemory.children.length >= 1);
+const languages = report.parsedLanguages;
+report.languagePass = language === 'python' ? languages.python > 0 && languages.typescript + languages.javascript === 0
+  : language === 'mixed' ? languages.python > 0 && languages.typescript + languages.javascript > 0 : languages.python === 0;
 report.resourcePass = report.resourceUsage ? (report.resourceUsage.peakBytes <= resourceLimits.memoryBytes && report.resourceUsage.events.oom === 0 && report.resourceUsage.events.oom_kill === 0) : null;
-report.pass = report.timePass && report.sizePass && report.completenessPass && (report.resourcePass ?? true) && report.sampleCountPass;
+report.pass = report.timePass && report.sizePass && report.completenessPass && (report.resourcePass ?? true) && report.sampleCountPass && report.languagePass && (!isolateRuns || report.parserMemoryPass);
 const outDir = pathArg('report-dir') ?? path.join(root, 'docs/benchmarks');
 mkdirSync(outDir, { recursive: true });
 writeFileSync(path.join(outDir, `${out}.json`), `${JSON.stringify(report, null, 2)}\n`);
@@ -231,16 +247,17 @@ writeFileSync(
   [
     `# ${report.task} (plan §15.2)`,
     '',
-    `Recorded ${report.recordedAt} by \`node scripts/bench-history.mjs\`. ${report.runs} measured runs after one warm-up${report.environment.processPerRun ? ', each in a fresh process whose analysis owns and closes its parser pool, as in a production analysis sandbox' : ''}; every run uses a cold fact cache and performs the whole pipeline: first-parent walk, rename-aware diffs, 12 frame graphs, churn, hotspots, union layout and frame-delta packing within the export limits.`,
+    `Recorded ${report.recordedAt} by \`node scripts/bench-history.mjs\`. Language: ${language}; mode: ${report.mode}. ${report.runs} measured runs after one warm-up${report.environment.processPerRun ? ', each in a fresh process whose analysis owns and closes its parser pool, as in a production analysis sandbox' : ''}; every run uses a cold fact cache, complete analysis and artifact packing.`,
     '',
     '## Environment',
     '',
     ...Object.entries(report.environment).map(([k, v]) => `- **${k}:** ${typeof v === 'object' ? JSON.stringify(v) : v}`),
     '',
-    `## Fixture (synthetic "${tier}" with history, deterministic)`,
+    `## Fixture (synthetic "${tier}", ${language}, ${report.mode}, deterministic)`,
     '',
     `- HEAD: ${report.fixture.headFiles.toLocaleString('en-US')} files, ${report.fixture.importStatements.toLocaleString('en-US')} import statements`,
-    `- History: ${report.fixture.commits} mainline commits over 58.5 days (${report.fixture.boundary} boundary), ${report.fixture.frames} analyzed frames, ${report.fixture.renames} renames, ${report.fixture.lineages.toLocaleString('en-US')} lineages; status ${report.fixture.historyStatus}`,
+    `- Parsed languages: ${JSON.stringify(report.parsedLanguages)}; language validation: ${report.languagePass ? 'pass' : 'fail'}`,
+    headOnly ? '- History disabled; one selected frame.' : `- History: ${report.fixture.commits} mainline commits over 58.5 days (${report.fixture.boundary} boundary), ${report.fixture.frames} analyzed frames, ${report.fixture.renames} renames, ${report.fixture.lineages.toLocaleString('en-US')} lineages; status ${report.fixture.historyStatus}`,
     '',
     '## Result',
     '',
@@ -249,14 +266,15 @@ writeFileSync(
     `| p50 | ${report.secondsP50} s | |`,
     `| p95 | ${report.secondsP95} s | ≤ ${report.budgetSecondsP95} s |`,
     `| max | ${report.secondsMax} s | |`,
+    ...(report.parserMemoryPass ? [`| largest parser-child VmHWM | ${mib(Math.max(...completeness.flatMap((sample) => sample.parserMemory.children.map((child) => child.peakRSSBytes))))} | recorded per child in JSON |`] : []),
     `| artifact (all chunks) | ${mib(report.artifact.compressedBytes)} | ≤ ${mib(report.artifact.budgetBytes)} |`,
     ...(report.resourceUsage ? [`| whole-job cgroup peak | ${mib(report.resourceUsage.peakBytes)} | ≤ ${mib(resourceLimits.memoryBytes)} |`] : []),
     `| — selected graph | ${mib(report.artifact.headGraphBytes)} | |`,
-    `| — 11 historical frames (deltas) | ${mib(report.artifact.historicalGraphBytes)} | |`,
+    ...(headOnly ? [] : [`| — 11 historical frames (deltas) | ${mib(report.artifact.historicalGraphBytes)} | |`]),
     `| — history / layout | ${mib(report.artifact.historyBytes)} / ${mib(report.artifact.layoutBytes)} | |`,
     '',
     ...(report.failedRun ? [`Run ${report.failedRun.runIndex} did not complete (exit ${report.failedRun.code}, signal ${report.failedRun.signal}); no later runs were attempted.`, ''] : []),
-    `**${report.pass ? 'Pass' : 'Fail'}.** Time: ${report.timePass ? 'pass' : 'fail'}; size: ${report.sizePass ? 'pass' : 'fail'}; all measured runs complete with 12 frames: ${report.completenessPass ? 'pass' : 'fail'}; twenty-sample minimum: ${report.sampleCountPass ? 'pass' : 'fail'}; resource gate: ${report.resourceUsage ? `${report.resourcePass ? 'pass' : 'fail'} (events ${JSON.stringify(report.resourceUsage.events)})` : 'unmeasured; no whole-job/reference-resource pass is claimed'}. Format ${report.artifact.version}; frame-delta transport per ADR-026.`,
+    `**${report.pass ? 'Pass' : 'Fail'}.** Time: ${report.timePass ? 'pass' : 'fail'}; size: ${report.sizePass ? 'pass' : 'fail'}; all measured runs complete with ${headOnly ? 1 : 12} frames: ${report.completenessPass ? 'pass' : 'fail'}; twenty-sample minimum: ${report.sampleCountPass ? 'pass' : 'fail'}; parser-memory capture: ${report.parserMemoryPass ? 'pass' : 'unmeasured'}; resource gate: ${report.resourceUsage ? `${report.resourcePass ? 'pass' : 'fail'} (events ${JSON.stringify(report.resourceUsage.events)})` : 'unmeasured; no whole-job/reference-resource pass is claimed'}. Format ${report.artifact.version}; frame-delta transport per ADR-026.`,
     '',
   ].join('\n'),
 );
