@@ -938,6 +938,52 @@ Checks:
 - Remaining Python gaps are documented in the ADRs, for example grammar gaps for 0.16 % of
   CPython 3.14's own files.
 
+### Production M1.1: Node runtime currency (2026-10-16)
+
+Implemented on `prod/m1-node-24.22`, starting from main `e36a873`, following the
+[production plan in PR #19](https://github.com/urveesh09/project-atlas/pull/19).
+Pending merge and required CI; this is not completion of M1 or P1.
+[ADR-061](adr/ADR-061-dependency-currency-october-2026.md) records the decision.
+
+- `.nvmrc`, the workspace engine minimum, both pinned container bases, active setup
+  guides and the portable archive's prerequisite text move to Node 24.22.0.
+- Doctor reports a non-fatal security-upgrade warning below 24.22.0 within major 24,
+  in human and JSON output. Unsupported majors still fail. Eight boundary cases pass,
+  and the real CLI was also run on actual 24.15.0 and 24.22.0 installations.
+- The dependency lockfile, analyzer/artifact versions and ADR-015 built-in list are
+  unchanged. Comparing the new runtime's built-ins (including prefix-only modules)
+  found no additions or removals.
+
+Local evidence on Windows 11 / i5-10400 / 16 GiB, checksum-verified Node 24.22.0:
+
+- `pnpm install --frozen-lockfile --offline`: pass with no lockfile change.
+- `ATLAS_REQUIRE_BROWSER_TESTS=1 pnpm verify`: 742 passed, 81 service-gated skipped;
+  typecheck, viewer build, 15-package dependency direction and six generated contracts
+  pass. This includes the 39 normal-mode viewer journeys.
+- Four pinned repositories, five offline cold repeats each: deterministic and export
+  verified, with all 28 authored facts retained and exact committed canonical/wire
+  payloads preserved by `check-repository-baseline.mjs`. The refreshed
+  [report](release/real-repositories.md) records Node 24.22.0; only environment, date
+  and observed timings change. Vite remains the expected partial result. Image builds
+  overlapped some Vite samples; these are correctness repeats, not capacity evidence.
+- Both images build: local API image
+  `sha256:a460fb2d3ae8fcccc05cd74ee3ead956010fe0d971714456c1e8373e8243bf01`
+  and sandbox image
+  `sha256:b7e75ebd0669db0c7614ec164fec7b031920b9a1ae43a152e7869b54ae623aba`.
+  Both report Node 24.22.0 and uid 10001 with read-only roots, no network, no
+  capabilities and no-new-privileges. These are development builds, not release images.
+- Viewer journeys with `CI=1` (software rendering): 39/39 pass, in addition to the
+  normal run above.
+- `pnpm verify:distribution`: all six relocated offline archive stages pass; archive
+  11,018,736 bytes, SHA-256
+  `f44ea600c5f2de39355dec2ef675ed58b42ca6497344c53963ee0d5759e479b9`.
+  This dirty-tree development smoke is evidence for packaging, not a release identity.
+  Its generated screenshot/reports are retained locally; the prior release-candidate
+  files are not replaced.
+
+G6 and R6-01…R6-07 remain open; hosted faults and cross-OS results require the CI
+jobs, and no reference-hardware or human acceptance is inferred.
+
 ### Reproduce verification
 
 ```sh

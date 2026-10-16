@@ -6,7 +6,7 @@ Recorded 10 October 2026. Rationale lives in [ADR-013](adr/ADR-013-pin-typescrip
 
 | Tool | Version | Notes |
 |---|---|---|
-| Node.js | 24.15.0 (`.nvmrc`; `engines: >=24.15.0 <25`) | `engine-strict=true` |
+| Node.js | 24.22.0 (`.nvmrc`; `engines: >=24.22.0 <25`) | `engine-strict=true` |
 | pnpm | 10.34.6 (`packageManager`) | `npm i -g pnpm@10.34.6` or Corepack |
 | Git | ≥ 2.38; verified on 2.55.0.windows.3 | Required by the CLI and tests; diagnosed by `atlas doctor` (P1.5) |
 
@@ -31,4 +31,5 @@ Recorded 10 October 2026. Rationale lives in [ADR-013](adr/ADR-013-pin-typescrip
 | Environment | Result |
 |---|---|
 | Windows 11 Pro 10.0.26200, 12 logical CPUs, 16 GiB, Node 24.15.0, Git 2.55.0 | Full local CI green; live acquisition tests green; render spike on NVIDIA GeForce GT 730 (ANGLE D3D11) |
+| Same Windows development host, Node 24.22.0 / pnpm 10.34.6, 2026-10-16 | 742 tests pass (81 service-gated skips), viewer 39/39 in normal and CI modes, four-repository exact-byte corpus, six-stage portable archive smoke; both Linux images build ([ADR-061](adr/ADR-061-dependency-currency-october-2026.md)) |
 | GitHub Actions `ubuntu-latest` and `windows-latest` | Configured in `.github/workflows/ci.yml` |

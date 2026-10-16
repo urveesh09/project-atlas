@@ -22,7 +22,7 @@ That JSON contains the archive path, SHA-256, byte count and source revision. Th
 No registry publication or dependency installation is performed by these packaging steps.
 
 For an end user, extract `atlas-cli-candidate.tar.gz` into a new directory. Install Node
-24.15.x and Git ≥2.38 on PATH, then work inside the extracted `atlas-cli` directory:
+24.22.0 or newer 24.x and Git ≥2.38 on PATH, then work inside the extracted `atlas-cli` directory:
 
 ```sh
 node bin/atlas.js doctor

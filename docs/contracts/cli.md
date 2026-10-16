@@ -13,6 +13,12 @@ atlas verify <artifact-dir>
 atlas serve <artifact-dir> [--repo <dir>] [--no-open]
 ```
 
+`doctor` requires the Node 24 major and recommends at least 24.22.0, matching the
+workspace engine minimum. Older 24.x runtimes produce a `warn` check and an upgrade
+message, but warnings alone leave `ok: true` and exit code 0. Other major versions
+produce a `fail` check and exit code 1. JSON check statuses are `ok`, `warn`, `fail`
+or `info`; human output distinguishes warnings from passed checks.
+
 | Exit code | Meaning |
 |---|---|
 | 0 | The requested supported scope is complete |

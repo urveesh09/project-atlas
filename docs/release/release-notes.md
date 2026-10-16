@@ -41,7 +41,7 @@ and Linux repeat these checks in CI. The [portable CLI smoke](distribution-smoke
 verifies every extracted file and runs the CLI/viewer from outside the checkout without
 dependency installation. The candidate includes third-party license notices.
 
-Node 24.15.x and Git ≥2.38 are prerequisites. Writers emit artifact 1.4.0 and layout 1.1;
+Node 24.22.0 or newer 24.x and Git ≥2.38 are prerequisites. Writers emit artifact 1.4.0 and layout 1.1;
 readers retain documented 1.0–1.3 compatibility. Analyzer identity is `0.1.0-dev.6`.
 Artifacts contain names/paths/relationships/commit IDs even when source is omitted.
 See [capabilities](../contracts/capabilities.md), [CLI contract](../contracts/cli.md),

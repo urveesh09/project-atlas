@@ -107,7 +107,7 @@ The hosted service repeats these properties inside containers. A sentinel suite 
 
 ## Developing
 
-Prerequisites: Node.js 24.15.0, pnpm 10.34.6 and Git ≥ 2.38 ([toolchain](docs/toolchain.md)).
+Prerequisites: Node.js 24.22.0, pnpm 10.34.6 and Git ≥ 2.38 ([toolchain](docs/toolchain.md)).
 
 ```sh
 pnpm install

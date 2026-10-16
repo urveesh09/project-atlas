@@ -12,13 +12,13 @@ runs anything from your repository.
 
 ## 1. Install the prerequisites
 
-- **Node.js 24.15** or a newer 24.x release: <https://nodejs.org/en/download>.
+- **Node.js 24.22.0** or a newer 24.x release: <https://nodejs.org/en/download>.
 - **Git 2.38 or newer**: <https://git-scm.com/downloads>.
 
 Check them:
 
 ```sh
-node --version   # v24.15.0 or newer 24.x
+node --version   # v24.22.0 or newer 24.x
 git --version    # 2.38 or newer
 ```
 

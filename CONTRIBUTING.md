@@ -19,7 +19,7 @@ Thank you for helping. ATLAS has a few rules that keep its results trustworthy; 
 
 1. Open an issue first for anything beyond a small fix, so the approach can be agreed.
 2. Work on a branch and open a pull request against `main`. Keep pull requests focused.
-3. Use the pinned toolchain (Node 24.15, pnpm 10.34.6; see [docs/toolchain.md](docs/toolchain.md)):
+3. Use the pinned toolchain (Node 24.22.0, pnpm 10.34.6; see [docs/toolchain.md](docs/toolchain.md)):
 
    ```sh
    pnpm install --frozen-lockfile

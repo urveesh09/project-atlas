@@ -10,7 +10,7 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
 2. [docs/implementation-status.md](docs/implementation-status.md): what is done, with evidence.
 3. [docs/release/release-audit.md](docs/release/release-audit.md): requirement → evidence
    trace, and the open acceptance items R6-01…R6-07.
-4. [docs/adr/](docs/adr/): ADR-001…ADR-060. Every non-obvious design choice lives here.
+4. [docs/adr/](docs/adr/): ADR-001…ADR-061. Every non-obvious design choice lives here.
    Check for an ADR before "fixing" something that looks odd.
 5. [docs/plan/next-steps.md](docs/plan/next-steps.md): the prioritized work queue, how to
    test each kind of change, and the coding standards. Start there for new work.
@@ -44,7 +44,7 @@ an ADR first.
 - **Dependency direction** (enforced by `pnpm check:deps`): `schema` is foundational;
   analyzers never import the viewer or API; the viewer never imports analyzer or ingest
   code; runtime instrumentation is banned in V0.1.
-- **Pinned toolchain:** Node 24.15.x, pnpm 10.34.6, exact library versions
+- **Pinned toolchain:** Node 24.22.0 or newer 24.x, pnpm 10.34.6, exact library versions
   ([toolchain](docs/toolchain.md)). Don't upgrade pnpm or dependencies casually, and don't use floating versions.
 - **Least privilege** for hosted roles, sandboxes (uid 10001, read-only root, no
   capabilities) and tokens. Never put a personal token in containers, files or logs.
