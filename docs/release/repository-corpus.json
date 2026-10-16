@@ -35,6 +35,24 @@
         { "source": "playground/alias/vite.config.js", "specifier": "node:path", "kind": "imports-value", "status": "builtin", "target": "path" },
         { "source": "packages/vite/src/node/index.ts", "specifier": "rolldown", "kind": "imports-type", "status": "resolved-external", "target": "rolldown" }
       ]
+    } },
+    { "owner": "pallets", "name": "flask", "numericId": "596892", "commit": "d086db856be187255b8ec61ef409357393020f32", "category": "Python project with src layout", "checks": {
+      "files": [
+        { "path": "src/flask/app.py", "role": "source", "language": "python", "parseStatus": "parsed" },
+        { "path": "src/flask/json/__init__.py", "role": "source", "language": "python", "parseStatus": "parsed" },
+        { "path": "tests/test_json.py", "role": "test", "language": "python", "parseStatus": "parsed" }
+      ],
+      "imports": [
+        { "source": "src/flask/__init__.py", "specifier": ".app", "kind": "reexports-value", "status": "resolved-internal", "target": "src/flask/app.py" },
+        { "source": "src/flask/json/__init__.py", "specifier": "json", "kind": "imports-value", "status": "builtin", "target": "json" },
+        { "source": "src/flask/json/__init__.py", "specifier": "..globals", "kind": "imports-value", "status": "resolved-internal", "target": "src/flask/globals.py" },
+        { "source": "src/flask/json/__init__.py", "specifier": "..wrappers", "kind": "imports-type", "status": "resolved-internal", "target": "src/flask/wrappers.py" },
+        { "source": "tests/test_json.py", "specifier": "flask.json.provider", "kind": "imports-value", "status": "resolved-internal", "target": "src/flask/json/provider.py" },
+        { "source": "tests/test_json.py", "specifier": "werkzeug.http", "kind": "imports-value", "status": "resolved-external", "target": "werkzeug" },
+        { "source": "tests/test_json.py", "specifier": "pytest", "kind": "imports-value", "status": "resolved-external", "target": "pytest" },
+        { "source": "examples/tutorial/flaskr/blog.py", "specifier": ".auth", "kind": "imports-value", "status": "resolved-internal", "target": "examples/tutorial/flaskr/auth.py" },
+        { "source": "examples/tutorial/flaskr/blog.py", "specifier": "flask", "kind": "imports-value", "status": "resolved-internal", "target": "src/flask/__init__.py" }
+      ]
     } }
   ]
 }

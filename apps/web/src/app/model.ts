@@ -4,6 +4,7 @@ import {
   RULE_CATALOG,
   compareAscii,
   compareUtf8,
+  perimeterName,
   type ArtifactCore,
   type CoChangePair,
   type Diagnostic,
@@ -222,9 +223,8 @@ function placeKey(node: GraphNode): string | null {
     case 'directory':
       return `container:${node.path}`;
     case 'external-package':
-      return `npm:${node.packageName}`;
     case 'builtin':
-      return `builtin:${node.moduleName}`;
+      return perimeterName(node);
     default:
       return null;
   }

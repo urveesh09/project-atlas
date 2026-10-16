@@ -1,8 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { PARSER_VERSION } from '@atlas/analyzer-ts';
-import { ANALYZER_VERSION } from '@atlas/analyzer-core';
+import { ANALYZER_VERSION, PARSER_VERSIONS } from '@atlas/analyzer-core';
 import { SafeGit, gitVersion } from '@atlas/ingest';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION, LIMITS, RELEASE_PROFILE } from '@atlas/schema';
 import { EXIT, type CommandContext } from '../context.js';
@@ -54,7 +53,7 @@ export async function doctor(ctx: CommandContext): Promise<number> {
     }
   }
 
-  checks.push({ id: 'parser', label: 'Parser', status: 'ok', detail: PARSER_VERSION });
+  checks.push({ id: 'parser', label: 'Parser', status: 'ok', detail: PARSER_VERSIONS });
   try {
     const dir = await mkdtemp(path.join(tmpdir(), 'atlas-doctor-'));
     await writeFile(path.join(dir, 'probe'), 'ok');

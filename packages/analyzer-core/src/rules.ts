@@ -1,4 +1,4 @@
-import type { FileFacts } from '@atlas/analyzer-ts';
+import type { SyntaxFacts as FileFacts } from './facts.js';
 import { GraphIndex, POLICIES, nearestRankPercentile, type StaticCycle } from '@atlas/graph';
 import {
   LIMITS,
@@ -30,7 +30,7 @@ export interface RuleInput {
   limits: { limit: string; count: number; stage: string }[];
 }
 
-const LOCAL_MISSING = new Set(['LOCAL_TARGET_MISSING', 'CASE_MISMATCH']);
+const LOCAL_MISSING = new Set(['LOCAL_TARGET_MISSING', 'CASE_MISMATCH', 'RELATIVE_BEYOND_TOP_LEVEL']);
 const CONTEXT_INCOMPLETE = new Set(['ALIAS_UNSUPPORTED', 'CONFIG_CONTEXT_MISSING', 'GENERATED_TARGET_MISSING', 'PACKAGE_EXPORT_UNSUPPORTED', 'AMBIGUOUS_WORKSPACE_PACKAGE']);
 const MAX_SUBJECTS = 2_000;
 
@@ -84,11 +84,18 @@ export function evaluateRules(input: RuleInput): { diagnostics: Diagnostic[]; om
     const facts = input.facts.get(file.path);
     if (!facts || facts.parseStatus !== 'failed') continue;
     const first = facts.parseErrors[0];
+    const syntax = facts.failureReason === 'SYNTAX_ERROR';
+    const python = facts.language === 'python';
     emit('ATLAS_PARSE_ERROR', [file.id], {
       subjectIds: [file.id],
       range: first?.range ?? null,
-      messageCode: facts.failureReason === 'SYNTAX_ERROR' ? 'PARSE_ERROR' : 'PARSE_FAILED',
-      parameters: facts.failureReason === 'SYNTAX_ERROR' ? { tsCode: first?.code ?? 0, errorCount: facts.parseErrors.length } : { reason: facts.failureReason ?? 'UNKNOWN' },
+      // Python syntax errors carry no compiler code; the grammar reports where it failed (ADR-060).
+      messageCode: syntax ? (python ? 'PYTHON_SYNTAX_ERROR' : 'PARSE_ERROR') : 'PARSE_FAILED',
+      parameters: syntax
+        ? python
+          ? { line: first?.range.startLine ?? 0, missingToken: first?.code === 2 ? 1 : 0, errorCount: facts.parseErrors.length }
+          : { tsCode: first?.code ?? 0, errorCount: facts.parseErrors.length }
+        : { reason: facts.failureReason ?? 'UNKNOWN' },
       fingerprint: [lineageKey(file), facts.failureReason, first?.code ?? null],
     });
   }

@@ -5,7 +5,7 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/urveesh09/project-atlas/badge)](https://scorecard.dev/viewer/?uri=github.com/urveesh09/project-atlas)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-ATLAS turns the committed contents of a TypeScript/JavaScript repository into a navigable, explainable miniature city:
+ATLAS turns the committed contents of a TypeScript, JavaScript or Python repository into a navigable, explainable miniature city:
 
 - packages become districts, folders become blocks and files become buildings;
 - static imports are an overlay you can inspect;
@@ -139,6 +139,7 @@ deploy/                   sandbox and API images, development compose stack
 packages/schema/          canonical contracts, IDs, canonical JSON, validators, generated JSON Schema
 packages/ingest/          sanitized local Git reader, GitHub admission and filtered acquisition
 packages/analyzer-ts/     TS/JS syntax facts and virtual-filesystem module resolution
+packages/analyzer-py/     Python syntax facts (tree-sitter), projects and import resolution
 packages/analyzer-core/   committed inventory, package hierarchy, artifact assembly
 packages/graph/           aggregation, SCC witnesses, search and bounded reach queries
 packages/history/         first-parent history, lineage and change activity

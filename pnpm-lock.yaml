@@ -146,6 +146,9 @@ importers:
 
   packages/analyzer-core:
     dependencies:
+      '@atlas/analyzer-py':
+        specifier: workspace:*
+        version: link:../analyzer-py
       '@atlas/analyzer-ts':
         specifier: workspace:*
         version: link:../analyzer-ts

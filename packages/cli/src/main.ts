@@ -9,7 +9,7 @@ import { EXIT, UsageError, createContext, type CliIO } from './context.js';
 import { PALETTE, createStyler, detectColorLevel } from './ui/style.js';
 
 const HELP = `
-  atlas ${ANALYZER_VERSION} — explore a TS/JS repository as an explainable miniature city
+  atlas ${ANALYZER_VERSION} — explore a TypeScript, JavaScript or Python repository as an explainable miniature city
 
   Usage
     atlas doctor                       check runtime, Git and isolation

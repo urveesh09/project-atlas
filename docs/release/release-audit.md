@@ -99,8 +99,8 @@ all remaining work as human or infrastructure acceptance.
 
 ## Release identity and approval record
 
-Candidate internal package version: `0.1.0-dev`; analyzer: `0.1.0-dev.5`; artifact:
-`atlas.artifact/1.3.0`; layout: 1.1. Distribution manifests record exact source HEAD,
+Candidate internal package version: `0.1.0-dev`; analyzer: `0.1.0-dev.6`; artifact:
+`atlas.artifact/1.4.0`; layout: 1.1. Distribution manifests record exact source HEAD,
 working-tree state, lockfile hash and per-file digest; smoke reports bind archive bytes.
 Do not turn a dirty-tree candidate into a signed release by changing a document label.
 

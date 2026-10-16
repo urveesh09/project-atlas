@@ -1,5 +1,6 @@
 import {
   compareAscii,
+  perimeterName,
   type FileNode,
   type FileRole,
   type GraphSnapshot,
@@ -165,8 +166,7 @@ export function prepareCity(graph: GraphSnapshot, layout: LayoutArtifact, option
     .sort((a, b) => a.depth - b.depth || compareAscii(a.id, b.id));
   const externalNodes = new Map<string, string>();
   for (const n of graph.nodes) {
-    if (n.kind === 'external-package') externalNodes.set(`npm:${n.packageName}`, n.id);
-    else if (n.kind === 'builtin') externalNodes.set(`builtin:${n.moduleName}`, n.id);
+    if (n.kind === 'external-package' || n.kind === 'builtin') externalNodes.set(perimeterName(n), n.id);
   }
   const terminals = layout.externalAnchors.flatMap((a) =>
     externalNodes.has(a.canonicalName)

@@ -73,7 +73,7 @@ export function StartPanel() {
               ) : (
                 model.manifest.repo.displayName
               )}{' '}
-              at <code>{shortOid(model.manifest.selectedCommit.oid)}</code>: one building per TS/JS file. Nothing from the repository runs.
+              at <code>{shortOid(model.manifest.selectedCommit.oid)}</code>: one building per file. Nothing from the repository runs.
             </>
           ) : (
             <>One building per file. Every number links to its evidence.</>

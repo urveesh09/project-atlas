@@ -17,7 +17,7 @@ export const PYTHON_GRAMMAR = {
 } as const;
 
 /** Recorded in artifacts and fact-cache keys, like the TypeScript parser version. */
-export const PYTHON_PARSER_VERSION = `${PYTHON_GRAMMAR.name}@${PYTHON_GRAMMAR.version}+${PYTHON_GRAMMAR.runtime}`;
+export const PYTHON_PARSER_VERSION = `${PYTHON_GRAMMAR.name}@${PYTHON_GRAMMAR.version}+wts@0.25.10`;
 
 /** The grammar file, found next to `src/` or `dist/` in the package. */
 export function pythonGrammarPath(): string {

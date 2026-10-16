@@ -824,8 +824,9 @@ CPython 3.14.5. Of 1,841 files parsed by both, 0 mismatch in imports, declaratio
 complexity or code lines. 3 files (0.16 %) use syntax newer than the grammar and are
 reported as parse failures.
 
-Next: resolution (ADR-057), then integration with the contract and version change
-(ADR-058).
+Next: resolution (ADR-057), then integration with the contract and version change.
+That step was planned as ADR-058 and landed as
+[ADR-060](adr/ADR-060-python-integration.md).
 
 ### Python support, part 2: resolution (2026-10-14)
 
@@ -840,7 +841,7 @@ Next: resolution (ADR-057), then integration with the contract and version chang
 - **Reasons.** Namespace packages, guarded imports, exclusions, case mismatches and
   beyond-top-level imports each carry a reason.
 
-Still not wired into the pipeline.
+Wired into the pipeline by ADR-060.
 
 Checks:
 - 11 resolution tests on a monorepo fixture.
@@ -906,6 +907,36 @@ Checks:
 - 0 of 18 package nodes overrun.
 - The city stage is byte-identical.
 - `pnpm verify` (712 tests) and the baseline pass.
+
+### Python support, part 3: integration (2026-10-15)
+
+[ADR-060](adr/ADR-060-python-integration.md) wires the Python adapter into analysis. It is a
+deliberate contract change: analyzer `0.1.0-dev.6`, graph `1.1.0`, artifact `1.4.0`.
+- **Analysis.** Python files are parsed in the same bounded parser child as TS/JS.
+  - Projects become packages with declared PyPI dependencies.
+  - Every ADR-057 resolution becomes an import observation.
+  - Syntax errors, cycles, complexity, size and fan-in findings apply as for TS/JS.
+- **Inventory.** Python roles (pytest names, stubs, manifests, lockfiles). Virtual
+  environments, caches and egg metadata are excluded, and `#` generated headers are
+  recognized.
+- **Identity.** One `nodeIdentityKey` serves the validator and both wire encodings. Before
+  it, a PyPI and an npm package of the same name failed validation and delta decoding.
+- **Viewer, CLI, service.** Python language chips, ecosystem-aware labels (unchanged for
+  TS/JS), PyPI rows, hosted capabilities, and the grammar in the packaged CLI.
+
+Checks:
+- `scripts/compare-analysis-paths.mjs` against main's build: Harbor, is-plain-obj,
+  vuejs/core and vite have 0 path-level differences. Only the analyzer version and 13 new
+  exclusion patterns in the summary change.
+- Mixed TS/JS and Python repository: 7 of 7 tests, with expectations written from ADR-057.
+- pallets/flask joins the corpus.
+  - 12 of 12 authored checks pass.
+  - 83 Python files, all parsed. 666 imports, 0 unresolved.
+  - 16 undeclared, inferred externals: 10 come from test-time `sys.path` changes, which
+    static analysis cannot see.
+- The baseline is regenerated for four repositories.
+- Remaining Python gaps are documented in the ADRs, for example grammar gaps for 0.16 % of
+  CPython 3.14's own files.
 
 ### Reproduce verification
 

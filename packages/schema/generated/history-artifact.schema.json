@@ -1,6 +1,6 @@
 {
   "$id": "https://atlas.invalid/schemas/history-artifact.schema.json",
-  "title": "ATLAS history-artifact (atlas.graph/1.0.0)",
+  "title": "ATLAS history-artifact (atlas.graph/1.1.0)",
   "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

@@ -1,5 +1,5 @@
 import { buildingHeight, computeLayout, type LayoutTreeNode } from '@atlas/layout';
-import { canonicalJsonSha256, compareAscii, compareUtf8, districtId, type GraphNode, type GraphSnapshot, type LayoutArtifact } from '@atlas/schema';
+import { canonicalJsonSha256, compareAscii, compareUtf8, districtId, perimeterName, type GraphNode, type GraphSnapshot, type LayoutArtifact } from '@atlas/schema';
 
 /**
  * One plot plan over the union of analyzed frames (plan §11.3, ADR-008).
@@ -104,8 +104,7 @@ export function buildUnionLayout(repoId: string, graphs: readonly GraphSnapshot[
   const externals = new Set<string>();
   for (const graph of graphs)
     for (const n of graph.nodes) {
-      if (n.kind === 'external-package') externals.add(`npm:${n.packageName}`);
-      else if (n.kind === 'builtin') externals.add(`builtin:${n.moduleName}`);
+      if (n.kind === 'external-package' || n.kind === 'builtin') externals.add(perimeterName(n));
     }
   // The layout ID covers the ordered frame set and the lineage anchors (plan §6.5).
   const frameKey = canonicalJsonSha256({

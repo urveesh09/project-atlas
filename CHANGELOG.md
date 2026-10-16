@@ -7,6 +7,13 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Python analysis ([ADR-060](docs/adr/ADR-060-python-integration.md)):
+  - `.py` and `.pyi` files are parsed, resolved, measured and checked like TS/JS;
+  - Python projects become packages, with their declared PyPI dependencies;
+  - mixed TS/JS and Python repositories work, and npm and PyPI packages of the same name
+    stay distinct;
+  - virtual environments, Python caches and egg metadata are excluded;
+  - pallets/flask joins the pinned validation corpus.
 - Entry screens and sharing ([ADR-058](docs/adr/ADR-058-interface-polish.md)):
   - the start screen and the hosted landing show a real render of the demo city;
   - page titles name the repository;
@@ -17,12 +24,12 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   - checked against CPython's own `ast` on the full standard library, with 0
     mismatches.
 
-  It is not yet used by analysis.
+  Used by analysis since ADR-060.
 - Python support, part 2 ([ADR-057](docs/adr/ADR-057-python-resolution.md)):
   - projects and dependencies from every common Python manifest;
   - import resolution with Python's own precedence.
 
-  It is not yet used by analysis.
+  Used by analysis since ADR-060.
 - 3D-print export ([ADR-055](docs/adr/ADR-055-3d-print-export.md)): coloured 3MF and STL of
   the city shown.
 - Package graph view ([ADR-054](docs/adr/ADR-054-package-dependency-view.md)):
@@ -66,6 +73,10 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 - An open compare panel covered the city on screens wider than 1350 px.
 
 ### Changed
+- Contract versions ([ADR-060](docs/adr/ADR-060-python-integration.md)): analyzer
+  `0.1.0-dev.6`, graph schema `atlas.graph/1.1.0`, artifact `atlas.artifact/1.4.0`. Readers
+  still accept artifacts 1.0–1.3. TS/JS results are unchanged at path level; IDs change with
+  the analyzer version, as for every version change.
 - Summary lines read as sentences, with at most one middle dot; data rows keep their
   separators ([ADR-059](docs/adr/ADR-059-interface-second-pass.md)).
 - Interface polish ([ADR-058](docs/adr/ADR-058-interface-polish.md)):

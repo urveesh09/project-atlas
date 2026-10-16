@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { canonicalJson, compareAscii, compareUtf8 } from './canonical.js';
 import { ArtifactManifestSchema, type ArtifactManifest } from './artifact.js';
-import { FILE_EDGE_KINDS, GraphSnapshotSchema, type GraphNode, type GraphSnapshot } from './graph.js';
+import { FILE_EDGE_KINDS, GraphSnapshotSchema, nodeIdentityKey, type GraphNode, type GraphSnapshot } from './graph.js';
 import { HistoryArtifactSchema, type HistoryArtifact } from './history.js';
 import { LayoutArtifactSchema, type LayoutArtifact, type Rect } from './layout.js';
 import { LIMITS } from './limits.js';
@@ -62,20 +62,6 @@ export interface GraphValidationOptions {
    * On by default: an artifact whose IDs do not match their contents is rejected.
    */
   verifyIds?: boolean;
-}
-
-/** The canonical key hashed into a node occurrence ID. */
-export function nodeIdentityKey(node: GraphNode): string {
-  switch (node.kind) {
-    case 'repository':
-      return '';
-    case 'external-package':
-      return node.packageName;
-    case 'builtin':
-      return node.moduleName;
-    default:
-      return node.path;
-  }
 }
 
 export function validateGraphSnapshot(input: unknown, options: GraphValidationOptions = {}): ValidationResult<GraphSnapshot> {
@@ -427,7 +413,7 @@ export function validateManifest(input: unknown): ValidationResult<ArtifactManif
     // frames they hold decoded at once.
     uncompressed += chunk.uncompressedBytes;
     if (chunk.encoding) {
-      const versions = chunk.encoding === 'atlas.graph.indexed/1' ? ['atlas.artifact/1.1.0', 'atlas.artifact/1.2.0', 'atlas.artifact/1.3.0'] : ['atlas.artifact/1.3.0'];
+      const versions = chunk.encoding === 'atlas.graph.indexed/1' ? ['atlas.artifact/1.1.0', 'atlas.artifact/1.2.0', 'atlas.artifact/1.3.0', 'atlas.artifact/1.4.0'] : ['atlas.artifact/1.3.0', 'atlas.artifact/1.4.0'];
       const place = chunk.encoding.startsWith('atlas.graph.') ? chunk.path.startsWith('graphs/') : chunk.encoding === 'atlas.history.compact/1' ? chunk.path === 'history/history.json.gz' : chunk.path === 'layout/layout.json.gz';
       if (!place || !versions.includes(manifest.artifactVersion) || chunk.encodedSha256 === undefined || chunk.decodedBytes === undefined) {
         sink.add('CHUNK_ENCODING', chunk.path, 'Encoded graph chunks require a supporting artifact version and complete encoded/decoded integrity metadata');

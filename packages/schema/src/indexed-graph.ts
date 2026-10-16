@@ -13,6 +13,7 @@ import {
   NodeMetricsSchema,
   PackageNodeSchema,
   RepositoryNodeSchema,
+  nodeIdentityKey,
   type GraphNode,
   type GraphSnapshot,
 } from './graph.js';
@@ -173,17 +174,7 @@ export function decodeIndexedGraph(
   }
   for (const m of wire.metrics) expandedBytes += nodeCost(m.nodeId);
   if (expandedBytes > maxDecodedBytes) throw new RangeError('Indexed graph exceeds decoded size limit');
-  const nodeIds = wire.nodes.map((n) => {
-    const key =
-      n.kind === 'repository'
-        ? ''
-        : n.kind === 'builtin'
-          ? n.moduleName
-          : n.kind === 'external-package'
-            ? n.packageName
-            : n.path;
-    return nodeId(wire.snapshotId, n.kind, key);
-  });
+  const nodeIds = wire.nodes.map((n) => nodeId(wire.snapshotId, n.kind, nodeIdentityKey(n)));
   const nodes: GraphNode[] = wire.nodes.map((n, i) => {
     const base = { ...n, id: nodeIds[i]!, parentId: n.parentId === null ? null : dereference(nodeIds, n.parentId) };
     return base.kind === 'external-package'

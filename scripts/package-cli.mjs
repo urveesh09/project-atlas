@@ -73,8 +73,9 @@ async function copyRuntime(dir) {
   const target = pkg.name === '@atlas/cli' ? bundle : path.join(bundle, 'node_modules', pkg.name);
   await mkdir(target, { recursive: true });
   if (pkg.name.startsWith('@atlas/')) {
-    await cp(path.join(dir, 'dist'), path.join(target, 'dist'), { recursive: true });
-    if (pkg.bin) await cp(path.join(dir, 'bin'), path.join(target, 'bin'), { recursive: true });
+    // A workspace package ships exactly what its `files` list names: dist, plus bin for the
+    // CLI and the vendored, hash-checked Python grammar for analyzer-py (ADR-060).
+    for (const entry of pkg.files ?? ['dist']) await cp(path.join(dir, entry), path.join(target, entry), { recursive: true });
   } else {
     // Third-party npm contents are shipped with their license text, without their
     // install-time node_modules or lifecycle execution.

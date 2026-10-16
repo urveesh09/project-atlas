@@ -1,6 +1,7 @@
 import { fork, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { failedFacts, parserWorkerPath, type FileFacts } from '@atlas/analyzer-ts';
+import { failedSyntaxFacts, type SyntaxFacts } from './facts.js';
+import { parserWorkerPath } from './worker-path.js';
 import { killProcessTree } from '@atlas/ingest';
 import { LIMITS } from '@atlas/schema';
 
@@ -22,7 +23,7 @@ interface Job {
   id: number;
   path: string;
   text: string;
-  resolve: (facts: FileFacts) => void;
+  resolve: (facts: SyntaxFacts) => void;
 }
 
 interface Slot {
@@ -58,7 +59,7 @@ export class ParserPool {
   }
 
   /** Parse one file. Never rejects for file-level problems: they become failed facts. */
-  parse(path: string, text: string): Promise<FileFacts> {
+  parse(path: string, text: string): Promise<SyntaxFacts> {
     if (this.closed) return Promise.reject(new Error('ParserPool is closed'));
     return new Promise((resolve) => {
       this.queue.push({ id: this.nextId++, path, text, resolve });
@@ -69,7 +70,7 @@ export class ParserPool {
   async close(): Promise<void> {
     this.closed = true;
     for (const slot of this.slots) this.stop(slot);
-    for (const job of this.queue.splice(0)) job.resolve(failedFacts(job.path, job.text, 'PARSER_CRASHED'));
+    for (const job of this.queue.splice(0)) job.resolve(failedSyntaxFacts(job.path, job.text, 'PARSER_CRASHED'));
   }
 
   private spawn(slot: Slot): void {
@@ -91,11 +92,11 @@ export class ParserPool {
       };
       child.on('message', onReady);
     });
-    child.on('message', (message: { type: string; id: number; facts?: FileFacts }) => {
+    child.on('message', (message: { type: string; id: number; facts?: SyntaxFacts }) => {
       const job = slot.job;
       if (!job || message.id !== job.id) return;
       if (message.type === 'result' && message.facts) this.finish(slot, message.facts, false);
-      else this.finish(slot, failedFacts(job.path, job.text, 'PARSER_CRASHED'), false);
+      else this.finish(slot, failedSyntaxFacts(job.path, job.text, 'PARSER_CRASHED'), false);
     });
     child.on('exit', () => {
       if (slot.child !== child) return;
@@ -103,7 +104,7 @@ export class ParserPool {
       slot.ready = null;
       if (slot.job) {
         this.stats.crashes++;
-        this.finish(slot, failedFacts(slot.job.path, slot.job.text, 'PARSER_CRASHED'), false);
+        this.finish(slot, failedSyntaxFacts(slot.job.path, slot.job.text, 'PARSER_CRASHED'), false);
       }
     });
   }
@@ -120,7 +121,7 @@ export class ParserPool {
     }
   }
 
-  private finish(slot: Slot, facts: FileFacts, timedOut: boolean): void {
+  private finish(slot: Slot, facts: SyntaxFacts, timedOut: boolean): void {
     const job = slot.job;
     if (!job) return;
     if (slot.timer) clearTimeout(slot.timer);
@@ -147,7 +148,7 @@ export class ParserPool {
       void slot.ready!.then(() => {
         if (slot.job !== job || slot.child !== child) return;
         // The deadline starts when the child can begin work, so startup is not charged.
-        slot.timer = setTimeout(() => this.finish(slot, failedFacts(job.path, job.text, 'PARSE_TIMEOUT'), true), this.deadlineMs);
+        slot.timer = setTimeout(() => this.finish(slot, failedSyntaxFacts(job.path, job.text, 'PARSE_TIMEOUT'), true), this.deadlineMs);
         child.send({ type: 'parse', id: job.id, path: job.path, text: job.text });
       });
     }
