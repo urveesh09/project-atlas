@@ -82,3 +82,39 @@ record does not claim the remaining dependency upgrades or P1 are complete.
 
 No G6 human, reference-device or deployment acceptance item is closed by a runtime
 upgrade.
+
+## M1.2: bounded TOML parsing security update (2026-10-16)
+
+### Evidence and cause
+
+`smol-toml` 1.8.0 is affected by GHSA-r4xh-jqrq-34v2. A valid, admitted 1 MiB
+manifest makes production discovery take 2,504.5356 ms and fails the authored
+1,000 ms regression. Discovery runs synchronously in the analyzer parent, before
+source-parser children. Git blob bytes are capped at 1 MiB by inventory; discovery
+also bounds string length. These existing limits constrain exposure but do not
+remove the inefficient parse path.
+
+### Decision
+
+- Pin 1.9.1 exactly, BSD-3-Clause with no runtime dependencies. Keep the named
+  `parse` import. ADR-057 remains an accurate historical record.
+- Upstream tables now have null prototypes; existing validated own-property reads
+  remain suitable. Upstream also tightens malformed TOML rejection. Keep ATLAS's
+  invalid-manifest warnings; do not add unsafe compatibility shims.
+- Add four checks: full-size discovery under one second, over-limit pyproject and
+  Pipfile rejection, and safe interpretation of prototype-like metadata. A disposable
+  test child has a 10-second deadline; production limits are unchanged.
+- The owner's 2026-10-16 direction combines M1.2 and M1.3 in one PR with individual
+  commits. This overrides this batch's separate-PR guidance, not its verification.
+
+### Verification
+
+The old dependency fails the new timing assertion, while its other three checks
+pass. With 1.9.1 all four pass; the same input's diagnostic measures 148.4486 ms.
+See [the retained diagnostic](../benchmarks/production-toml-security.md) for the input,
+initial failure, exact context and caveats. Full verification passes 746 tests with
+81 service-gated skips, including 39 normal viewer journeys. Four pinned repositories
+with five offline cold repeats preserve all canonical/wire payloads and 28 authored
+facts against the committed baseline, including Flask. Generated contracts remain
+unchanged. Production dependency audit reports no known advisories. Combined-PR CI
+must still pass; Dependabot alert closure remains a post-merge GitHub check.

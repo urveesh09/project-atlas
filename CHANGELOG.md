@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Security
+- Upgrade `smol-toml` to 1.9.1 to fix quadratic work on untrusted Python manifests
+  (GHSA-r4xh-jqrq-34v2). A regression exercises the complete 1 MiB admitted document
+  through project discovery, alongside boundary and prototype-like metadata checks.
 - Upgrade the supported Node.js runtime and both container bases to 24.22.0
   ([ADR-061](docs/adr/ADR-061-dependency-currency-october-2026.md)). `atlas doctor`
   warns on older 24.x releases without preventing diagnosis. Analysis semantics and

@@ -2,7 +2,9 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-13):** Beta 2, *activation and trust*. The public demo
+**Current milestone (2026-10-16):** production-plan M1, platform currency and security.
+M1.1 landed in [PR #20](https://github.com/urveesh09/project-atlas/pull/20); the owner
+requested M1.2 and M1.3 together in one PR, with separate commits. The public demo
 (<https://urveesh09.github.io/project-atlas/>) is a static viewer on a bundled vuejs/core
 analysis. The packages are `0.1.0-beta.1`. `main` requires a pull request and nine named
 checks (ADR-046). Beta 2 work is recorded at the end of Phase 6 below (ADR-046, ADR-047).
@@ -983,6 +985,29 @@ Local evidence on Windows 11 / i5-10400 / 16 GiB, checksum-verified Node 24.22.0
 
 G6 and R6-01…R6-07 remain open; hosted faults and cross-OS results require the CI
 jobs, and no reference-hardware or human acceptance is inferred.
+
+### Production M1.2: Python manifest parser security (2026-10-16)
+
+`smol-toml` is pinned to 1.9.1, addressing GHSA-r4xh-jqrq-34v2.
+[ADR-061](adr/ADR-061-dependency-currency-october-2026.md) records the execution
+boundary, release-note review and this batch's owner-approved grouping.
+
+- The admitted 1 MiB, 131,061-key production-path regression fails on 1.8.0 at
+  2,504.5356 ms against the authored 1,000 ms limit. On 1.9.1 all four checks pass;
+  an identical-input diagnostic measures 148.4486 ms. This is a diagnostic, not a
+  capacity percentile ([report](benchmarks/production-toml-security.md)).
+- Pyproject and Pipfile inputs beyond the existing bound are rejected; prototype-like
+  metadata does not contaminate object prototypes or displace project dependencies.
+- Production dependency audit reports zero known advisories on this date. GitHub's
+  two existing Dependabot alerts can only close after the fix reaches main.
+- Full verification passes: 746 tests, 81 service-gated skips, typecheck, viewer
+  build, dependency direction and six unchanged generated contracts. This includes
+  39 normal-mode browser journeys.
+- Four repositories × five offline cold repeats pass, including Flask's manifests;
+  all 28 authored facts and canonical/wire payloads match the committed baseline.
+  The report refresh changes only date/timings, without changing graph digests.
+- Hosted and cross-OS evidence remains required in the combined PR. Analyzer/artifact
+  versions and acceptance limits are unchanged. P1 and G6 remain open.
 
 ### Reproduce verification
 

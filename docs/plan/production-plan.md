@@ -46,7 +46,7 @@ ADR. It does not cover:
   - Analyzer: `0.1.0-dev.6`.
   - Graph: `atlas.graph/1.1.0`.
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
-  - ADRs run up to ADR-060, so the next decision is ADR-061.
+  - ADRs run up to ADR-061; M1 adds sections there. The next new decision is ADR-062.
 - **Evidence.**
   - `pnpm verify` runs 734 tests; 81 more skip unless their services are enabled.
   - The viewer file has 39 browser journeys, and the hosted file 6 PostgreSQL journeys.
@@ -120,6 +120,10 @@ adds its own section to it, and it also records the versions deliberately held b
 
 #### M1.1 Node.js 24.15.0 → 24.22.0 (high)
 
+**Landed:** [PR #20](https://github.com/urveesh09/project-atlas/pull/20),
+2026-10-16. All eight CI jobs and both security jobs pass on `7ed263c`; the four
+repository payloads remain byte-identical. Details are in ADR-061 and the status log.
+
 - **Why.**
   - 24.15.0 missed two security releases: 24.17.0 (2026-06-17) and 24.18.1 (2026-07-28).
   - Node 24 enters maintenance on 2026-10-20 and stays supported until 2028-04-30, so 24.x
@@ -159,6 +163,10 @@ adds its own section to it, and it also records the versions deliberately held b
   images build.
 
 #### M1.2 `smol-toml` 1.8.0 → 1.9.1 (medium, security)
+
+**In progress:** owner direction on 2026-10-16 combines M1.2 and M1.3 in one pull
+request, with independent commits for the security fix and each upgrade group.
+This supersedes the separate-PR instructions only for this batch; test gates remain.
 
 - **Why.** Dependabot alerts 1 and 2: quadratic-time `parse()`. Every committed
   `pyproject.toml` is parsed in `packages/analyzer-py/src/projects.ts`, from untrusted
