@@ -52,6 +52,8 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   - signed values in the cards and the file table.
 
 ### Fixed
+- The overview's History coverage showed the raw code for where the window ends, such
+  as "days". It now says it in words, worded the same as the timeline and the CLI.
 - Failed and cancelled hosted jobs ticked every stage as done, including publishing; they
   now say the run stopped before a result was published
   ([ADR-059](docs/adr/ADR-059-interface-second-pass.md)).

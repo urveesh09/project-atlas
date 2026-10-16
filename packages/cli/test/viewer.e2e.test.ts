@@ -809,6 +809,9 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     expect(summary).toContain('12 mainline commits');
     expect(summary).toContain('12 analyzed snapshots');
     expect(summary).toContain('first commit');
+    // The overview names the same boundary in words, never the raw code.
+    const windowFact = page.locator('.facts > div', { has: page.locator('dt', { hasText: /^Window$/ }) }).locator('dd');
+    await expect.poll(() => windowFact.innerText()).toBe('reaches the first commit');
     const help = await page.locator('.timeline-help').innerText();
     expect(help).toContain('sampled');
     expect(help).toContain('one fixed plot');

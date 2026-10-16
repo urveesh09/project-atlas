@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { hotspotFactors } from '@atlas/graph';
-import { codeLabels } from '@atlas/schema';
+import { HISTORY_BOUNDARY_TEXT, codeLabels } from '@atlas/schema';
 import { useViewer } from '../app/context';
 import { formatNumber, shortOid } from '../app/model';
 import { FindingCard } from './Inspector';
@@ -130,7 +130,7 @@ export function Overview() {
         <dl className="facts">
           <div><dt>Status</dt><dd>{h.status}</dd></div>
           <div><dt>Mainline commits</dt><dd>{formatNumber(h.commitsTraversed)} (requested ≤ {h.requestedCommitCap} within {h.requestedDays} days)</dd></div>
-          <div><dt>Window ends</dt><dd>{h.boundary}</dd></div>
+          <div><dt>Window</dt><dd>{HISTORY_BOUNDARY_TEXT[h.boundary]}</dd></div>
           <div><dt>Snapshots</dt><dd>{h.framesCompleted} of {h.framesRequested} analyzed</dd></div>
           <div><dt>Renames</dt><dd>{h.renameDetection}</dd></div>
           <div><dt>Line counts</dt><dd>{h.lineDiffs}</dd></div>

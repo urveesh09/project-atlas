@@ -3,7 +3,7 @@ import path from 'node:path';
 import { AnalysisError, OptionsError, analyzeCommit, type HistorySummary, type ProgressEvent } from '@atlas/analyzer-core';
 import { ArtifactWriteError, gzipDeterministic, openArtifactDirectory, packArtifact, writeArtifactDirectory } from '@atlas/artifact/node';
 import { IngestError, gitVersion, openLocalRepository, readCommit, resolveLocalCommit } from '@atlas/ingest';
-import { repoBasename } from '@atlas/schema';
+import { HISTORY_BOUNDARY_TEXT, repoBasename } from '@atlas/schema';
 import { EXIT, UsageError, type CommandContext } from '../context.js';
 import { REPOSITORY_ID_FILE, identityFromUuid, newIdentity, readIdentity, type RepositoryIdentity } from '../repository-id.js';
 import { check, formatBytes, formatCount, formatDuration, plural } from '../ui/format.js';
@@ -161,15 +161,6 @@ export async function analyze(ctx: CommandContext, args: AnalyzeArgs): Promise<n
   }
 }
 
-const BOUNDARY_TEXT: Record<HistorySummary['boundary'], string> = {
-  root: 'reaches the first commit',
-  days: 'bounded by the day window',
-  'commit-cap': 'bounded by the commit cap',
-  shallow: 'stops at a shallow-clone boundary',
-  'resource-cap': 'stopped by a resource limit',
-  none: 'no window',
-};
-
 /** One line describing the analyzed mainline window (plan §3.2: limitations visible). */
 function historyLine(s: CommandContext['err'], h: HistorySummary): string {
   const label = s.fg(PALETTE.muted, 'history'.padEnd(10));
@@ -177,7 +168,7 @@ function historyLine(s: CommandContext['err'], h: HistorySummary): string {
   const days = h.window.oldestTime ? Math.round((Date.parse(h.window.newestTime) - Date.parse(h.window.oldestTime)) / 86_400_000) : 0;
   const span = h.window.oldestTime ? `${h.window.oldestTime.slice(0, 10)} → ${h.window.newestTime.slice(0, 10)}` : '';
   const frames = h.frames.completed === h.frames.requested ? plural(h.frames.completed, 'frame') : `${h.frames.completed}/${h.frames.requested} frames`;
-  return `  ${label}${s.bold(plural(h.commits, 'mainline commit'))} ${s.dim(`· ${plural(days, 'day')} (${span}) · ${frames} · ${plural(h.renames, 'rename')} · ${BOUNDARY_TEXT[h.boundary]}`)}`;
+  return `  ${label}${s.bold(plural(h.commits, 'mainline commit'))} ${s.dim(`· ${plural(days, 'day')} (${span}) · ${frames} · ${plural(h.renames, 'rename')} · ${HISTORY_BOUNDARY_TEXT[h.boundary]}`)}`;
 }
 
 function describeHistoryReason(h: HistorySummary): string {
