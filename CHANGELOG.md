@@ -6,6 +6,12 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 
 ## [Unreleased]
 
+### Security
+- Upgrade the supported Node.js runtime and both container bases to 24.22.0
+  ([ADR-061](docs/adr/ADR-061-dependency-currency-october-2026.md)). `atlas doctor`
+  warns on older 24.x releases without preventing diagnosis. Analysis semantics and
+  the pinned built-in module list remain unchanged.
+
 ### Added
 - Python analysis ([ADR-060](docs/adr/ADR-060-python-integration.md)):
   - `.py` and `.pyi` files are parsed, resolved, measured and checked like TS/JS;

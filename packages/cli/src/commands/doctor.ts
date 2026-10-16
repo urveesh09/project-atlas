@@ -15,11 +15,12 @@ import { PALETTE } from '../ui/style.js';
 interface Check {
   id: string;
   label: string;
-  status: 'ok' | 'fail' | 'info';
+  status: 'ok' | 'fail' | 'warn' | 'info';
   detail: string;
 }
 
 const MIN_GIT: [number, number] = [2, 38];
+const MIN_NODE: [number, number] = [24, 22];
 
 function compareVersion(version: string, min: [number, number]): boolean {
   const [major = 0, minor = 0] = version.split('.').map((p) => Number.parseInt(p, 10));
@@ -30,7 +31,11 @@ export async function doctor(ctx: CommandContext): Promise<number> {
   const checks: Check[] = [];
   const node = process.versions.node;
   const [nodeMajor = 0] = node.split('.').map(Number);
-  checks.push({ id: 'node', label: 'Node.js', status: nodeMajor === 24 ? 'ok' : 'fail', detail: `${node}${nodeMajor === 24 ? '' : '  (requires 24.x)'}` });
+  const nodeStatus = nodeMajor !== MIN_NODE[0] ? 'fail' : compareVersion(node, MIN_NODE) ? 'ok' : 'warn';
+  const minimumNode = `${MIN_NODE.join('.')}.0`;
+  const nodeAdvice = nodeStatus === 'fail' ? `  (requires 24.x; minimum ${minimumNode})`
+    : nodeStatus === 'warn' ? `  (upgrade to ${minimumNode} or newer 24.x for security fixes)` : '';
+  checks.push({ id: 'node', label: 'Node.js', status: nodeStatus, detail: `${node}${nodeAdvice}` });
 
   let git: string | null = null;
   try {
@@ -71,6 +76,7 @@ export async function doctor(ctx: CommandContext): Promise<number> {
   checks.push({ id: 'contracts', label: 'Contracts', status: 'info', detail: `${ARTIFACT_VERSION} · ${GRAPH_SCHEMA_VERSION}` });
 
   const failed = checks.filter((c) => c.status === 'fail').length;
+  const warnings = checks.filter((c) => c.status === 'warn').length;
   if (ctx.json) {
     ctx.print(JSON.stringify({ tool: 'atlas', version: ANALYZER_VERSION, ok: failed === 0, checks }, null, 2));
     return failed === 0 ? EXIT.ok : EXIT.failure;
@@ -79,9 +85,12 @@ export async function doctor(ctx: CommandContext): Promise<number> {
   ctx.print();
   ctx.print(`  ${s.fg(PALETTE.brand, s.unicode ? '◆' : '*')} ${s.bold('ATLAS')} ${s.dim(`${ANALYZER_VERSION} · doctor`)}`);
   ctx.print();
-  for (const c of checks) ctx.print(`  ${check(s, c.status === 'info' ? 'info' : c.status === 'ok')} ${s.fg(PALETTE.muted, c.label.padEnd(11))}${c.detail}`);
+  for (const c of checks) ctx.print(`  ${check(s, c.status === 'info' || c.status === 'warn' ? c.status : c.status === 'ok')} ${s.fg(PALETTE.muted, c.label.padEnd(11))}${c.detail}`);
   ctx.print();
-  ctx.print(failed === 0 ? `  ${s.fg(PALETTE.ok, 'Ready.')} ${s.dim('Try: atlas analyze . --out ./atlas-output')}` : `  ${s.fg(PALETTE.error, `${failed} check${failed === 1 ? '' : 's'} failed.`)}`);
+  ctx.print(failed === 0 ? warnings > 0
+    ? `  ${s.fg(PALETTE.warn, `Ready with ${warnings} warning${warnings === 1 ? '' : 's'}.`)} ${s.dim('Upgrade Node.js before analysis.')}`
+    : `  ${s.fg(PALETTE.ok, 'Ready.')} ${s.dim('Try: atlas analyze . --out ./atlas-output')}`
+    : `  ${s.fg(PALETTE.error, `${failed} check${failed === 1 ? '' : 's'} failed.`)}`);
   ctx.print();
   return failed === 0 ? EXIT.ok : EXIT.failure;
 }

@@ -23,7 +23,7 @@ deployed (section 6, R6-06).
 
 ## 1. One-time setup (about 15 minutes)
 
-1. Install **Node.js 24.15.0**: <https://nodejs.org/en/download> (choose v24.15.0). Check
+1. Install **Node.js 24.22.0**: <https://nodejs.org/en/download> (choose v24.22.0). Check
    with `node --version`.
 2. Install **pnpm 10.34.6**: `npm install -g pnpm@10.34.6`. Check with `pnpm --version`.
 3. Install **Git 2.38 or newer**: <https://git-scm.com/download/win>. Check with `git --version`.

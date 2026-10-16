@@ -109,7 +109,7 @@ for (const file of ['docs/contracts/cli.md', 'docs/contracts/capabilities.md', '
 }
 await writeFile(path.join(bundle, 'README.md'), [
   '# ATLAS CLI distribution candidate', '',
-  `Prerequisites: Node 24.15.x and Git >= 2.38 on PATH. No package manager or dependency install is needed after extraction. This candidate is not a signed-off V0.1 release; see the [repository release audit](${sourceUrl}docs/release/release-audit.md).`, '',
+  `Prerequisites: Node 24.22.0 or newer 24.x and Git >= 2.38 on PATH. No package manager or dependency install is needed after extraction. This candidate is not a signed-off V0.1 release; see the [repository release audit](${sourceUrl}docs/release/release-audit.md).`, '',
   '```sh', 'node bin/atlas.js doctor', 'node bin/atlas.js analyze /path/to/repository --out /path/to/artifact', 'node bin/atlas.js verify /path/to/artifact', 'node bin/atlas.js serve /path/to/artifact --repo /path/to/repository --no-open', '```', '',
   'Committed data only; local commands never upload or fetch. To analyze another historical commit, pass --ref <sha>. To skip history, pass --no-history. Exit 0 = complete, 2 = useful partial, 1 = failure, 64 = usage error, 130 = cancelled.', '',
   'Exported artifacts reveal relative paths, declaration/package names, metrics and commit IDs even though source is omitted. Share them explicitly. Runtime tracing is deferred. Third-party licenses are under third-party/.', '',

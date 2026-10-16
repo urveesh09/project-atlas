@@ -5,8 +5,8 @@
 #   docker build -f deploy/sandbox.Dockerfile -t atlas-sandbox:dev .
 #   docker image inspect atlas-sandbox:dev --format '{{.Id}}'
 
-# node:24.15.0-trixie-slim (Debian 13), pinned by digest.
-ARG NODE_IMAGE=node@sha256:291be77873bc04731968cacf82f0fcef17cee8cf200c6b6951e2bcab41560eb7
+# node:24.22.0-trixie-slim (Debian 13), pinned by digest.
+ARG NODE_IMAGE=node@sha256:7f486cabe892bff8fef04c0f7da8dba84a560be3e4e2740b7a86afc57ebec315
 
 FROM ${NODE_IMAGE} AS build
 RUN corepack enable && corepack prepare pnpm@10.34.6 --activate
