@@ -200,6 +200,17 @@ status; they are development images, not a release selection. The final clean-co
 spike and combined CI are required before handoff. No missing physical or human
 gate is treated as passed.
 
+### Final local batch evidence
+
+The clean `071aaab` implementation commit repeats the full 20-batch spike at all
+three sizes: p95 17.8 ms, two draw calls each, 271/271 picks, both HTML fallbacks,
+and no recorded scenario/picking errors. The
+[report](../benchmarks/production-viewer-patches.md) retains both clean checkpoints
+and hardware/method limits. Historical Phase 0 and release-candidate reports/images
+remain untouched. All four implementation commits had `pnpm verify` pass before
+commit; this final evidence-only commit records the subsequent clean run.
+Required combined CI and owner merge remain pending. M1.4/M1.5 and P1/G6 are open.
+
 Sources: [Vitest 5.0.5](https://github.com/vitest-dev/vitest/releases/tag/v5.0.5),
 [Playwright 1.64.1](https://github.com/microsoft/playwright/releases/tag/v1.64.1),
 [axe 4.14.0](https://github.com/dequelabs/axe-core-npm/releases/tag/v4.14.0).

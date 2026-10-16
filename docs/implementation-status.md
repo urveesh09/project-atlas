@@ -1051,8 +1051,12 @@ Chromium installation was verified through the new Playwright package.
   Development image IDs (not release identities): API
   `sha256:7beb80debf952f852bc26d46e2d1cf803d0b3e9a0cacb23325dd25b60ae46ed2`;
   sandbox `sha256:5efeaa38bd4c8ca349902ce20e3d04f3b9111fb0190575bd476fdc42e950231f`.
-- Final clean-commit render evidence follows before PR handoff; required CI and
-  owner merge remain pending. P1 and G6 remain open.
+- Final 20-batch rendering spike on clean `071aaab`: 3k/10k/20k each p95 17.8 ms,
+  two draw calls, 271/271 picks, both fallbacks and no recorded scenario/picking
+  errors ([both clean checkpoint reports](benchmarks/production-viewer-patches.md)).
+  This is development-host spike evidence, not reference-device acceptance.
+- All four implementation commits pass full verification separately. Required
+  combined CI and owner merge remain pending. M1.4/M1.5, P1 and G6 remain open.
 
 ### Reproduce verification
 

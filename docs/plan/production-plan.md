@@ -195,8 +195,9 @@ This supersedes the separate-PR instructions only for this batch; test gates rem
 **Implementation checkpoints, 2026-10-16:** viewer runtime `4f9ad6c`, contracts
 `ae28ce2`; test tooling is the fourth implementation commit in the owner-requested
 combined M1.2/M1.3 PR. Local full-suite, corpus, contract, browser and packaging
-evidence is recorded in ADR-061 and implementation status. Required combined CI,
-final render evidence and owner merge remain pending; P1 also needs M1.4/M1.5.
+evidence is recorded in ADR-061 and implementation status. The clean `071aaab`
+final rendering spike passes with its retained report. Required combined CI and
+owner merge remain pending; P1 also needs M1.4/M1.5.
 
 Do these as three pull requests, so a failure is easy to locate.
 

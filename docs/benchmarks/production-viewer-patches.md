@@ -33,9 +33,23 @@ reflow and accessibility checks.
 
 ## Final tooling checkpoint
 
-The final pinned Playwright/Vitest/axe versions require another clean-commit spike,
-browser installation, both viewer modes and the hosted CI journeys. Record the
-actual results before handing off the combined pull request.
+Repeat `pnpm spike:render` from clean implementation commit `071aaab`, with Vitest
+5.0.5, Playwright 1.64.1 and axe 4.14.0. Chromium installation is verified through
+the new driver; the cached binary remains Chromium 156.0.8078.4. The same hardware,
+viewport and 20 batches per size apply. See the [final raw report](production-test-tooling-render.json).
+
+| Buildings | Draw calls | Frame p50 | Frame p95 | Observed JS heap |
+|---:|---:|---:|---:|---:|
+| 3,000 | 2 | 16.6 ms | 17.8 ms | 9.4 MiB |
+| 10,000 | 2 | 16.6 ms | 17.8 ms | 19.4 MiB |
+| 20,000 | 2 | 16.6 ms | 17.8 ms | 26.2 MiB |
+
+All 271 picks are correct, both fallbacks work, and the recorded scenarios/picking
+have no page errors. Final full verification passes 746 tests (81 service-gated
+skips), with all 39 viewer journeys passing in both normal and software-renderer
+modes using the updated axe audits. All six relocated offline CLI stages pass.
+Both API/sandbox images build and smoke-test with the expected runtime packages.
+The combined PR's hosted and cross-OS jobs remain required before handoff.
 
 ## Visual inspection boundary
 
