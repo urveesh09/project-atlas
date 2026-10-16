@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { PYTHON_GRAMMAR, extractPythonFacts, initPythonParser, pythonGrammarPath, type PythonFacts } from '@atlas/analyzer-py';
+import { LANGUAGE_VERSION, MIN_COMPATIBLE_VERSION } from 'web-tree-sitter';
+import { PYTHON_GRAMMAR, PYTHON_PARSER_VERSION, extractPythonFacts, initPythonParser, pythonGrammarPath, pythonParser, type PythonFacts } from '@atlas/analyzer-py';
 
 beforeAll(async () => {
   await initPythonParser();
@@ -12,6 +13,33 @@ const imports = (f: PythonFacts) => f.imports.map((i) => [i.kind, i.specifier, i
 describe('Python grammar and parse status (ADR-056)', () => {
   it('loads only the vendored grammar with the recorded hash', () => {
     expect(createHash('sha256').update(readFileSync(pythonGrammarPath())).digest('hex')).toBe(PYTHON_GRAMMAR.sha256);
+    const abi = pythonParser().language!.abiVersion;
+    expect(abi).toBe(15);
+    expect(abi).toBeGreaterThanOrEqual(MIN_COMPATIBLE_VERSION);
+    expect(abi).toBeLessThanOrEqual(LANGUAGE_VERSION);
+  });
+
+  it('records the installed runtime accurately in artifact and cache provenance', () => {
+    const installed = JSON.parse(readFileSync(new URL('./package.json', import.meta.resolve('web-tree-sitter')), 'utf8')) as { version: string };
+    expect(PYTHON_GRAMMAR.runtime).toBe(`web-tree-sitter@${installed.version}`);
+    expect(PYTHON_PARSER_VERSION).toBe(`tree-sitter-python@0.25.0+wts@${installed.version}`);
+  });
+
+  it.each([0, 1023, 4095, 8191])('preserves UTF-16 ranges around astral text after %i padding characters', (padding) => {
+    // Runtime 0.27 includes UTF-16 decoding fixes. Exercise pairs near input-buffer
+    // boundaries and at EOF, then verify the actual specifier slice and location.
+    const prefix = `s = "${'x'.repeat(padding)}😀"\n`;
+    const text = `${prefix}import os\ntail = "😀"`;
+    const f = facts(text);
+    expect(f.parseStatus).toBe('parsed');
+    expect(f.parseErrors).toEqual([]);
+    expect(f.imports).toHaveLength(1);
+    expect(f.imports[0]!.range).toEqual({
+      startOffset: prefix.length + 7, endOffset: prefix.length + 9,
+      startLine: 2, startColumn: 8, endLine: 2, endColumn: 10,
+    });
+    expect(text.slice(f.imports[0]!.range.startOffset, f.imports[0]!.range.endOffset)).toBe('os');
+    expect(f.codeLines).toBe(3);
   });
 
   it('parses modern syntax: match, PEP 695, PEP 701 f-strings, except*, async and walrus', () => {

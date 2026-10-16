@@ -10,7 +10,7 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
 2. [docs/implementation-status.md](docs/implementation-status.md): what is done, with evidence.
 3. [docs/release/release-audit.md](docs/release/release-audit.md): requirement → evidence
    trace, and the open acceptance items R6-01…R6-07.
-4. [docs/adr/](docs/adr/): ADR-001…ADR-061. Every non-obvious design choice lives here.
+4. [docs/adr/](docs/adr/): ADR-001…ADR-062. Every non-obvious design choice lives here.
    Check for an ADR before "fixing" something that looks odd.
 5. [docs/plan/production-plan.md](docs/plan/production-plan.md): the path to production,
    with milestones, how to test each kind of change, and the coding standards. Start

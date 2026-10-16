@@ -43,13 +43,14 @@ ADR. It does not cover:
   - The hosted service analyzes public GitHub repositories in offline sandboxes.
 - **Versions.**
   - Packages: `0.1.0-beta.1`.
-  - Analyzer: `0.1.0-dev.6`.
+  - Analyzer: `0.1.0-dev.7` (M1.5 runtime provenance; ADR-062).
   - Graph: `atlas.graph/1.1.0`.
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
-  - ADRs run up to ADR-061; M1 adds sections there. The next new decision is ADR-062.
+  - ADRs run up to ADR-062; M1 adds sections to ADR-061. The next new decision is ADR-063.
 - **Evidence.**
-  - After M1.2's four security regressions, `pnpm verify` runs 746 tests; 81 more
-    skip unless their services are enabled. Per-commit evidence is in the status log.
+  - After M1.5's five parser regressions, `pnpm verify` passes 751 tests; 81 more
+    skip conditionally. The CPython oracle runs in this evidence. Per-commit
+    results are in the status log.
   - The viewer file has 39 browser journeys, and the hosted file 6 PostgreSQL journeys.
   - Four public repositories are pinned and reproduced byte for byte on Windows and Linux:
     is-plain-obj, vuejs/core, vite and pallets/flask.
@@ -216,10 +217,12 @@ Use exact versions everywhere a package appears (`pnpm outdated -r`), and keep
 
 #### M1.4 Images and CI services
 
-**In progress, 2026-10-16:** the official PostgreSQL 17 Alpine index still matches
+**Landed:** [PR #23](https://github.com/urveesh09/project-atlas/pull/23), merged
+2026-10-16 as `4a39f66`. All eight CI jobs and both security jobs pass first attempt
+on `1dea04a`. The official PostgreSQL 17 Alpine index still matches
 the development-stack digest, now pinned in CI too. A fresh APT update across
 trixie, trixie-updates and trixie-security confirms the existing exact Git pin is
-still current. ADR-061 records the check; local and CI verification follow.
+still current. ADR-061 and implementation status record the checks and CI evidence.
 
 - **Sandbox `git` pin.**
   - Before changing anything, check whether `git=1:2.47.3-0+deb13u1` is still the
@@ -234,6 +237,14 @@ still current. ADR-061 records the check; local and CI verification follow.
   files, so add the digest refresh to the monthly checklist in `release-process.md`.
 
 #### M1.5 Python parser runtime: `web-tree-sitter` 0.25.10 → 0.27.1
+
+**In progress, 2026-10-16:** runtime 0.27.1 builds with the unchanged ABI 15 grammar.
+Provenance changes analysis identity, requiring analyzer `0.1.0-dev.7` and deliberate
+baseline/golden updates (ADR-062). The CPython 3.14.5 oracle agrees before and after:
+zero fact mismatches, same three grammar gaps. Main-build comparison finds only
+the declared summary-version transition in all five repositories; fresh four-repo
+corpus, full verification (751 tests) and relocated packaging pass. Required CI and
+owner merge remain; P1/G6 remain open.
 
 - **Why.** Two minor releases behind. The parser runtime processes untrusted input, so it
   should stay current.

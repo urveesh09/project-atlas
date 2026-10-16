@@ -5,8 +5,9 @@ Maintained per plan §20.1. A task is **done** only when its completion evidence
 **Current milestone (2026-10-16):** production-plan M1, platform currency and security.
 M1.1 landed in [PR #20](https://github.com/urveesh09/project-atlas/pull/20);
 M1.2/M1.3 landed together in [PR #22](https://github.com/urveesh09/project-atlas/pull/22),
-with separate implementation commits. M1.4 image/CI pin maintenance is in progress;
-M1.5 remains next. The public demo
+with separate implementation commits. M1.4 landed in
+[PR #23](https://github.com/urveesh09/project-atlas/pull/23); M1.5 parser-runtime
+verification is in progress (analyzer `0.1.0-dev.7`, ADR-062). The public demo
 (<https://urveesh09.github.io/project-atlas/>) is a static viewer on a bundled vuejs/core
 analysis. The packages are `0.1.0-beta.1`. `main` requires a pull request and nine named
 checks (ADR-046). Beta 2 work is recorded at the end of Phase 6 below (ADR-046, ADR-047).
@@ -1090,6 +1091,57 @@ actual quota-reset time. This closes the pending CI/merge notes above, not P1/G6
   journeys; 81 service-gated skips. Typecheck, viewer build, dependency direction
   (15 packages) and contracts (six files) pass. Hosted/cross-OS CI remains pending
   before handoff. M1.5/P1/G6 stay open.
+
+### Production M1.4 merge and CI closure (2026-10-16)
+
+The owner merged [PR #23](https://github.com/urveesh09/project-atlas/pull/23) as
+`4a39f66`. All eight [CI jobs, run 38916019567](https://github.com/urveesh09/project-atlas/actions/runs/38916019567)
+and both [security jobs, run 38916019530](https://github.com/urveesh09/project-atlas/actions/runs/38916019530)
+pass on the first attempt at source `1dea04a`. The hosted image build, physical
+isolation/storage/browser gates and Windows/Linux exact corpus equality pass.
+This closes the pending M1.4 CI note above; P1 still requires M1.5.
+
+### Production M1.5: Python runtime and provenance (2026-10-16)
+
+Runtime 0.27.1 builds with the unchanged, hash-checked Python 0.25.0 grammar. ABI 15
+loads without API changes. Analyzer `0.1.0-dev.7` deliberately changes identities
+because parser provenance is part of graph metadata and analysis/cache keys;
+artifact schema 1.4.0 remains readable. ADR-062 records this decision.
+
+- Before and after oracle: CPython 3.14.5, 1,848 files; 1,841 parsed by both, three
+  only by CPython, zero only by ATLAS, zero fact mismatches. The same known gaps
+  remain: `test_annotationlib.py`, `test_compile.py`, `test_type_params.py`.
+- The first targeted run passes 48 tests and fails only the expected old Harbor
+  hash golden. Its full failure log is retained locally. After comparison against
+  a separately built `4a39f66`, only the four version-derived hashes are refreshed;
+  the focused golden rerun passes.
+- New tests cover installed-runtime provenance, unchanged grammar ABI compatibility
+  and UTF-16 ranges around astral text at several lengths and EOF.
+- Main-build comparison covers Harbor and all four pinned repositories. Each has
+  exactly one reported difference, `summary.analyzerVersion` dev.6 → dev.7; the
+  existing comparator exits 1 for that literal metadata difference. A separate
+  assertion verifies the entire report contains only these five transitions.
+  Graph facts, relationships, findings, metrics, history and layout agree under
+  ADR-060's existing normalization; no comparator rule is changed.
+- Fresh corpus: four repositories × five offline cold repeats, all 28 authored
+  source checks unchanged, every export verified and deterministic. The baseline
+  is regenerated deliberately for dev.7; Vite retains expected partial coverage.
+- Rebuilt sandbox parser smoke passes offline, read-only, uid 10001, dropped
+  capabilities, no-new-privileges, two CPUs and 512 MiB without swap. It reports
+  runtime 0.27.1, ABI 15, one authored import and callable complexity 2. This is not
+  the full hosted Python journey required by M2.3.
+- Full verification: 751 passed, 81 explicitly skipped; the oracle and all 39
+  viewer journeys run and pass. Typecheck, viewer build, dependency direction
+  (15 packages) and contracts (six files) pass.
+- All six relocated CLI stages pass; an additional extracted-archive Python
+  analyze/verify/inspect smoke passes with the independently authored import and
+  complexity. The dirty-tree development archive is 10,491,077 bytes, SHA-256
+  `33914566fc0081776e5dd3280db38eedd39544dc650d565a6a20bcc393f447cf`.
+  Historical distribution reports/images are restored; this is not a release selection.
+- Dependency audit reports zero known advisories; GitHub has no open Dependabot
+  alerts on this date. Required CI follows before handoff.
+  [Detailed evidence and initial failures](benchmarks/production-python-runtime.md).
+  P1/G6 remain open.
 
 ### Reproduce verification
 

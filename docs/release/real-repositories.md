@@ -1,6 +1,6 @@
 # P6.1: pinned real-repository validation
 
-Recorded 2026-10-16T03:36:18.556Z; analyzer 0.1.0-dev.6, 5 cold repeats per repository.
+Recorded 2026-10-16T14:46:13.091Z; analyzer 0.1.0-dev.7, 5 cold repeats per repository.
 
 Unfiltered depth-201 acquisition capped at 256 MiB; offline SafeGit reads; cold parser facts per repeat; canonical and compressed chunk hashes include every frame. Envelope IDs/time excluded. Authored examples check facts, repeat hashes check determinism only. Timings are corpus observations, not the synthetic capacity gate.
 
@@ -19,7 +19,7 @@ Resolution follows TypeScript compiler lookup, including declaration-file substi
 
 ### sindresorhus/is-plain-obj
 
-Canonical/wire chunk digest: `94c26f32550f95da93fedb3b60307625b1b4046ba638e3ccd678df597afd5d9c`. All 5 repeats and exported streaming validation passed.
+Canonical/wire chunk digest: `d257619b114670aa56462e7647842ab3c2fa72474861e1f0e43c0b0e160c6851`. All 5 repeats and exported streaming validation passed.
 
 - `index.js`: source, javascript, parsed.
 - `index.d.ts`: declaration, typescript, parsed.
@@ -37,7 +37,7 @@ History: complete, 1 commits, 1 frames; boundary days.
 
 ### vuejs/core
 
-Canonical/wire chunk digest: `f960549bf18eea9111402764cbd07b47cb3c9c24607bd64c93d39dafc310fd76`. All 5 repeats and exported streaming validation passed.
+Canonical/wire chunk digest: `51c8e9ec3e18a9de4d15c3696fe1f10510e07dde4b64271a335ebc4b6b56941c`. All 5 repeats and exported streaming validation passed.
 
 - `packages/reactivity/src/ref.ts`: source, typescript, parsed.
 - `packages/reactivity/__tests__/ref.spec.ts`: test, typescript, parsed.
@@ -49,15 +49,15 @@ HEAD parsing: 527 parsed, 0 failed. No parse failures.
 
 Unresolved/unsupported/excluded categories (all counts and representative observations are in the JSON):
 
-- unresolved:LOCAL_TARGET_MISSING: 34; e.g. `packages/reactivity/__benchmarks__/effect.bench.ts` → `../dist/reactivity.esm-browser.prod`, `packages/vue/index.js` → `./dist/vue.cjs.prod.js`, `packages/compiler-dom/index.js` → `./dist/compiler-dom.cjs.prod.js`.
-- unresolved:GENERATED_TARGET_MISSING: 1; e.g. `packages-private/sfc-playground/src/vue-dev-proxy-prod.ts` → `vue/dist/vue.runtime.esm-browser.prod.js`.
+- unresolved:LOCAL_TARGET_MISSING: 34; e.g. `packages/runtime-core/index.js` → `./dist/runtime-core.cjs.js`, `packages-private/sfc-playground/src/download/download.ts` → `./template/index.html?raw`, `packages/vue-compat/index.js` → `./dist/vue.cjs.prod.js`.
 - unsupported:NONLITERAL_DYNAMIC_IMPORT: 1; e.g. `scripts/size-report.js` → `(nonliteral)`.
+- unresolved:GENERATED_TARGET_MISSING: 1; e.g. `packages-private/sfc-playground/src/vue-dev-proxy-prod.ts` → `vue/dist/vue.runtime.esm-browser.prod.js`.
 
 History: complete, 119 commits, 12 frames; boundary days.
 
 ### vitejs/vite
 
-Canonical/wire chunk digest: `604eb3285f0c5c5880eecf26119cbfc48c674062e458445de521679baec3671d`. All 5 repeats and exported streaming validation passed.
+Canonical/wire chunk digest: `7568a6149521728125ebab6114f91f4b5bd38b6fee4219a6bd21b8211a6d79d2`. All 5 repeats and exported streaming validation passed.
 
 - `packages/vite/src/node/index.ts`: source, typescript, parsed.
 - `playground/alias/vite.config.js`: config, javascript, parsed.
@@ -66,27 +66,27 @@ Canonical/wire chunk digest: `604eb3285f0c5c5880eecf26119cbfc48c674062e458445de5
 - `playground/alias/vite.config.js` → `node:path` (imports-value): builtin → `path`.
 - `packages/vite/src/node/index.ts` → `rolldown` (imports-type): resolved-external → `rolldown`.
 
-HEAD parsing: 1593 parsed, 2 failed. Failed paths: `packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.ts`, `packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.js`.
+HEAD parsing: 1593 parsed, 2 failed. Failed paths: `packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.js`, `packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.ts`.
 
 Unresolved/unsupported/excluded categories (all counts and representative observations are in the JSON):
 
-- unresolved:GENERATED_TARGET_MISSING: 198; e.g. `playground/ssr-wasm/server.js` → `vite`, `playground/ssr-conditions/server.js` → `vite`, `playground/assets/vite.config-runtime-base.js` → `vite`.
-- unsupported:IMPORT_META_GLOB_UNSUPPORTED: 50; e.g. `playground/glob-import/root/escape/[brackets]/glob.js` → `(nonliteral)`, `playground/glob-import/root/dir/index.js` → `(nonliteral)`, `packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/index.ts` → `(nonliteral)`.
-- unresolved:LOCAL_TARGET_MISSING: 55; e.g. `playground/ssr-wasm/src/static-light.js` → `./light.wasm?init`, `packages/vite/src/node/ssr/__tests__/fixtures/modules/has-invalid-import.js` → `./non-existent.js`, `playground/ssr-wasm/src/static-heavy.js` → `./heavy.wasm?init`.
-- unsupported:NONLITERAL_DYNAMIC_IMPORT: 57; e.g. `playground/ssr-webworker/__tests__/serve.ts` → `(nonliteral)`, `playground/dynamic-import/nested/index.js` → `(nonliteral)`, `packages/vite/src/node/ssr/runtime/__tests__/fixtures/dynamic-import.js` → `(nonliteral)`.
-- unsupported:URL_IMPORT_UNSUPPORTED: 14; e.g. `playground/hmr/virtual-invalidation/parent.js` → `virtual:invalidation-file`, `playground/dynamic-import/nested/index.js` → `https://localhost`, `playground/assets/asset/main.js` → `virtual:emitted-worker-url`.
-- unresolved:PACKAGE_EXPORT_UNSUPPORTED: 6; e.g. `playground/css/main.js` → `#alias?inline`, `playground/ssr-deps/src/app.js` → `@vitejs/test-pkg-exports/virtual`, `packages/vite/src/node/ssr/runtime/__tests__/fixtures/invalid-package/test.js` → `test-dep-invalid-exports`.
-- unsupported:REQUIRE_RESOLVE_UNSUPPORTED: 2; e.g. `playground/json/__tests__/csr/json-csr.spec.ts` → `(nonliteral)`, `playground/css/__tests__/tests.ts` → `(nonliteral)`.
-- unresolved:AMBIGUOUS_WORKSPACE_PACKAGE: 3; e.g. `playground/ssr-deps/nested-exclude/index.js` → `@vitejs/test-nested-include`, `playground/optimize-deps/nested-exclude/index.js` → `@vitejs/test-nested-include`, `playground/ssr-deps/src/app.js` → `@vitejs/test-nested-exclude`.
-- excluded-target:TARGET_EXCLUDED: 3; e.g. `playground/ssr-wasm/src/direct-light.js` → `./light-with-imports.wasm`, `playground/ssr-wasm/src/direct-add.js` → `./add.wasm`, `playground/ssr-wasm/src/direct-light.js` → `./imports.js`.
+- unresolved:GENERATED_TARGET_MISSING: 198; e.g. `playground/lib/vite.multiple-output.config.js` → `vite`, `playground/ssr-conditions/server.js` → `vite`, `packages/create-vite/template-react-ts/vite.config.ts` → `vite`.
+- unsupported:NONLITERAL_DYNAMIC_IMPORT: 57; e.g. `packages/vite/src/node/ssr/runtime/__tests__/fixtures/dynamic-import.js` → `(nonliteral)`, `packages/vite/src/node/plugins/terser.ts` → `(nonliteral)`, `packages/vite/src/node/ssr/runtime/__tests__/fixtures/dynamic-import.js` → `(nonliteral)`.
+- unresolved:LOCAL_TARGET_MISSING: 55; e.g. `packages/vite/src/node/__tests__/fixtures/config/native-compat/json-extensionless/vite.config.js` → `./foo`, `playground/legacy/main.js` → `./worker?worker`, `playground/css/main.js` → `./charset.css?inline`.
+- unsupported:IMPORT_META_GLOB_UNSUPPORTED: 50; e.g. `playground/glob-import/root/escape/(parenthesis)/glob.js` → `(nonliteral)`, `packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/index.ts` → `(nonliteral)`, `playground/css/main.js` → `(nonliteral)`.
+- unsupported:URL_IMPORT_UNSUPPORTED: 14; e.g. `playground/dynamic-import/nested/index.js` → `https://localhost`, `packages/vite/src/node/ssr/runtime/__tests__/fixtures/virtual.js` → `virtual0:test`, `playground/transform-plugin/index.js` → `virtual:/bar.json`.
 - unresolved:ALIAS_UNSUPPORTED: 1; e.g. `playground/resolve-tsconfig-paths/__tests__/resolve.spec.ts` → `~utils`.
+- excluded-target:TARGET_EXCLUDED: 3; e.g. `playground/ssr-wasm/src/direct-add.js` → `./add.wasm`, `playground/ssr-wasm/src/direct-light.js` → `./light-with-imports.wasm`, `playground/ssr-wasm/src/direct-light.js` → `./imports.js`.
+- unresolved:PACKAGE_EXPORT_UNSUPPORTED: 6; e.g. `playground/css/main.js` → `#alias`, `playground/css/main.js` → `#alias-module`, `playground/ssr-deps/src/app.js` → `@vitejs/test-pkg-exports/virtual`.
+- unsupported:REQUIRE_RESOLVE_UNSUPPORTED: 2; e.g. `playground/css/__tests__/tests.ts` → `(nonliteral)`, `playground/json/__tests__/csr/json-csr.spec.ts` → `(nonliteral)`.
+- unresolved:AMBIGUOUS_WORKSPACE_PACKAGE: 3; e.g. `playground/optimize-deps/nested-exclude/index.js` → `@vitejs/test-nested-include`, `playground/ssr-deps/nested-exclude/index.js` → `@vitejs/test-nested-include`, `playground/ssr-deps/src/app.js` → `@vitejs/test-nested-exclude`.
 - unsupported:NONLITERAL_REQUIRE: 1; e.g. `playground/ssr-deps/require-absolute/index.js` → `(nonliteral)`.
 
 History: complete, 200 commits, 12 frames; boundary commit-cap.
 
 ### pallets/flask
 
-Canonical/wire chunk digest: `1f005e46f73bf3131d7967b2f293af244c36c9319d116bd98c5d48398ff83d7e`. All 5 repeats and exported streaming validation passed.
+Canonical/wire chunk digest: `9e4bf98d5e11c187551170c3dc7220ff31a64fa2c8ada6c8695c571dd6b6c7c9`. All 5 repeats and exported streaming validation passed.
 
 - `src/flask/app.py`: source, python, parsed.
 - `src/flask/json/__init__.py`: source, python, parsed.
@@ -105,7 +105,7 @@ HEAD parsing: 83 parsed, 0 failed. No parse failures.
 
 Unresolved/unsupported/excluded categories (all counts and representative observations are in the JSON):
 
-- unsupported:NONLITERAL_DYNAMIC_IMPORT: 2; e.g. `src/flask/helpers.py` → `(nonliteral)`, `src/flask/cli.py` → `(nonliteral)`.
+- unsupported:NONLITERAL_DYNAMIC_IMPORT: 2; e.g. `src/flask/cli.py` → `(nonliteral)`, `src/flask/helpers.py` → `(nonliteral)`.
 
 History: complete, 13 commits, 12 frames; boundary days.
 

@@ -4,6 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Language, Parser } from 'web-tree-sitter';
 
+const PYTHON_RUNTIME_VERSION = '0.27.1';
+
 /**
  * The Python grammar (ADR-056): tree-sitter-python 0.25.0, prebuilt to WebAssembly and
  * vendored with its hash, run by web-tree-sitter. Nothing here touches analyzed files: the
@@ -13,11 +15,11 @@ export const PYTHON_GRAMMAR = {
   name: 'tree-sitter-python',
   version: '0.25.0',
   sha256: '16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47',
-  runtime: 'web-tree-sitter@0.25.10',
+  runtime: `web-tree-sitter@${PYTHON_RUNTIME_VERSION}`,
 } as const;
 
 /** Recorded in artifacts and fact-cache keys, like the TypeScript parser version. */
-export const PYTHON_PARSER_VERSION = `${PYTHON_GRAMMAR.name}@${PYTHON_GRAMMAR.version}+wts@0.25.10`;
+export const PYTHON_PARSER_VERSION = `${PYTHON_GRAMMAR.name}@${PYTHON_GRAMMAR.version}+wts@${PYTHON_RUNTIME_VERSION}`;
 
 /** The grammar file, found next to `src/` or `dist/` in the package. */
 export function pythonGrammarPath(): string {
