@@ -165,9 +165,13 @@ repository payloads remain byte-identical. Details are in ADR-061 and the status
 
 #### M1.2 `smol-toml` 1.8.0 → 1.9.1 (medium, security)
 
-**In progress:** owner direction on 2026-10-16 combines M1.2 and M1.3 in one pull
-request, with independent commits for the security fix and each upgrade group.
-This supersedes the separate-PR instructions only for this batch; test gates remain.
+**Landed:** [PR #22](https://github.com/urveesh09/project-atlas/pull/22), merged
+2026-10-16 as `42369b5`. Owner direction combined M1.2 and M1.3 in one pull request,
+with independent commits for the security fix and each upgrade group. All eight CI
+jobs and both security jobs pass on `9983155`. The first live acquisition job hit
+anonymous API rate limits; only that failed job was rerun after waiting. Details
+and both attempts are retained in implementation status. The separate-PR exception
+applied only to that batch; test gates remain.
 
 - **Why.** Dependabot alerts 1 and 2: quadratic-time `parse()`. Every committed
   `pyproject.toml` is parsed in `packages/analyzer-py/src/projects.ts`, from untrusted
@@ -196,8 +200,8 @@ This supersedes the separate-PR instructions only for this batch; test gates rem
 `ae28ce2`; test tooling is the fourth implementation commit in the owner-requested
 combined M1.2/M1.3 PR. Local full-suite, corpus, contract, browser and packaging
 evidence is recorded in ADR-061 and implementation status. The clean `071aaab`
-final rendering spike passes with its retained report. Required combined CI and
-owner merge remain pending; P1 also needs M1.4/M1.5.
+final rendering spike passes with its retained report. The batch landed in PR #22
+with the CI/security evidence above; P1 still needs M1.4/M1.5.
 
 Do these as three pull requests, so a failure is easy to locate.
 
@@ -211,6 +215,11 @@ Use exact versions everywhere a package appears (`pnpm outdated -r`), and keep
 `toolchain.md` in step.
 
 #### M1.4 Images and CI services
+
+**In progress, 2026-10-16:** the official PostgreSQL 17 Alpine index still matches
+the development-stack digest, now pinned in CI too. A fresh APT update across
+trixie, trixie-updates and trixie-security confirms the existing exact Git pin is
+still current. ADR-061 records the check; local and CI verification follow.
 
 - **Sandbox `git` pin.**
   - Before changing anything, check whether `git=1:2.47.3-0+deb13u1` is still the

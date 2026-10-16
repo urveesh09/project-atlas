@@ -214,3 +214,34 @@ Required combined CI and owner merge remain pending. M1.4/M1.5 and P1/G6 are ope
 Sources: [Vitest 5.0.5](https://github.com/vitest-dev/vitest/releases/tag/v5.0.5),
 [Playwright 1.64.1](https://github.com/microsoft/playwright/releases/tag/v1.64.1),
 [axe 4.14.0](https://github.com/dequelabs/axe-core-npm/releases/tag/v4.14.0).
+
+## M1.4: image and CI service pins (2026-10-16)
+
+### Evidence and decision
+
+- A fresh `apt-get update` in the pinned Node 24.22.0 trixie image includes
+  `trixie`, `trixie-updates` and `trixie-security`. `apt-cache policy git` still
+  reports candidate `1:2.47.3-0+deb13u1` from trixie/main; no newer security-suite
+  candidate is offered. Retain that exact sandbox package pin. The sandbox image
+  itself reports the same installed package, Git 2.47.3, Node 24.22.0 and uid 10001.
+- The official `postgres:17-alpine` multi-architecture index, resolved with
+  `docker buildx imagetools inspect` on this date, is
+  `sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24`.
+  It already matches `deploy/compose.yaml`. Pin CI to this index too; the tested
+  Linux/amd64 container reports PostgreSQL 17.11 on Alpine. Do not rename CI jobs.
+- Add monthly checks to the release process because Docker Dependabot watches
+  `/deploy`, not workflow image references. Superseded Git pins require a reviewed
+  exact-pin update and container gates, rather than removing the constraint.
+- No Dockerfile, analyzer, artifact, lockfile, generated contract or version changes
+  are needed. Image currency is dated evidence, not an image vulnerability audit.
+
+### Verification
+
+All five workflows pass actionlint 1.7.7, run offline with its immutable image
+`sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9`.
+A fresh disposable PostgreSQL container on the exact index becomes healthy and
+passes 28 database/control/API tests; two S3-dependent cases skip explicitly.
+Full `pnpm verify` passes on Node 24.22.0: 746 tests pass, including all 39 viewer
+journeys, with 81 service-gated skips. Typecheck, viewer build, dependency direction
+(15 packages) and contract checks (six files) pass. Required CI follows before
+handoff; no G6 item is closed.

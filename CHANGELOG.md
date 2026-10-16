@@ -6,6 +6,11 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 
 ## [Unreleased]
 
+### Maintenance
+- Pin CI's PostgreSQL service to the reviewed multi-architecture digest already
+  used by the development stack. Document monthly workflow-image and exact Git
+  package checks, including Debian's security suite (production plan M1.4).
+
 ### Security
 - Upgrade `smol-toml` to 1.9.1 to fix quadratic work on untrusted Python manifests
   (GHSA-r4xh-jqrq-34v2). A regression exercises the complete 1 MiB admitted document

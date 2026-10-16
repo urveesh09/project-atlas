@@ -3,8 +3,10 @@
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
 **Current milestone (2026-10-16):** production-plan M1, platform currency and security.
-M1.1 landed in [PR #20](https://github.com/urveesh09/project-atlas/pull/20); the owner
-requested M1.2 and M1.3 together in one PR, with separate commits. The public demo
+M1.1 landed in [PR #20](https://github.com/urveesh09/project-atlas/pull/20);
+M1.2/M1.3 landed together in [PR #22](https://github.com/urveesh09/project-atlas/pull/22),
+with separate implementation commits. M1.4 image/CI pin maintenance is in progress;
+M1.5 remains next. The public demo
 (<https://urveesh09.github.io/project-atlas/>) is a static viewer on a bundled vuejs/core
 analysis. The packages are `0.1.0-beta.1`. `main` requires a pull request and nine named
 checks (ADR-046). Beta 2 work is recorded at the end of Phase 6 below (ADR-046, ADR-047).
@@ -1057,6 +1059,37 @@ Chromium installation was verified through the new Playwright package.
   This is development-host spike evidence, not reference-device acceptance.
 - All four implementation commits pass full verification separately. Required
   combined CI and owner merge remain pending. M1.4/M1.5, P1 and G6 remain open.
+
+### Production M1.2/M1.3 merge and CI closure (2026-10-16)
+
+The owner merged [PR #22](https://github.com/urveesh09/project-atlas/pull/22) as
+`42369b5`. All eight CI jobs pass on source head `9983155` in
+[run 38847602763, attempt 2](https://github.com/urveesh09/project-atlas/actions/runs/38847602763/attempts/2);
+both security jobs pass in
+[run 38847602693](https://github.com/urveesh09/project-atlas/actions/runs/38847602693).
+The first live acquisition job failed three live cases with `UPSTREAM_RATE_LIMITED`
+while its 39 offline cases passed. Its log is retained locally. After waiting, only
+that failed job was rerun; no token, test, policy or deadline was changed. The
+reported 60-second retry interval is the client's fallback, not proof of GitHub's
+actual quota-reset time. This closes the pending CI/merge notes above, not P1/G6.
+
+### Production M1.4: images and CI services (2026-10-16)
+
+- Fresh Debian package indexes include trixie-security; the existing exact sandbox
+  Git pin remains the candidate, `1:2.47.3-0+deb13u1`, so no Dockerfile change is needed.
+- CI now uses the same official PostgreSQL 17 Alpine multi-arch digest as compose:
+  `sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24`.
+  Actual PostgreSQL 17.11 starts healthy; 28 database/API checks pass, two
+  S3-dependent checks skip. The temporary container is removed after testing.
+- All five workflows pass pinned actionlint 1.7.7 offline. The existing sandbox
+  image reports the exact Git package and uid 10001 under a read-only root with no
+  network, dropped capabilities and no-new-privileges.
+- Monthly workflow-image and security-suite Git checks are now documented, including
+  what to do when Debian supersedes an exact pin. ADR-061 records the decision.
+- Full local verification passes on Node 24.22.0: 746 tests, including all 39 viewer
+  journeys; 81 service-gated skips. Typecheck, viewer build, dependency direction
+  (15 packages) and contracts (six files) pass. Hosted/cross-OS CI remains pending
+  before handoff. M1.5/P1/G6 stay open.
 
 ### Reproduce verification
 

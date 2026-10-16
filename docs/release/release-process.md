@@ -74,6 +74,23 @@ node scripts/build-demo-site.mjs --artifact .atlas-tmp/release-corpus/vuejs-core
   (docs/toolchain.md).
 - OpenSSF Scorecard publishes a public score weekly.
 
+### Monthly image maintenance
+
+- Resolve the official `postgres:17-alpine` multi-architecture index with
+  `docker buildx imagetools inspect postgres:17-alpine`. Review its version and digest
+  against both `.github/workflows/ci.yml` and `deploy/compose.yaml`; propose changes
+  through a pull request and require the hosted service gates. Dependabot's Docker
+  job watches `/deploy`, not image references inside workflow files.
+- On the exact Node base pinned in `deploy/sandbox.Dockerfile`, run
+  `apt-get update && apt-cache policy git`, including `trixie-security`, and record
+  the date and candidate in the dependency ADR. Keep the Git version exact. A build
+  failure caused by Debian superseding the pinned Git package means **update the
+  pin**, then rebuild the sandbox and pass the hosted container gates; do not remove
+  the version constraint or bypass the security suite.
+
+These checks establish dated package/image currency, not a vulnerability scan or
+production deployment sign-off.
+
 ## Pilot feedback
 
 Pilot users file the **Pilot feedback** issue form. Review the forms weekly and record:

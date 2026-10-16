@@ -20,7 +20,8 @@ jobs:
     timeout-minutes: 40
     services:
       postgres:
-        image: postgres:17-alpine
+        # postgres:17-alpine (17.11), multi-arch index checked 2026-10-16; refresh monthly.
+        image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
         env:
           POSTGRES_PASSWORD: atlas-ci-test
           POSTGRES_DB: atlas_test
