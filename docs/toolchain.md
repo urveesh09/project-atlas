@@ -16,7 +16,7 @@ Recorded 10 October 2026. Rationale lives in [ADR-013](adr/ADR-013-pin-typescrip
 |---|---|---|
 | typescript | 6.0.3 | analyzer parser/resolver; workspace type checking |
 | smol-toml | 1.9.1 | Python project/Pipfile manifests; BSD-3-Clause, no runtime dependencies |
-| web-tree-sitter | 0.25.10 | WASM Python parser runtime; MIT; grammar pinned separately (ADR-056) |
+| web-tree-sitter | 0.27.1 | WASM Python parser runtime; MIT; unchanged grammar pinned separately (ADR-056/062) |
 | zod | 4.6.7 | runtime contracts, JSON Schema/OpenAPI generation |
 | @noble/hashes | 2.4.0 | SHA-256 for IDs and canonical hashes in the browser; Node uses its identical native SHA-256 ([ADR-037](adr/ADR-037-export-hashing-and-structural-proofs.md)) |
 | react / react-dom | 19.3.1 | viewer |
@@ -36,3 +36,4 @@ Recorded 10 October 2026. Rationale lives in [ADR-013](adr/ADR-013-pin-typescrip
 | Windows 11 Pro 10.0.26200, 12 logical CPUs, 16 GiB, Node 24.15.0, Git 2.55.0 | Full local CI green; live acquisition tests green; render spike on NVIDIA GeForce GT 730 (ANGLE D3D11) |
 | Same Windows development host, Node 24.22.0 / pnpm 10.34.6, 2026-10-16 | 742 tests pass (81 service-gated skips), viewer 39/39 in normal and CI modes, four-repository exact-byte corpus, six-stage portable archive smoke; both Linux images build ([ADR-061](adr/ADR-061-dependency-currency-october-2026.md)) |
 | GitHub Actions `ubuntu-latest` and `windows-latest` | Configured in `.github/workflows/ci.yml` |
+| Same Windows host, Node 24.22.0 / pnpm 10.34.6, Python 3.14.5, 2026-10-16 (M1.5) | 751 tests pass, 81 explicit skips; CPython oracle runs with zero mismatches; five-repo main-build comparison has only declared summary-version changes; new five-repeat dev.7 baseline and relocated CLI/Python smoke pass ([ADR-062](adr/ADR-062-python-parser-runtime-and-analysis-identity.md)) |

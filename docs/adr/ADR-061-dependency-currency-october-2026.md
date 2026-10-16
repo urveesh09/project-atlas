@@ -245,3 +245,13 @@ Full `pnpm verify` passes on Node 24.22.0: 746 tests pass, including all 39 view
 journeys, with 81 service-gated skips. Typecheck, viewer build, dependency direction
 (15 packages) and contract checks (six files) pass. Required CI follows before
 handoff; no G6 item is closed.
+
+## M1.5: Python parser runtime (2026-10-16)
+
+Pin `web-tree-sitter` 0.27.1 and retain the hash-checked Python 0.25.0 grammar.
+The existing loading API builds unchanged. Runtime provenance participates in
+analysis identity, so this is deliberately analyzer `0.1.0-dev.7`, with baseline
+and golden updates governed by
+[ADR-062](ADR-062-python-parser-runtime-and-analysis-identity.md).
+That record holds the upstream API/ABI review, semantic comparison and verification;
+past ADR-056/060 runtime and evidence descriptions remain historical records.

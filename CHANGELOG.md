@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Maintenance
+- Upgrade the Python WASM parser runtime to `web-tree-sitter` 0.27.1 with the same
+  hash-checked grammar. Analyzer `0.1.0-dev.7` records the new runtime and invalidates
+  old analysis identities; the artifact schema stays compatible (ADR-062).
 - Pin CI's PostgreSQL service to the reviewed multi-architecture digest already
   used by the development stack. Document monthly workflow-image and exact Git
   package checks, including Debian's security suite (production plan M1.4).
