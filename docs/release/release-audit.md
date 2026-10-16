@@ -1,6 +1,6 @@
 # ATLAS V0.1 release audit
 
-Updated: 2026-10-11. **G6 OPEN — candidate preparation, not release sign-off.**
+Updated: 2026-10-16 (M2.1 documentation/evidence sweep). **G6 OPEN — candidate preparation, not release sign-off.**
 The four pillars are implemented; runtime tracing/instrumentation remains wholly deferred.
 This audit distinguishes implementation/test evidence from human, reference-device and
 public-infrastructure acceptance. The canonical requirements remain the [master plan](../plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md).
@@ -22,17 +22,17 @@ recorded in [implementation status](../implementation-status.md).
 |---|---|---|
 | Four pillars; runtime excluded (§1/3/18) | CLI/analyzer, graph, findings, layout/history, viewer; ADR-012 | Implemented; no runtime components introduced |
 | Committed local acquisition (§5/9/14) | `packages/ingest`; safe Git traps, worktrees, missing objects, acquisition-budget regression; doctor/analyze/serve tests | Implementation tests pass; production Git/image audit remains operator work |
-| Public GitHub ingestion (§5/13) | `apps/api`, `apps/worker`, pinned broker; real PostgreSQL/S3/container/HTTP gates; live acquisition CI | Implemented; actual domain/TLS/firewall deployment pending |
+| Public GitHub ingestion (§5/13) | `apps/api`, `apps/worker`, pinned broker; real PostgreSQL/S3/container/HTTP gates; live acquisition CI | Implemented; full hosted Python journey (M2.3) and actual domain/TLS/firewall deployment pending |
 | Canonical identity/versions (§7/8) | `packages/schema`, `packages/artifact`; independent hash/identity goldens, version readers, malformed chunk/transport/cap tests; generated schema/OpenAPI check | Automated contracts; registry publication not required for candidate |
-| TS/JS static resolution/coverage (§9) | `packages/analyzer-ts/core`; filesystem/network-free resolution test; parser worker timeout/crash/OOM; independent authored Harbor and real corpus | Three pinned repos, 16 independently authored facts; corpus equality does not prove all edges correct |
+| TS/JS and Python static resolution/coverage (§9; ADR-056/057/060) | `packages/analyzer-ts`, `analyzer-py`, `analyzer-core`; TS filesystem/network-free resolution test; isolated parser faults; authored Harbor and pinned real corpus; [Python parser/oracle evidence](../benchmarks/production-python-runtime.md), ADR-062 | Four pinned repos, 28 authored checks including 12 for Flask; CPython facts agree where both parse, with disclosed grammar gaps. Python capacity/mixed fixtures (M2.2), full hosted journey (M2.3) and more corpus shapes (M2.6) remain open; corpus equality does not prove all edges correct |
 | Dependencies/diagnostics (§10) | `packages/graph`, shared catalog/metrics; SCC witness, bounded reach, external/package summaries, independent churn/hotspot math | Automated implementation checks; user interpretation reviewed under P6.3 |
 | Mainline history/lineage (§11) | Authored roots/merges/rename/duplicates/clock-skew fixtures; no future leakage; union invariance/delta/compact round trips | Local and hosted recovery tests; large temporal performance still pending |
-| Deterministic layout (§12) | `packages/layout`, graph/layout invariants, stable plots; cross-OS Harbor golden; real corpus full canonical/wire digests | CI independently compares three-repo Windows/Linux corpus |
+| Deterministic layout (§12) | `packages/layout`, graph/layout invariants, stable plots; cross-OS Harbor golden; real corpus full canonical/wire digests | CI independently compares all four pinned repositories on Windows/Linux |
 | Frontend interactions/equivalents (§3/12/16) | Real browser keyboard, deep-link/tombstone/compare/partial, reduced motion/320px, map/table/fallback, axe tests | Automated journeys; five developers/manual assistive use pending |
 | Cancellation/partial/resource recovery (§13/15/16) | Queue claim/fence/retry; heartbeat/deadline cancellation; checkpoint fallback; disk/OOM/timeout/network/storage faults; no-container/network leak checks | Local/CI isolation gates; production-host recovery requires rehearsal |
 | Publication privacy/lifecycle (§5/13) | Consent/TTL/private storage, per-chunk visibility, management token, expiry/revocation/purge/reconcile tests; operator restore/rollback rehearsal | Seven-day lifecycle implemented; cannot recall already downloaded copies |
-| P6.1 empirical corpus (§17) | [Pins](repository-corpus.json), [report](real-repositories.md), reproducible offline 5-run scripts and source-free exports | Done; five repeats on both OSes, independent comparison and exact original-payload baseline checks pass in CI |
-| HEAD capacity (§15.2/P6.2) | [20-run medium](../benchmarks/phase6-head-capacity.md), [20-run near-limit large](../benchmarks/phase6-large-head-capacity.md) | Development host only; exact reference hardware and exact dense large fixture pending |
+| P6.1 empirical corpus (§17) | [Pins](repository-corpus.json), [report](real-repositories.md), reproducible offline 5-run scripts and source-free exports | Done for the four pinned repositories; five repeats on both OSes, independent comparison and exact current-version baseline checks pass in CI. Additional Python shapes remain M2.6 |
+| HEAD capacity (§15.2/P6.2) | [20-run medium](../benchmarks/phase6-head-capacity.md), [20-run near-limit large](../benchmarks/phase6-large-head-capacity.md) | TS/JS fixtures on development host only; Python/mixed capacity (M2.2), exact reference hardware and exact dense large fixture pending |
 | Historical capacity (§15.2/P6.2) | [20-run medium history](../benchmarks/phase4-history.md), [viewer history/heap](../benchmarks/phase4-history-viewer.md), [20-run large history under 4 CPU/2 GiB](../benchmarks/phase6-large-history-container.md) | Large 12-frame passes: p95 202.37 s ≤ 240 s, peak 1.79 GiB, no OOM (dev host with enforced limits, [ADR-037](../adr/ADR-037-export-hashing-and-structural-proofs.md)); reference machine and exact 20,000-union fixture pending |
 | Render/search/response/heap (§15.2) | Phase 3 city/profile reports; selected-edge/draw-call/heap gates; CI software rendering | Exact integrated-GPU Chromium/Firefox, 10 Mbps/100 ms RTT and first-use acceptance pending |
 | P6.3 task/assistive review (§1.5/17) | [Uncoached task cards and manual results template](manual-review.md) | Pending ≥5 developers, ≥4 successes/task, keyboard fallback and two assistive platforms |
@@ -43,7 +43,7 @@ recorded in [implementation status](../implementation-status.md).
 
 | ID | Owner needed | Required evidence / acceptance | Gate impact |
 |---|---|---|---|
-| R6-01 | Performance reviewer/operator | Recorded four-core/2 GiB job host + SSD; 20-run medium/large HEAD and 12-frame history incl. exact dense/union fixtures; unchanged 15/60/90/240 s targets; sizes/omissions/peaks/leaks | P6.2 open |
+| R6-01 | Performance reviewer/operator | Recorded four-core/2 GiB job host + SSD; 20-run medium/large HEAD and 12-frame history incl. exact dense/union fixtures; Python/mixed capacity from M2.2; unchanged 15/60/90/240 s targets; sizes/omissions/peaks/leaks | P6.2 open |
 | R6-02 | Device reviewer | Recorded integrated-GPU/8 GiB/1920×1080/DPR≤1.5 Chromium and Firefox; 20 interaction samples, camera/search/first-use/network/draw/combined heap and long-task profiles | P6.2 open; prior cold-load costs require investigation |
 | R6-03 | Product reviewer + five developers | Complete [manual task protocol](manual-review.md), retain initial/follow-up failures and ≥4/5 successes each; coverage interpretation | P6.3 open |
 | R6-04 | Accessibility reviewers | NVDA/Windows plus second assistive platform, no-canvas equivalents, focus/zoom/motion/announcement/recovery evidence | P6.3 open |
@@ -99,7 +99,7 @@ all remaining work as human or infrastructure acceptance.
 
 ## Release identity and approval record
 
-Candidate internal package version: `0.1.0-dev`; analyzer: `0.1.0-dev.7` (runtime
+Current package version: `0.1.0-beta.1`; analyzer: `0.1.0-dev.7` (runtime
 provenance update, [ADR-062](../adr/ADR-062-python-parser-runtime-and-analysis-identity.md)); artifact:
 `atlas.artifact/1.4.0`; layout: 1.1. Distribution manifests record exact source HEAD,
 working-tree state, lockfile hash and per-file digest; smoke reports bind archive bytes.

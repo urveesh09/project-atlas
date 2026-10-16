@@ -2,12 +2,17 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-16):** production-plan M1, platform currency and security.
+**Current milestone (2026-10-16):** production-plan M2, Python correctness evidence;
+M2.1 documentation alignment passes local verification; required CI/owner merge follow.
 M1.1 landed in [PR #20](https://github.com/urveesh09/project-atlas/pull/20);
 M1.2/M1.3 landed together in [PR #22](https://github.com/urveesh09/project-atlas/pull/22),
 with separate implementation commits. M1.4 landed in
-[PR #23](https://github.com/urveesh09/project-atlas/pull/23); M1.5 parser-runtime
-verification is in progress (analyzer `0.1.0-dev.7`, ADR-062). The public demo
+[PR #23](https://github.com/urveesh09/project-atlas/pull/23); M1.5 landed in
+[PR #24](https://github.com/urveesh09/project-atlas/pull/24) (analyzer `0.1.0-dev.7`,
+ADR-062). Python (`.py`, `.pyi`) is implemented alongside TS/JS, including mixed
+repositories. Cython, notebooks and other unsupported languages remain opaque when
+included. M2 still needs Python/mixed capacity, the complete hosted Python journey,
+broader corpus and testing evidence. The public demo
 (<https://urveesh09.github.io/project-atlas/>) is a static viewer on a bundled vuejs/core
 analysis. The packages are `0.1.0-beta.1`. `main` requires a pull request and nine named
 checks (ADR-046). Beta 2 work is recorded at the end of Phase 6 below (ADR-046, ADR-047).
@@ -1142,6 +1147,49 @@ artifact schema 1.4.0 remains readable. ADR-062 records this decision.
   alerts on this date. Required CI follows before handoff.
   [Detailed evidence and initial failures](benchmarks/production-python-runtime.md).
   P1/G6 remain open.
+
+### Production M1.5 merge and CI closure (2026-10-16)
+
+The owner merged [PR #24](https://github.com/urveesh09/project-atlas/pull/24) as
+`afbeede`. All eight [CI jobs, run 38919984739](https://github.com/urveesh09/project-atlas/actions/runs/38919984739)
+and both [security jobs, run 38919984738](https://github.com/urveesh09/project-atlas/actions/runs/38919984738)
+pass on the first attempt at `6f8b1ab`. This closes the pending CI/merge notes above.
+Both OSes reproduce the dev.7 baseline and cross-platform comparison passes.
+The oracle actually runs on CI: Linux CPython 3.12.3 has 574 files parsed by both,
+zero parse disagreements and zero fact mismatches. Windows CPython 3.12.10 has
+1,807 files, 1,796 parsed by both, two CPython-only parses, five ATLAS-only parses
+and zero fact mismatches. The previous Windows PR #23 log has the exact same counts
+and disagreements on the old runtime. The oracle compares facts where both parse;
+it does not assert identical acceptance of all syntax fixtures across Python versions.
+
+### Production M2.1: Python documentation alignment (2026-10-16)
+
+- Align the start and repository guides, package description, product comparison,
+  capabilities, candidate notes and agent handoff with committed TS/JS and Python
+  support, including mixed repositories and `.pyi` declarations. Python analysis
+  uses bundled WASM; only development oracle tests require a Python interpreter.
+- Name Cython/notebooks as opaque when included and retain static-resolution,
+  confidence, exclusion and coverage limitations. Do not claim an installed Python
+  environment is examined or repository setup scripts are executed.
+- The audit now traces four pinned repositories and 28 authored checks (12 Flask),
+  with ADR-056/057/060/062 evidence and explicitly open M2.2/M2.3/M2.6 work.
+  Rename only CI's stale acquisition step; required job names stay identical.
+- Preserve the master specification, accepted ADRs and past release/benchmark
+  records. No analyzer, artifact, dependency pin or generated contract changes.
+- Full verification passes on Node 24.22.0: 751 tests, with 81 explicit skips;
+  the CPython oracle and 39 viewer journeys run and pass. Typecheck, viewer build,
+  dependency direction (15 packages) and contracts (six files) pass.
+- All five workflows pass immutable actionlint 1.7.7 offline. The four-repository
+  baseline guard passes against the unchanged committed report; this local check
+  is not a fresh analysis run. CI repeats the analyses on both OSes.
+- All 253 relative links in the ten edited Markdown files resolve, and the
+  four-repository/28-check counts agree with committed corpus data.
+- All six relocated CLI stages pass, including archive documentation links. The
+  dirty-tree development archive is 10,491,192 bytes, SHA-256
+  `6bce6fc1c6db920765fb0125a5881cfd995041bfb8a4e5b1a46f59546601e455`.
+  Local reports/images are retained separately; historical candidate outputs are
+  restored. This is not a selected release. Required CI and owner merge follow;
+  M2.2–M2.6 and G6 remain open.
 
 ### Reproduce verification
 

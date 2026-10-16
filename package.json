@@ -2,7 +2,7 @@
   "name": "project-atlas",
   "version": "0.1.0-beta.1",
   "private": true,
-  "description": "ATLAS — explore a TS/JS repository as an explainable miniature city.",
+  "description": "ATLAS — explore a TypeScript, JavaScript or Python repository as an explainable miniature city.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.34.6",

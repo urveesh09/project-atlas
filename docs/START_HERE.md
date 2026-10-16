@@ -74,8 +74,12 @@ pnpm atlas serve C:\path\to\atlas-output --repo C:\path\to\your\repo
 - Exit code 0 means complete; 2 means a useful but partial result (see `inspect` for
   coverage); 1 means failure.
 - Useful flags: `--ref <commit>`, `--no-history`, `--history-days 30`, `--snapshots 6`.
-- Supports TypeScript/JavaScript. Limits: 10,000 files per frame, 200 commits,
-  12 frames. Full contract: [CLI](contracts/cli.md).
+- Supports TypeScript, JavaScript and Python (`.py`, `.pyi`), including mixed
+  repositories. Cython, notebooks and other unsupported languages remain opaque
+  buildings; excluded or omitted files are named in coverage. Python is parsed by
+  bundled WASM, so no Python interpreter is needed to use the CLI. Limits: 10,000
+  files per frame, 200 commits, 12 frames. Full contracts:
+  [CLI](contracts/cli.md), [capabilities](contracts/capabilities.md).
 
 ## 4. Run the hosted service on your machine
 

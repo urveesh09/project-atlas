@@ -1,12 +1,14 @@
 # ATLAS V0.1 candidate notes
 
-Candidate date: 2026-10-11. **Release sign-off pending**, as tracked in the
+Initial candidate date: 2026-10-11; notes updated 2026-10-16 for Python support and
+current compatibility. **Release sign-off pending**, as tracked in the
 [audit](release-audit.md). The portable archive is a review candidate; it is not published
 to npm and no production hosted URL is supplied.
 
 ## Available behavior
 
-- Committed TS/JS repositories become deterministic miniature cities: packages,
+- Committed TypeScript, JavaScript and Python (`.py`, `.pyi`) repositories, including
+  mixed repositories, become deterministic miniature cities: packages,
   directories and files; synchronized search, tree, inspector, map and HTML table.
 - Static import/re-export dependencies include direction, kind, resolution status,
   confidence and source evidence. Cycles have an example path; dense overlays have
@@ -42,7 +44,9 @@ verifies every extracted file and runs the CLI/viewer from outside the checkout 
 dependency installation. The candidate includes third-party license notices.
 
 Node 24.22.0 or newer 24.x and Git ≥2.38 are prerequisites. Writers emit artifact 1.4.0 and layout 1.1;
-readers retain documented 1.0–1.3 compatibility. Analyzer identity is `0.1.0-dev.6`.
+readers retain documented 1.0–1.3 compatibility. Analyzer identity is `0.1.0-dev.7`
+([ADR-062](../adr/ADR-062-python-parser-runtime-and-analysis-identity.md)); its runtime
+upgrade deliberately changes analysis keys, while existing artifacts stay readable.
 Artifacts contain names/paths/relationships/commit IDs even when source is omitted.
 See [capabilities](../contracts/capabilities.md), [CLI contract](../contracts/cli.md),
 [metrics](../contracts/metrics.md) and [ADRs](../adr) for exact interpretation.
@@ -54,6 +58,14 @@ fixtures. Generated outputs, bundler-specific aliases/queries/globs, nonliteral 
 unsupported assets and missing historical objects are reported explicitly. Compiler
 resolution may substitute a declaration file for a `.js` specifier. Role labels are
 heuristics. There is no promise of runtime-call correctness or full type checking.
+
+Python uses the bundled, hash-checked WASM grammar; no Python interpreter is needed
+for analysis. Cython, notebooks and other unsupported languages stay opaque when
+included. Standard-library/declared-PyPI resolution is static, not proof of installed
+dependency contents; runtime `sys.path` mutations and nonliteral imports retain limits.
+The current corpus includes Flask's 12 authored checks. More Python corpus shapes,
+Python/mixed capacity and the complete hosted Python journey remain production M2
+work; the parser/container smoke does not close those gates.
 
 Development-host measurements do not certify the four-core/2 GiB analysis environment
 or integrated-GPU reference laptop. Existing viewer reports disclose cold-load and

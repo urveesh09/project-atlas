@@ -5,6 +5,10 @@ Last reviewed: 2026-10-14, against the CodeCharta documentation in its public re
 The comparison is updated whenever either product changes; a claim without a source here
 is not a claim. Decision record: [ADR-048](../adr/ADR-048-editions-and-free-parity.md).
 
+ATLAS language support updated 2026-10-16 from ADR-056/057/060/062 and the
+[four-repository evidence](../release/real-repositories.md). The CodeCharta review
+date above is unchanged.
+
 ## Editions
 
 | | **ATLAS Free** (MIT, today) | **ATLAS Team** (paid, not built yet) |
@@ -28,8 +32,8 @@ partial, — = absent. "Since" names the ATLAS ADR.
 
 | Capability | CodeCharta | ATLAS Free |
 |---|---|---|
-| **Languages** | Many, through parsers and importers (SonarQube, tokei, coverage, CSV and others) | ◐ TypeScript and JavaScript deeply; other files as sized plots without metrics |
-| **Dependency accuracy** | Dependency parser, experimental dependency view | ✓ Compiler-grade TS/JS resolution: every import statement with its line, kind, confidence and an unresolved reason; type-only kept separate |
+| **Languages** | Many, through parsers and importers (SonarQube, tokei, coverage, CSV and others) | ◐ TypeScript, JavaScript and Python (`.py`, `.pyi`), including mixed repositories; Cython, notebooks and other unsupported files as sized opaque plots without dependency/complexity metrics (ADR-056/060) |
+| **Dependency accuracy** | Dependency parser, experimental dependency view | ✓ TypeScript compiler resolution for TS/JS; static Python resolution from committed project metadata, with standard-library, local and PyPI distinctions (ADR-057). Import statements retain line, kind, confidence and reason; type-only kept separate. Runtime path mutations and nonliteral imports remain limitations |
 | **Evidence for each number** | Metric values per building | ✓ Every count names its unit and policy (ADR-047); findings with rule, threshold, evidence and limits; hotspot factors listed |
 | **History** | Compare two loaded maps (delta colours) | ✓ Up to 12 sampled snapshots on fixed plots, lineage across renames, tombstones; exact added/deleted/changed lists between any two snapshots; change colouring in six metrics with signed values in the table and cards (ADR-050) |
 | **Metric mapping** | Choose the metric for area, height and colour; thresholds, gradient modes, distribution chart | ✓ Ten colour lenses (size, complexity, dependencies, history), editable bands with a distribution chart and even split, built-in views (ADR-052). Height stays code lines and area stays the history-stable layout by design |
@@ -59,8 +63,10 @@ before it ships.
    view presets.
 4. ~~**Annotations.**~~ Done in [ADR-053](../adr/ADR-053-annotations-and-compact-menus.md). Originally: local folder colours and notes, exportable with saved views.
 5. ~~**Package dependency view.**~~ Done in [ADR-054](../adr/ADR-054-package-dependency-view.md). Originally: layered package graph with cycles and upward edges.
-6. **More languages:** the largest gap. It needs the owner's direction and a resolver
-   design per language (AGENTS.md: new scope needs an ADR).
+6. **More languages:** Python is implemented (ADR-056/057/060), with pinned Flask and
+   CPython-oracle evidence. More Python corpus shapes, capacity and the complete hosted
+   Python journey are production-plan M2 acceptance work. Cython, notebooks and further
+   language families need the owner's direction and a resolver design per language.
 7. ~~**3D print export.**~~ Done in [ADR-055](../adr/ADR-055-3d-print-export.md).
 
 ## Where ATLAS is already ahead

@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Maintenance
+- Refresh language-support guides, comparison and release/agent handoffs for TS/JS
+  and Python, the four-repository corpus and explicitly open Python acceptance work
+  (production plan M2.1).
 - Upgrade the Python WASM parser runtime to `web-tree-sitter` 0.27.1 with the same
   hash-checked grammar. Analyzer `0.1.0-dev.7` records the new runtime and invalidates
   old analysis identities; the artifact schema stays compatible (ADR-062).

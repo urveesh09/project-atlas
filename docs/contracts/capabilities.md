@@ -1,6 +1,16 @@
 # Language and configuration capabilities: implementation status
 
-This tracks plan §4.1 against code through Phase 5. The hosted service runs the identical analyzer, options profile and limits inside an offline sandbox ([ADR-031](../adr/ADR-031-hosted-acquisition-and-analysis-pipeline.md)), so every row below applies to both routes. A blob absent from the object store is an explicit `LOCAL_OBJECT_MISSING` failure, never a file of unknown or zero size. TS/JS and Python analysis use isolated parsing and tested static resolvers; the production city consumes the same validated artifacts. First-parent history, sampled frames, conservative lineage, prior-window churn/hotspots and fixed-plot A/B comparison are implemented. Unsupported/missing historical data retains availability labels. Unsupported languages remain visible opaque buildings and are not claimed as analyzed.
+This tracks plan §4.1 and the Python extension (ADR-056/057/060), updated 2026-10-16.
+The local and hosted implementations share the analyzer, options profile and limits
+([ADR-031](../adr/ADR-031-hosted-acquisition-and-analysis-pipeline.md)). Hosted physical
+journeys currently use TS/JS fixtures; the offline Python parser smoke in ADR-062
+does not replace the full hosted Python journey still required by production M2.3.
+A blob absent from the object store is an explicit `LOCAL_OBJECT_MISSING` failure,
+never a file of unknown or zero size. TS/JS and Python use isolated parsing and
+tested static resolvers. First-parent history, sampled frames, conservative lineage,
+prior-window churn/hotspots and fixed-plot comparison are implemented. Unsupported
+or missing data retains availability labels. Included unsupported languages remain
+opaque buildings; exclusions and resource omissions are reported separately.
 
 | Input | Treatment | Status |
 |---|---|---|
@@ -16,7 +26,7 @@ This tracks plan §4.1 against code through Phase 5. The hosted service runs the
 | Node built-ins | Pinned list from Node 24.15.0; `node:`-only modules handled | Done (P2.2), tested |
 | External npm packages | Declared (exact) or undeclared (inferred) | Done (P2.2), tested |
 | URL imports | Unsupported, never fetched | Done (P2.2), tested |
-| `.py .pyi` | Parse with tree-sitter-python 0.25.0 (vendored WASM, hash-checked); imports, declarations, line/complexity metrics; `.pyi` is a declaration | Done ([ADR-056](../adr/ADR-056-python-support-design-and-facts.md), [ADR-060](../adr/ADR-060-python-integration.md)) |
+| `.py .pyi` | Parse with tree-sitter-python 0.25.0 (vendored WASM, hash-checked), runtime web-tree-sitter 0.27.1; imports, declarations, line/complexity metrics; `.pyi` is a declaration. No Python interpreter required for analysis | Done ([ADR-056](../adr/ADR-056-python-support-design-and-facts.md), [ADR-060](../adr/ADR-060-python-integration.md), [ADR-062](../adr/ADR-062-python-parser-runtime-and-analysis-identity.md)) |
 | Python imports | Relative, absolute, from-import submodules, type-only (`TYPE_CHECKING`, stubs), re-exports, literal `importlib` calls; Python `sys.path` precedence | Done ([ADR-057](../adr/ADR-057-python-resolution.md)), tested on a fixture and pallets/flask |
 | Python projects | `pyproject.toml` (PEP 621, Poetry, uv, PDM, setuptools, Hatch, maturin), `setup.cfg`, `setup.py` literals only, requirements files, Pipfile; never executed | Done (ADR-057/060) |
 | Python standard library and PyPI | Standard library (CPython 3.14 names), other runtimes inferred; PyPI declared (exact) or undeclared (inferred, or optional when guarded) | Done (ADR-057/060) |
