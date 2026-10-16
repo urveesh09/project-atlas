@@ -2,7 +2,9 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-13):** Beta 2, *activation and trust*. The public demo
+**Current milestone (2026-10-16):** production-plan M1, platform currency and security.
+M1.1 landed in [PR #20](https://github.com/urveesh09/project-atlas/pull/20); the owner
+requested M1.2 and M1.3 together in one PR, with separate commits. The public demo
 (<https://urveesh09.github.io/project-atlas/>) is a static viewer on a bundled vuejs/core
 analysis. The packages are `0.1.0-beta.1`. `main` requires a pull request and nine named
 checks (ADR-046). Beta 2 work is recorded at the end of Phase 6 below (ADR-046, ADR-047).
@@ -983,6 +985,78 @@ Local evidence on Windows 11 / i5-10400 / 16 GiB, checksum-verified Node 24.22.0
 
 G6 and R6-01…R6-07 remain open; hosted faults and cross-OS results require the CI
 jobs, and no reference-hardware or human acceptance is inferred.
+
+### Production M1.2: Python manifest parser security (2026-10-16)
+
+`smol-toml` is pinned to 1.9.1, addressing GHSA-r4xh-jqrq-34v2.
+[ADR-061](adr/ADR-061-dependency-currency-october-2026.md) records the execution
+boundary, release-note review and this batch's owner-approved grouping.
+
+- The admitted 1 MiB, 131,061-key production-path regression fails on 1.8.0 at
+  2,504.5356 ms against the authored 1,000 ms limit. On 1.9.1 all four checks pass;
+  an identical-input diagnostic measures 148.4486 ms. This is a diagnostic, not a
+  capacity percentile ([report](benchmarks/production-toml-security.md)).
+- Pyproject and Pipfile inputs beyond the existing bound are rejected; prototype-like
+  metadata does not contaminate object prototypes or displace project dependencies.
+- Production dependency audit reports zero known advisories on this date. GitHub's
+  two existing Dependabot alerts can only close after the fix reaches main.
+- Full verification passes: 746 tests, 81 service-gated skips, typecheck, viewer
+  build, dependency direction and six unchanged generated contracts. This includes
+  39 normal-mode browser journeys.
+- Four repositories × five offline cold repeats pass, including Flask's manifests;
+  all 28 authored facts and canonical/wire payloads match the committed baseline.
+  The report refresh changes only date/timings, without changing graph digests.
+- Hosted and cross-OS evidence remains required in the combined PR. Analyzer/artifact
+  versions and acceptance limits are unchanged. P1 and G6 remain open.
+
+### Production M1.3a: viewer runtime patches (2026-10-16)
+
+React/React DOM 19.3.1 and React Three Fiber 9.8.2 are pinned exactly. The packager's
+missing-license fallback now matches 9.8.2 and its verified upstream tag (ADR-061).
+
+- `pnpm verify`: 746 passed, 81 service-gated skipped; unchanged generated contracts.
+- Viewer journeys: 39/39 in normal rendering and 39/39 in CI software rendering.
+- Relocated offline CLI smoke: all six stages pass, including license inventory and
+  the city dependency screen. Its screenshot was visually inspected; generated
+  candidate reports/images were retained locally and restored in the checkout.
+- Manual computer-use bootstrap was blocked by the viewer's cross-site guard. No
+  policy was weakened and no manual interaction pass is claimed.
+- A clean-commit rendering spike and final combined-PR gates follow this checkpoint.
+
+### Production M1.3b: Zod contract validation patch (2026-10-16)
+
+All four workspace Zod declarations move to 4.6.7. `pnpm contracts:check` passes
+without regeneration; independent hashes prove all five JSON Schemas and OpenAPI
+remain byte-identical. The full verification passes 746 tests (81 service-gated
+skips), including the viewer journeys. Four repositories × five offline cold repeats
+preserve all 28 authored facts and canonical/wire payloads against the committed
+baseline. Final hosted/cross-OS CI remains required.
+
+### Production M1.3c: test and accessibility tooling (2026-10-16)
+
+Vitest 5.0.5, Playwright 1.64.1 and axe 4.14.0 are pinned at every declaration;
+Chromium installation was verified through the new Playwright package.
+
+- Full verification: 746 passed, 81 service-gated skips, with the existing WCAG
+  audits intact. Typecheck, viewer build, dependency direction and contracts pass.
+- Viewer journeys: 39/39 normally and 39/39 under CI software rendering.
+- Relocated CLI smoke: all six stages pass; 11,036,676-byte development archive,
+  SHA-256 `83e7f1ef4bef71a2d7e9e226c906b6691b51de5d39665961a1907f7d6b2a31d1`.
+  Generated candidate reports/images are retained locally and restored in the
+  checkout. Fresh dependency/finding screenshots were visually inspected.
+- Dependency audit reports zero known advisories on this date.
+- Both images build and smoke-test as uid 10001 / Node 24.22.0 with no network,
+  read-only roots, no capabilities and no-new-privileges. The sandbox contains
+  TOML 1.9.1 and Zod 4.6.7, checked through its deployed dependency resolution.
+  Development image IDs (not release identities): API
+  `sha256:7beb80debf952f852bc26d46e2d1cf803d0b3e9a0cacb23325dd25b60ae46ed2`;
+  sandbox `sha256:5efeaa38bd4c8ca349902ce20e3d04f3b9111fb0190575bd476fdc42e950231f`.
+- Final 20-batch rendering spike on clean `071aaab`: 3k/10k/20k each p95 17.8 ms,
+  two draw calls, 271/271 picks, both fallbacks and no recorded scenario/picking
+  errors ([both clean checkpoint reports](benchmarks/production-viewer-patches.md)).
+  This is development-host spike evidence, not reference-device acceptance.
+- All four implementation commits pass full verification separately. Required
+  combined CI and owner merge remain pending. M1.4/M1.5, P1 and G6 remain open.
 
 ### Reproduce verification
 

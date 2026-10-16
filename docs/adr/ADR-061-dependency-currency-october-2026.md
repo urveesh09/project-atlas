@@ -82,3 +82,135 @@ record does not claim the remaining dependency upgrades or P1 are complete.
 
 No G6 human, reference-device or deployment acceptance item is closed by a runtime
 upgrade.
+
+## M1.2: bounded TOML parsing security update (2026-10-16)
+
+### Evidence and cause
+
+`smol-toml` 1.8.0 is affected by GHSA-r4xh-jqrq-34v2. A valid, admitted 1 MiB
+manifest makes production discovery take 2,504.5356 ms and fails the authored
+1,000 ms regression. Discovery runs synchronously in the analyzer parent, before
+source-parser children. Git blob bytes are capped at 1 MiB by inventory; discovery
+also bounds string length. These existing limits constrain exposure but do not
+remove the inefficient parse path.
+
+### Decision
+
+- Pin 1.9.1 exactly, BSD-3-Clause with no runtime dependencies. Keep the named
+  `parse` import. ADR-057 remains an accurate historical record.
+- Upstream tables now have null prototypes; existing validated own-property reads
+  remain suitable. Upstream also tightens malformed TOML rejection. Keep ATLAS's
+  invalid-manifest warnings; do not add unsafe compatibility shims.
+- Add four checks: full-size discovery under one second, over-limit pyproject and
+  Pipfile rejection, and safe interpretation of prototype-like metadata. A disposable
+  test child has a 10-second deadline; production limits are unchanged.
+- The owner's 2026-10-16 direction combines M1.2 and M1.3 in one PR with individual
+  commits. This overrides this batch's separate-PR guidance, not its verification.
+
+### Verification
+
+The old dependency fails the new timing assertion, while its other three checks
+pass. With 1.9.1 all four pass; the same input's diagnostic measures 148.4486 ms.
+See [the retained diagnostic](../benchmarks/production-toml-security.md) for the input,
+initial failure, exact context and caveats. Full verification passes 746 tests with
+81 service-gated skips, including 39 normal viewer journeys. Four pinned repositories
+with five offline cold repeats preserve all canonical/wire payloads and 28 authored
+facts against the committed baseline, including Flask. Generated contracts remain
+unchanged. Production dependency audit reports no known advisories. Combined-PR CI
+must still pass; Dependabot alert closure remains a post-merge GitHub check.
+
+## M1.3a: viewer runtime patch upgrades (2026-10-16)
+
+### Evidence and decision
+
+- Pin React/React DOM 19.3.1 and React Three Fiber 9.8.2 exactly, keeping TypeScript,
+  Three.js and React type packages at their existing pins.
+- Review official React and Fiber release notes. ATLAS uses Fiber only in the
+  rendering spike; the production city owns its Three.js renderer and resolution
+  control. No `setDpr` calls conflict with Fiber's updated Canvas DPR behavior.
+- The 9.8.2 npm package still omits LICENSE. Supply the MIT text from upstream commit
+  `d74622ea8ed717f7212d7e19d65ff3e325508389` (tag `v9.8.2`), SHA-256
+  `9c35b5de7b7493a707fffe4eb23bd2f7f449153c1911f7c6eefb4e591fd5349a`.
+  Update the exact-version fallback in the packager and remove the old version's copy.
+  License acquisition is maintainer work; packaging remains offline.
+- Keep this upgrade group in its own commit within the owner-requested combined PR.
+
+### Verification
+
+Full verification passes 746 tests with 81 service-gated skips, including the 39
+normal viewer journeys; the software-renderer run also passes 39/39. All six
+relocated distribution stages pass with the refreshed license. Its dependency
+screen screenshot was visually inspected: city, selection, dependency arrows, tree,
+controls and inspector render coherently. The computer-use browser's local bootstrap
+was rejected by the cross-site guard, so no manual interaction pass is claimed and
+no security policy was changed. The clean-commit rendering spike follows this
+implementation checkpoint; results will be recorded with final batch evidence.
+No rendering or accessibility assertion is weakened.
+
+Sources: [React 19.3.1](https://github.com/react/react/releases/tag/v19.3.1),
+[Fiber 9.8.2](https://github.com/pmndrs/react-three-fiber/releases/tag/v9.8.2),
+[exact-tag license](https://github.com/pmndrs/react-three-fiber/blob/d74622ea8ed717f7212d7e19d65ff3e325508389/LICENSE).
+
+## M1.3b: contract validation patch (2026-10-16)
+
+### Evidence and decision
+
+Pin Zod 4.6.7 at every workspace declaration (schema, analyzer-core, control and
+worker). Review the [upstream comparison](https://github.com/colinhacks/zod/compare/v4.6.5...v4.6.7),
+including earlier collection-size rejection. Keep the existing schemas, generated
+files, analyzer and artifact versions. No contract regeneration is used to conceal
+drift. This upgrade is its own commit within the combined PR.
+
+### Verification
+
+`pnpm contracts:check` passes without regeneration, and independent SHA-256 checks
+confirm all five JSON Schemas and OpenAPI match their pre-upgrade bytes. Full
+verification passes 746 tests with 81 service-gated skips. Four repositories × five
+offline cold repeats preserve all 28 authored facts and exact canonical/wire payloads
+against the committed baseline. No schema regeneration, version bump or golden
+rewrite is necessary.
+
+## M1.3c: test and accessibility tooling (2026-10-16)
+
+### Evidence and decision
+
+- Pin Vitest 5.0.5 at the root, Playwright 1.64.1 in all three declaring packages,
+  and `@axe-core/playwright` 4.14.0 in both declaring packages.
+- Review the official patch notes and reinstall/verify Chromium using the new
+  Playwright package. Preserve every existing keyboard, rendering, reflow, source,
+  artifact and axe assertion; new findings require fixes rather than rule exclusions.
+- Keep the framework upgrade as its own implementation commit in the combined PR.
+  Final reports may follow in a documentation-only evidence commit so performance
+  measurements start from a clean implementation commit.
+
+### Verification
+
+The complete suite passes 746 tests with 81 service-gated skips under Vitest 5.0.5;
+both normal and CI software-renderer viewer journeys pass 39/39 with axe 4.14.0.
+The six relocated distribution stages pass; its dirty-tree development archive is
+11,036,676 bytes, SHA-256
+`83e7f1ef4bef71a2d7e9e226c906b6691b51de5d39665961a1907f7d6b2a31d1`.
+Fresh keyboard dependency/finding screenshots were inspected and retained locally.
+Generated candidate reports/images are restored; they are not release identities.
+The dependency audit reports zero known advisories. Both API and sandbox images
+build and run as uid 10001 on Node 24.22.0 with no network, read-only roots, no
+capabilities and no-new-privileges. The sandbox's actual installed runtime packages
+report TOML 1.9.1 and Zod 4.6.7. Local image IDs are recorded in implementation
+status; they are development images, not a release selection. The final clean-commit
+spike and combined CI are required before handoff. No missing physical or human
+gate is treated as passed.
+
+### Final local batch evidence
+
+The clean `071aaab` implementation commit repeats the full 20-batch spike at all
+three sizes: p95 17.8 ms, two draw calls each, 271/271 picks, both HTML fallbacks,
+and no recorded scenario/picking errors. The
+[report](../benchmarks/production-viewer-patches.md) retains both clean checkpoints
+and hardware/method limits. Historical Phase 0 and release-candidate reports/images
+remain untouched. All four implementation commits had `pnpm verify` pass before
+commit; this final evidence-only commit records the subsequent clean run.
+Required combined CI and owner merge remain pending. M1.4/M1.5 and P1/G6 are open.
+
+Sources: [Vitest 5.0.5](https://github.com/vitest-dev/vitest/releases/tag/v5.0.5),
+[Playwright 1.64.1](https://github.com/microsoft/playwright/releases/tag/v1.64.1),
+[axe 4.14.0](https://github.com/dequelabs/axe-core-npm/releases/tag/v4.14.0).

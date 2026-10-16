@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Security
+- Upgrade `smol-toml` to 1.9.1 to fix quadratic work on untrusted Python manifests
+  (GHSA-r4xh-jqrq-34v2). A regression exercises the complete 1 MiB admitted document
+  through project discovery, alongside boundary and prototype-like metadata checks.
 - Upgrade the supported Node.js runtime and both container bases to 24.22.0
   ([ADR-061](docs/adr/ADR-061-dependency-currency-october-2026.md)). `atlas doctor`
   warns on older 24.x releases without preventing diagnosis. Analysis semantics and
@@ -81,6 +84,12 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 - An open compare panel covered the city on screens wider than 1350 px.
 
 ### Changed
+- Upgrade Vitest to 5.0.5, Playwright to 1.64.1 and axe's Playwright adapter to 4.14.0
+  while retaining the existing browser and accessibility gates (ADR-061).
+- Upgrade runtime contract validation to Zod 4.6.7; generated JSON Schema and OpenAPI
+  remain byte-identical (ADR-061).
+- Upgrade viewer runtime pins to React/React DOM 19.3.1 and React Three Fiber 9.8.2,
+  with its exact-tag distribution license reviewed and refreshed (ADR-061).
 - Contract versions ([ADR-060](docs/adr/ADR-060-python-integration.md)): analyzer
   `0.1.0-dev.6`, graph schema `atlas.graph/1.1.0`, artifact `atlas.artifact/1.4.0`. Readers
   still accept artifacts 1.0–1.3. TS/JS results are unchanged at path level; IDs change with
