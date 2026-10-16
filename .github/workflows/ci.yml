@@ -113,7 +113,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - name: Acquire only the three immutable public corpus commits
+      - name: Acquire only the four immutable public corpus commits
         run: node scripts/validate-real-repositories.mjs --acquire
       - name: Five offline cold runs and independent source checks
         run: node scripts/validate-real-repositories.mjs

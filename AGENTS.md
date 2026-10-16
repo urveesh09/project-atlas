@@ -16,8 +16,13 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
    with milestones, how to test each kind of change, and the coding standards. Start
    there for new work.
 
-**Current state (2026-10-11):** the four pillars and Phase 6 candidate tooling are
-implemented; the plan has no Phase 7.
+**Current state (2026-10-16):** the four pillars and Phase 6 candidate tooling are
+implemented for committed TS/JS and Python (`.py`, `.pyi`), including mixed repositories.
+The production plan is now on M2, Python correctness evidence; M1 upgrades landed in
+PRs #20, #22, #23 and #24. Analyzer `0.1.0-dev.7` records the runtime upgrade
+(ADR-062); the artifact schema stays 1.4.0. Cython, notebooks and further languages
+remain opaque buildings. Python capacity, additional corpus shapes and the full
+hosted Python journey still need M2 evidence. The master plan has no Phase 7.
 Gate G6 stays open on the exact capacity-fixture matrix, human, reference-hardware and
 deployment acceptance (R6-01…R6-07).
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime

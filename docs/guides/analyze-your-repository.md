@@ -6,9 +6,19 @@ folder, and opens it in your browser as the same city you saw in the
 [live demo](https://urveesh09.github.io/project-atlas/).
 
 **What ATLAS analyzes:** TypeScript and JavaScript (`.ts`, `.tsx`, `.js`, `.jsx`, `.mts`,
-`.cts`, `.mjs`, `.cjs`), including monorepo workspaces. Other files appear as buildings
-with their size, but without dependencies or complexity. ATLAS never installs, builds or
-runs anything from your repository.
+`.cts`, `.mjs`, `.cjs`) and Python (`.py`, `.pyi`), including mixed repositories and
+monorepo workspaces. Python imports, declarations, code lines and callable complexity
+feed the same dependencies, findings, history and city views. Python analysis uses
+the bundled WASM parser; a Python interpreter is not a CLI prerequisite.
+
+Cython, notebooks and other unsupported languages appear as opaque buildings with
+their byte size, without dependency or complexity claims. Exclusions and resource
+limits can also remove files; the coverage report names them. Python resolution
+reads committed project metadata, never an installed environment or executed
+`setup.py`. Runtime changes to `sys.path` and nonliteral dynamic imports cannot be
+fully resolved and retain their confidence/reason labels. ATLAS never installs,
+builds or runs anything from your repository. See the
+[capabilities](../contracts/capabilities.md) for exact support and limits.
 
 ## 1. Install the prerequisites
 
@@ -70,7 +80,8 @@ and `--snapshots 6` samples fewer points in history. The [CLI reference](../cont
 - **What changed?** Use *Compare snapshots* in the history strip under the city.
 
 Every number in the inspector shows its unit and its policy. Type-only imports, for
-example, are listed separately and never counted as dependencies.
+example, are listed separately and excluded from default fan-in, fan-out and static
+cycle metrics.
 
 ## 5. Share what you see
 
@@ -87,7 +98,7 @@ example, are listed separately and never counted as dependencies.
 | `doctor` reports Git older than 2.38 | Update Git |
 | Exit code 2 (partial) | The analysis is usable; *Coverage* in the inspector lists what was skipped and why |
 | The city is slow | Tick *Low detail*, or use the *2D map* or *File table* views |
-| Your language is missing | Only TS/JS is analyzed in this beta. Please [tell us](https://github.com/urveesh09/project-atlas/issues/new/choose) which language you need |
+| Your language is missing | TypeScript, JavaScript and Python (`.py`, `.pyi`) are analyzed. Cython, notebooks and other languages remain opaque buildings. Please [tell us](https://github.com/urveesh09/project-atlas/issues/new/choose) which language you need |
 
 ## Feedback
 

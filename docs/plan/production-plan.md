@@ -82,7 +82,7 @@ progress by updating this table's status column as tasks land.
 
 | # | Criterion | Status |
 |---|---|---|
-| P1 | No dependency or runtime with a known, fixable vulnerability. The pins are current within their supported major versions, and a record says why each major version is held back | Open (M1) |
+| P1 | No dependency or runtime with a known, fixable vulnerability. The pins are current within their supported major versions, and a record says why each major version is held back | M1 landed in PRs #20/#22/#23/#24; dated audit and hold decisions in ADR-061/062. Recheck at release (M5) |
 | P2 | Python has the same evidence quality as TS/JS: several real repositories with checks written before analysis, capacity budgets met, and the hosted path proven | Open (M2) |
 | P3 | The CLI is tested on Windows, Linux and macOS. The viewer is tested in Chromium, Firefox and WebKit | Open (M3) |
 | P4 | An operator can deploy the hosted service from the repository alone, with TLS, an egress firewall, least-privilege roles, monitoring with alerts, backups with a tested restore, and verified images | Open (M4) |
@@ -238,13 +238,15 @@ still current. ADR-061 and implementation status record the checks and CI eviden
 
 #### M1.5 Python parser runtime: `web-tree-sitter` 0.25.10 → 0.27.1
 
-**In progress, 2026-10-16:** runtime 0.27.1 builds with the unchanged ABI 15 grammar.
+**Landed:** [PR #24](https://github.com/urveesh09/project-atlas/pull/24), merged
+2026-10-16 as `afbeede`; all eight CI jobs and both security jobs pass first attempt
+on `6f8b1ab`. Runtime 0.27.1 builds with the unchanged ABI 15 grammar.
 Provenance changes analysis identity, requiring analyzer `0.1.0-dev.7` and deliberate
 baseline/golden updates (ADR-062). The CPython 3.14.5 oracle agrees before and after:
 zero fact mismatches, same three grammar gaps. Main-build comparison finds only
 the declared summary-version transition in all five repositories; fresh four-repo
-corpus, full verification (751 tests) and relocated packaging pass. Required CI and
-owner merge remain; P1/G6 remain open.
+corpus, full verification (751 tests) and relocated packaging pass. M1 implementation
+is landed; dated currency evidence does not replace release re-audit or G6 sign-off.
 
 - **Why.** Two minor releases behind. The parser runtime processes untrusted input, so it
   should stay current.
@@ -283,8 +285,15 @@ owner merge remain; P1/G6 remain open.
 
 #### M2.1 Documentation sweep
 
-These files still say ATLAS is TS/JS only or that the corpus has three repositories (found
-2026-10-16 with `grep -rn -i "TS/JS\|three immutable\|three pinned"`):
+**Implementation ready, 2026-10-16:** the guides, metadata, capabilities, comparison and audit
+now describe TS/JS and Python, four pinned repositories and 28 authored checks.
+Unsupported languages and open Python capacity/hosted/corpus work stay explicit.
+Full local verification (751 tests), link/count checks, workflow validation and all
+six relocated distribution stages pass. Required CI and owner merge follow;
+CI job names are unchanged. M2.2–M2.6 and G6 remain open.
+
+The following stale text was found in the 2026-10-16 planning audit; this is the
+historical correction checklist, not the current support description:
 
 | File | Stale text |
 |---|---|
