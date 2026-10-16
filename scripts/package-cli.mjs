@@ -49,7 +49,7 @@ async function collectNotices(dir, seen = new Set()) {
   seen.add(id);
   if (!pkg.name.startsWith('@atlas/')) {
     const names = noticeNames(await readdir(dir, { withFileTypes: true }));
-    const supplied = id === '@react-three/fiber@9.8.1' ? 'react-three-fiber-9.8.1-LICENSE' : null;
+    const supplied = id === '@react-three/fiber@9.8.2' ? 'react-three-fiber-9.8.2-LICENSE' : null;
     assert(names.length > 0 || supplied, `Missing third-party license text: ${id}`);
     const relative = `third-party/${pkg.name.replaceAll('/', '_')}@${pkg.version}`;
     await mkdir(path.join(bundle, relative), { recursive: true });

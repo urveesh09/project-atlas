@@ -1009,6 +1009,20 @@ boundary, release-note review and this batch's owner-approved grouping.
 - Hosted and cross-OS evidence remains required in the combined PR. Analyzer/artifact
   versions and acceptance limits are unchanged. P1 and G6 remain open.
 
+### Production M1.3a: viewer runtime patches (2026-10-16)
+
+React/React DOM 19.3.1 and React Three Fiber 9.8.2 are pinned exactly. The packager's
+missing-license fallback now matches 9.8.2 and its verified upstream tag (ADR-061).
+
+- `pnpm verify`: 746 passed, 81 service-gated skipped; unchanged generated contracts.
+- Viewer journeys: 39/39 in normal rendering and 39/39 in CI software rendering.
+- Relocated offline CLI smoke: all six stages pass, including license inventory and
+  the city dependency screen. Its screenshot was visually inspected; generated
+  candidate reports/images were retained locally and restored in the checkout.
+- Manual computer-use bootstrap was blocked by the viewer's cross-site guard. No
+  policy was weakened and no manual interaction pass is claimed.
+- A clean-commit rendering spike and final combined-PR gates follow this checkpoint.
+
 ### Reproduce verification
 
 ```sh

@@ -118,3 +118,35 @@ with five offline cold repeats preserve all canonical/wire payloads and 28 autho
 facts against the committed baseline, including Flask. Generated contracts remain
 unchanged. Production dependency audit reports no known advisories. Combined-PR CI
 must still pass; Dependabot alert closure remains a post-merge GitHub check.
+
+## M1.3a: viewer runtime patch upgrades (2026-10-16)
+
+### Evidence and decision
+
+- Pin React/React DOM 19.3.1 and React Three Fiber 9.8.2 exactly, keeping TypeScript,
+  Three.js and React type packages at their existing pins.
+- Review official React and Fiber release notes. ATLAS uses Fiber only in the
+  rendering spike; the production city owns its Three.js renderer and resolution
+  control. No `setDpr` calls conflict with Fiber's updated Canvas DPR behavior.
+- The 9.8.2 npm package still omits LICENSE. Supply the MIT text from upstream commit
+  `d74622ea8ed717f7212d7e19d65ff3e325508389` (tag `v9.8.2`), SHA-256
+  `9c35b5de7b7493a707fffe4eb23bd2f7f449153c1911f7c6eefb4e591fd5349a`.
+  Update the exact-version fallback in the packager and remove the old version's copy.
+  License acquisition is maintainer work; packaging remains offline.
+- Keep this upgrade group in its own commit within the owner-requested combined PR.
+
+### Verification
+
+Full verification passes 746 tests with 81 service-gated skips, including the 39
+normal viewer journeys; the software-renderer run also passes 39/39. All six
+relocated distribution stages pass with the refreshed license. Its dependency
+screen screenshot was visually inspected: city, selection, dependency arrows, tree,
+controls and inspector render coherently. The computer-use browser's local bootstrap
+was rejected by the cross-site guard, so no manual interaction pass is claimed and
+no security policy was changed. The clean-commit rendering spike follows this
+implementation checkpoint; results will be recorded with final batch evidence.
+No rendering or accessibility assertion is weakened.
+
+Sources: [React 19.3.1](https://github.com/react/react/releases/tag/v19.3.1),
+[Fiber 9.8.2](https://github.com/pmndrs/react-three-fiber/releases/tag/v9.8.2),
+[exact-tag license](https://github.com/pmndrs/react-three-fiber/blob/d74622ea8ed717f7212d7e19d65ff3e325508389/LICENSE).

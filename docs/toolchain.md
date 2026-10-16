@@ -19,9 +19,9 @@ Recorded 10 October 2026. Rationale lives in [ADR-013](adr/ADR-013-pin-typescrip
 | web-tree-sitter | 0.25.10 | WASM Python parser runtime; MIT; grammar pinned separately (ADR-056) |
 | zod | 4.6.5 | runtime contracts, JSON Schema/OpenAPI generation |
 | @noble/hashes | 2.4.0 | SHA-256 for IDs and canonical hashes in the browser; Node uses its identical native SHA-256 ([ADR-037](adr/ADR-037-export-hashing-and-structural-proofs.md)) |
-| react / react-dom | 19.3.0 | viewer |
+| react / react-dom | 19.3.1 | viewer |
 | three | 0.186.1 | viewer 3D layer |
-| @react-three/fiber | 9.8.1 | viewer 3D layer |
+| @react-three/fiber | 9.8.2 | viewer 3D layer |
 | vite | 8.3.4 | viewer build; Vitest peer |
 | @vitejs/plugin-react | 6.1.2 | viewer build |
 | vitest | 5.0.3 | unit/integration tests |
