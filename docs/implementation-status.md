@@ -1023,6 +1023,15 @@ missing-license fallback now matches 9.8.2 and its verified upstream tag (ADR-06
   policy was weakened and no manual interaction pass is claimed.
 - A clean-commit rendering spike and final combined-PR gates follow this checkpoint.
 
+### Production M1.3b: Zod contract validation patch (2026-10-16)
+
+All four workspace Zod declarations move to 4.6.7. `pnpm contracts:check` passes
+without regeneration; independent hashes prove all five JSON Schemas and OpenAPI
+remain byte-identical. The full verification passes 746 tests (81 service-gated
+skips), including the viewer journeys. Four repositories × five offline cold repeats
+preserve all 28 authored facts and canonical/wire payloads against the committed
+baseline. Final hosted/cross-OS CI remains required.
+
 ### Reproduce verification
 
 ```sh

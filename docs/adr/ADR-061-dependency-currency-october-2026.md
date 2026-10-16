@@ -150,3 +150,22 @@ No rendering or accessibility assertion is weakened.
 Sources: [React 19.3.1](https://github.com/react/react/releases/tag/v19.3.1),
 [Fiber 9.8.2](https://github.com/pmndrs/react-three-fiber/releases/tag/v9.8.2),
 [exact-tag license](https://github.com/pmndrs/react-three-fiber/blob/d74622ea8ed717f7212d7e19d65ff3e325508389/LICENSE).
+
+## M1.3b: contract validation patch (2026-10-16)
+
+### Evidence and decision
+
+Pin Zod 4.6.7 at every workspace declaration (schema, analyzer-core, control and
+worker). Review the [upstream comparison](https://github.com/colinhacks/zod/compare/v4.6.5...v4.6.7),
+including earlier collection-size rejection. Keep the existing schemas, generated
+files, analyzer and artifact versions. No contract regeneration is used to conceal
+drift. This upgrade is its own commit within the combined PR.
+
+### Verification
+
+`pnpm contracts:check` passes without regeneration, and independent SHA-256 checks
+confirm all five JSON Schemas and OpenAPI match their pre-upgrade bytes. Full
+verification passes 746 tests with 81 service-gated skips. Four repositories × five
+offline cold repeats preserve all 28 authored facts and exact canonical/wire payloads
+against the committed baseline. No schema regeneration, version bump or golden
+rewrite is necessary.

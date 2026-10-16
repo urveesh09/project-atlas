@@ -84,6 +84,8 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 - An open compare panel covered the city on screens wider than 1350 px.
 
 ### Changed
+- Upgrade runtime contract validation to Zod 4.6.7; generated JSON Schema and OpenAPI
+  remain byte-identical (ADR-061).
 - Upgrade viewer runtime pins to React/React DOM 19.3.1 and React Three Fiber 9.8.2,
   with its exact-tag distribution license reviewed and refreshed (ADR-061).
 - Contract versions ([ADR-060](docs/adr/ADR-060-python-integration.md)): analyzer
