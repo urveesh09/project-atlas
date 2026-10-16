@@ -12,8 +12,9 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
    trace, and the open acceptance items R6-01…R6-07.
 4. [docs/adr/](docs/adr/): ADR-001…ADR-060. Every non-obvious design choice lives here.
    Check for an ADR before "fixing" something that looks odd.
-5. [docs/plan/next-steps.md](docs/plan/next-steps.md): the prioritized work queue, how to
-   test each kind of change, and the coding standards. Start there for new work.
+5. [docs/plan/production-plan.md](docs/plan/production-plan.md): the path to production,
+   with milestones, how to test each kind of change, and the coding standards. Start
+   there for new work.
 
 **Current state (2026-10-11):** the four pillars and Phase 6 candidate tooling are
 implemented; the plan has no Phase 7.
