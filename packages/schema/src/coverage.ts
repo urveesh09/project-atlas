@@ -52,8 +52,22 @@ export const AnalysisCoverageSchema = z.strictObject({
 });
 
 export type SnapshotCoverage = z.infer<typeof SnapshotCoverageSchema>;
+export type HistoryBoundary = z.infer<typeof HistoryBoundarySchema>;
 export type HistoryCoverage = z.infer<typeof HistoryCoverageSchema>;
 export type AnalysisCoverage = z.infer<typeof AnalysisCoverageSchema>;
+
+/**
+ * Where the history window stopped, as a clause. The viewer and CLI share one wording, so a
+ * window boundary reads the same everywhere and never shows the raw code.
+ */
+export const HISTORY_BOUNDARY_TEXT: Readonly<Record<HistoryBoundary, string>> = {
+  root: 'reaches the first commit',
+  days: 'bounded by the day window',
+  'commit-cap': 'bounded by the commit cap',
+  shallow: 'stops where a shallow clone ends; the oldest change is unknown',
+  'resource-cap': 'stopped by a resource limit',
+  none: 'not analyzed',
+};
 
 export function emptySnapshotCoverage(): SnapshotCoverage {
   return {

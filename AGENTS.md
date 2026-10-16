@@ -12,6 +12,8 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
    trace, and the open acceptance items R6-01…R6-07.
 4. [docs/adr/](docs/adr/): ADR-001…ADR-060. Every non-obvious design choice lives here.
    Check for an ADR before "fixing" something that looks odd.
+5. [docs/plan/next-steps.md](docs/plan/next-steps.md): the prioritized work queue, how to
+   test each kind of change, and the coding standards. Start there for new work.
 
 **Current state (2026-10-11):** the four pillars and Phase 6 candidate tooling are
 implemented; the plan has no Phase 7.
@@ -53,7 +55,7 @@ an ADR first.
 |---|---|
 | `packages/schema` | Contracts, IDs, canonical JSON, validators, delta/indexed transports; generated JSON Schema |
 | `packages/ingest` | Safe local Git reader, GitHub admission/acquisition, egress broker |
-| `packages/analyzer-ts`, `analyzer-core` | TS/JS facts and resolution; snapshot/history orchestration (`analyzeCommit`) |
+| `packages/analyzer-ts`, `analyzer-py`, `analyzer-core` | TS/JS and Python facts and resolution; snapshot/history orchestration (`analyzeCommit`) |
 | `packages/graph`, `history`, `layout` | Aggregation/SCCs/queries; lineage and churn; deterministic integer city layout |
 | `packages/artifact` | Packing, verification and loading (Node and browser) |
 | `packages/cli` | `atlas doctor/analyze/inspect/verify/serve` |
@@ -74,7 +76,7 @@ pnpm install --frozen-lockfile && pnpm build && pnpm build:web
 pnpm verify                     # typecheck, viewer build, deps, contracts, tests: run before every commit
 pnpm contracts:generate         # after changing runtime schemas; contracts:check must pass
 pnpm verify:distribution        # portable CLI archive, tested outside the checkout
-node scripts/validate-real-repositories.mjs [--acquire]   # 3 pinned real repos × 5 offline repeats
+node scripts/validate-real-repositories.mjs [--acquire]   # 4 pinned real repos × 5 offline repeats
 node scripts/check-repository-baseline.mjs                # exact committed corpus bytes
 pnpm atlas analyze <repo> --out <dir> && pnpm atlas serve <dir> --repo <repo>
 ```

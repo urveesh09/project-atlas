@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { hotspotBaseline, hotspotFactors } from '@atlas/graph';
 import { openArtifactDirectory, type LoadResult } from '@atlas/artifact/node';
-import { RULE_CATALOG, codeLabels, compareAscii, compareUtf8, formatDiagnosticMessage, perimeterName, type GraphNode } from '@atlas/schema';
+import { HISTORY_BOUNDARY_TEXT, RULE_CATALOG, codeLabels, compareAscii, compareUtf8, formatDiagnosticMessage, perimeterName, type GraphNode, type HistoryBoundary } from '@atlas/schema';
 import { EXIT, type CommandContext } from '../context.js';
 import { renderCityMap, type ArtifactView } from '../ui/city-map.js';
 import { bar, box, check, formatBytes, formatCount, heading, plural, stackedBar, swatch, truncateMiddle, wrapText } from '../ui/format.js';
@@ -35,7 +35,7 @@ export interface InspectReport {
 
 export interface InspectHistory {
   status: string;
-  boundary: string;
+  boundary: HistoryBoundary;
   commits: number;
   oldest: { oid: string; time: string } | null;
   newest: { oid: string; time: string };
@@ -117,15 +117,6 @@ function buildHistory(bundle: ArtifactView): InspectHistory {
       .map((p) => ({ a: pathOfLineage.get(p.aLineageId) ?? p.aLineageId, b: pathOfLineage.get(p.bLineageId) ?? p.bLineageId, together: p.togetherCommits, jaccard: p.jaccard })),
   };
 }
-
-const BOUNDARY_TEXT: Record<string, string> = {
-  root: 'reaches the first commit',
-  days: 'bounded by the day window',
-  'commit-cap': 'bounded by the commit cap',
-  shallow: 'stops at a shallow-clone boundary; the oldest change is unknown',
-  'resource-cap': 'stopped by a resource limit',
-  none: 'not analyzed',
-};
 
 export function buildInspectReport(bundle: ArtifactView, stats: Extract<LoadResult, { ok: true }>['stats']): InspectReport {
   const { manifest } = bundle;
@@ -374,7 +365,7 @@ function renderHistory(ctx: CommandContext, h: InspectHistory): void {
   }
   const span = h.oldest ? `${h.oldest.time.slice(0, 10)} → ${h.newest.time.slice(0, 10)}` : h.newest.time.slice(0, 10);
   const tone = h.status === 'complete' ? PALETTE.ok : PALETTE.warn;
-  ctx.print(`  ${heading(s, 'History')}  ${s.fg(tone, h.status)} ${s.dim(`· ${plural(h.commits, 'mainline commit')} · ${span} · ${BOUNDARY_TEXT[h.boundary] ?? h.boundary}`)}`);
+  ctx.print(`  ${heading(s, 'History')}  ${s.fg(tone, h.status)} ${s.dim(`· ${plural(h.commits, 'mainline commit')} · ${span} · ${HISTORY_BOUNDARY_TEXT[h.boundary]}`)}`);
   const maxFiles = Math.max(1, ...h.frames.map((f) => f.files));
   const spark = h.frames.map((f) => s.fg(PALETTE.accent, BLOCKS[Math.max(1, Math.round((f.files / maxFiles) * 8))]!)).join('');
   const first = h.frames[0]!;

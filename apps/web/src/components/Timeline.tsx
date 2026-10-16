@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { HISTORY_BOUNDARY_TEXT } from '@atlas/schema';
 import { useViewer } from '../app/context';
 import { formatDate, shortOid } from '../app/model';
 import { Icon } from './Icon';
@@ -10,15 +11,6 @@ import { Icon } from './Icon';
  * evenly spaced so every target stays 44px and distinct; the window commits that were not
  * sampled appear as ticks inside each gap, so sampling density stays visible.
  */
-const BOUNDARY: Record<string, string> = {
-  root: 'reaches the repository’s first commit',
-  days: 'bounded by the day window',
-  'commit-cap': 'bounded by the commit cap',
-  shallow: 'stops where a shallow clone ends: the oldest change is unknown',
-  'resource-cap': 'stopped by a resource limit',
-  none: 'not analyzed',
-};
-
 export function Timeline() {
   const { dataset, model, state, goToFrame, frameLoading, frameError, setCompare } = useViewer();
   const frames = dataset.frames;
@@ -61,7 +53,7 @@ export function Timeline() {
         <p className="timeline-summary">
           {coverage.boundary === 'none' && coverage.requestedCommitCap === 0
             ? 'Not requested for this analysis (history disabled). Churn and hotspot scores are absent, never zero.'
-            : `Requested but unavailable: ${BOUNDARY[coverage.boundary] ?? 'not analyzed'}. Only the selected commit is shown; churn and hotspot scores are absent, never zero.`}
+            : `Requested but unavailable: ${HISTORY_BOUNDARY_TEXT[coverage.boundary]}. Only the selected commit is shown; churn and hotspot scores are absent, never zero.`}
         </p>
       </section>
     );
@@ -104,7 +96,7 @@ export function Timeline() {
             <strong>{coverage.commitsTraversed.toLocaleString('en-US')}</strong> mainline commits,{' '}
             {windowStart ? `${formatDate(windowStart)} → ${formatDate(frames.at(-1)!.commit.committerTime)}` : formatDate(active.commit.committerTime)};{' '}
             <strong>{frames.length}</strong> analyzed snapshot{frames.length === 1 ? '' : 's'}
-            {coverage.framesRequested > frames.length ? ` of ${coverage.framesRequested} requested` : ''}; {BOUNDARY[coverage.boundary] ?? coverage.boundary};{' '}
+            {coverage.framesRequested > frames.length ? ` of ${coverage.framesRequested} requested` : ''}; {HISTORY_BOUNDARY_TEXT[coverage.boundary]};{' '}
             {commitsUpTo} of {coverage.commitsTraversed} window commits up to the snapshot shown.
             {coverage.status === 'partial' && <span className="chip chip-warn timeline-chip">partial history</span>}
           </p>

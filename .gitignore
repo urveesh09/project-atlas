@@ -6,6 +6,8 @@ coverage/
 apps/web/dist/
 test-results/
 playwright-report/
+__pycache__/
+*.py[cod]
 # Generated fixture repositories and analysis output live outside the source tree.
 .atlas-tmp/
 atlas-output/
