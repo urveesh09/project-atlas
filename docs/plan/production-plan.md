@@ -48,7 +48,8 @@ ADR. It does not cover:
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
   - ADRs run up to ADR-061; M1 adds sections there. The next new decision is ADR-062.
 - **Evidence.**
-  - `pnpm verify` runs 734 tests; 81 more skip unless their services are enabled.
+  - After M1.2's four security regressions, `pnpm verify` runs 746 tests; 81 more
+    skip unless their services are enabled. Per-commit evidence is in the status log.
   - The viewer file has 39 browser journeys, and the hosted file 6 PostgreSQL journeys.
   - Four public repositories are pinned and reproduced byte for byte on Windows and Linux:
     is-plain-obj, vuejs/core, vite and pallets/flask.
@@ -190,6 +191,12 @@ This supersedes the separate-PR instructions only for this batch; test gates rem
   merge.
 
 #### M1.3 Patch and minor upgrades
+
+**Implementation checkpoints, 2026-10-16:** viewer runtime `4f9ad6c`, contracts
+`ae28ce2`; test tooling is the fourth implementation commit in the owner-requested
+combined M1.2/M1.3 PR. Local full-suite, corpus, contract, browser and packaging
+evidence is recorded in ADR-061 and implementation status. Required combined CI,
+final render evidence and owner merge remain pending; P1 also needs M1.4/M1.5.
 
 Do these as three pull requests, so a failure is easy to locate.
 

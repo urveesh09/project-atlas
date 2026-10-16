@@ -169,3 +169,37 @@ verification passes 746 tests with 81 service-gated skips. Four repositories × 
 offline cold repeats preserve all 28 authored facts and exact canonical/wire payloads
 against the committed baseline. No schema regeneration, version bump or golden
 rewrite is necessary.
+
+## M1.3c: test and accessibility tooling (2026-10-16)
+
+### Evidence and decision
+
+- Pin Vitest 5.0.5 at the root, Playwright 1.64.1 in all three declaring packages,
+  and `@axe-core/playwright` 4.14.0 in both declaring packages.
+- Review the official patch notes and reinstall/verify Chromium using the new
+  Playwright package. Preserve every existing keyboard, rendering, reflow, source,
+  artifact and axe assertion; new findings require fixes rather than rule exclusions.
+- Keep the framework upgrade as its own implementation commit in the combined PR.
+  Final reports may follow in a documentation-only evidence commit so performance
+  measurements start from a clean implementation commit.
+
+### Verification
+
+The complete suite passes 746 tests with 81 service-gated skips under Vitest 5.0.5;
+both normal and CI software-renderer viewer journeys pass 39/39 with axe 4.14.0.
+The six relocated distribution stages pass; its dirty-tree development archive is
+11,036,676 bytes, SHA-256
+`83e7f1ef4bef71a2d7e9e226c906b6691b51de5d39665961a1907f7d6b2a31d1`.
+Fresh keyboard dependency/finding screenshots were inspected and retained locally.
+Generated candidate reports/images are restored; they are not release identities.
+The dependency audit reports zero known advisories. Both API and sandbox images
+build and run as uid 10001 on Node 24.22.0 with no network, read-only roots, no
+capabilities and no-new-privileges. The sandbox's actual installed runtime packages
+report TOML 1.9.1 and Zod 4.6.7. Local image IDs are recorded in implementation
+status; they are development images, not a release selection. The final clean-commit
+spike and combined CI are required before handoff. No missing physical or human
+gate is treated as passed.
+
+Sources: [Vitest 5.0.5](https://github.com/vitest-dev/vitest/releases/tag/v5.0.5),
+[Playwright 1.64.1](https://github.com/microsoft/playwright/releases/tag/v1.64.1),
+[axe 4.14.0](https://github.com/dequelabs/axe-core-npm/releases/tag/v4.14.0).

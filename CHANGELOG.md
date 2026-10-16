@@ -84,6 +84,8 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 - An open compare panel covered the city on screens wider than 1350 px.
 
 ### Changed
+- Upgrade Vitest to 5.0.5, Playwright to 1.64.1 and axe's Playwright adapter to 4.14.0
+  while retaining the existing browser and accessibility gates (ADR-061).
 - Upgrade runtime contract validation to Zod 4.6.7; generated JSON Schema and OpenAPI
   remain byte-identical (ADR-061).
 - Upgrade viewer runtime pins to React/React DOM 19.3.1 and React Three Fiber 9.8.2,

@@ -24,8 +24,9 @@ Recorded 10 October 2026. Rationale lives in [ADR-013](adr/ADR-013-pin-typescrip
 | @react-three/fiber | 9.8.2 | viewer 3D layer |
 | vite | 8.3.4 | viewer build; Vitest peer |
 | @vitejs/plugin-react | 6.1.2 | viewer build |
-| vitest | 5.0.3 | unit/integration tests |
-| playwright | 1.64.0 | rendering spike and browser E2E (Chromium) |
+| vitest | 5.0.5 | unit/integration tests |
+| playwright | 1.64.1 | rendering spike and browser E2E (Chromium) |
+| @axe-core/playwright | 4.14.0 | browser accessibility audits; no rule exclusions added for upgrades |
 | @types/node | 24.19.2 | matches the runtime major |
 
 ## Verified environments

@@ -1032,6 +1032,28 @@ skips), including the viewer journeys. Four repositories × five offline cold re
 preserve all 28 authored facts and canonical/wire payloads against the committed
 baseline. Final hosted/cross-OS CI remains required.
 
+### Production M1.3c: test and accessibility tooling (2026-10-16)
+
+Vitest 5.0.5, Playwright 1.64.1 and axe 4.14.0 are pinned at every declaration;
+Chromium installation was verified through the new Playwright package.
+
+- Full verification: 746 passed, 81 service-gated skips, with the existing WCAG
+  audits intact. Typecheck, viewer build, dependency direction and contracts pass.
+- Viewer journeys: 39/39 normally and 39/39 under CI software rendering.
+- Relocated CLI smoke: all six stages pass; 11,036,676-byte development archive,
+  SHA-256 `83e7f1ef4bef71a2d7e9e226c906b6691b51de5d39665961a1907f7d6b2a31d1`.
+  Generated candidate reports/images are retained locally and restored in the
+  checkout. Fresh dependency/finding screenshots were visually inspected.
+- Dependency audit reports zero known advisories on this date.
+- Both images build and smoke-test as uid 10001 / Node 24.22.0 with no network,
+  read-only roots, no capabilities and no-new-privileges. The sandbox contains
+  TOML 1.9.1 and Zod 4.6.7, checked through its deployed dependency resolution.
+  Development image IDs (not release identities): API
+  `sha256:7beb80debf952f852bc26d46e2d1cf803d0b3e9a0cacb23325dd25b60ae46ed2`;
+  sandbox `sha256:5efeaa38bd4c8ca349902ce20e3d04f3b9111fb0190575bd476fdc42e950231f`.
+- Final clean-commit render evidence follows before PR handoff; required CI and
+  owner merge remain pending. P1 and G6 remain open.
+
 ### Reproduce verification
 
 ```sh
