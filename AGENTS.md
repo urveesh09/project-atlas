@@ -82,7 +82,7 @@ pnpm install --frozen-lockfile && pnpm build && pnpm build:web
 pnpm verify                     # typecheck, viewer build, deps, contracts, tests: run before every commit
 pnpm contracts:generate         # after changing runtime schemas; contracts:check must pass
 pnpm verify:distribution        # portable CLI archive, tested outside the checkout
-node scripts/validate-real-repositories.mjs [--acquire]   # 4 pinned real repos × 5 offline repeats
+node scripts/validate-real-repositories.mjs [--acquire]   # 6 pinned real repos × 5 offline repeats
 node scripts/check-repository-baseline.mjs                # exact committed corpus bytes
 pnpm atlas analyze <repo> --out <dir> && pnpm atlas serve <dir> --repo <repo>
 ```

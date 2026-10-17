@@ -1,6 +1,6 @@
 {
   "task": "P6.1 pinned public repository validation",
-  "recordedAt": "2026-10-17T03:08:52.759Z",
+  "recordedAt": "2026-10-17T03:27:59.104Z",
   "analyzerVersion": "0.1.0-dev.8",
   "runs": 5,
   "environment": {
@@ -243,11 +243,11 @@
         }
       ],
       "milliseconds": [
-        1894.0775999999998,
-        1792.1338,
-        1843.4422999999997,
-        1836.6374999999998,
-        1971.0101999999997
+        2015.3016000000002,
+        1840.7200000000003,
+        1878.5362999999998,
+        1806.0612999999994,
+        1827.4728999999988
       ],
       "compressedBytes": 6971,
       "exportVerified": true,
@@ -750,11 +750,11 @@
         }
       ],
       "milliseconds": [
-        17880.8788,
-        16949.694,
-        14395.802300000003,
-        14581.560500000007,
-        13700.020499999999
+        15485.4634,
+        15041.319200000005,
+        14646.989999999998,
+        14474.7039,
+        14415.464800000002
       ],
       "compressedBytes": 786211,
       "exportVerified": true,
@@ -3254,11 +3254,11 @@
         }
       ],
       "milliseconds": [
-        29338.172399999996,
-        37224.573399999994,
-        37159.808099999995,
-        34525.220699999976,
-        32030.769700000004
+        28372.377600000007,
+        25811.782199999987,
+        25561.7206,
+        27107.771700000012,
+        28756.0717
       ],
       "compressedBytes": 2870708,
       "exportVerified": true,
@@ -3711,13 +3711,942 @@
         }
       ],
       "milliseconds": [
-        9342.785000000033,
-        8922.685200000007,
-        8659.575100000016,
-        7958.130500000028,
-        7811.021600000036
+        7722.111600000004,
+        7445.957599999994,
+        8477.21100000001,
+        8467.99430000002,
+        8702.852499999979
       ],
       "compressedBytes": 234397,
+      "exportVerified": true,
+      "deterministic": true
+    },
+    {
+      "owner": "pydantic",
+      "name": "pydantic-ai",
+      "numericId": "818331198",
+      "commit": "a5a471e1cd8571c6b691bbb07fcf60f83432d772",
+      "license": "MIT",
+      "category": "Python uv workspace (v0.0.49; five members)",
+      "checks": [
+        {
+          "type": "file",
+          "path": "pydantic_ai_slim/pydantic_ai/agent.py",
+          "role": "source",
+          "language": "python",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "file",
+          "path": "pydantic_graph/pydantic_graph/__init__.py",
+          "role": "source",
+          "language": "python",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "file",
+          "path": "pydantic_graph/pydantic_graph/graph.py",
+          "role": "source",
+          "language": "python",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "pydantic_graph/pydantic_graph/__init__.py",
+          "specifier": ".graph",
+          "kind": "reexports-value",
+          "status": "resolved-internal",
+          "target": "pydantic_graph/pydantic_graph/graph.py",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "pydantic_graph/pydantic_graph/__init__.py",
+          "specifier": ".nodes",
+          "kind": "reexports-value",
+          "status": "resolved-internal",
+          "target": "pydantic_graph/pydantic_graph/nodes.py",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "pydantic_ai_slim/pydantic_ai/agent.py",
+          "specifier": "pydantic_graph",
+          "kind": "imports-value",
+          "status": "resolved-internal",
+          "target": "pydantic_graph/pydantic_graph/__init__.py",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "pydantic_ai_slim/pydantic_ai/agent.py",
+          "specifier": "pydantic_graph._utils",
+          "kind": "imports-value",
+          "status": "resolved-internal",
+          "target": "pydantic_graph/pydantic_graph/_utils.py",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "pydantic_ai_slim/pydantic_ai/agent.py",
+          "specifier": "dataclasses",
+          "kind": "imports-value",
+          "status": "builtin",
+          "target": "dataclasses",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "pydantic_graph/pydantic_graph/graph.py",
+          "specifier": "logfire_api",
+          "kind": "imports-value",
+          "status": "resolved-external",
+          "target": "logfire-api",
+          "passed": true
+        }
+      ],
+      "artifactPath": ".atlas-tmp/release-corpus/pydantic-pydantic-ai/artifact",
+      "analysisStatus": "complete",
+      "coverage": {
+        "tool": "atlas",
+        "analyzerVersion": "0.1.0-dev.8",
+        "repository": "pydantic/pydantic-ai",
+        "commit": "a5a471e1cd8571c6b691bbb07fcf60f83432d772",
+        "status": "complete",
+        "scope": "committed-tree",
+        "files": {
+          "discovered": 373,
+          "included": 373,
+          "supported": 187,
+          "opaque": 186,
+          "excluded": 0,
+          "omitted": 0
+        },
+        "roles": {
+          "opaque": 150,
+          "source": 107,
+          "config": 15,
+          "declaration": 4,
+          "asset": 22,
+          "test": 75
+        },
+        "packages": [
+          {
+            "name": "pydantic-ai",
+            "path": "",
+            "files": 246,
+            "workspace": true
+          },
+          {
+            "name": "pydantic-ai-examples",
+            "path": "examples",
+            "files": 29,
+            "workspace": true
+          },
+          {
+            "name": "mcp-run-python",
+            "path": "mcp-run-python",
+            "files": 16,
+            "workspace": true
+          },
+          {
+            "name": "pydantic-ai-slim",
+            "path": "pydantic_ai_slim",
+            "files": 49,
+            "workspace": true
+          },
+          {
+            "name": "pydantic-evals",
+            "path": "pydantic_evals",
+            "files": 20,
+            "workspace": true
+          },
+          {
+            "name": "pydantic-graph",
+            "path": "pydantic_graph",
+            "files": 13,
+            "workspace": true
+          }
+        ],
+        "externalPackages": 69,
+        "exclusions": [
+          {
+            "reason": "LOCKFILE_STRUCTURAL",
+            "count": 3
+          }
+        ],
+        "excludedRoots": [],
+        "appliedBuiltinExclusions": [
+          {
+            "reason": "DEPENDENCY_DIRECTORY",
+            "patterns": [
+              "node_modules/",
+              "bower_components/",
+              "jspm_packages/",
+              "vendor/",
+              ".venv/",
+              "venv/",
+              ".tox/",
+              ".nox/",
+              "site-packages/"
+            ]
+          },
+          {
+            "reason": "BUILD_OUTPUT",
+            "patterns": [
+              "dist/",
+              ".next/",
+              ".nuxt/",
+              ".svelte-kit/",
+              ".output/",
+              ".vercel/",
+              ".netlify/",
+              "storybook-static/",
+              ".docusaurus/",
+              ".expo/",
+              "coverage/",
+              "*.egg-info/",
+              ".eggs/"
+            ]
+          },
+          {
+            "reason": "CACHE_DIRECTORY",
+            "patterns": [
+              ".cache/",
+              ".turbo/",
+              ".parcel-cache/",
+              ".nx/",
+              ".yarn/cache/",
+              ".pnpm-store/",
+              ".eslintcache",
+              "__pycache__/",
+              ".mypy_cache/",
+              ".pytest_cache/",
+              ".ruff_cache/",
+              "*.pyc",
+              "*.pyo"
+            ]
+          },
+          {
+            "reason": "MINIFIED_BUNDLE",
+            "patterns": [
+              "*.min.js",
+              "*.min.mjs",
+              "*.min.cjs",
+              "*.min.css"
+            ]
+          },
+          {
+            "reason": "SOURCE_MAP",
+            "patterns": [
+              "*.map"
+            ]
+          }
+        ],
+        "limitsHit": [],
+        "warnings": [],
+        "imports": {
+          "observed": 1774,
+          "internal": 650,
+          "external": 522,
+          "builtin": 596,
+          "unresolved": 1,
+          "unsupported": 5,
+          "excludedTargets": 0
+        },
+        "parse": {
+          "parsed": 187,
+          "failed": 0,
+          "cacheHits": 0
+        },
+        "findings": {
+          "ATLAS_LARGE_SOURCE_FILE": 7,
+          "ATLAS_COMPLEX_CALLABLE": 6,
+          "ATLAS_HIGH_FAN_IN": 6,
+          "ATLAS_CHANGE_CONCENTRATION": 7,
+          "ATLAS_STATIC_CYCLE": 2,
+          "ATLAS_RESOLUTION_CONTEXT_INCOMPLETE": 1
+        },
+        "cycles": 2,
+        "history": {
+          "status": "complete",
+          "boundary": "commit-cap",
+          "reason": null,
+          "commits": 200,
+          "window": {
+            "newest": "a5a471e1cd8571c6b691bbb07fcf60f83432d772",
+            "oldest": "22eef2dc922644a92157e7a62b9f0f82268ae1ac",
+            "oldestTime": "2025-02-06T17:00:26.000Z",
+            "newestTime": "2025-04-01T16:19:16.000Z"
+          },
+          "frames": {
+            "requested": 12,
+            "completed": 12,
+            "unavailable": []
+          },
+          "renames": 4,
+          "renameDetection": "complete",
+          "lineDiffs": "complete",
+          "coChange": "complete",
+          "lineages": 388
+        },
+        "sourceTextIncluded": false
+      },
+      "reasons": {
+        "unsupported:NONLITERAL_DYNAMIC_IMPORT": 4,
+        "unsupported:URL_IMPORT_UNSUPPORTED": 1,
+        "unresolved:GENERATED_TARGET_MISSING": 1
+      },
+      "examples": {
+        "unsupported:NONLITERAL_DYNAMIC_IMPORT": [
+          {
+            "source": "tests/import_examples.py",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "mcp-run-python/src/prepare_env.py",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "tests/models/test_model.py",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          }
+        ],
+        "unsupported:URL_IMPORT_UNSUPPORTED": [
+          {
+            "source": "examples/pydantic_ai_examples/chat_app.ts",
+            "specifier": "https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.0/lib/marked.esm.js",
+            "kind": "imports-value"
+          }
+        ],
+        "unresolved:GENERATED_TARGET_MISSING": [
+          {
+            "source": "mcp-run-python/cli.js",
+            "specifier": "./dist/index.js",
+            "kind": "requires-literal"
+          }
+        ]
+      },
+      "parseFailures": [],
+      "digest": "317ceb3a74a7a9df9d5ac650a0133c598a51680818b97cf7af89510943c2bef5",
+      "chunks": [
+        {
+          "path": "graphs/snap_4de7c5a8643aa9a5bd0729b74f6cbb01d2171bafdc648ec5ab89ef132f5a8425.json.gz",
+          "sha256": "2f8c6b925fc3c74897c2fe725eb785fd8667a84c5a5ca10e452b7beb7c080fd0",
+          "uncompressedBytes": 107210,
+          "compressedBytes": 17520,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "4b6672c4037155e821b0c1d8e24422fc731434b69f617b932625750cb9c3f601",
+          "decodedBytes": 1282852
+        },
+        {
+          "path": "graphs/snap_4b69f2964a1b0ca5ca120e4f321067fc51784bbe33fd8d1966f107f5fa0e4b0d.json.gz",
+          "sha256": "35c2098aaf60f1ab8d9f241e02a374d3d8fab105bd5553c50629e4fc607ce898",
+          "uncompressedBytes": 213808,
+          "compressedBytes": 29980,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "60cd423aeae85f5d5cde76bf8740512b945acc27c889d7f6173c2bb92f8b42a6",
+          "decodedBytes": 1314045
+        },
+        {
+          "path": "graphs/snap_b8026cea6ba0e5dc4ecf9a3e1bd4ac2661533709edd8a60636a206385c9e7d6c.json.gz",
+          "sha256": "022b0024e15ccd9e9509a1f823039323439688b0330231c73bdc5bcdb09cee48",
+          "uncompressedBytes": 527854,
+          "compressedBytes": 62452,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "cedf7474b5f03341380e710ebed11270f3f21aeb11efaca78c4ba1c49ce76005",
+          "decodedBytes": 1348852
+        },
+        {
+          "path": "graphs/snap_7b0e57281865a858af23402c7563d3739cd3370b3e3c83345af3c70ab2d1cf59.json.gz",
+          "sha256": "675a9f96a08179121067017f04967ec35ab24460330aa85f6b1c987731d72123",
+          "uncompressedBytes": 178955,
+          "compressedBytes": 25839,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "31e101f07c2518eaaedaa7ee3fd799524d45ef798b3fac26d98bad306b82fc7e",
+          "decodedBytes": 1447619
+        },
+        {
+          "path": "graphs/snap_debce471e6b4a36e1f07fe31c2890a5a912be835165284ce1138c2575f60bb2a.json.gz",
+          "sha256": "bb88dd7d8692b002059a9cb0862e8d8624141f404abfd9535e50462d6cc6b298",
+          "uncompressedBytes": 232266,
+          "compressedBytes": 33069,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "41901b6e66f949626faa9b98f3ab96166377c723ce4515bc27b178fa89495942",
+          "decodedBytes": 1457704
+        },
+        {
+          "path": "graphs/snap_43ea6157576fd0c8a360f666cf8bda9596672dfd4bce539aad78d93737403684.json.gz",
+          "sha256": "70068b7ea3e83dfe76064a706c20c23112fdcfb10fc663e3a04f302bd240a646",
+          "uncompressedBytes": 548093,
+          "compressedBytes": 67766,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "ec53fc50b4ac83eb5aad04e517dae0e66f6b29026d8f27022774d01f21f41965",
+          "decodedBytes": 1657633
+        },
+        {
+          "path": "graphs/snap_a573ebe4637d35a6deafe589c9fcb5ae141d061e9a3da111c3231bcf482f6cd1.json.gz",
+          "sha256": "81c9bf8d003817bb2df28abc6063eb2864523885f41ffd77ef021e00bb9fdb18",
+          "uncompressedBytes": 252804,
+          "compressedBytes": 36347,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "990684328a378ce83bd5d19e12c268b13a082975bd55d8552f599248b190dd70",
+          "decodedBytes": 1718442
+        },
+        {
+          "path": "graphs/snap_71f204035353427e04d232a448a8c2d2d3165d4933e7766b79a6c09ec44b0d41.json.gz",
+          "sha256": "0dead3aaa9edacea51f6aed1bfa959509bd7f6563ee27827601282cb14d62b32",
+          "uncompressedBytes": 207891,
+          "compressedBytes": 32729,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "4ccdc4e980508a471f504abc7282db73e6595c1cd2a836fa9b80035a1837f007",
+          "decodedBytes": 1936037
+        },
+        {
+          "path": "graphs/snap_f433419a7dbcdf75082e6e8934bba1da3e4eec5565889700739c7cae27384d11.json.gz",
+          "sha256": "7ffb17174091fe6e601dcc595ed5fcdf117f0f0cc3c13bea27ca8619411db423",
+          "uncompressedBytes": 486088,
+          "compressedBytes": 60551,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "eb3d31948e395554466f28c9525bd5c468e061e6a071aa81b5eeb90ffd8bf6a0",
+          "decodedBytes": 1944767
+        },
+        {
+          "path": "graphs/snap_c08c0e8109209990bca8402f99d01d6d5eea3d244f1e87e83a132e514e328080.json.gz",
+          "sha256": "e6d7eb7ab728ab1078c58176e5e2511e3795fc931ddee592736717df12d399f9",
+          "uncompressedBytes": 205144,
+          "compressedBytes": 30069,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "7a24a02367a874ad80ceb9bd47b2827f2afb3ed3f0d057f95d1c0d141848d7ce",
+          "decodedBytes": 1945598
+        },
+        {
+          "path": "graphs/snap_84f43d55841a0b390a6dd71b0eee2c894d6dbd1e191f7f232ec0c087fd6f36e3.json.gz",
+          "sha256": "21ed11d8c2a58cbcf956e1f5a056e4be351ca8dafbb8614805e37b31e7ba72e7",
+          "uncompressedBytes": 255944,
+          "compressedBytes": 34838,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "c25d3ada636610e23ddc450e44017772acf7e322605830a5603dfb0d59f4e442",
+          "decodedBytes": 2323109
+        },
+        {
+          "path": "graphs/snap_e041209843f1b09396b043fd4fb60ebbc68bd3926371c6eba59b8a714ff97f1a.json.gz",
+          "sha256": "af0e7f100a89e63db9dd2e9af36b649a411716146ebb0e74ae691eb06706d6b0",
+          "uncompressedBytes": 1382539,
+          "compressedBytes": 154498,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.indexed/1",
+          "encodedSha256": "78ff4b644ed75660b0167da46f3029911d156e8fcfa2faa7445ae37e73023c7b",
+          "decodedBytes": 2372438
+        },
+        {
+          "path": "history/history.json.gz",
+          "sha256": "0eaf04afadba296d5c07f4910570de3f4bf64580b5712969dbdd089e5819e268",
+          "uncompressedBytes": 688199,
+          "compressedBytes": 120409,
+          "mediaType": "application/json",
+          "encoding": "atlas.history.compact/1",
+          "encodedSha256": "8912a5d0cef681ace357a53358695e8a3b4cd7aa8e35ded8cd4fda3a4139586e",
+          "decodedBytes": 1312673
+        },
+        {
+          "path": "layout/layout.json.gz",
+          "sha256": "1fd6a22ec2f869198e6cb5eff63bad25a71a6668e769e82d669f1ae09ff55b55",
+          "uncompressedBytes": 242736,
+          "compressedBytes": 56974,
+          "mediaType": "application/json",
+          "encoding": "atlas.layout.compact/1",
+          "encodedSha256": "bcec451623d34e6d330900ad0e77edc979109ecae4f8de431f8b987359e101da",
+          "decodedBytes": 1090200
+        }
+      ],
+      "milliseconds": [
+        18199.479099999997,
+        20373.69530000002,
+        19353.820000000007,
+        16435.105900000024,
+        14586.943299999984
+      ],
+      "compressedBytes": 763041,
+      "exportVerified": true,
+      "deterministic": true
+    },
+    {
+      "owner": "fastapi",
+      "name": "full-stack-fastapi-template",
+      "numericId": "172227885",
+      "commit": "b1125d8839482cb7bbae603ddc6d0081bf87532e",
+      "license": "MIT",
+      "category": "mixed Python FastAPI backend and TypeScript React frontend",
+      "checks": [
+        {
+          "type": "file",
+          "path": "backend/app/main.py",
+          "role": "source",
+          "language": "python",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "file",
+          "path": "backend/app/api/routes/login.py",
+          "role": "source",
+          "language": "python",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "file",
+          "path": "frontend/src/main.tsx",
+          "role": "source",
+          "language": "typescript",
+          "parseStatus": "parsed",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "backend/app/main.py",
+          "specifier": "pathlib",
+          "kind": "imports-value",
+          "status": "builtin",
+          "target": "pathlib",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "backend/app/main.py",
+          "specifier": "app.api.main",
+          "kind": "imports-value",
+          "status": "resolved-internal",
+          "target": "backend/app/api/main.py",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "backend/app/main.py",
+          "specifier": "fastapi",
+          "kind": "imports-value",
+          "status": "resolved-external",
+          "target": "fastapi",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "backend/app/main.py",
+          "specifier": "sentry_sdk",
+          "kind": "imports-value",
+          "status": "resolved-external",
+          "target": "sentry-sdk",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "frontend/src/main.tsx",
+          "specifier": "react",
+          "kind": "imports-value",
+          "status": "resolved-external",
+          "target": "react",
+          "passed": true
+        },
+        {
+          "type": "import",
+          "source": "frontend/src/main.tsx",
+          "specifier": "./components/theme-provider",
+          "kind": "imports-value",
+          "status": "resolved-internal",
+          "target": "frontend/src/components/theme-provider.tsx",
+          "passed": true
+        }
+      ],
+      "artifactPath": ".atlas-tmp/release-corpus/fastapi-full-stack-fastapi-template/artifact",
+      "analysisStatus": "complete",
+      "coverage": {
+        "tool": "atlas",
+        "analyzerVersion": "0.1.0-dev.8",
+        "repository": "fastapi/full-stack-fastapi-template",
+        "commit": "b1125d8839482cb7bbae603ddc6d0081bf87532e",
+        "status": "complete",
+        "scope": "committed-tree",
+        "files": {
+          "discovered": 252,
+          "included": 231,
+          "supported": 135,
+          "opaque": 96,
+          "excluded": 21,
+          "omitted": 0
+        },
+        "roles": {
+          "asset": 24,
+          "opaque": 56,
+          "config": 19,
+          "source": 104,
+          "test": 27,
+          "declaration": 1
+        },
+        "packages": [
+          {
+            "name": "fastapi-full-stack-template",
+            "path": "",
+            "files": 61,
+            "workspace": true
+          },
+          {
+            "name": "app",
+            "path": "backend",
+            "files": 57,
+            "workspace": true
+          },
+          {
+            "name": "frontend",
+            "path": "frontend",
+            "files": 102,
+            "workspace": true
+          },
+          {
+            "name": "emails",
+            "path": "packages/react-email",
+            "files": 11,
+            "workspace": true
+          }
+        ],
+        "externalPackages": 74,
+        "exclusions": [
+          {
+            "reason": "GENERATED_HEADER",
+            "count": 17
+          },
+          {
+            "reason": "LOCKFILE_STRUCTURAL",
+            "count": 1
+          },
+          {
+            "reason": "SYMLINK",
+            "count": 4
+          }
+        ],
+        "excludedRoots": [],
+        "appliedBuiltinExclusions": [
+          {
+            "reason": "DEPENDENCY_DIRECTORY",
+            "patterns": [
+              "node_modules/",
+              "bower_components/",
+              "jspm_packages/",
+              "vendor/",
+              ".venv/",
+              "venv/",
+              ".tox/",
+              ".nox/",
+              "site-packages/"
+            ]
+          },
+          {
+            "reason": "BUILD_OUTPUT",
+            "patterns": [
+              "dist/",
+              ".next/",
+              ".nuxt/",
+              ".svelte-kit/",
+              ".output/",
+              ".vercel/",
+              ".netlify/",
+              "storybook-static/",
+              ".docusaurus/",
+              ".expo/",
+              "coverage/",
+              "*.egg-info/",
+              ".eggs/"
+            ]
+          },
+          {
+            "reason": "CACHE_DIRECTORY",
+            "patterns": [
+              ".cache/",
+              ".turbo/",
+              ".parcel-cache/",
+              ".nx/",
+              ".yarn/cache/",
+              ".pnpm-store/",
+              ".eslintcache",
+              "__pycache__/",
+              ".mypy_cache/",
+              ".pytest_cache/",
+              ".ruff_cache/",
+              "*.pyc",
+              "*.pyo"
+            ]
+          },
+          {
+            "reason": "MINIFIED_BUNDLE",
+            "patterns": [
+              "*.min.js",
+              "*.min.mjs",
+              "*.min.cjs",
+              "*.min.css"
+            ]
+          },
+          {
+            "reason": "SOURCE_MAP",
+            "patterns": [
+              "*.map"
+            ]
+          }
+        ],
+        "limitsHit": [],
+        "warnings": [],
+        "imports": {
+          "observed": 677,
+          "internal": 322,
+          "external": 276,
+          "builtin": 44,
+          "unresolved": 31,
+          "unsupported": 0,
+          "excludedTargets": 4
+        },
+        "parse": {
+          "parsed": 135,
+          "failed": 0,
+          "cacheHits": 0
+        },
+        "findings": {
+          "ATLAS_LOCAL_IMPORT_UNRESOLVED": 31,
+          "ATLAS_HIGH_FAN_IN": 1,
+          "ATLAS_LARGE_SOURCE_FILE": 1
+        },
+        "cycles": 0,
+        "history": {
+          "status": "complete",
+          "boundary": "days",
+          "reason": null,
+          "commits": 145,
+          "window": {
+            "newest": "b1125d8839482cb7bbae603ddc6d0081bf87532e",
+            "oldest": "1c82b25096955e1897fcb237a03af440e524f653",
+            "oldestTime": "2026-07-23T09:44:27.000Z",
+            "newestTime": "2026-10-15T16:04:31.000Z"
+          },
+          "frames": {
+            "requested": 12,
+            "completed": 12,
+            "unavailable": []
+          },
+          "renames": 1,
+          "renameDetection": "complete",
+          "lineDiffs": "complete",
+          "coChange": "complete",
+          "lineages": 277
+        },
+        "sourceTextIncluded": false
+      },
+      "reasons": {
+        "unresolved:LOCAL_TARGET_MISSING": 31,
+        "excluded-target:TARGET_EXCLUDED": 4
+      },
+      "examples": {
+        "unresolved:LOCAL_TARGET_MISSING": [
+          {
+            "source": "frontend/src/components/Items/ItemActionsMenu.tsx",
+            "specifier": "@/client",
+            "kind": "imports-type"
+          },
+          {
+            "source": "frontend/src/hooks/useAuth.ts",
+            "specifier": "@/client",
+            "kind": "imports-value"
+          },
+          {
+            "source": "frontend/src/components/Common/Logo.tsx",
+            "specifier": "/assets/images/fastapi-logo-light.svg",
+            "kind": "imports-value"
+          }
+        ],
+        "excluded-target:TARGET_EXCLUDED": [
+          {
+            "source": "frontend/tests/utils/privateApi.ts",
+            "specifier": "../../src/client/client.gen",
+            "kind": "imports-value"
+          },
+          {
+            "source": "frontend/tests/utils/privateApi.ts",
+            "specifier": "../../src/client",
+            "kind": "imports-value"
+          },
+          {
+            "source": "frontend/src/main.tsx",
+            "specifier": "./client/client.gen",
+            "kind": "imports-value"
+          }
+        ]
+      },
+      "parseFailures": [],
+      "digest": "9ca434a7cbd8f4f4d8cf629ef6e588d898f3ec18163e35edea925e9cecf98fde",
+      "chunks": [
+        {
+          "path": "graphs/snap_0287918878c58ea45e2f2b174c06aa1a4458da172a8761bc1cf770cae7c25355.json.gz",
+          "sha256": "9e4ed009c3c35dcd760650882f1e8d5c09e8bd764c8e271eae5343a3c0294c46",
+          "uncompressedBytes": 40786,
+          "compressedBytes": 7705,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "7df8e68c1429d174a08b824758b98353b4ced75cd482176494037d35c5c3ea86",
+          "decodedBytes": 1022179
+        },
+        {
+          "path": "graphs/snap_1921137c42adeb6c541a8c9133149ea0bfb944f7e5a6421f1b88e13700dd5bec.json.gz",
+          "sha256": "60f7602cc0ef9ec42f4430416d2c7f5c6f44c9732474ccd34ce03e276702b18c",
+          "uncompressedBytes": 59256,
+          "compressedBytes": 10417,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "7f4ec0eb4d6c85c795d052e330a5b69bc3da54acfa9f9e17328de87150b79dee",
+          "decodedBytes": 1021461
+        },
+        {
+          "path": "graphs/snap_9477a36f8a67b630bdb7382a4d7fc0fc7f653542a81b5c25c12738fbd0711dd8.json.gz",
+          "sha256": "8460e3c1b664796ccfbe92b998d5116476165e769da1100ea74d65bb741c6889",
+          "uncompressedBytes": 107797,
+          "compressedBytes": 16812,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "60afa1c69d504cc45ca771b96d768ae18f416b57c1898824492e8bc287d84368",
+          "decodedBytes": 999697
+        },
+        {
+          "path": "graphs/snap_3de3ed4c43936dc8c68852fa0975ad904c3d8c381c9c483070d1399f58c01766.json.gz",
+          "sha256": "064113503d67a1b403891b4c0de119420dcd83ef16ac4f4dd8e7f1e8032ba0e3",
+          "uncompressedBytes": 27276,
+          "compressedBytes": 5474,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "c81937ebbe75151e92389ba7f06f0df59d6705d1d6a9d035517aeec435df77eb",
+          "decodedBytes": 1000903
+        },
+        {
+          "path": "graphs/snap_9b29626e7b75b300d255e02f217ebd01c8eb23946e9dadb6a4aa224db2511090.json.gz",
+          "sha256": "5603e71f3b6ebcebe59e528bc0ad00ac7360cfba370d572bcede534d25211d34",
+          "uncompressedBytes": 24050,
+          "compressedBytes": 4934,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "471c2f4c62781e0346ddce5f1323cf5d17f74f6fe3c0f585371559db0287e9bf",
+          "decodedBytes": 1034060
+        },
+        {
+          "path": "graphs/snap_3df0768b73ef561b7e9c84f2a5b375a7f99ff2b79cddc37582e86752ce29e52a.json.gz",
+          "sha256": "37bad7dfe28a9dc5aecd71aa398455c0db1feaaefd492b2ea1cd0a02aa89f5c5",
+          "uncompressedBytes": 107222,
+          "compressedBytes": 16739,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "95b3616f3892b9fb4d67d8a1cc99a6b7f6867ba1e25bc7b3a2c95b967382a263",
+          "decodedBytes": 1032823
+        },
+        {
+          "path": "graphs/snap_96010e478473cb209ff4b884461d31211104047020a808fae179b8f3d792261a.json.gz",
+          "sha256": "b3b491badc7370a4d453ad528234870d6f596eb19df6b5ec40a0e9997c6ff8d5",
+          "uncompressedBytes": 25096,
+          "compressedBytes": 5118,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "175e927913e9e03e669d70e05b57b06598d043880a729a513d0bcc2ef788a4ef",
+          "decodedBytes": 1038716
+        },
+        {
+          "path": "graphs/snap_937f835046d14c7f1618098e8252e370cbaca8e0b57a1e85bf5d462b04ee1ba4.json.gz",
+          "sha256": "c31af52dd91631cc5439f98f12fbc8d6960c685442602943f215d38db23c0643",
+          "uncompressedBytes": 48598,
+          "compressedBytes": 8292,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "2cb34569e1d174627a1f0f4bd2194531d8989762b5e356913211a12c8f5eaf5b",
+          "decodedBytes": 1037371
+        },
+        {
+          "path": "graphs/snap_ba9cca9bf947e2bc78b2bcecda4c5a86db294dc8cc96d41aabf9eedefd1650d9.json.gz",
+          "sha256": "b2292090eb2af7a8e07728be0091172899592f4496614c512ba5f664885a57bd",
+          "uncompressedBytes": 50207,
+          "compressedBytes": 8605,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "48f5a92df94f859b841909cbbb80df46e2fae23462f8e7a177c0bdb95bb3efaa",
+          "decodedBytes": 1022186
+        },
+        {
+          "path": "graphs/snap_390a094c199f19d09ed8156c4dbbf1e8a4c2fd0c9dd2d2782fb022e9fb4750bc.json.gz",
+          "sha256": "5ba84fb630a78c432904ccc242b97caf70c0cff27182a82aec8a253daf2489aa",
+          "uncompressedBytes": 11045,
+          "compressedBytes": 2786,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "63bcfdbec1b87c0eecb3dbbfa2e1320c00615d7bfd3be827b1d3b5e6a7f76af1",
+          "decodedBytes": 1022192
+        },
+        {
+          "path": "graphs/snap_f801d7aa6c2fc3363e5f2654963df5ff2cc0315868075afe7a63e2251674a5a6.json.gz",
+          "sha256": "dd3fad33f5bc80d334d39933660eb655560e01e4094ee810ba64f77b7e5239f6",
+          "uncompressedBytes": 37459,
+          "compressedBytes": 6574,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "27d77de3d5f83018497df2b6d96086cd6c924bcda51bf057689ee4ae9ce14701",
+          "decodedBytes": 1022195
+        },
+        {
+          "path": "graphs/snap_6beb0dac07ba2de02432a5fd59f9fc3a22958ae0a2f604474f0935b6731b2bdb.json.gz",
+          "sha256": "d755cd7852a011aa62e5c8a1a55ad773fc204d3b3359a8fd8e6a17b2ff4ad96f",
+          "uncompressedBytes": 607044,
+          "compressedBytes": 70680,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.indexed/1",
+          "encodedSha256": "74581ad9297ce312aa4695b54b25d9b410cf0a962df73e3233ca4261276a1c40",
+          "decodedBytes": 1023443
+        },
+        {
+          "path": "history/history.json.gz",
+          "sha256": "383689ba24da48bf0f7a9a6f0a39538f5875b24e29901a0716b16550f5a86b0d",
+          "uncompressedBytes": 281592,
+          "compressedBytes": 50691,
+          "mediaType": "application/json",
+          "encoding": "atlas.history.compact/1",
+          "encodedSha256": "0f0d59b00f5b678e7d77e0f3a4c0a1819dbc2070b0f6e82b0333c2ba85989d27",
+          "decodedBytes": 836819
+        },
+        {
+          "path": "layout/layout.json.gz",
+          "sha256": "d3d1682e5181262b6184aaffcabaeef691b54ec44c15e1f4d0c6513eb26a669f",
+          "uncompressedBytes": 216745,
+          "compressedBytes": 48904,
+          "mediaType": "application/json",
+          "encoding": "atlas.layout.compact/1",
+          "encodedSha256": "6670d8a4abbae4d58fbfd0ef65ada2f6347234b4bdaa1c566d8193b5a72c088a",
+          "decodedBytes": 980129
+        }
+      ],
+      "milliseconds": [
+        9944.884900000005,
+        10003.5576,
+        10036.201300000015,
+        9500.527900000045,
+        9742.053700000048
+      ],
+      "compressedBytes": 263731,
       "exportVerified": true,
       "deterministic": true
     }

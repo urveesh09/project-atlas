@@ -37,7 +37,7 @@ preserve analyzer identities, artifact contracts and performance thresholds.
 
 ## Candidate evidence and compatibility
 
-[Five cold repeats for each of four immutable real repositories](real-repositories.md)
+[Five cold repeats for each of six immutable real repositories](real-repositories.md)
 exercise independent roles/import examples and exact full-payload determinism. Windows
 and Linux repeat these checks in CI. The [portable CLI smoke](distribution-smoke.md)
 verifies every extracted file and runs the CLI/viewer from outside the checkout without

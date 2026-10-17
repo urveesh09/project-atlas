@@ -5,6 +5,8 @@ Maintained per plan §20.1. A task is **done** only when its completion evidence
 **Current milestone (2026-10-17):** production-plan M2, Python correctness evidence;
 M2.1 documentation alignment landed in PR #25. M2.6 exposed a namespace-precedence
 defect, corrected in analyzer `0.1.0-dev.8` (ADR-066); required CI/owner merge follow.
+The expanded six-repository corpus now has local five-repeat/46-check evidence
+(ADR-065); required expanded-corpus CI and M2.2 capacity measurements remain pending.
 M1.1 landed in [PR #20](https://github.com/urveesh09/project-atlas/pull/20);
 M1.2/M1.3 landed together in [PR #22](https://github.com/urveesh09/project-atlas/pull/22),
 with separate implementation commits. M1.4 landed in
@@ -1271,6 +1273,45 @@ Required CI on this correction follows; do not reinterpret earlier failed runs.
   and M2.2 dev.8 capacity remain separate work; keep the old dev.7 measurements.
   After PR #26 lands, the branch incorporates current main and full verification
   passes again: 764 tests, 81 explicit skips, including the four added harness checks.
+
+### Production M2.6: uv workspace and mixed Python/TS corpus (2026-10-17)
+
+ADR-065 records two MIT-licensed immutable additions: Pydantic AI v0.0.49
+`a5a471e1cd8571c6b691bbb07fcf60f83432d772` and Full Stack FastAPI Template
+`b1125d8839482cb7bbae603ddc6d0081bf87532e`. Whole pinned trees contain 373 blobs /
+23,766,594 bytes and 252 blobs / 1,886,624 bytes. Source is read only through offline
+ingest after bounded acquisition; no checkout, installation, hooks or execution.
+
+Eighteen new source-derived expectations were written before analysis. The first
+dev.7 run failed the Pydantic `agent.py` → `pydantic_graph` expectation. Keep that
+failure and the expectations; the separate ADR-066 correction resolves the regular
+package ahead of the earlier namespace directory. The five-repeat dev.8 retest passes
+all six repositories, all 46 authored checks and streaming artifact verification.
+The original four pins, 28 checks and dev.8 baseline digests are unchanged.
+
+- Pydantic AI: 187 supported/parsed (177 Python, six TS, four JS), zero parse failures;
+  650 internal, 522 external, 596 builtin, one unresolved and five unsupported
+  observations. Twelve frames / 200 commits, commit-cap boundary; 0.728 MiB artifact.
+- FastAPI: 135 supported/parsed, zero failures; 322 internal, 276 external, 44 builtin,
+  31 unresolved and four excluded-target observations. Twelve frames / 145 commits,
+  day boundary; 0.252 MiB artifact. Unresolved/generated/asset examples are disclosed
+  in the report; complete analysis does not mean every import resolves.
+- The path comparator against the clean dev.8 prerequisite finds zero differences
+  for Harbor plus all six repositories. Against clean pre-fix main/dev.7, Harbor,
+  the original four and FastAPI have only the analyzer-version difference; Pydantic
+  has the deliberate namespace changes (1,837 normalized differences across history).
+  The latter comparison exits 1 as designed and is retained.
+- Actual CLI serving plus Chromium opens both new source-free exports, searches and
+  selects the authored file, and shows its dependencies. Both journeys report no page
+  errors, no attached source, and only loopback GETs (16 per journey). Both screenshots
+  were inspected; these functional checks make no reference-device performance claim.
+
+Full verification passes 760 tests with 81 explicit service-gated skips, including
+the CPython oracle and all 39 viewer journeys. After integrating the prerequisite's
+current-main merge, full verification passes again: 764 tests, 81 conditional skips.
+Expanded-corpus Windows/Linux CI,
+independent cross-OS comparison and owner merge are required before closing M2.6.
+M2.2 and G6 stay separate and open.
 
 ### Reproduce verification
 

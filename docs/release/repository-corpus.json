@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "recordedOn": "2026-10-11",
+  "recordedOn": "2026-10-17",
   "repositories": [
     { "owner": "sindresorhus", "name": "is-plain-obj", "numericId": "38923193", "commit": "666df7c10035f7e26f27ec214fe5ae3173435f34", "category": "single-package JavaScript", "checks": {
       "files": [
@@ -53,6 +53,154 @@
         { "source": "examples/tutorial/flaskr/blog.py", "specifier": ".auth", "kind": "imports-value", "status": "resolved-internal", "target": "examples/tutorial/flaskr/auth.py" },
         { "source": "examples/tutorial/flaskr/blog.py", "specifier": "flask", "kind": "imports-value", "status": "resolved-internal", "target": "src/flask/__init__.py" }
       ]
-    } }
+    } },
+    {
+      "owner": "pydantic",
+      "name": "pydantic-ai",
+      "numericId": "818331198",
+      "commit": "a5a471e1cd8571c6b691bbb07fcf60f83432d772",
+      "license": "MIT",
+      "category": "Python uv workspace (v0.0.49; five members)",
+      "checks": {
+        "files": [
+          {
+            "path": "pydantic_ai_slim/pydantic_ai/agent.py",
+            "role": "source",
+            "language": "python",
+            "parseStatus": "parsed"
+          },
+          {
+            "path": "pydantic_graph/pydantic_graph/__init__.py",
+            "role": "source",
+            "language": "python",
+            "parseStatus": "parsed"
+          },
+          {
+            "path": "pydantic_graph/pydantic_graph/graph.py",
+            "role": "source",
+            "language": "python",
+            "parseStatus": "parsed"
+          }
+        ],
+        "imports": [
+          {
+            "source": "pydantic_graph/pydantic_graph/__init__.py",
+            "specifier": ".graph",
+            "kind": "reexports-value",
+            "status": "resolved-internal",
+            "target": "pydantic_graph/pydantic_graph/graph.py"
+          },
+          {
+            "source": "pydantic_graph/pydantic_graph/__init__.py",
+            "specifier": ".nodes",
+            "kind": "reexports-value",
+            "status": "resolved-internal",
+            "target": "pydantic_graph/pydantic_graph/nodes.py"
+          },
+          {
+            "source": "pydantic_ai_slim/pydantic_ai/agent.py",
+            "specifier": "pydantic_graph",
+            "kind": "imports-value",
+            "status": "resolved-internal",
+            "target": "pydantic_graph/pydantic_graph/__init__.py"
+          },
+          {
+            "source": "pydantic_ai_slim/pydantic_ai/agent.py",
+            "specifier": "pydantic_graph._utils",
+            "kind": "imports-value",
+            "status": "resolved-internal",
+            "target": "pydantic_graph/pydantic_graph/_utils.py"
+          },
+          {
+            "source": "pydantic_ai_slim/pydantic_ai/agent.py",
+            "specifier": "dataclasses",
+            "kind": "imports-value",
+            "status": "builtin",
+            "target": "dataclasses"
+          },
+          {
+            "source": "pydantic_graph/pydantic_graph/graph.py",
+            "specifier": "logfire_api",
+            "kind": "imports-value",
+            "status": "resolved-external",
+            "target": "logfire-api"
+          }
+        ]
+      }
+    },
+    {
+      "owner": "fastapi",
+      "name": "full-stack-fastapi-template",
+      "numericId": "172227885",
+      "commit": "b1125d8839482cb7bbae603ddc6d0081bf87532e",
+      "license": "MIT",
+      "category": "mixed Python FastAPI backend and TypeScript React frontend",
+      "checks": {
+        "files": [
+          {
+            "path": "backend/app/main.py",
+            "role": "source",
+            "language": "python",
+            "parseStatus": "parsed"
+          },
+          {
+            "path": "backend/app/api/routes/login.py",
+            "role": "source",
+            "language": "python",
+            "parseStatus": "parsed"
+          },
+          {
+            "path": "frontend/src/main.tsx",
+            "role": "source",
+            "language": "typescript",
+            "parseStatus": "parsed"
+          }
+        ],
+        "imports": [
+          {
+            "source": "backend/app/main.py",
+            "specifier": "pathlib",
+            "kind": "imports-value",
+            "status": "builtin",
+            "target": "pathlib"
+          },
+          {
+            "source": "backend/app/main.py",
+            "specifier": "app.api.main",
+            "kind": "imports-value",
+            "status": "resolved-internal",
+            "target": "backend/app/api/main.py"
+          },
+          {
+            "source": "backend/app/main.py",
+            "specifier": "fastapi",
+            "kind": "imports-value",
+            "status": "resolved-external",
+            "target": "fastapi"
+          },
+          {
+            "source": "backend/app/main.py",
+            "specifier": "sentry_sdk",
+            "kind": "imports-value",
+            "status": "resolved-external",
+            "target": "sentry-sdk"
+          },
+          {
+            "source": "frontend/src/main.tsx",
+            "specifier": "react",
+            "kind": "imports-value",
+            "status": "resolved-external",
+            "target": "react"
+          },
+          {
+            "source": "frontend/src/main.tsx",
+            "specifier": "./components/theme-provider",
+            "kind": "imports-value",
+            "status": "resolved-internal",
+            "target": "frontend/src/components/theme-provider.tsx"
+          }
+        ]
+      }
+    }
   ]
 }

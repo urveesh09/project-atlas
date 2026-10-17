@@ -1,6 +1,6 @@
 # P6.1: pinned real-repository validation
 
-Recorded 2026-10-17T03:08:52.759Z; analyzer 0.1.0-dev.8, 5 cold repeats per repository.
+Recorded 2026-10-17T03:27:59.104Z; analyzer 0.1.0-dev.8, 5 cold repeats per repository.
 
 Unfiltered depth-201 acquisition capped at 256 MiB; offline SafeGit reads; cold parser facts per repeat; canonical and compressed chunk hashes include every frame. Envelope IDs/time excluded. Authored examples check facts, repeat hashes check determinism only. Timings are corpus observations, not the synthetic capacity gate.
 
@@ -14,6 +14,8 @@ Resolution follows TypeScript compiler lookup, including declaration-file substi
 | [vuejs/core](https://github.com/vuejs/core/tree/4ab865a848a1da3d10fb674f857e5fff13094644) (TypeScript workspace monorepo) | `4ab865a848a1da3d10fb674f857e5fff13094644` | 527/702 | 2267/147/76/35/1/0 | complete | 0.75 | 5 |
 | [vitejs/vite](https://github.com/vitejs/vite/tree/3b72997d42e7dd2b31898d0e68461e3025e836b6) (mixed TypeScript/JavaScript workspace) | `3b72997d42e7dd2b31898d0e68461e3025e836b6` | 1595/2842 | 2383/774/492/263/124/3 | partial | 2.74 | 6 |
 | [pallets/flask](https://github.com/pallets/flask/tree/d086db856be187255b8ec61ef409357393020f32) (Python project with src layout) | `d086db856be187255b8ec61ef409357393020f32` | 83/236 | 328/158/178/0/2/0 | complete | 0.22 | 12 |
+| [pydantic/pydantic-ai](https://github.com/pydantic/pydantic-ai/tree/a5a471e1cd8571c6b691bbb07fcf60f83432d772) (Python uv workspace (v0.0.49; five members)) | `a5a471e1cd8571c6b691bbb07fcf60f83432d772` | 187/373 | 650/522/596/1/5/0 | complete | 0.73 | 9 |
+| [fastapi/full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template/tree/b1125d8839482cb7bbae603ddc6d0081bf87532e) (mixed Python FastAPI backend and TypeScript React frontend) | `b1125d8839482cb7bbae603ddc6d0081bf87532e` | 135/231 | 322/276/44/31/0/4 | complete | 0.25 | 9 |
 
 ## Independent source examples and limitations
 
@@ -108,6 +110,53 @@ Unresolved/unsupported/excluded categories (all counts and representative observ
 - unsupported:NONLITERAL_DYNAMIC_IMPORT: 2; e.g. `src/flask/cli.py` → `(nonliteral)`, `src/flask/helpers.py` → `(nonliteral)`.
 
 History: complete, 13 commits, 12 frames; boundary days.
+
+### pydantic/pydantic-ai
+
+Canonical/wire chunk digest: `317ceb3a74a7a9df9d5ac650a0133c598a51680818b97cf7af89510943c2bef5`. All 5 repeats and exported streaming validation passed.
+
+- `pydantic_ai_slim/pydantic_ai/agent.py`: source, python, parsed.
+- `pydantic_graph/pydantic_graph/__init__.py`: source, python, parsed.
+- `pydantic_graph/pydantic_graph/graph.py`: source, python, parsed.
+- `pydantic_graph/pydantic_graph/__init__.py` → `.graph` (reexports-value): resolved-internal → `pydantic_graph/pydantic_graph/graph.py`.
+- `pydantic_graph/pydantic_graph/__init__.py` → `.nodes` (reexports-value): resolved-internal → `pydantic_graph/pydantic_graph/nodes.py`.
+- `pydantic_ai_slim/pydantic_ai/agent.py` → `pydantic_graph` (imports-value): resolved-internal → `pydantic_graph/pydantic_graph/__init__.py`.
+- `pydantic_ai_slim/pydantic_ai/agent.py` → `pydantic_graph._utils` (imports-value): resolved-internal → `pydantic_graph/pydantic_graph/_utils.py`.
+- `pydantic_ai_slim/pydantic_ai/agent.py` → `dataclasses` (imports-value): builtin → `dataclasses`.
+- `pydantic_graph/pydantic_graph/graph.py` → `logfire_api` (imports-value): resolved-external → `logfire-api`.
+
+HEAD parsing: 187 parsed, 0 failed. No parse failures.
+
+Unresolved/unsupported/excluded categories (all counts and representative observations are in the JSON):
+
+- unsupported:NONLITERAL_DYNAMIC_IMPORT: 4; e.g. `tests/import_examples.py` → `(nonliteral)`, `mcp-run-python/src/prepare_env.py` → `(nonliteral)`, `tests/models/test_model.py` → `(nonliteral)`.
+- unsupported:URL_IMPORT_UNSUPPORTED: 1; e.g. `examples/pydantic_ai_examples/chat_app.ts` → `https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.0/lib/marked.esm.js`.
+- unresolved:GENERATED_TARGET_MISSING: 1; e.g. `mcp-run-python/cli.js` → `./dist/index.js`.
+
+History: complete, 200 commits, 12 frames; boundary commit-cap.
+
+### fastapi/full-stack-fastapi-template
+
+Canonical/wire chunk digest: `9ca434a7cbd8f4f4d8cf629ef6e588d898f3ec18163e35edea925e9cecf98fde`. All 5 repeats and exported streaming validation passed.
+
+- `backend/app/main.py`: source, python, parsed.
+- `backend/app/api/routes/login.py`: source, python, parsed.
+- `frontend/src/main.tsx`: source, typescript, parsed.
+- `backend/app/main.py` → `pathlib` (imports-value): builtin → `pathlib`.
+- `backend/app/main.py` → `app.api.main` (imports-value): resolved-internal → `backend/app/api/main.py`.
+- `backend/app/main.py` → `fastapi` (imports-value): resolved-external → `fastapi`.
+- `backend/app/main.py` → `sentry_sdk` (imports-value): resolved-external → `sentry-sdk`.
+- `frontend/src/main.tsx` → `react` (imports-value): resolved-external → `react`.
+- `frontend/src/main.tsx` → `./components/theme-provider` (imports-value): resolved-internal → `frontend/src/components/theme-provider.tsx`.
+
+HEAD parsing: 135 parsed, 0 failed. No parse failures.
+
+Unresolved/unsupported/excluded categories (all counts and representative observations are in the JSON):
+
+- unresolved:LOCAL_TARGET_MISSING: 31; e.g. `frontend/src/components/Items/ItemActionsMenu.tsx` → `@/client`, `frontend/src/hooks/useAuth.ts` → `@/client`, `frontend/src/components/Common/Logo.tsx` → `/assets/images/fastapi-logo-light.svg`.
+- excluded-target:TARGET_EXCLUDED: 4; e.g. `frontend/tests/utils/privateApi.ts` → `../../src/client/client.gen`, `frontend/tests/utils/privateApi.ts` → `../../src/client`, `frontend/src/main.tsx` → `./client/client.gen`.
+
+History: complete, 145 commits, 12 frames; boundary days.
 
 ## Reproduce
 
