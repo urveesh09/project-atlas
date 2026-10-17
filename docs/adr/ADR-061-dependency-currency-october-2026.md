@@ -290,3 +290,19 @@ correct the positive generator to `atlas.property`. Seed 1128812107, replay path
 `0:0`, shrank to value `0`. This was a test-data defect, not an analyzer change.
 The complete 24-property retest passes. Full verification and CI outcomes are
 recorded in implementation status and the PR when completed.
+
+## M2.5: Informational V8 coverage (2026-10-17)
+
+The production plan approves development-only `@vitest/coverage-v8` 5.0.5, pinned
+exactly to match Vitest. `pnpm coverage` builds the viewer and runs the existing
+suite with the V8 provider. Include all production TS/TSX files, including unimported
+ones; write ignored text/JSON/HTML reports. Add no percentage threshold or CI gate.
+
+[Coverage scope and first observations](../coverage.md) distinguish Node-process
+instrumentation from browser/subprocess execution and service-gated tests. Initial
+coverage is 57.47% lines and 49.42% branches; authored checks remain the correctness
+evidence. Four risk-driven tests cover bounded local loading, streamed expansion,
+multi-page upload purge/isolation and static-only setup metadata. Full verification
+after those additions passes 755 tests, 81 explicit service-gated skips.
+Retain the initial setup-test expectation failure and its contract-based correction.
+No production runtime, analysis identity or artifact contract changes.

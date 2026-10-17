@@ -80,6 +80,7 @@ Node-only behaviour must be detected at runtime (see `canonical.ts`).
 ```sh
 pnpm install --frozen-lockfile && pnpm build && pnpm build:web
 pnpm verify                     # typecheck, viewer build, deps, contracts, tests: run before every commit
+pnpm coverage                   # informational Node-process coverage; docs/coverage.md explains its limits
 pnpm contracts:generate         # after changing runtime schemas; contracts:check must pass
 pnpm verify:distribution        # portable CLI archive, tested outside the checkout
 node scripts/validate-real-repositories.mjs [--acquire]   # 6 pinned real repos × 5 offline repeats

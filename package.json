@@ -15,6 +15,7 @@
     "clean": "tsc -b tsconfig.build.json --clean",
     "typecheck": "tsc -b tsconfig.build.json && tsc -p tsconfig.test.json && pnpm --filter @atlas/web typecheck",
     "test": "vitest run",
+    "coverage": "pnpm build:web && vitest run --coverage",
     "test:watch": "vitest",
     "check:deps": "node scripts/check-dependency-direction.mjs",
     "contracts:generate": "node scripts/generate-contracts.mjs",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@types/node": "24.19.2",
+    "@vitest/coverage-v8": "5.0.5",
     "fast-check": "4.10.2",
     "typescript": "6.0.3",
     "vite": "8.3.4",

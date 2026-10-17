@@ -386,6 +386,13 @@ No production analyzer, schema or error contract is changed.
 
 #### M2.5 Coverage report (informational)
 
+**Implementation evidence, 2026-10-17:** `pnpm coverage` reports all production
+TS/TSX files, with no percentage gate. `docs/coverage.md` records the low modules
+and the boundary between Node instrumentation, browser/subprocess execution and
+service-gated checks. Four risk-driven additions pass; full verification and the
+repeated coverage suite each pass 755 tests (81 explicit skips). Required CI is
+tracked in the PR; percentages do not replace correctness or security evidence.
+
 - Add `@vitest/coverage-v8` 5.0.5, matching vitest, and a `pnpm coverage` script.
 - Run it once and list the modules with low coverage in the pull request, then add tests
   where risk is highest: loaders, resolvers and the hosted control plane.
