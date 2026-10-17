@@ -99,8 +99,8 @@ all remaining work as human or infrastructure acceptance.
 
 ## Release identity and approval record
 
-Current package version: `0.1.0-beta.1`; analyzer: `0.1.0-dev.7` (runtime
-provenance update, [ADR-062](../adr/ADR-062-python-parser-runtime-and-analysis-identity.md)); artifact:
+Current package version: `0.1.0-beta.1`; analyzer: `0.1.0-dev.8` (namespace
+precedence correction, [ADR-066](../adr/ADR-066-python-namespace-precedence.md)); artifact:
 `atlas.artifact/1.4.0`; layout: 1.1. Distribution manifests record exact source HEAD,
 working-tree state, lockfile hash and per-file digest; smoke reports bind archive bytes.
 Do not turn a dirty-tree candidate into a signed release by changing a document label.

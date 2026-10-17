@@ -2,8 +2,9 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-16):** production-plan M2, Python correctness evidence;
-M2.1 documentation alignment passes local verification; required CI/owner merge follow.
+**Current milestone (2026-10-17):** production-plan M2, Python correctness evidence;
+M2.1 documentation alignment landed in PR #25. M2.6 exposed a namespace-precedence
+defect, corrected in analyzer `0.1.0-dev.8` (ADR-066); required CI/owner merge follow.
 M1.1 landed in [PR #20](https://github.com/urveesh09/project-atlas/pull/20);
 M1.2/M1.3 landed together in [PR #22](https://github.com/urveesh09/project-atlas/pull/22),
 with separate implementation commits. M1.4 landed in
@@ -1190,6 +1191,37 @@ it does not assert identical acceptance of all syntax fixtures across Python ver
   Local reports/images are retained separately; historical candidate outputs are
   restored. This is not a selected release. Required CI and owner merge follow;
   M2.2–M2.6 and G6 remain open.
+
+### Production M2.6 prerequisite: correct namespace precedence (2026-10-17)
+
+- The first expanded-corpus run fails its authored `pydantic_graph` import check.
+  The raw parser is correct; root lookup prematurely accepts the outer workspace
+  directory as a namespace before finding the actual regular package. PEP 420 and
+  independent CPython PathFinder checks establish the expected behavior, without
+  changing the corpus expectation or executing repository code.
+- Search import roots by component: later regular packages/modules supersede
+  namespace portions; selected regular parents block discarded children; surviving
+  namespace portions compose and preserve imported-name ranges/root provenance.
+  In-memory resolution, policy diagnostics and explicit static limitations remain.
+- Before the fix, seven of nine new checks fail; the independent CPython oracle
+  already passes. Afterward all nine and the existing eleven resolver checks pass.
+  A static Pydantic AI diagnostic now resolves the authored package target. It
+  parses the same 187 Python files; unresolved observations drop from 64 to one.
+  This diagnostic is neither a five-repeat corpus result nor a capacity measurement.
+- Deliberately bump analyzer dev.7 → dev.8, invalidating old identities and cache
+  keys. Refresh only Harbor's four version-derived golden hashes after proof;
+  the original golden mismatch is retained. Artifact/graph formats do not change.
+- Fresh existing corpus: four repos × five cold offline repeats, all 28 authored
+  checks unchanged, deterministic full payloads and verified exports. Refresh the
+  dev.8 baseline deliberately. Main-build comparison against clean `4d0f6ee`
+  covers Harbor plus all four repos: exactly five summary-version differences;
+  all other normalized facts agree. The comparator's exit 1 is retained, not
+  redefined as a byte-preservation pass; its normalization rules are unchanged.
+- Full verification passes 760 tests with 81 explicit service-gated skips; the
+  CPython oracle and all 39 viewer journeys run. Typecheck, viewer build, dependency
+  direction and six generated contracts pass. [ADR-066](adr/ADR-066-python-namespace-precedence.md)
+  records the decision. Required CI is tracked in the fix PR. M2.6 corpus expansion
+  and M2.2 dev.8 capacity remain separate work; keep the old dev.7 measurements.
 
 ### Reproduce verification
 
