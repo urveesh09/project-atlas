@@ -92,6 +92,28 @@ async function openViewer(): Promise<{ page: Page; requests: string[]; errors: s
   return { page, requests, errors };
 }
 
+/**
+ * What the page shows, for a poll that timed out: a failure then says what the viewer
+ * did instead (for example, fell back from 3D), not only that it did not succeed in time.
+ */
+async function pageState(page: Page, errors: readonly string[]): Promise<string> {
+  const shown = await page.evaluate(() => {
+    const text = (selector: string) => document.querySelector(selector)?.textContent?.trim().slice(0, 160) ?? null;
+    let stats: unknown = null;
+    try {
+      stats = window.__atlasCity?.stats() ?? null;
+    } catch (error) {
+      stats = `stats() threw: ${String(error)}`;
+    }
+    return { hash: location.hash, inspector: text('#inspector-title'), city3d: window.__atlasCity !== undefined, stats, cityMessage: text('.city-message'), status: text('[role="status"][aria-live="polite"]') };
+  });
+  return JSON.stringify({ ...shown, pageErrors: errors.slice(-5) });
+}
+const explain = (page: Page, errors: readonly string[]) => async (error: unknown) => {
+  throw new Error(`${error instanceof Error ? error.message : String(error)}
+page state: ${await pageState(page, errors)}`, { cause: error });
+};
+
 /** Reads the provenance JSON from a PNG `iTXt` chunk, parsed here independently of the viewer. */
 function embeddedProvenance(png: Buffer): Record<string, unknown> {
   for (let at = 8; at + 12 <= png.length; ) {
@@ -749,13 +771,13 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     }
   });
   it('restores a file and tab from an allowlisted fragment and ignores others', async () => {
-    const { page } = await openViewer();
+    const { page, errors } = await openViewer();
     await page.waitForSelector('#overview-title');
     const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
     if (!loaded.ok) throw new Error('invalid');
     const node = loaded.bundle.graphs.at(-1)!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
     await page.goto(`${server.url}#v=1&file=${node.lineageId}&tab=dependencies`);
-    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx').catch(explain(page, errors));
     expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('Dependencies');
     const invalidUrl = `${server.url}#v=1&file=javascript:alert(1)&evil=1`;
     await page.goto(invalidUrl);
@@ -905,7 +927,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     // Picking a lens asks for lens colours.
     await page.getByLabel('Lens', { exact: true }).selectOption('complexity');
     expect(await colour.inputValue()).toBe('off');
-    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint).toBeNull();
+    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint).toBeNull().catch(explain(page, errors));
     await page.getByLabel('Lens', { exact: true }).selectOption('structure');
     const text = await page.locator('.compare').innerText();
     expect(text).toContain('src/ui/Cargo.tsx → src/ui/Manifest.tsx');
