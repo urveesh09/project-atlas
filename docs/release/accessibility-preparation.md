@@ -14,7 +14,7 @@ auditing a menu only after closing it:
 | Entry and validation | Starting, static landing, validation loading, cancellation, malformed input, unsupported version, valid recovery, browser-only opened artifact |
 | Repository and selection | Overview, open search results, file overview/dependencies/findings, expanded finding disclosures, invalid deep link |
 | Source dialog | Verified read-only text, loading, unavailable response; keyboard Escape restores its opener |
-| City renderers | 3D, context-loss map, touch map with WebGL unavailable, semantic file table, package graph with dependency table |
+| City renderers | 3D, context-loss map, touch map with WebGL unavailable or throwing a security exception (ADR-071), semantic file table, package graph with dependency table |
 | Workspace | Expanded, evidence hidden, restored; search remains usable |
 | Menus and help | Saved views before/after import, Scope, Bands including invalid boundaries, Notes before/after import, Share, keyboard shortcuts, city help, history help |
 | Evidence and history | Reachable files, expanded overlay/external lists, path-pattern error, absent-file tombstone, rename history, original 6→12 comparison in table/3D and a separate manual-task 5→12 table comparison |

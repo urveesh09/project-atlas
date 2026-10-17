@@ -1,6 +1,6 @@
 # ATLAS V0.1 release audit
 
-Updated: 2026-10-17 (M3.3 accessibility preparation). **G6 OPEN — candidate preparation, not release sign-off.**
+Updated: 2026-10-17 (M3.5 silent WebGL fallback). **G6 OPEN — candidate preparation, not release sign-off.**
 The four pillars are implemented; runtime tracing/instrumentation remains wholly deferred.
 This audit distinguishes implementation/test evidence from human, reference-device and
 public-infrastructure acceptance. The canonical requirements remain the [master plan](../plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md).
@@ -28,7 +28,7 @@ recorded in [implementation status](../implementation-status.md).
 | Dependencies/diagnostics (§10) | `packages/graph`, shared catalog/metrics; SCC witness, bounded reach, external/package summaries, independent churn/hotspot math | Automated implementation checks; user interpretation reviewed under P6.3 |
 | Mainline history/lineage (§11) | Authored roots/merges/rename/duplicates/clock-skew fixtures; no future leakage; union invariance/delta/compact round trips | Local and hosted recovery tests; large temporal performance still pending |
 | Deterministic layout (§12) | `packages/layout`, graph/layout invariants, stable plots; cross-OS Harbor golden; real corpus full canonical/wire digests | Six pinned repositories run on Windows, Linux and macOS, with the three-way comparison passing in PR #35 |
-| Frontend interactions/equivalents (§3/12/16) | Real browser keyboard, deep-link/tombstone/compare/partial, reduced motion/320px, map/table/fallback; [named audits of visible screens, menus and source dialog](accessibility-preparation.md), including WCAG 2.1 A rules | Automated preparation; five developers/manual assistive use pending |
+| Frontend interactions/equivalents (§3/12/16) | Real browser keyboard, deep-link/tombstone/compare/partial, reduced motion/320px, map/table/fallback; [named audits of visible screens, menus and source dialog](accessibility-preparation.md), including WCAG 2.1 A rules; null/throwing WebGL fallback checks console/page errors (ADR-071) | Automated preparation; M3.4 intermittent overflow diagnosis, five developers/manual assistive use pending |
 | Cancellation/partial/resource recovery (§13/15/16) | Queue claim/fence/retry; heartbeat/deadline cancellation; checkpoint fallback; disk/OOM/timeout/network/storage faults; no-container/network leak checks | Local/CI isolation gates; production-host recovery requires rehearsal |
 | Publication privacy/lifecycle (§5/13) | Consent/TTL/private storage, per-chunk visibility, management token, expiry/revocation/purge/reconcile tests; operator restore/rollback rehearsal | Seven-day lifecycle implemented; cannot recall already downloaded copies |
 | P6.1 empirical corpus (§17) | [Pins](repository-corpus.json), [report](real-repositories.md), reproducible offline 5-run scripts and source-free exports; ADR-065 | All six have five-repeat/46-check evidence and cross-OS corpus/comparison CI (PR #35). Existing four baseline bytes remain unchanged from the dev.8 prerequisite |

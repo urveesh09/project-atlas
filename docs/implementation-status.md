@@ -2,10 +2,11 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-17):** production-plan M3.3 accessibility preparation
-(ADR-070), following macOS CI (PR #34) and Firefox/WebKit journeys (PR #35). The
-numbered human screen-reader scripts are prepared; R6-04 remains open. M3.4 intermittent
-layout diagnosis and M3.5 silent WebGL fallback stay separate. M2.2 Python/mixed capacity
+**Current milestone (2026-10-17):** production-plan M3.5 silent WebGL fallback
+(ADR-071), following accessibility preparation (PR #36), macOS CI (PR #34) and
+Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
+prepared; R6-04 remains open. M3.4 intermittent layout diagnosis remains open.
+M2.2 Python/mixed capacity
 and M2.7 lazy-import syntax remain open. The hosted Python journey, properties,
 coverage tooling, namespace correction and six-repository corpus have landed; dated
 evidence is recorded below. Analyzer `0.1.0-dev.8`, artifact 1.4.0 and package version
@@ -1486,6 +1487,38 @@ and a new CI job, `viewer journeys (firefox|webkit)`, runs on Ubuntu.
   lifecycle. All manual result cells remain pending. Incomplete contrast and symbol
   checks are retained for judgment, never counted as passes. **R6-04/G6 remain open.**
   M3.4, M3.5, M2.2 capacity and M2.7 lazy imports are separate unfinished tasks.
+
+### Production M3.5: silent WebGL fallback (2026-10-17)
+
+- **Scope:** [ADR-071](adr/ADR-071-silent-webgl-fallback.md). Probe WebGL2 once before
+  each renderer startup, release the temporary 1 × 1 context when its context-loss
+  extension is available, and use the existing map/table fallback when graphics are
+  unavailable or disabled. No geometry, analyzer, artifact version or metric changes.
+- **Failure evidence:** adding a console/page-error assertion to the actual 390 px
+  touch journey reproduces three.js's context-creation error despite a working map
+  and file inspector. An earlier isolated touch invocation omitted the shared cookie
+  setup and timed out; the authenticated deep-links group reproduces the actual defect.
+  Both logs are retained. The focused post-fix deep-links group passes three checks.
+- **Regression coverage:** the touch journey now checks null-returning and throwing
+  disabled graphics APIs, exactly one WebGL attempt, no three.js canvas and no console
+  errors or uncaught page exceptions. Keep its accessibility, touch navigation,
+  table/inspector and overflow assertions; no exclusions or deadlines change. Six
+  focused checks pass for successful probe release and absent/throwing APIs/extensions.
+- **Baseline:** the six-repository committed payload/check baseline guard passes.
+  M3.4's intermittent overflow has not been reproduced or explained and remains open;
+  no speculative CSS fix is claimed. R6-01…R6-07 and G6 remain open.
+- **Browser verification on Windows:** Firefox and WebKit each pass all **46 viewer
+  journeys**, including both disabled-WebGL cases and their 390 px layout checks.
+  Each records **49 audit checkpoints (48 named states)** with zero reported
+  violations. Incomplete `color-contrast` and `label-content-name-mismatch` checks
+  remain available for human review; no human or hardware outcome is inferred.
+- **Full verification:** `pnpm verify` passes **811 tests**, with **83 service-gated
+  skips** (69 passed files, four skipped), including all **46 Chromium journeys**.
+  Chromium also records **49 checkpoints (48 named states)** with zero reported
+  violations: **147 local checkpoints** across the three engines. The six focused
+  probe checks pass, and all **215 relative Markdown file links** in changed
+  documentation resolve. CI must independently pass on the pull request's exact head;
+  its hosted gates cover the services skipped by this local run.
 
 ### Reproduce verification
 

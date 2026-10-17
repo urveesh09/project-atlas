@@ -851,7 +851,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     expect(await page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
     expect(await page.getByLabel('Lens', { exact: true }).inputValue()).toBe('fan-in');
   });
-  it('works with touch and unavailable WebGL without losing the file inspector', async () => {
+  it.each(['unavailable', 'blocked'] as const)('works with touch and %s WebGL without losing the file inspector', async (availability) => {
     const touch = await browser.newContext({
       hasTouch: true,
       viewport: { width: 390, height: 844 },
@@ -859,16 +859,25 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     });
     try {
       const page = await touch.newPage();
-      await page.addInitScript(() => {
+      const errors: string[] = [];
+      page.on('pageerror', (error) => errors.push(String(error)));
+      page.on('console', (message) => message.type() === 'error' && errors.push(message.text()));
+      await page.addInitScript((availability) => {
+        const probe = window as unknown as { __atlasWebGLAttempts: number };
+        probe.__atlasWebGLAttempts = 0;
         const original = HTMLCanvasElement.prototype.getContext;
         HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...args: unknown[]) {
-          if (type.startsWith('webgl')) return null;
+          if (type.startsWith('webgl')) {
+            probe.__atlasWebGLAttempts++;
+            if (availability === 'blocked') throw new DOMException('Graphics are disabled', 'SecurityError');
+            return null;
+          }
           return Reflect.apply(original, this, [type, ...args]);
         } as typeof original;
-      });
+      }, availability);
       await page.goto(server.url);
       await page.waitForSelector('[data-city-renderer="map"]');
-      expect(await audit(page, 'touch-no-webgl-map')).toEqual([]);
+      expect(await audit(page, availability === 'blocked' ? 'touch-blocked-webgl-map' : 'touch-no-webgl-map')).toEqual([]);
       await page.getByRole('button', { name: 'Zoom in', exact: true }).tap();
       await page.getByRole('button', { name: 'Reset city', exact: true }).tap();
       const map = page.locator('[data-city-renderer="map"]');
@@ -896,6 +905,9 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
       await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).tap();
       await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
       await expectNoSidewaysScroll(page);
+      expect(await page.evaluate(() => (window as unknown as { __atlasWebGLAttempts: number }).__atlasWebGLAttempts)).toBe(1);
+      expect(await page.locator('canvas[data-engine]').count()).toBe(0);
+      expect(errors).toEqual([]);
     } finally {
       await touch.close();
     }
