@@ -18,8 +18,11 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
 
 **Current state (2026-10-17):** the four pillars and Phase 6 candidate tooling are
 implemented for committed TS/JS and Python (`.py`, `.pyi`), including mixed repositories.
-The production plan is now on M2, Python correctness evidence; M1 upgrades landed in
-PRs #20, #22, #23 and #24. Analyzer `0.1.0-dev.8` records corrected namespace lookup
+The current production-plan task is M3.3 accessibility preparation (ADR-070), after
+macOS and cross-browser CI landed in PRs #34 and #35. Human R6-04 review remains open;
+M3.4 layout diagnosis and M3.5 silent WebGL fallback are separate follow-ups. M2.2
+capacity and M2.7 lazy-import syntax remain open. M1 upgrades landed in PRs #20, #22,
+#23 and #24. Analyzer `0.1.0-dev.8` records corrected namespace lookup
 (ADR-066); parser runtime provenance remains ADR-062 and the artifact schema stays 1.4.0. Cython, notebooks and further languages
 remain opaque buildings. The hosted Python journey (ADR-064)
 and the uv workspace and mixed corpus (ADR-065) have landed. Python capacity (M2.2)
@@ -122,6 +125,8 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
+  The current sequence is ADR-001…ADR-070; ADR-067 is reserved by the separate
+  edge-budget work. Allocate ADR-071 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

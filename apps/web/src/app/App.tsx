@@ -41,6 +41,12 @@ type Phase =
 export function App() {
   const [phase, setPhase] = useState<Phase>({ kind: 'starting' });
   const inputRef = useRef<HTMLInputElement>(null);
+  const gateHeading = useRef<HTMLHeadingElement>(null);
+  // Replacing the picker/cancel/error controls must not strand focus on <body>.
+  // Depend on the phase kind, not progress updates, so validation never steals it back.
+  useEffect(() => {
+    if (phase.kind === 'landing' || phase.kind === 'loading' || phase.kind === 'failed') gateHeading.current?.focus();
+  }, [phase.kind]);
   const activeLoad = useRef<AbortController | null>(null);
   // The session owns the dataset's retained worker; replacing or leaving it terminates it.
   const dataset = useRef<ViewerDataset | null>(null);
@@ -198,7 +204,7 @@ export function App() {
         {phase.kind === 'starting' && <p role="status">Starting…</p>}
         {phase.kind === 'loading' && (
           <div role="status" aria-live="polite">
-            <h1>{phase.label}</h1>
+            <h1 ref={gateHeading} tabIndex={-1}>{phase.label}</h1>
             <p className="gate-note">Checking sizes, hashes and every invariant before anything is shown.</p>
             <ol className="gate-steps">
               {phase.read.map((path) => (
@@ -222,7 +228,7 @@ export function App() {
         )}
         {phase.kind === 'landing' && (
           <>
-            <h1>Explore a repository as a city</h1>
+            <h1 ref={gateHeading} tabIndex={-1}>Explore a repository as a city</h1>
             <p className="gate-note">
               Open an artifact folder produced by <code>atlas analyze</code>. It is read and validated entirely in this
               browser; nothing is uploaded.
@@ -234,7 +240,7 @@ export function App() {
         )}
         {phase.kind === 'failed' && (
           <div role="alert">
-            <h1>
+            <h1 ref={gateHeading} tabIndex={-1}>
               {phase.result.code === 'UNSUPPORTED_SCHEMA'
                 ? 'This artifact needs a different ATLAS version'
                 : 'This artifact could not be opened'}
