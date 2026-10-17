@@ -33,6 +33,12 @@ shared-dependency-edge-budget work in progress at the time of writing.)
   The state was already correct: lens `complexity`, `paint: null`, the 3D city present, no
   page errors. The renderer was SwiftShader (software Vulkan) in lite mode. So on the
   macOS runner the correct state arrives after the poll's default one second.
+- **A first fix was not enough.** Waiting for two drawn frames before asserting passed
+  once (run 39008158815). The next run, 39008842483, a documentation-only commit, failed
+  the same poll. Its page state was again already correct (`paint: null`). The main
+  thread is busy with software rendering, which also delays each poll call, so the frame
+  wait gave no guarantee. That attempt was removed instead of being kept as an unproven
+  fix.
 
 ## Decision
 
@@ -52,12 +58,20 @@ shared-dependency-edge-budget work in progress at the time of writing.)
    - A named interpreter that does not work fails the suite instead of skipping it.
    - Without the variable, local runs discover Python as before.
 4. **Cross-platform keys.** Viewer tests select all with `ControlOrMeta+A`.
-5. **Wait for rendering, not for time.**
-   - After a lens change or a deep-link navigation, the two affected journeys wait until
-     the browser has drawn two frames, then assert.
-   - No assertion and no poll timeout changes.
+5. **A longer wait for two correctness polls, with evidence.**
+   - The deep-link inspector title and the paint clearing after a lens change now poll for
+     up to 5 s (`SOFTWARE_GL_POLL`), the convention this file already uses for heavy
+     steps.
+   - **The assertions are unchanged.** A longer wait cannot make a wrong state pass; it
+     only tolerates software rendering's latency.
+   - These polls check correctness, not latency. The plan's interaction budgets are
+     measured on reference hardware by the benchmark scripts, never on CI's software
+     WebGL.
    - Both polls report the page state if they time out, so a future failure shows what the
      viewer did instead.
+   - The plan's testing rule now states when a longer wait is allowed: evidence that the
+     final state is correct, a check that is not a product budget, and a recorded
+     reason.
 6. **The CLI archive** is created with `COPYFILE_DISABLE=1`, so macOS `tar` adds no
    AppleDouble `._*` entries. Other platforms ignore the variable.
 
