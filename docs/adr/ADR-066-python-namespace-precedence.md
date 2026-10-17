@@ -65,6 +65,6 @@ Full verification passes 760 tests with 81 explicit service-gated skips, includi
 the CPython oracle and all 39 viewer journeys. Typecheck, viewer build, dependency
 direction and generated contracts pass. A separate static Pydantic diagnostic
 resolves the expected package and reduces unresolved observations from 64 to one
-while parsing the same 187 Python files. It is not a five-repeat corpus or capacity
+while parsing the same 187 supported files (177 Python, six TS and four JS). It is not a five-repeat corpus or capacity
 gate. Sandbox/distribution checks and required CI remain tracked in the PR as they
 complete. No deadline, capacity budget, source expectation or validation rule is loosened.

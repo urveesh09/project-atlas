@@ -1206,7 +1206,7 @@ it does not assert identical acceptance of all syntax fixtures across Python ver
 - Before the fix, seven of nine new checks fail; the independent CPython oracle
   already passes. Afterward all nine and the existing eleven resolver checks pass.
   A static Pydantic AI diagnostic now resolves the authored package target. It
-  parses the same 187 Python files; unresolved observations drop from 64 to one.
+  parses the same 187 supported files (177 Python, six TS and four JS); unresolved observations drop from 64 to one.
   This diagnostic is neither a five-repeat corpus result nor a capacity measurement.
 - Deliberately bump analyzer dev.7 → dev.8, invalidating old identities and cache
   keys. Refresh only Harbor's four version-derived golden hashes after proof;
