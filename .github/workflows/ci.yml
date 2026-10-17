@@ -68,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -101,7 +101,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
@@ -138,7 +138,13 @@ jobs:
         with:
           pattern: repository-corpus-*
           path: .atlas-tmp/corpus-reports
-      - run: node scripts/compare-repository-reports.mjs .atlas-tmp/corpus-reports/repository-corpus-ubuntu-latest/real-repositories.json .atlas-tmp/corpus-reports/repository-corpus-windows-latest/real-repositories.json
+      # The job keeps its name because branch protection requires it; it now compares all
+      # three operating systems (ADR-068).
+      - run: >-
+          node scripts/compare-repository-reports.mjs
+          .atlas-tmp/corpus-reports/repository-corpus-ubuntu-latest/real-repositories.json
+          .atlas-tmp/corpus-reports/repository-corpus-windows-latest/real-repositories.json
+          .atlas-tmp/corpus-reports/repository-corpus-macos-latest/real-repositories.json
 
   acquisition:
     name: live GitHub acquisition spike
