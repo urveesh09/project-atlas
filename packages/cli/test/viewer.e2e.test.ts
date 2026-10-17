@@ -78,7 +78,13 @@ beforeAll(async () => {
     viewerDir: viewerDirectory(),
     source: await SourceAttachment.attach(demo.dir, loaded.bundle),
   });
-  browser = await engine.launch({ args: engineName === 'chromium' && process.env['CI'] ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [] });
+  // GPU-less CI runners get software WebGL: SwiftShader in Chromium, and Firefox's software
+  // renderer, which it blocklists unless forced (ADR-069). WebKit needs nothing.
+  const ci = Boolean(process.env['CI']);
+  browser = await engine.launch({
+    args: engineName === 'chromium' && ci ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [],
+    ...(engineName === 'firefox' && ci ? { firefoxUserPrefs: { 'webgl.force-enabled': true } } : {}),
+  });
   context = await browser.newContext({ viewport: { width: 1280, height: 860 } });
 }, 120_000);
 
