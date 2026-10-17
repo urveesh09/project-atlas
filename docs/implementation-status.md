@@ -1215,6 +1215,29 @@ it does not assert identical acceptance of all syntax fixtures across Python ver
   No production analyzer, dependency pin, contract, version or corpus output changes.
   M2.2 capacity, M2.6 corpus and G6 remain open.
 
+### M2.3 CI follow-up: browser page ownership (2026-10-17)
+
+Initial run 38996642868 failed the existing Windows history rename-search assertion;
+one targeted Windows rerun passed. The subsequent main-merge run 38998758410 failed
+a different existing Windows guided-start tab assertion. Both logs show polling
+timeouts, not a native Vitest crash. The exact scheduling cause remains unproven.
+
+Code inspection found that the serial local-viewer groups retained their live pages,
+renderers and query workers until file teardown, and two independent deep-link tests
+also left pages open. Each group now closes its owned page; independent deep-link
+journeys close theirs after each test. Empty-page assertions before each independent
+opening prevent this resource leak recurring. The sign-in cookie remains shared.
+This corrects test resource ownership without changing product code, assertions,
+timeouts or performance gates. Repeat local software-rendering and required CI
+outcomes are recorded in the PR; the ownership defect is established, but its causal
+relationship to either earlier timeout is not claimed.
+
+Local software-rendering verification passes all 39 viewer journeys in a focused
+run (67.01 s), then passes full `pnpm verify`: 756 tests, 83 explicit conditional
+skips (202.23 s), including the oracle and the same 39 journeys with ordinary test
+workloads present. Typecheck, viewer build, dependency direction and contracts pass.
+Required CI on this correction follows; do not reinterpret earlier failed runs.
+
 ### Reproduce verification
 
 ```sh

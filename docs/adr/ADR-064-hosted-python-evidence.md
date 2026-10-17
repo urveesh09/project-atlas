@@ -54,3 +54,29 @@ hosted CI job rebuilds from this PR's exact source. Host: Windows, Node 24.22.0,
 Docker Desktop Linux engine 29.8.1. Full verification and required CI outcomes are
 recorded in implementation status and the PR. M2.2 capacity, the expanded corpus
 and G6 acceptance remain independent requirements.
+
+## Windows browser-test follow-up (2026-10-17)
+
+Run 38996642868 failed the existing history rename search on Windows; one targeted
+job rerun passed. Run 38998758410 on the branch's main merge then failed an existing
+guided-start tab assertion. These are browser polling timeouts, not the documented
+native Vitest crash. The failures are retained; their precise scheduling cause has
+not been established. Do not keep rerunning until a green result or raise deadlines.
+
+Inspection found a concrete harness ownership defect: the serial viewer groups kept
+their live pages, WebGL contexts and query workers until the entire file ended.
+The independent deep-link journeys also leaked two pages. Close group-owned pages
+in their group teardown, and independent deep-link pages after each journey. Preserve
+the shared sign-in cookie. Assert an empty page inventory before opening the next
+independent journey/group, so this resource leak cannot silently return. Historical
+fresh-page and reduced-motion contexts retain their existing finally cleanup.
+
+This is a harness resource fix; it does not establish that retained pages caused
+either CI timeout. Product code, functional deadlines, assertions and separate
+performance gates are unchanged. Repeat local software-rendering evidence and the
+new required CI result are recorded in the PR before this work is considered ready.
+
+The focused software-rendered run passes 39/39 journeys (67.01 s). Full verification
+under software rendering then passes 756 tests, 83 conditional skips (202.23 s),
+including those 39 journeys and the CPython oracle. Required CI must still pass on
+the correction's exact commit.
