@@ -1313,6 +1313,24 @@ Expanded-corpus Windows/Linux CI,
 independent cross-OS comparison and owner merge are required before closing M2.6.
 M2.2 and G6 stay separate and open.
 
+### Production M2.4: bounded property tests (2026-10-17)
+
+- Pin development-only `fast-check` 4.10.2, as approved in the production plan.
+  Add 24 fixed-seed properties and explicitly bounded generators: 2,638 examples
+  covering canonical JSON, UTF-16 rejection, repository path identities/byte limits,
+  four Python manifest formats, cyclic requirements includes, artifact import/hash
+  verification, indexed/delta round-trips, malformed references and expansion bounds.
+- Initial focused run: 23 pass, one positive round-trip fails because its test data
+  uses an invalid extension namespace. Read `ExtensionsSchema` and correct the key
+  from `property` to `atlas.property`. The seed/replay path and minimized input are
+  in ADR-061. All 24 focused properties then pass; no production behavior changes.
+- Typecheck and the four-repository committed-baseline guard pass. The latter checks
+  the unchanged report, rather than claiming a fresh local corpus run. CI repeats
+  the actual analyses on both operating systems. Full verification passes 775 tests
+  with 81 explicit service-gated skips; CPython oracle and 39 viewer journeys run.
+  Typecheck, viewer build, dependency direction and six generated contracts pass.
+  Required CI is tracked in the PR; analyzer/artifact versions and budgets stay fixed.
+
 ### Reproduce verification
 
 ```sh

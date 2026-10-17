@@ -361,6 +361,12 @@ capacity, corpus and G6 acceptance stay separate.
 
 #### M2.4 Property-based tests on the untrusted-input boundaries
 
+**Implementation evidence, 2026-10-17:** 24 fixed-seed properties cover all named
+boundaries with 2,638 bounded generated examples. ADR-061 records the exact test-only
+dependency and the initial invalid extension-namespace test-data failure. Full
+verification and required CI are tracked in implementation status and the task PR.
+No production analyzer, schema or error contract is changed.
+
 - **Why.** Every loader and parser of untrusted bytes should hold its bounds on arbitrary
   input, not just the authored cases. Scorecard's Fuzzing check also recognizes
   `fast-check`.
