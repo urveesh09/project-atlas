@@ -5,10 +5,11 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startApi } from '@atlas/api';
 import { IngestError } from '@atlas/ingest';
-import { buildDemoRepository, type GitFixture } from '@atlas/test-fixtures';
+import { buildDemoRepository, buildPythonDemoRepository, type GitFixture } from '@atlas/test-fixtures';
 import { audit } from '../../web/test/audit.js';
-import { ScriptedRunners, createHarness, databaseUrl, processRunners, requireBuiltSandbox, untilAborted, type Harness } from './pipeline-harness.js';
-import type { StageRunners } from '../src/index.js';
+import { ScriptedRunners, createHarness, databaseUrl, processRunners, requireBuiltSandbox, shareFixtureWithSandbox, untilAborted, type Harness } from './pipeline-harness.js';
+import { DockerStageRunners, type StageRunners } from '../src/index.js';
+import { expectPythonBundle, readPythonPublication } from './python-expectations.js';
 
 /**
  * Hosted journeys in a real browser (P5.5, plan §3.1): success, partial, failure,
@@ -33,6 +34,7 @@ async function capture(page: Page, name: string) {
 
 describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journeys in Chromium', () => {
   let demo: GitFixture;
+  let python: GitFixture;
   let h: Harness;
   let api: Awaited<ReturnType<typeof startApi>>;
   let browser: Browser;
@@ -44,7 +46,12 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
   beforeAll(async () => {
     requireBuiltSandbox();
     demo = buildDemoRepository();
-    h = await createHarness([{ numericId: '838383', owner: 'atlas-demo', name: 'harbor', defaultBranch: 'main', headOid: demo.commits.at(-1)!, remotePath: demo.dir, visibility: 'public' }]);
+    python = buildPythonDemoRepository();
+    shareFixtureWithSandbox(python);
+    h = await createHarness([
+      { numericId: '838383', owner: 'atlas-demo', name: 'harbor', defaultBranch: 'main', headOid: demo.commits.at(-1)!, remotePath: demo.dir, visibility: 'public' },
+      { numericId: '848484', owner: 'atlas-demo', name: 'harbor-python', defaultBranch: 'main', headOid: python.commits.at(-1)!, remotePath: python.dir, visibility: 'public' },
+    ]);
     api = await startApi({ store: h.admission, quotaSecret: 'e'.repeat(32), developmentLoopback: true, publications: h.publications, storage: h.store, webRoot });
     browser = await chromium.launch();
   });
@@ -57,6 +64,7 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     await api?.close();
     await h?.close();
     demo?.dispose();
+    python?.dispose();
     // No URL ever carried a session or management secret (plan §3.1, §13.1).
     expect(secrets.length).toBeGreaterThan(0);
     for (const url of urls) {
@@ -85,9 +93,9 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     });
     return { context, page };
   };
-  const submit = async (page: Page, history = true) => {
+  const submit = async (page: Page, history = true, repositoryUrl = HARBOR) => {
     await page.goto(`${api.origin}/`);
-    await page.getByLabel('Repository URL').fill(HARBOR);
+    await page.getByLabel('Repository URL').fill(repositoryUrl);
     if (!history) await page.getByLabel(/Include mainline history/).uncheck();
     const analyze = page.getByRole('button', { name: 'Analyze repository' });
     await expect(analyze.isDisabled()).resolves.toBe(true);
@@ -97,6 +105,44 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     for (const cookie of await page.context().cookies()) secrets.push(cookie.value);
     return page.url().split('/').at(-1)!;
   };
+
+  it('opens independently checked Python in the hosted city and inspects dependencies with the keyboard', async () => {
+    const { context, page } = await open();
+    try {
+      if (process.env['ATLAS_CONTAINER_TESTS'] === '1') {
+        const image = process.env['ATLAS_TEST_RUNTIME_IMAGE'];
+        if (!image) throw new Error('Python hosted container journey requires ATLAS_TEST_RUNTIME_IMAGE');
+        runners = new ScriptedRunners(new DockerStageRunners({ docker: process.env['ATLAS_DOCKER_EXECUTABLE'] ?? 'docker', image, cwd: process.cwd(), env: Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)) }, { kind: 'fixture', remoteFor: () => python.dir }));
+      } else runners = new ScriptedRunners(processRunners(python.dir));
+      const jobId = await submit(page, true, 'https://github.com/atlas-demo/harbor-python');
+      startWorker();
+      const openCity = page.getByRole('link', { name: 'Open the city' });
+      await openCity.waitFor({ timeout: 90_000 });
+      await worker;
+      const row = await h.job(jobId);
+      expect(row.state).toBe('READY');
+      if (process.env['ATLAS_CONTAINER_TESTS'] === '1') expect(row.metrics.isolation).toBe('container');
+      expectPythonBundle(await readPythonPublication(h.publications, row.analysis_id));
+      await openCity.focus();
+      await page.keyboard.press('Enter');
+      await page.waitForURL(/\/a\/analysis_[0-9a-f]{64}$/);
+      await page.locator('.topbar .repo-name').waitFor({ timeout: 60_000 });
+      expect(await page.locator('.topbar .repo-name').innerText()).toBe('atlas-demo/harbor-python');
+      await page.keyboard.press('/');
+      await page.keyboard.type('pricing.py');
+      const result = page.getByRole('listbox', { name: 'Search results' }).getByRole('option', { selected: true });
+      await result.waitFor();
+      expect(await result.innerText()).toContain('pricing.py');
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => document.querySelector('#inspector-title')?.textContent === 'pricing.py');
+      await page.getByRole('tab', { name: 'Dependencies', exact: true }).click();
+      const panel = page.getByRole('tabpanel');
+      await expect.poll(() => panel.innerText()).toContain('policy.py');
+      await expect.poll(() => panel.innerText()).toContain('requests');
+      await expect.poll(() => panel.innerText()).toContain('decimal');
+      expect(await audit(page)).toEqual([]);
+    } finally { await context.close(); }
+  }, 120_000);
 
   it('submits, follows stages, opens the city and deletes it (success journey, keyboard reachable)', async () => {
     const { context, page } = await open();

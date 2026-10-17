@@ -338,6 +338,13 @@ historical correction checklist, not the current support description:
 
 #### M2.3 Hosted Python path (high for hosted launch)
 
+**Implementation evidence, 2026-10-16:** the independently authored two-frame Python
+fixture passes full artifact checks through the deployed offline sandbox and the
+hosted Chromium journey. All 145 local hosted checks pass, including exact imports,
+PyPI resolution and rename lineage. ADR-064 and implementation status retain the
+initial test-selector failure and its full retest. Required CI is tracked in the PR;
+capacity, corpus and G6 acceptance stay separate.
+
 - **Why.** The container gates and the hosted journeys use the Harbor TS/JS fixture.
   Nothing yet proves that `pnpm --filter @atlas/worker deploy --prod` puts
   `analyzer-py/grammar/tree-sitter-python.wasm` into the sandbox image, or that Python

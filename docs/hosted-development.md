@@ -87,6 +87,14 @@ pnpm exec vitest run apps/api/test apps/worker/test packages/control/test packag
 
 In PowerShell, set each variable with `$env:NAME = '...'`. The dedicated `hosted` CI job runs these gates on Linux.
 
+The gates include the separately authored Harbor Python repository (ADR-064):
+two history frames, a pure rename, `.pyi`, internal/builtin/PyPI dependencies and
+exact source-derived expectations. Both the container test and the hosted browser
+journey load the complete verified published artifact. With container gates enabled,
+the Python browser journey also uses the deployed sandbox image. The database-only
+development path remains explicitly process-isolated. No Python environment is
+installed and fixture code is never executed.
+
 ## Operator rehearsal
 
 ```sh

@@ -1,5 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, chmodSync, readdirSync } from 'node:fs';
+import assert from 'node:assert/strict';
+import type { GitFixture } from '@atlas/test-fixtures';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +15,20 @@ export const databaseUrl = process.env['ATLAS_TEST_DATABASE_URL'];
 if (process.env['ATLAS_REQUIRE_HOSTED_TESTS'] === '1' && !databaseUrl) throw new Error('Hosted pipeline tests require ATLAS_TEST_DATABASE_URL');
 
 export const submission = (repositoryUrl: string, history = true): AnalysisSubmission => ({ repositoryUrl, commitSha: null, profile: 'v0.1-default', history: { enabled: history }, publication: 'public-expiring' });
+
+/** Only generated test fixtures are shared with sandbox UID 10001; never follow links. */
+export function shareFixtureWithSandbox(fixture: GitFixture): void {
+  assert(path.isAbsolute(fixture.dir) && path.basename(fixture.dir).startsWith('atlas-fixture-'));
+  const visit = (dir: string) => {
+    chmodSync(dir, 0o755);
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isDirectory()) visit(full); else chmodSync(full, 0o644);
+    }
+  };
+  visit(fixture.dir);
+}
 
 /** The sandbox entrypoints run from compiled output, exactly as in the image. */
 export function requireBuiltSandbox(): void {

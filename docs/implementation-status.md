@@ -1191,6 +1191,30 @@ it does not assert identical acceptance of all syntax fixtures across Python ver
   restored. This is not a selected release. Required CI and owner merge follow;
   M2.2–M2.6 and G6 remain open.
 
+### Production M2.3: hosted Python evidence (2026-10-16)
+
+- Add a separate two-commit Python fixture with expectations authored before its
+  first analysis: eight files, five Python sources, seven imports, one PyPI
+  dependency, exact metrics and a content-preserving rename with surviving lineage.
+- The real Docker coordinator test and hosted Chromium journey validate every
+  published chunk and those source-derived facts. The browser journey also selects
+  a Python file with the keyboard, inspects internal/builtin/PyPI dependencies and
+  passes the unchanged accessibility audit. Existing URL-secret checks still apply.
+- All 145 local physical hosted checks pass: PostgreSQL, real S3, container security
+  and seven browser journeys. Initial result: 144 pass and the new browser test
+  fails because its broad option selector also matches native dropdown options.
+  Restrict it to search results, without changing product code or deadlines; the
+  complete 145-check retest passes. Artifact facts passed in the initial run too.
+- Final focused container/browser checks pass (two selected checks; twelve others
+  explicitly excluded by the test filter), including non-null rename lineage.
+  Full verification passes: 752 tests and 83 service-gated skips, with the CPython
+  oracle and all 39 local viewer journeys actually running. Typecheck, viewer build,
+  dependency direction and six generated-contract checks pass.
+- Runtime/image, policies and local evidence details are in
+  [ADR-064](adr/ADR-064-hosted-python-evidence.md); required CI is tracked in its PR.
+  No production analyzer, dependency pin, contract, version or corpus output changes.
+  M2.2 capacity, M2.6 corpus and G6 remain open.
+
 ### Reproduce verification
 
 ```sh
