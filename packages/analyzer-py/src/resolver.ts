@@ -13,8 +13,9 @@ import { OTHER_RUNTIME_MODULES, isStdlibModule } from './stdlib.js';
  *    that name sits in the importing file's own base directory (a script's directory comes
  *    first on `sys.path`). Package source roots come after the standard library, so a
  *    `logging.py` inside a package never shadows it.
- * 3. Otherwise the module is searched, first match wins, in: the file's base directory, its
+ * 3. Otherwise the first regular match wins in: the file's base directory, its
  *    project's source roots, the other projects' source roots, then the repository root.
+ *    Namespace portions are combined only when no regular match exists (PEP 420).
  * 4. Otherwise it is an external distribution: declared by the file's project or the root
  *    project (exact), or undeclared (inferred).
  *
@@ -106,7 +107,12 @@ interface Found {
   path: string;
   /** A namespace package: a directory without __init__.py. */
   namespace: boolean;
+  /** Surviving PEP 420 portions, with their original import-root provenance. */
+  portions?: { path: string; root: string }[];
 }
+
+type RootMatch = { found: Found; root: string; ambiguous: boolean };
+type LookupFailure = { excluded: string } | { caseMismatch: true };
 
 export class PythonResolver {
   constructor(
@@ -160,6 +166,43 @@ export class PythonResolver {
     if (this.files.hasDirectory(base) && !candidates.some((c) => this.files.isExcluded(c))) return { path: base, namespace: true };
     for (const c of candidates) if (this.files.isExcluded(c)) return { excluded: c };
     if (candidates.some((c) => this.files.caseVariants(c).length > 0)) return { caseMismatch: true };
+    return null;
+  }
+
+  /**
+   * PEP 420 searches every path entry before accepting a namespace. Resolve one
+   * component at a time: once a regular parent wins, discarded portions cannot
+   * supply its children, and a module file cannot acquire a package's children.
+   */
+  private lookupRoots(roots: { path: string; root: string }[], dotted: string): RootMatch | LookupFailure | null {
+    let search = roots;
+    let ambiguous = false;
+    const parts = dotted.split('.');
+    for (let index = 0; index < parts.length; index++) {
+      let regular: RootMatch | null = null;
+      const portions: { path: string; root: string }[] = [];
+      let failure: LookupFailure | null = null;
+      for (const entry of search) {
+        const found = this.lookup(entry.path, parts[index]!);
+        if (!found) continue;
+        if (!('path' in found)) {
+          // Keep the existing exclusion/case diagnostics when no included target wins.
+          if (failure === null || 'excluded' in found) failure = found;
+          continue;
+        }
+        if (found.namespace) portions.push({ path: found.path, root: entry.root });
+        else if (regular === null) regular = { found, root: entry.root, ambiguous: false };
+        else if (regular.found.path !== found.path) ambiguous = true;
+      }
+      if (regular !== null) {
+        if (index === parts.length - 1) return { ...regular, ambiguous };
+        if (!/\/__init__\.pyi?$/.test(regular.found.path)) return null;
+        search = [{ path: repoDirname(regular.found.path), root: regular.root }];
+      } else if (portions.length > 0) {
+        if (index === parts.length - 1) return { found: { path: portions[0]!.path, namespace: true, portions }, root: portions[0]!.root, ambiguous };
+        search = portions;
+      } else return failure;
+    }
     return null;
   }
 
@@ -230,36 +273,23 @@ export class PythonResolver {
       return [{ ...base, status: 'builtin', targetPath: null, externalName: top, confidence: 'exact', reasonCode: null, resolverMode: mode }];
     }
 
-    // 3. Import roots, first match wins; a second, different match makes the result inferred.
+    // 3. First regular match wins; namespace portions survive only without a regular match.
     const own = owningProject(this.projects, sourcePath);
     const mapped = this.packageDirFor(own, dotted);
     if (mapped) return this.withNames(imp, mapped, mode, 'exact', null, (n) => `${dotted}.${n}`, missing);
-    let first: { found: Found; root: string } | null = null;
-    let ambiguous = false;
-    let excluded: string | null = null;
-    let caseMismatch = false;
-    for (const root of roots) {
-      const found = this.lookup(root, dotted);
-      if (!found) continue;
-      if ('excluded' in found) {
-        excluded ??= found.excluded;
-        continue;
-      }
-      if ('caseMismatch' in found) {
-        caseMismatch = true;
-        continue;
-      }
-      if (!first) first = { found, root };
-      else if (!found.namespace && !first.found.namespace && found.path !== first.found.path) ambiguous = true;
-    }
-    if (first) {
-      const inProject = first.root === baseDir || projectRoots.has(first.root);
+    const first = this.lookupRoots(roots.map((root) => ({ path: root, root })), dotted);
+    const provenance = (root: string, ambiguous: boolean): { confidence: 'exact' | 'inferred'; reasonCode: string | null } => {
+      const inProject = root === baseDir || projectRoots.has(root);
       const confidence = ambiguous || !inProject ? 'inferred' : 'exact';
-      const reason = ambiguous ? 'AMBIGUOUS_MODULE_ROOT' : !inProject ? (first.root === '' ? 'REPOSITORY_ROOT_MODULE' : 'WORKSPACE_PROJECT_MODULE') : null;
-      return this.withNames(imp, first.found, mode, confidence, reason, (n) => `${dotted}.${n}`, missing);
+      const reasonCode = ambiguous ? 'AMBIGUOUS_MODULE_ROOT' : !inProject ? (root === '' ? 'REPOSITORY_ROOT_MODULE' : 'WORKSPACE_PROJECT_MODULE') : null;
+      return { confidence, reasonCode };
+    };
+    if (first && 'found' in first) {
+      const { confidence, reasonCode } = provenance(first.root, first.ambiguous);
+      return this.withNames(imp, first.found, mode, confidence, reasonCode, (n) => `${dotted}.${n}`, missing, provenance);
     }
-    if (excluded !== null) return [missing('TARGET_EXCLUDED', { status: 'excluded-target' })];
-    if (caseMismatch) return [missing('CASE_MISMATCH')];
+    if (first && 'excluded' in first) return [missing('TARGET_EXCLUDED', { status: 'excluded-target' })];
+    if (first && 'caseMismatch' in first) return [missing('CASE_MISMATCH')];
     // The repository has the top-level package but not this submodule: a missing local
     // target, never an external package of the same name.
     if (dotted.includes('.') && roots.some((root) => { const f = this.lookup(root, top); return f !== null && 'path' in f; })) return [missing('LOCAL_TARGET_MISSING')];
@@ -299,6 +329,7 @@ export class PythonResolver {
     reasonCode: string | null,
     nameSpecifier: (name: string) => string,
     missing: (reasonCode: string, overrides?: Partial<PyResolution>) => PyResolution,
+    provenance?: (root: string, ambiguous: boolean) => { confidence: 'exact' | 'inferred'; reasonCode: string | null },
   ): PyResolution[] {
     if (!found) return [missing('LOCAL_TARGET_MISSING')];
     if ('excluded' in found) return [missing('TARGET_EXCLUDED', { status: 'excluded-target' })];
@@ -308,9 +339,11 @@ export class PythonResolver {
     if (!found.namespace) out.push({ kind: kindFor(found.path), specifier: imp.specifier, range: imp.range, status: 'resolved-internal', targetPath: found.path, externalName: null, confidence, reasonCode, resolverMode: mode });
     const dir = found.namespace ? found.path : found.path.endsWith('/__init__.py') || found.path.endsWith('/__init__.pyi') ? repoDirname(found.path) : null;
     for (const name of imp.names ?? []) {
-      const sub = dir === null ? null : this.lookup(dir, name.name);
+      const selected = found.namespace && dir !== null ? this.lookupRoots(found.portions ?? [{ path: dir, root: dir }], name.name) : null;
+      const sub = selected && 'found' in selected ? selected.found : found.namespace ? selected : dir === null ? null : this.lookup(dir, name.name);
       const at = { specifier: nameSpecifier(name.name), range: name.range };
-      if (sub && 'path' in sub && !sub.namespace) out.push({ kind: kindFor(sub.path), ...at, status: 'resolved-internal', targetPath: sub.path, externalName: null, confidence, reasonCode, resolverMode: mode });
+      const subProvenance = selected && 'found' in selected && provenance ? provenance(selected.root, selected.ambiguous || reasonCode === 'AMBIGUOUS_MODULE_ROOT') : { confidence, reasonCode };
+      if (sub && 'path' in sub && !sub.namespace) out.push({ kind: kindFor(sub.path), ...at, status: 'resolved-internal', targetPath: sub.path, externalName: null, ...subProvenance, resolverMode: mode });
       else if (sub && 'excluded' in sub) out.push({ ...missing('TARGET_EXCLUDED', { status: 'excluded-target' }), ...at });
       else if (found.namespace && !(sub && 'path' in sub)) out.push({ ...missing(sub && 'caseMismatch' in sub ? 'CASE_MISMATCH' : 'LOCAL_TARGET_MISSING'), ...at });
     }
