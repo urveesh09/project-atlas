@@ -1,9 +1,11 @@
+import { capacityCommits } from './capacity-language.mjs';
+
 /**
  * The deterministic medium history fixture (bench-history.mjs, hosted rehearsal): about
  * 3,000 TypeScript files, ~30,000 imports and a mainline of edits, additions, renames and
  * deletions. Pure: the same arguments always produce identical commits.
  */
-export function buildMediumHistoryCommits({ files: FILES = 3000, commits: COMMITS = 40, packages: PACKAGES = 10 } = {}) {
+export function buildMediumHistoryCommits({ files: FILES = 3000, commits: COMMITS = 40, packages: PACKAGES = 10, language = 'typescript' } = {}) {
   let state = 0x2545f491;
   const next = () => {
     state ^= state << 13;
@@ -76,5 +78,5 @@ export function buildMediumHistoryCommits({ files: FILES = 3000, commits: COMMIT
     }
     commits.push({ date: day(c), message: `change ${c}`, files, renames });
   }
-  return { commits, baseFiles: Object.keys(base).length };
+  return { commits: capacityCommits(commits, language), baseFiles: Object.keys(base).length };
 }
