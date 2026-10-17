@@ -48,7 +48,8 @@ ADR. It does not cover:
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
   - M1/M2 dependency decisions extend ADR-061. M2 task PRs reserve ADR-063–065;
     the namespace correction is ADR-066. ADR-067 is reserved by the edge-budget work,
-    and macOS CI is ADR-068. The next new decision is ADR-069.
+    macOS CI is ADR-068, and Firefox and WebKit journeys are ADR-069. The next new
+    decision is ADR-070.
 - **Evidence.**
   - After M1.5's five parser regressions, `pnpm verify` passes 751 tests; 81 more
     skip conditionally. The CPython oracle runs in this evidence. Per-commit
@@ -86,7 +87,7 @@ progress by updating this table's status column as tasks land.
 |---|---|---|
 | P1 | No dependency or runtime with a known, fixable vulnerability. The pins are current within their supported major versions, and a record says why each major version is held back | M1 landed in PRs #20/#22/#23/#24; dated audit and hold decisions in ADR-061/062. Recheck at release (M5) |
 | P2 | Python has the same evidence quality as TS/JS: several real repositories with checks written before analysis, capacity budgets met, and the hosted path proven | Open (M2) |
-| P3 | The CLI is tested on Windows, Linux and macOS. The viewer is tested in Chromium, Firefox and WebKit | Partly done: three operating systems (M3.1); browsers open (M3.2) |
+| P3 | The CLI is tested on Windows, Linux and macOS. The viewer is tested in Chromium, Firefox and WebKit | Done for the CLI and the viewer journeys (M3.1, M3.2). The hosted journeys are still Chromium-only |
 | P4 | An operator can deploy the hosted service from the repository alone, with TLS, an egress firewall, least-privilege roles, monitoring with alerts, backups with a tested restore, and verified images | Open (M4) |
 | P5 | The master plan's §16.5 definition of done: all gates pass, no P0/P1 defects, docs match the implementation, a reproducible demo, visible limitations, and operator recovery | Open (M5; needs R6 evidence) |
 
@@ -501,6 +502,18 @@ and owner merge remain pending; M2.2 capacity is tracked separately.
 - **Bugs.** Fix real browser bugs in the viewer. If WebGL is unavailable in a headless
   engine, the fallback journeys must still pass. Name the WebGL-only checks that were
   skipped, and why.
+- **Done, 2026-10-17 (ADR-069, PR #35).** All 40 journeys run in all three engines, not
+  just a subset. `ATLAS_E2E_BROWSER` selects the engine, and CI runs
+  `viewer journeys (firefox|webkit)` on Ubuntu, with Firefox headed in Xvfb for software
+  OpenGL. The runs found three product bugs, all fixed:
+  - search lost a choice made with Enter (a render race, 5 of 12 in WebKit);
+  - Safari could not open a picked artifact folder, because WebKit's structured clone drops
+    `webkitRelativePath`;
+  - zod's blocked eval probe showed as a Firefox page error.
+
+  Only the touch journey's pan and pinch section stays Chromium-only, because it uses the
+  DevTools protocol. The owner must add `viewer journeys (firefox)` and
+  `viewer journeys (webkit)` to the required checks.
 
 #### M3.3 Accessibility preparation for R6-04
 
@@ -520,6 +533,16 @@ and owner merge remain pending; M2.2 capacity is tracked separately.
 - **Next time it fails,** use those names to find the element, fix the layout at its
   cause, and add a regression check at that width.
 - **Never** rerun until green, or drop the check.
+
+#### M3.5 Silent fallback when WebGL2 is missing
+
+- **Why.** Where WebGL2 is truly unavailable, the viewer falls back to the map correctly,
+  but three.js logs context-creation errors on the way (seen in Firefox on CI before
+  ADR-069 gave it software OpenGL).
+- **Change.**
+  - Check for a WebGL2 context once, before creating the renderer.
+  - Fall back without the errors, and release the probe context.
+- **Test.** A journey with WebGL disabled asserts no page errors as well as the fallback.
 
 ### M4. Hosted production kit
 
@@ -700,6 +723,13 @@ pnpm exec vitest run packages/cli/test/viewer.e2e.test.ts
 ```
 
 Run the journeys a second time with `CI=1` set as well; CI uses that setting.
+
+The same file runs in Firefox and WebKit (ADR-069):
+1. Install the browser: `playwright install firefox webkit`.
+2. Set `ATLAS_E2E_BROWSER` to `firefox` or `webkit`.
+
+Every journey runs in each engine, except the touch pan and pinch, which needs Chromium's
+DevTools protocol.
 `atlas serve` prints a single-use session link, so restart it for each new browser
 session.
 

@@ -1,7 +1,8 @@
-import { gunzipWithStreams, openArtifact, pickedFilesSource, type ArtifactSource, type LoadResult, type PickedFile } from '@atlas/artifact';
+import { gunzipWithStreams, openArtifact, pickedFilesSource, type ArtifactSource, type LoadResult } from '@atlas/artifact';
 import { GraphIndex, type GraphIndexData } from '@atlas/graph';
 import { prepareCity, type CityData } from '@atlas/layout';
 import type { ArtifactCore, GraphSnapshot } from '@atlas/schema';
+import { pickedFromEntries, type PickedEntry } from './picked';
 import { FrameStore, initializeQueries, handleQuery, type QueryRequest } from './query.worker';
 
 /**
@@ -9,7 +10,7 @@ import { FrameStore, initializeQueries, handleQuery, type QueryRequest } from '.
  * decompression with caps, hash and canonical-form checks, then full bundle invariants.
  * Files picked locally are read in this worker and never leave the browser.
  */
-export type LoaderRequest = ({ kind: 'server'; base: string } | { kind: 'hosted'; analysisId: string } | { kind: 'files'; files: PickedFile[] }) & {
+export type LoaderRequest = ({ kind: 'server'; base: string } | { kind: 'hosted'; analysisId: string } | { kind: 'files'; files: PickedEntry[] }) & {
   measure?: boolean;
 };
 /**
@@ -111,7 +112,7 @@ scope.onmessage = async (event: MessageEvent<LoaderRequest | QueryRequest>) => {
         ? serverSource((path) => `${request.base}${path}`, report)
         : request.kind === 'hosted'
           ? serverSource((path) => hostedPath(request.analysisId, path), report, true)
-          : pickedFilesSource(request.files);
+          : pickedFilesSource(pickedFromEntries(request.files));
     let requiredChunksAvailableAt = 0;
     const source: ArtifactSource = {
       async read(path, maxBytes) {

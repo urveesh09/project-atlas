@@ -103,6 +103,36 @@ jobs:
             .atlas-tmp/cli-distribution-result.json
             .atlas-tmp/releases/*/atlas-cli-candidate.tar.gz
 
+  browsers:
+    # Every viewer journey in Firefox and WebKit too; verify runs them in Chromium (ADR-069).
+    name: viewer journeys (${{ matrix.browser }})
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @atlas/web exec playwright install --with-deps ${{ matrix.browser }}
+      - name: A virtual display and Mesa's software OpenGL for Firefox
+        if: matrix.browser == 'firefox'
+        run: sudo apt-get install --yes --no-install-recommends xvfb libgl1-mesa-dri libegl1
+      - run: pnpm build && pnpm build:web
+      # Firefox reaches Mesa's software OpenGL only through a display, so it runs headed in
+      # Xvfb; WebKit runs headless (ADR-069).
+      - run: ${{ matrix.browser == 'firefox' && 'xvfb-run --auto-servernum' || '' }} pnpm exec vitest run packages/cli/test/viewer.e2e.test.ts
+        env:
+          ATLAS_REQUIRE_BROWSER_TESTS: '1'
+          ATLAS_E2E_BROWSER: ${{ matrix.browser }}
+          ATLAS_E2E_HEADED: ${{ matrix.browser == 'firefox' && '1' || '0' }}
+
   corpus:
     name: pinned repository corpus (${{ matrix.os }})
     strategy:

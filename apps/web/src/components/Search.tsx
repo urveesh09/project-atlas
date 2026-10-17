@@ -17,6 +17,10 @@ export const Search = forwardRef<HTMLInputElement>(function Search(_props, ref) 
   const [resultQuery, setResultQuery] = useState('');
   const [error, setError] = useState('');
   const pendingChoice = useRef<string | null>(null);
+  // The newest results, written as soon as they arrive. Enter can come before React renders
+  // them; reading state alone then recorded a pending choice whose search had already
+  // finished, so nothing was ever selected (seen in WebKit, possible anywhere: ADR-069).
+  const latest = useRef<{ query: string; hits: SearchHit[] }>({ query: '', hits: [] });
   // Closing on blur is deferred so a click on a result lands; refocusing cancels it, or a
   // stale close would hide the list while the viewer types.
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -24,11 +28,12 @@ export const Search = forwardRef<HTMLInputElement>(function Search(_props, ref) 
   useEffect(() => {
     let stale = false;
     setError('');
-    if (!query.trim()) { setResults([]); setResultQuery(query); return; }
+    if (!query.trim()) { latest.current = { query, hits: [] }; setResults([]); setResultQuery(query); return; }
     if (!queries) return;
     // Results belong to the frame they were computed for; a frame change re-runs the query.
     void queries.search(model.frame, query).then((hits) => {
       if (stale) return;
+      latest.current = { query, hits };
       setResults(hits); setResultQuery(query); setActive(0);
       if (pendingChoice.current === query && hits[0]) { pendingChoice.current = null; setOpen(false); select(hits[0].nodeId, { focusInspector: true }); }
     }).catch(() => { if (!stale) { setError('Search is unavailable. Use the repository tree.'); setResults([]); } });
@@ -37,8 +42,10 @@ export const Search = forwardRef<HTMLInputElement>(function Search(_props, ref) 
   const expanded = open && query.trim().length > 0;
 
   const choose = (index: number) => {
-    if (query !== resultQuery) { pendingChoice.current = query; return; }
-    const hit = results[index];
+    const current = latest.current;
+    if (query !== current.query) { pendingChoice.current = query; return; }
+    // Results newer than the last render start at their first hit, as a render would.
+    const hit = current.hits[current.query === resultQuery ? index : 0];
     if (!hit) return;
     setOpen(false);
     select(hit.nodeId, { focusInspector: true });

@@ -1,4 +1,4 @@
-import type { LoadResult, PickedFile } from '@atlas/artifact';
+import type { LoadResult } from '@atlas/artifact';
 import type { LoaderRequest, LoaderResponse, ViewerLoadResult } from './loader.worker';
 
 /** A hosted publication that is gone or unavailable (404/410/503 with a public code). */
@@ -82,8 +82,4 @@ export async function fetchSource(snapshotId: string, nodeId: string): Promise<S
   const response = await fetch(`/api/source?${params}`, { credentials: 'same-origin', cache: 'no-store' });
   const body = (await response.json().catch(() => ({ error: 'INVALID_RESPONSE' }))) as SourceText | { error: string };
   return response.ok ? body : { error: 'error' in body ? body.error : 'UNAVAILABLE' };
-}
-
-export function filesFromInput(list: FileList): PickedFile[] {
-  return [...list].map((file) => file as unknown as PickedFile);
 }

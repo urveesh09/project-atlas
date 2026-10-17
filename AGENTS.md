@@ -104,6 +104,8 @@ Work on a branch, push it and open a pull request; it merges once the checks pas
 **CI** (`.github/workflows/ci.yml`):
 - `verify` and the pinned corpus each run on Ubuntu, Windows and macOS (ADR-068);
 - the determinism job compares all three corpus reports;
+- every viewer journey also runs in Firefox and WebKit on Ubuntu (`ATLAS_E2E_BROWSER`,
+  ADR-069);
 - hosted gates, live GitHub and the render spike.
 
 `verify` names CPython 3.14.8 for the parser oracle (`ATLAS_ORACLE_PYTHON`). All jobs

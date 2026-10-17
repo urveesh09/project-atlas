@@ -1416,6 +1416,35 @@ Windows and macOS. The determinism job compares all three corpus reports.
 - **Owner:** add `verify (macos-latest)` and `pinned repository corpus (macos-latest)` to
   the required checks.
 
+### Production M3.2: Firefox and WebKit journeys (2026-10-17)
+
+[ADR-069](adr/ADR-069-firefox-and-webkit-journeys.md): the whole viewer journey file
+runs in Firefox and WebKit as well as Chromium. `ATLAS_E2E_BROWSER` selects the engine,
+and a new CI job, `viewer journeys (firefox|webkit)`, runs on Ubuntu.
+- **Three product bugs found and fixed:**
+  - **Search lost an Enter that came between results arriving and React rendering
+    them.** A probe failed 5 of 12 in WebKit, then passed 30 of 30 in all three engines
+    after the fix.
+  - **Safari could not open a picked artifact folder.** WebKit's structured clone drops
+    `webkitRelativePath`, so nested chunks such as `history/history.json.gz` failed with
+    `CHUNK_MISSING`. The page now sends each path explicitly.
+  - **Zod's blocked eval probe appeared as a Firefox page error.** The schema index now
+    sets `jitless` first, in browsers only. Results are identical, and Node keeps
+    compiled validators.
+- **Test environment:**
+  - same-origin `blob:` URLs count as the page's own;
+  - only the touch pan-and-pinch section is Chromium-only, because it uses the DevTools
+    protocol;
+  - on CI, Firefox runs headed in Xvfb with Mesa's software OpenGL. Two earlier CI runs
+    record why: no WebGL2, then no GL driver.
+- **Evidence:**
+  - locally: all 40 journeys pass in each engine, and `pnpm verify` passes 799 tests with
+    83 service-gated skips;
+  - CI run 39017637044: all 15 checks pass, and both new jobs report 40 of 40.
+- **Follow-up:** M3.5, a silent fallback where WebGL2 is missing.
+- **Owner:** add `viewer journeys (firefox)` and `viewer journeys (webkit)` to the
+  required checks.
+
 ### Reproduce verification
 
 ```sh

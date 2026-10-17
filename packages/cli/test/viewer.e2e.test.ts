@@ -2,7 +2,7 @@ import { createReadStream, existsSync, mkdirSync, mkdtempSync, rmSync, statSync 
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import { chromium, firefox, webkit, type Browser, type BrowserContext, type BrowserType, type Page } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION } from '@atlas/schema';
@@ -26,7 +26,12 @@ vi.setConfig({ expect: { poll: { timeout: 5_000 } } });
  * recorded to prove nothing leaves the loopback origin, and a browser-only artifact open
  * proves picked files are not uploaded.
  */
-const browserAvailable = existsSync(chromium.executablePath());
+const ENGINES: Record<string, BrowserType> = { chromium, firefox, webkit };
+/** The engine that runs these journeys: Chromium by default; CI also runs Firefox and WebKit (ADR-069). */
+const engineName = process.env['ATLAS_E2E_BROWSER'] ?? 'chromium';
+const engine = ENGINES[engineName];
+if (!engine) throw new Error(`ATLAS_E2E_BROWSER must be one of ${Object.keys(ENGINES).join(', ')}, not ${engineName}`);
+const browserAvailable = existsSync(engine.executablePath());
 let viewerBuilt = true;
 try {
   viewerDirectory();
@@ -35,7 +40,7 @@ try {
 }
 if (process.env['ATLAS_REQUIRE_BROWSER_TESTS'] === '1' && (!browserAvailable || !viewerBuilt)) {
   throw new Error(
-    'Required browser tests need installed Chromium and a built viewer. Run playwright install chromium and pnpm build:web.',
+    `Required browser tests need installed ${engineName} and a built viewer. Run playwright install ${engineName} and pnpm build:web.`,
   );
 }
 
@@ -73,7 +78,15 @@ beforeAll(async () => {
     viewerDir: viewerDirectory(),
     source: await SourceAttachment.attach(demo.dir, loaded.bundle),
   });
-  browser = await chromium.launch({ args: process.env['CI'] ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [] });
+  // GPU-less CI runners get software WebGL: SwiftShader in Chromium. Firefox needs a display
+  // for Mesa's software OpenGL, so CI runs it headed inside Xvfb with its software-renderer
+  // blocklist overridden (ADR-069). WebKit needs nothing.
+  const ci = Boolean(process.env['CI']);
+  browser = await engine.launch({
+    headless: process.env['ATLAS_E2E_HEADED'] !== '1',
+    args: engineName === 'chromium' && ci ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [],
+    ...(engineName === 'firefox' && ci ? { firefoxUserPrefs: { 'webgl.force-enabled': true } } : {}),
+  });
   context = await browser.newContext({ viewport: { width: 1280, height: 860 } });
 }, 120_000);
 
@@ -206,6 +219,19 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
       .toContain('src/server/pricing.ts');
   });
 
+  it('replaces the previous query and selects it with Enter, every time', async () => {
+    // Enter could arrive before React rendered the newest results, and the choice was then
+    // lost: 5 of 12 attempts in WebKit before the fix (ADR-069).
+    const box = page.getByRole('combobox', { name: 'Search files, packages and declarations' });
+    for (const name of ['Dock.tsx', 'pricing.ts', 'Dock.tsx', 'pricing.ts', 'Dock.tsx', 'pricing.ts']) {
+      await box.focus();
+      await page.keyboard.press('ControlOrMeta+A');
+      await page.keyboard.type(name);
+      await page.keyboard.press('Enter');
+      await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(name);
+    }
+  });
+
   it('J2: inspects static dependencies and their evidence, then follows one', async () => {
     await tabToTabList(page);
     await page.keyboard.press('Home');
@@ -291,7 +317,8 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
   it('keeps every request on the loopback origin and logs no errors', () => {
     const origin = new URL(server.url).origin;
     expect(requests.length).toBeGreaterThan(0);
-    expect(requests.filter((u) => !u.startsWith(origin))).toEqual([]);
+    // WebKit also reports in-memory `blob:` URLs of this origin; they never reach a network.
+    expect(requests.filter((u) => !u.startsWith(origin) && !u.startsWith(`blob:${origin}/`))).toEqual([]);
     expect(errors).toEqual([]);
   });
 });
@@ -770,19 +797,23 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
       await map.scrollIntoViewIfNeeded();
       const bounds = (await map.boundingBox())!, x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
       const pixels = () => map.evaluate((el) => (el as HTMLCanvasElement).toDataURL());
-      const before = await pixels(), cdp = await touch.newCDPSession(page);
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 24, y: y + 20 }] });
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-      const panned = await pixels(); expect(panned).not.toBe(before);
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x - 20, y, id: 1 }, { x: x + 20, y, id: 2 }] });
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 60, y, id: 1 }, { x: x + 60, y, id: 2 }] });
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-      expect(await pixels()).not.toBe(panned);
-      expect(await page.locator('#overview-title').count()).toBe(1);
-      await cdp.detach();
+      // Pan and pinch are synthesized with the DevTools protocol, which only Chromium has.
+      // Firefox and WebKit still run the taps, the map fallback, table selection and layout.
+      if (engineName === 'chromium') {
+        const before = await pixels(), cdp = await touch.newCDPSession(page);
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 24, y: y + 20 }] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+        const panned = await pixels(); expect(panned).not.toBe(before);
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x - 20, y, id: 1 }, { x: x + 20, y, id: 2 }] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 60, y, id: 1 }, { x: x + 60, y, id: 2 }] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+        expect(await pixels()).not.toBe(panned);
+        expect(await page.locator('#overview-title').count()).toBe(1);
+        await cdp.detach();
+      }
       await page.getByLabel('View', { exact: true }).selectOption('table');
       await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).tap();
       await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
@@ -1079,9 +1110,9 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
       const after = requests.slice(before);
       // Only the viewer's own static files may be fetched: the loader worker script and, since
       // ADR-058, the bundled font subsets the explorer first uses. No artifact bytes are sent.
-      expect(after.every((r) => r.method === 'GET' && r.url.startsWith(origin) && /\/assets\/[^/]+\.(?:js|woff2)$/.test(r.url))).toBe(
-        true,
-      );
+      // WebKit also reports in-memory `blob:` URLs of this origin; they never reach a network.
+      const ownAsset = (url: string) => (url.startsWith(origin) && /\/assets\/[^/]+\.(?:js|woff2)$/.test(url)) || url.startsWith(`blob:${origin}/`);
+      expect(after.filter((r) => r.method !== 'GET' || !ownAsset(r.url))).toEqual([]);
       expect(requests.filter((r) => r.method !== 'GET')).toEqual([]);
       const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
       expect(await page.locator('#overview-title').innerText()).toBe(
