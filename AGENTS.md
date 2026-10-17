@@ -21,8 +21,9 @@ implemented for committed TS/JS and Python (`.py`, `.pyi`), including mixed repo
 The production plan is now on M2, Python correctness evidence; M1 upgrades landed in
 PRs #20, #22, #23 and #24. Analyzer `0.1.0-dev.8` records corrected namespace lookup
 (ADR-066); parser runtime provenance remains ADR-062 and the artifact schema stays 1.4.0. Cython, notebooks and further languages
-remain opaque buildings. Python capacity, additional corpus shapes and the full
-hosted Python journey still need M2 evidence. The master plan has no Phase 7.
+remain opaque buildings. The hosted Python journey (ADR-064)
+and the uv workspace and mixed corpus (ADR-065) have landed. Python capacity (M2.2)
+still needs its full measurement matrix. The master plan has no Phase 7.
 Gate G6 stays open on the exact capacity-fixture matrix, human, reference-hardware and
 deployment acceptance (R6-01…R6-07).
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime

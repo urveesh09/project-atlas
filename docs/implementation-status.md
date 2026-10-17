@@ -1353,6 +1353,35 @@ M2.2 and G6 stay separate and open.
   [Scope, low modules and exact counts](coverage.md) remain visible; required CI
   is tracked in the PR. Other M2 work and G6 remain separate.
 
+### Integration of PRs #28–#32 (2026-10-17)
+
+The five M2 pull requests were merged into one branch, because #28 and #29 conflicted
+with `main` and #31 and #32 were stacked on #30. Merge order: #30 (namespace
+precedence, dev.8), #31, #32, #28, #29.
+- **Conflicts.** Every conflict was a pair of independent additions, and both sides were
+  kept: dated status sections, ADR-061 sections, `toolchain.md` rows and two dev
+  dependencies.
+- **Lockfile.** Not merged by hand. `main`'s side was kept, then `pnpm install` added
+  `@vitest/coverage-v8`. All 106 added lines match #29's lockfile exactly, and the
+  frozen install passes.
+- **The committed corpus baseline is #32's,** which already includes #30's dev.8 output.
+
+Verification on the combined tree, with Node 24.22.0:
+- `pnpm verify`: 794 tests passed, with 83 skipped because their services are not
+  enabled.
+- CPython 3.14.5 oracle: 1,841 files parsed by both, 0 mismatches.
+- Fresh acquisition of all six pinned repositories, then five offline cold repeats each.
+  `check-repository-baseline` reports every payload exact, and all authored source checks
+  hold.
+- Viewer journeys: 39/39, also with `CI=1`.
+- Hosted journeys: 7/7, on a throwaway PostgreSQL 17 container that was removed
+  afterwards.
+
+**Still open:**
+- M2.2's capacity matrix has 3 of 8 rows measured (ADR-063).
+- Uncommitted shared-edge-budget work (a proposed dev.9) is not part of this
+  integration.
+
 ### Reproduce verification
 
 ```sh
