@@ -39,6 +39,14 @@ shared-dependency-edge-budget work in progress at the time of writing.)
   thread is busy with software rendering, which also delays each poll call, so the frame
   wait gave no guarantee. That attempt was removed instead of being kept as an unproven
   fix.
+- **Patching one poll at a time did not converge.** With those two polls at 5 s, run
+  39009695374 failed the next poll in the same macOS journey: ghost markers clearing
+  after a comparison closes. On Ubuntu, a different journey failed: the inspector after
+  a search, which had passed in the two previous runs.
+  - The file has 60 polls on Vitest's one-second default, each straight after a real
+    browser action.
+  - The earlier Windows timeouts in implementation status ("M2.3 CI follow-up", runs
+    38996642868 and 38998758410) are the same class of failure.
 
 ## Decision
 
@@ -58,17 +66,19 @@ shared-dependency-edge-budget work in progress at the time of writing.)
    - A named interpreter that does not work fails the suite instead of skipping it.
    - Without the variable, local runs discover Python as before.
 4. **Cross-platform keys.** Viewer tests select all with `ControlOrMeta+A`.
-5. **A longer wait for two correctness polls, with evidence.**
-   - The deep-link inspector title and the paint clearing after a lens change now poll for
-     up to 5 s (`SOFTWARE_GL_POLL`), the convention this file already uses for heavy
-     steps.
+5. **The browser-journey file polls for up to 5 s.**
+   - `packages/cli/test/viewer.e2e.test.ts` sets `vi.setConfig({ expect: { poll: { timeout:
+     5_000 } } })`, which applies to that file only. 5 s is the convention the file
+     already used for heavy steps.
+   - A local probe confirmed the setting takes effect: a state that becomes true after
+     2 s fails at 1 s without it, and passes with it.
    - **The assertions are unchanged.** A longer wait cannot make a wrong state pass; it
      only tolerates software rendering's latency.
    - These polls check correctness, not latency. The plan's interaction budgets are
      measured on reference hardware by the benchmark scripts, never on CI's software
      WebGL.
-   - Both polls report the page state if they time out, so a future failure shows what the
-     viewer did instead.
+   - The two diagnosed polls report the page state if they time out, so a future failure
+     shows what the viewer did instead.
    - The plan's testing rule now states when a longer wait is allowed: evidence that the
      final state is correct, a check that is not a product budget, and a recorded
      reason.

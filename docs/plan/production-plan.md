@@ -482,8 +482,8 @@ and owner merge remain pending; M2.2 capacity is tracked separately.
   - The first macOS failures were all test or CI problems, each fixed by its cause:
     - `Control+A` select-all in tests;
     - an unpinned oracle Python; CI now uses 3.14.8;
-    - two correctness polls that ran ahead of software rendering. They now wait up to 5 s,
-      with evidence and unchanged assertions.
+    - correctness polls that ran ahead of software rendering. The browser-journey file
+      now polls for up to 5 s, with evidence and unchanged assertions.
   - The Python 3.15 gap it exposed is M2.7.
   - The owner must add `verify (macos-latest)` and `pinned repository corpus
     (macos-latest)` to the required checks.

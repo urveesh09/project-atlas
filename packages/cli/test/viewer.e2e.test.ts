@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION } from '@atlas/schema';
 import { run, type CliIO } from '@atlas/cli';
@@ -13,6 +13,12 @@ import { startViewerServer, type RunningViewerServer } from '../src/server/serve
 import { buildDemoRepository, type GitFixture } from '@atlas/test-fixtures';
 import { audit } from '../../../apps/web/test/audit.js';
 import type {} from '../../../apps/web/src/city/probe.js';
+
+// Every poll here checks a correct state after a real browser action, not a latency
+// budget: interaction budgets are measured on reference hardware. On CI's GPU-less
+// runners (software WebGL), correct states were observed arriving after Vitest's default
+// one-second poll, most often on macOS (ADR-068). The assertions are unchanged.
+vi.setConfig({ expect: { poll: { timeout: 5_000 } } });
 
 /**
  * Gate G2 journeys in a real browser, keyboard only (plan §17 P2.6): find a file, inspect
@@ -109,12 +115,6 @@ async function pageState(page: Page, errors: readonly string[]): Promise<string>
   });
   return JSON.stringify({ ...shown, pageErrors: errors.slice(-5) });
 }
-/**
- * Wait for a state that software WebGL reaches late. On macOS runners (SwiftShader, no GPU)
- * the correct state was observed to arrive after a poll's default second (ADR-068). This
- * is a correctness check, not a latency budget: those are measured on reference hardware.
- */
-const SOFTWARE_GL_POLL = { timeout: 5_000 };
 const explain = (page: Page, errors: readonly string[]) => async (error: unknown) => {
   throw new Error(`${error instanceof Error ? error.message : String(error)}
 page state: ${await pageState(page, errors)}`, { cause: error });
@@ -783,7 +783,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     if (!loaded.ok) throw new Error('invalid');
     const node = loaded.bundle.graphs.at(-1)!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
     await page.goto(`${server.url}#v=1&file=${node.lineageId}&tab=dependencies`);
-    await expect.poll(() => page.locator('#inspector-title').innerText(), SOFTWARE_GL_POLL).toBe('Dock.tsx').catch(explain(page, errors));
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx').catch(explain(page, errors));
     expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('Dependencies');
     const invalidUrl = `${server.url}#v=1&file=javascript:alert(1)&evil=1`;
     await page.goto(invalidUrl);
@@ -933,7 +933,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     // Picking a lens asks for lens colours.
     await page.getByLabel('Lens', { exact: true }).selectOption('complexity');
     expect(await colour.inputValue()).toBe('off');
-    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint, SOFTWARE_GL_POLL).toBeNull().catch(explain(page, errors));
+    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint).toBeNull().catch(explain(page, errors));
     await page.getByLabel('Lens', { exact: true }).selectOption('structure');
     const text = await page.locator('.compare').innerText();
     expect(text).toContain('src/ui/Cargo.tsx → src/ui/Manifest.tsx');

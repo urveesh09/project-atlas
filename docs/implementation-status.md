@@ -1395,11 +1395,13 @@ Windows and macOS. The determinism job compares all three corpus reports.
   - tests now use `ControlOrMeta+A`;
   - CI and the release workflow name CPython 3.14.8 for the oracle, and a named
     interpreter that doesn't work fails instead of skipping;
-  - two correctness polls that ran ahead of SwiftShader rendering now wait up to 5 s.
-    Diagnostics from two runs showed the final state was already correct. A first fix,
-    waiting for two drawn frames, passed once and then failed (run 39008842483), so it
-    was removed. The assertions are unchanged, and latency budgets are measured on
-    reference hardware.
+  - the browser-journey file's polls now wait up to 5 s, set for that file only.
+    - Diagnostics from macOS runs showed the final state was already correct, only late.
+    - Two narrower fixes did not converge, and both are recorded in ADR-068: waiting for
+      two drawn frames, then lengthening only two polls.
+    - Ubuntu and Windows had shown the same class of timeout.
+    - The assertions are unchanged, and latency budgets are measured on reference
+      hardware.
   - The 3.15 gap is real, and is tracked as production plan M2.7.
 - **Final CI run 39008158815:**
   - all 13 checks pass;
