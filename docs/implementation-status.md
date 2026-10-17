@@ -1191,6 +1191,28 @@ it does not assert identical acceptance of all syntax fixtures across Python ver
   restored. This is not a selected release. Required CI and owner merge follow;
   M2.2–M2.6 and G6 remain open.
 
+### Production M2.5: informational coverage and risk-driven tests (2026-10-17)
+
+- Pin test-only `@vitest/coverage-v8` 5.0.5, matched to Vitest, and add `pnpm coverage`.
+  Explicitly include unimported production TS/TSX and emit ignored HTML/JSON/text.
+  There is no percentage threshold or CI gate. ADR-061 records the dependency.
+- Initial standard-suite coverage passes 751 tests, 81 explicit skips: 57.47% lines,
+  56.19% statements, 49.42% branches, 52.48% functions. Node instrumentation does
+  not measure browser JavaScript or independent parser/CLI/sandbox processes.
+  Low database/S3 figures reflect gated execution, not proof those paths lack tests.
+- Add four boundary checks: hostile picked-file metadata without allocation,
+  real streaming expansion limits, 125-object paginated purge with another upload
+  preserved, and literal-only setup metadata with nonexecution/escaping-root checks.
+  Initial focused result: three pass, one expects no warning for computed metadata.
+  ADR-057 requires that warning; assert exact `SETUP_PY_NONLITERAL`. All four pass
+  after this test-expectation correction; production behavior remains unchanged.
+- Full verification passes 755 tests, 81 explicit skips, including the CPython
+  oracle and 39 viewer journeys. Typecheck, viewer build, dependency direction and
+  six generated contracts pass. The repeated full coverage suite also passes
+  755/81: 57.49% lines, 56.24% statements, 49.48% branches, 52.48% functions.
+  [Scope, low modules and exact counts](coverage.md) remain visible; required CI
+  is tracked in the PR. Other M2 work and G6 remain separate.
+
 ### Reproduce verification
 
 ```sh
