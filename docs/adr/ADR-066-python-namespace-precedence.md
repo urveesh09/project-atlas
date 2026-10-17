@@ -68,3 +68,7 @@ resolves the expected package and reduces unresolved observations from 64 to one
 while parsing the same 187 supported files (177 Python, six TS and four JS). It is not a five-repeat corpus or capacity
 gate. Sandbox/distribution checks and required CI remain tracked in the PR as they
 complete. No deadline, capacity budget, source expectation or validation rule is loosened.
+
+After the owner merges M2.2 tooling in PR #26, merge current main into this branch
+and repeat full verification: 764 tests pass, 81 explicitly skip. The additional
+four harness checks run; production analyzer code and the dev.8 baseline are unchanged.

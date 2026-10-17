@@ -1222,6 +1222,8 @@ it does not assert identical acceptance of all syntax fixtures across Python ver
   direction and six generated contracts pass. [ADR-066](adr/ADR-066-python-namespace-precedence.md)
   records the decision. Required CI is tracked in the fix PR. M2.6 corpus expansion
   and M2.2 dev.8 capacity remain separate work; keep the old dev.7 measurements.
+  After PR #26 lands, the branch incorporates current main and full verification
+  passes again: 764 tests, 81 explicit skips, including the four added harness checks.
 
 ### Reproduce verification
 
