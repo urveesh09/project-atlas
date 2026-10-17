@@ -44,7 +44,7 @@ verifies every extracted file and runs the CLI/viewer from outside the checkout 
 dependency installation. The candidate includes third-party license notices.
 
 Node 24.22.0 or newer 24.x and Git ≥2.38 are prerequisites. Writers emit artifact 1.4.0 and layout 1.1;
-readers retain documented 1.0–1.3 compatibility. Analyzer identity is `0.1.0-dev.7`
+readers retain documented 1.0–1.3 compatibility. Analyzer identity is `0.1.0-dev.8`
 ([ADR-062](../adr/ADR-062-python-parser-runtime-and-analysis-identity.md)); its runtime
 upgrade deliberately changes analysis keys, while existing artifacts stay readable.
 Artifacts contain names/paths/relationships/commit IDs even when source is omitted.

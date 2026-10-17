@@ -6,6 +6,11 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 
 ## [Unreleased]
 
+### Fixed
+- Resolve Python namespace portions only after considering regular packages/modules
+  across import roots, and prevent discarded parents from supplying child modules.
+  Analyzer `0.1.0-dev.8` deliberately refreshes analysis identities (ADR-066).
+
 ### Maintenance
 - Refresh language-support guides, comparison and release/agent handoffs for TS/JS
   and Python, the four-repository corpus and explicitly open Python acceptance work

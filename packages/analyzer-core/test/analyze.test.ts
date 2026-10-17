@@ -138,10 +138,10 @@ describe('Harbor structural artifact (M1)', () => {
       layout: packed.manifest.layoutChunk.sha256,
     }).toMatchInlineSnapshot(`
       {
-        "allFrames": "3b067a13d85339b9edffe3e91dc4f30915b545784d907266b17207493994bafe",
-        "head": "e6babe7116d15db9da9bb5113e7548f55b674b2cc970a50d979ee8e81d37d091",
-        "history": "3c7764129358c13a80e032e57db2ec05b58ee9d97553bba0883bdfb3e0cb9fad",
-        "layout": "b1a9b83cb1a1a0c07b7d201d3929c306ac06eee187a125cddb0282dcc68ee759",
+        "allFrames": "19287527b11417e073c50ba77cb92e4063b8f250ad80883609b805ac0a80b790",
+        "head": "2831bd8d523df457863de5d7f3b3e1fef2096d427a7c67c5b8bd4820daa4095f",
+        "history": "a359b2bcac853fb3b721b43ca7c030f733ac98d2b350adf8c7dd76d07738feb6",
+        "layout": "01218107ae8433f48dcd4fa1c9565a8a36c931d5de1b91131e0cefd016a870d3",
       }
     `);
   });

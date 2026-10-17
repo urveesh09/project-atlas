@@ -43,10 +43,11 @@ ADR. It does not cover:
   - The hosted service analyzes public GitHub repositories in offline sandboxes.
 - **Versions.**
   - Packages: `0.1.0-beta.1`.
-  - Analyzer: `0.1.0-dev.7` (M1.5 runtime provenance; ADR-062).
+  - Analyzer: `0.1.0-dev.8` (M2.6 namespace correction; ADR-066; runtime provenance ADR-062).
   - Graph: `atlas.graph/1.1.0`.
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
-  - ADRs run up to ADR-062; M1 adds sections to ADR-061. The next new decision is ADR-063.
+  - M1/M2 dependency decisions extend ADR-061. M2 task PRs reserve ADR-063–065;
+    the namespace correction is ADR-066. The next new decision is ADR-067.
 - **Evidence.**
   - After M1.5's five parser regressions, `pnpm verify` passes 751 tests; 81 more
     skip conditionally. The CPython oracle runs in this evidence. Per-commit
