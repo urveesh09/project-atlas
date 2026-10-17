@@ -43,10 +43,11 @@ ADR. It does not cover:
   - The hosted service analyzes public GitHub repositories in offline sandboxes.
 - **Versions.**
   - Packages: `0.1.0-beta.1`.
-  - Analyzer: `0.1.0-dev.7` (M1.5 runtime provenance; ADR-062).
+  - Analyzer: `0.1.0-dev.8` (M2.6 namespace correction; ADR-066; runtime provenance ADR-062).
   - Graph: `atlas.graph/1.1.0`.
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
-  - ADRs run up to ADR-062; M1 adds sections to ADR-061. The next new decision is ADR-063.
+  - M1/M2 dependency decisions extend ADR-061. M2 task PRs reserve ADR-063–065;
+    the namespace correction is ADR-066. The next new decision is ADR-067.
 - **Evidence.**
   - After M1.5's five parser regressions, `pnpm verify` passes 751 tests; 81 more
     skip conditionally. The CPython oracle runs in this evidence. Per-commit
@@ -360,6 +361,12 @@ capacity, corpus and G6 acceptance stay separate.
 
 #### M2.4 Property-based tests on the untrusted-input boundaries
 
+**Implementation evidence, 2026-10-17:** 24 fixed-seed properties cover all named
+boundaries with 2,638 bounded generated examples. ADR-061 records the exact test-only
+dependency and the initial invalid extension-namespace test-data failure. Full
+verification and required CI are tracked in implementation status and the task PR.
+No production analyzer, schema or error contract is changed.
+
 - **Why.** Every loader and parser of untrusted bytes should hold its bounds on arbitrary
   input, not just the authored cases. Scorecard's Fuzzing check also recognizes
   `fast-check`.
@@ -379,6 +386,13 @@ capacity, corpus and G6 acceptance stay separate.
 
 #### M2.5 Coverage report (informational)
 
+**Implementation evidence, 2026-10-17:** `pnpm coverage` reports all production
+TS/TSX files, with no percentage gate. `docs/coverage.md` records the low modules
+and the boundary between Node instrumentation, browser/subprocess execution and
+service-gated checks. Four risk-driven additions pass; full verification and the
+repeated coverage suite each pass 755 tests (81 explicit skips). Required CI is
+tracked in the PR; percentages do not replace correctness or security evidence.
+
 - Add `@vitest/coverage-v8` 5.0.5, matching vitest, and a `pnpm coverage` script.
 - Run it once and list the modules with low coverage in the pull request, then add tests
   where risk is highest: loaders, resolvers and the hosted control plane.
@@ -386,6 +400,17 @@ capacity, corpus and G6 acceptance stay separate.
   a number.
 
 #### M2.6 More real Python repositories
+
+**Implementation evidence, 2026-10-17 (ADR-065):** pinned MIT Pydantic AI v0.0.49
+(`a5a471e1cd8571c6b691bbb07fcf60f83432d772`, uv workspace) and Full Stack FastAPI
+(`b1125d8839482cb7bbae603ddc6d0081bf87532e`, Python/TS application). Eighteen
+expectations were authored from committed source before analysis. One exposed a real
+namespace-precedence defect, fixed independently in dev.8/ADR-066 without changing
+the expectations. All six repositories × five offline repeats, 46 authored checks,
+artifact validation and both new local CLI viewer journeys pass. Existing four
+baseline digests are unchanged; path comparison against the dev.8 prerequisite is
+identical for Harbor and all six repositories. Required expanded Windows/Linux CI
+and owner merge remain pending; M2.2 capacity is tracked separately.
 
 - **Why.** The TS/JS corpus covers single-package, monorepo and mixed shapes. Python has
   one repository, flask, which has one `src/` project. The workspace, Poetry, `setup.py`

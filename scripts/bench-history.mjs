@@ -201,7 +201,22 @@ if (diagnosticOnly) {
   console.log(JSON.stringify({ diagnosticOnly: true, isolateRuns, warmupMs, failedRun, status: lastFacts?.status, frames: lastFacts?.fixture.frames, parsedLanguages: lastFacts?.parsedLanguages, parserMemory: lastFacts?.parserMemory, nodeFlags: process.execArgv, resourceLimits, resourceUsage: resourceUsage(), memoryAfter: process.memoryUsage() }));
   process.exit(failedRun ? 1 : 0);
 }
-if (!lastFacts) throw new Error(`No run completed (${JSON.stringify(failedRun)}); no report is written`);
+if (!lastFacts) {
+  // A failed warm-up is evidence too. Unknown analysis facts stay null, never zero
+  // or copied from an earlier successful report. The wrapper already uses a fresh dir.
+  const failure = {
+    task: 'Capacity failure before any completed analysis', language, mode: headOnly ? 'head' : 'history', recordedAt: new Date().toISOString(),
+    environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, node: process.version, git: version, containerLimits: resourceLimits, runtimeImage: process.env.ATLAS_CAPACITY_IMAGE ?? null, sourceCommit: process.env.ATLAS_CAPACITY_SOURCE_COMMIT ?? null, benchmarkSourceCommit: process.env.ATLAS_CAPACITY_BENCHMARK_COMMIT ?? null, benchmarkWorkingTreeDirty: process.env.ATLAS_CAPACITY_BENCHMARK_DIRTY ?? null },
+    requestedRuns: RUNS, runs: 0, warmupMs: null, rawSampleMs: [], failedRun, fixture: null, artifact: null, analyzer: null, parsedLanguages: null, parserMemory: null,
+    resourceUsage: resourceUsage(), timePass: false, sizePass: false, completenessPass: false, sampleCountPass: false, parserMemoryPass: false, languagePass: false, resourcePass: false, pass: false,
+  };
+  const dir = pathArg('report-dir') ?? path.join(root, 'docs', 'benchmarks');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, `${out}.json`), JSON.stringify(failure, null, 2) + '\n');
+  writeFileSync(path.join(dir, `${out}.md`), `# Capacity failure\n\nRecorded ${failure.recordedAt}. No analysis completed, including warm-up.\n\nFailed process: ${JSON.stringify(failedRun)}. Completed measurements: zero.\n\nAnalysis facts, artifact sizes and parser-child memory are unknown. No time, size, completeness or resource gate passes. Exact environment and available cgroup observations are retained in the JSON.\n`);
+  console.log(JSON.stringify(failure, null, 2));
+  process.exit(1);
+}
 
 const sorted = [...timings].sort((a, b) => a - b);
 const pct = (p) => (sorted.length === 0 ? NaN : sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)]);

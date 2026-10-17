@@ -53,7 +53,9 @@ install or run Harbor's packages. Use snapshots 5 and 12 for the [manual task ca
 The candidate deliberately omits maintainer fixture tooling.
 
 The [pinned corpus](repository-corpus.json) contains immutable commits for is-plain-obj,
-Vue and Vite. Reproduce its source-free artifact exports and independent expectations:
+Vue, Vite, Flask, Pydantic AI and Full Stack FastAPI Template. The latter two add a uv
+workspace and a Python/TypeScript application (ADR-065). Reproduce their source-free
+artifact exports and independent expectations:
 
 ```sh
 pnpm build

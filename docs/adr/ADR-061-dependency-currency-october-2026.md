@@ -255,3 +255,54 @@ and golden updates governed by
 [ADR-062](ADR-062-python-parser-runtime-and-analysis-identity.md).
 That record holds the upstream API/ABI review, semantic comparison and verification;
 past ADR-056/060 runtime and evidence descriptions remain historical records.
+
+## M2.4: Bounded property testing (2026-10-16)
+
+The production plan and owner direction approve the new development dependency
+`fast-check` 4.10.2, pinned exactly in the root package and lockfile. It is test-only;
+no production dependency closure, analyzer provenance or artifact version changes.
+The registry integrity is
+`sha512-iK2f+YrcmoeGqk6fA0ea2bptcu/itMIm4NfEozq6N25+aG6h7s5HZbB/k1aV7b5w5sFLMCbbtRUsTVR+BgC3xw==`.
+
+Properties complement the authored examples rather than replacing their expected
+facts. Fixed seeds, bounded sizes/depth and bounded run counts make failures
+reproducible; fast-check prints the minimized input and replay path. Coverage:
+
+- canonical JSON parse/write, structural equality, streaming and digest agreement;
+  arbitrary UTF-16 is preserved or rejected with `CanonicalJsonError`;
+- repository paths preserve valid Unicode/case and reject escapes, controls and
+  Git metadata rather than normalizing multiple Git identities together;
+- all four Python manifest formats recover generated literal requirements, contain
+  malformed text, reject oversized text and terminate cyclic requirements includes;
+- artifact imports reject malformed manifests and changed chunk payloads, making
+  only allowlisted, bounded reads; gzip metadata is deliberately not confused with
+  the content hashes that the format actually verifies;
+- indexed/delta transport round-trips generated extension data exactly; malformed
+  schemas/references/runs produce only the decoders' named errors, and accepted
+  decoded graphs respect their requested/production bounds.
+
+No random seed, unbounded fuzzing, percentage gate or production deadline change.
+The focused suite passes all 24 properties on 2026-10-17: 2,638 generated examples
+at the fixed seeds, excluding fast-check's additional shrinking attempts. The
+first run passed 23 and failed one because the test used an invalid extension key
+`property`. The actual schema requires a dotted namespace (`primitives.ts`);
+correct the positive generator to `atlas.property`. Seed 1128812107, replay path
+`0:0`, shrank to value `0`. This was a test-data defect, not an analyzer change.
+The complete 24-property retest passes. Full verification and CI outcomes are
+recorded in implementation status and the PR when completed.
+
+## M2.5: Informational V8 coverage (2026-10-17)
+
+The production plan approves development-only `@vitest/coverage-v8` 5.0.5, pinned
+exactly to match Vitest. `pnpm coverage` builds the viewer and runs the existing
+suite with the V8 provider. Include all production TS/TSX files, including unimported
+ones; write ignored text/JSON/HTML reports. Add no percentage threshold or CI gate.
+
+[Coverage scope and first observations](../coverage.md) distinguish Node-process
+instrumentation from browser/subprocess execution and service-gated tests. Initial
+coverage is 57.47% lines and 49.42% branches; authored checks remain the correctness
+evidence. Four risk-driven tests cover bounded local loading, streamed expansion,
+multi-page upload purge/isolation and static-only setup metadata. Full verification
+after those additions passes 755 tests, 81 explicit service-gated skips.
+Retain the initial setup-test expectation failure and its contract-based correction.
+No production runtime, analysis identity or artifact contract changes.

@@ -10,19 +10,20 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
 2. [docs/implementation-status.md](docs/implementation-status.md): what is done, with evidence.
 3. [docs/release/release-audit.md](docs/release/release-audit.md): requirement → evidence
    trace, and the open acceptance items R6-01…R6-07.
-4. [docs/adr/](docs/adr/): ADR-001…ADR-063. Every non-obvious design choice lives here.
+4. [docs/adr/](docs/adr/): design decisions and dated evidence. Every non-obvious choice lives here.
    Check for an ADR before "fixing" something that looks odd.
 5. [docs/plan/production-plan.md](docs/plan/production-plan.md): the path to production,
    with milestones, how to test each kind of change, and the coding standards. Start
    there for new work.
 
-**Current state (2026-10-16):** the four pillars and Phase 6 candidate tooling are
+**Current state (2026-10-17):** the four pillars and Phase 6 candidate tooling are
 implemented for committed TS/JS and Python (`.py`, `.pyi`), including mixed repositories.
 The production plan is now on M2, Python correctness evidence; M1 upgrades landed in
-PRs #20, #22, #23 and #24. Analyzer `0.1.0-dev.7` records the runtime upgrade
-(ADR-062); the artifact schema stays 1.4.0. Cython, notebooks and further languages
-remain opaque buildings. Python capacity, additional corpus shapes and the full
-hosted Python journey still need M2 evidence. The master plan has no Phase 7.
+PRs #20, #22, #23 and #24. Analyzer `0.1.0-dev.8` records corrected namespace lookup
+(ADR-066); parser runtime provenance remains ADR-062 and the artifact schema stays 1.4.0. Cython, notebooks and further languages
+remain opaque buildings. The hosted Python journey (ADR-064)
+and the uv workspace and mixed corpus (ADR-065) have landed. Python capacity (M2.2)
+still needs its full measurement matrix. The master plan has no Phase 7.
 Gate G6 stays open on the exact capacity-fixture matrix, human, reference-hardware and
 deployment acceptance (R6-01…R6-07).
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime
@@ -80,9 +81,10 @@ Node-only behaviour must be detected at runtime (see `canonical.ts`).
 ```sh
 pnpm install --frozen-lockfile && pnpm build && pnpm build:web
 pnpm verify                     # typecheck, viewer build, deps, contracts, tests: run before every commit
+pnpm coverage                   # informational Node-process coverage; docs/coverage.md explains its limits
 pnpm contracts:generate         # after changing runtime schemas; contracts:check must pass
 pnpm verify:distribution        # portable CLI archive, tested outside the checkout
-node scripts/validate-real-repositories.mjs [--acquire]   # 4 pinned real repos × 5 offline repeats
+node scripts/validate-real-repositories.mjs [--acquire]   # 6 pinned real repos × 5 offline repeats
 node scripts/check-repository-baseline.mjs                # exact committed corpus bytes
 pnpm atlas analyze <repo> --out <dir> && pnpm atlas serve <dir> --repo <repo>
 ```

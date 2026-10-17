@@ -5,8 +5,8 @@ Last reviewed: 2026-10-14, against the CodeCharta documentation in its public re
 The comparison is updated whenever either product changes; a claim without a source here
 is not a claim. Decision record: [ADR-048](../adr/ADR-048-editions-and-free-parity.md).
 
-ATLAS language support updated 2026-10-16 from ADR-056/057/060/062 and the
-[four-repository evidence](../release/real-repositories.md). The CodeCharta review
+ATLAS language support updated 2026-10-17 from ADR-056/057/060/062/065/066 and the
+[six-repository evidence](../release/real-repositories.md). The CodeCharta review
 date above is unchanged.
 
 ## Editions

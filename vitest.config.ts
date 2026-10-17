@@ -21,6 +21,15 @@ export default defineConfig({
     globalSetup: ['scripts/vitest-global-setup.ts'],
     testTimeout: 30_000,
     hookTimeout: 60_000,
+    coverage: {
+      provider: 'v8',
+      // Include unimported production files so missing execution stays visible.
+      include: ['packages/*/src/**/*.ts', 'apps/*/src/**/*.{ts,tsx}'],
+      exclude: ['**/*.d.ts'],
+      reportsDirectory: 'coverage',
+      reporter: ['text', 'json', 'json-summary', 'html'],
+      // Informational evidence only; authored correctness/security checks are the gates.
+    },
     pool: 'forks',
     // Each file can launch two parser children or cgroup-limited Docker jobs.
     // Bound file concurrency so the complete integration run does not oversubscribe

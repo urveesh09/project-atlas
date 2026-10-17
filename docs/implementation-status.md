@@ -2,8 +2,11 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-16):** production-plan M2, Python correctness evidence;
-M2.1 documentation alignment passes local verification; required CI/owner merge follow.
+**Current milestone (2026-10-17):** production-plan M2, Python correctness evidence;
+M2.1 documentation alignment landed in PR #25. M2.6 exposed a namespace-precedence
+defect, corrected in analyzer `0.1.0-dev.8` (ADR-066); required CI/owner merge follow.
+The expanded six-repository corpus now has local five-repeat/46-check evidence
+(ADR-065); required expanded-corpus CI and M2.2 capacity measurements remain pending.
 M1.1 landed in [PR #20](https://github.com/urveesh09/project-atlas/pull/20);
 M1.2/M1.3 landed together in [PR #22](https://github.com/urveesh09/project-atlas/pull/22),
 with separate implementation commits. M1.4 landed in
@@ -1237,6 +1240,147 @@ run (67.01 s), then passes full `pnpm verify`: 756 tests, 83 explicit conditiona
 skips (202.23 s), including the oracle and the same 39 journeys with ordinary test
 workloads present. Typecheck, viewer build, dependency direction and contracts pass.
 Required CI on this correction follows; do not reinterpret earlier failed runs.
+
+### Production M2.6 prerequisite: correct namespace precedence (2026-10-17)
+
+- The first expanded-corpus run fails its authored `pydantic_graph` import check.
+  The raw parser is correct; root lookup prematurely accepts the outer workspace
+  directory as a namespace before finding the actual regular package. PEP 420 and
+  independent CPython PathFinder checks establish the expected behavior, without
+  changing the corpus expectation or executing repository code.
+- Search import roots by component: later regular packages/modules supersede
+  namespace portions; selected regular parents block discarded children; surviving
+  namespace portions compose and preserve imported-name ranges/root provenance.
+  In-memory resolution, policy diagnostics and explicit static limitations remain.
+- Before the fix, seven of nine new checks fail; the independent CPython oracle
+  already passes. Afterward all nine and the existing eleven resolver checks pass.
+  A static Pydantic AI diagnostic now resolves the authored package target. It
+  parses the same 187 supported files (177 Python, six TS and four JS); unresolved observations drop from 64 to one.
+  This diagnostic is neither a five-repeat corpus result nor a capacity measurement.
+- Deliberately bump analyzer dev.7 → dev.8, invalidating old identities and cache
+  keys. Refresh only Harbor's four version-derived golden hashes after proof;
+  the original golden mismatch is retained. Artifact/graph formats do not change.
+- Fresh existing corpus: four repos × five cold offline repeats, all 28 authored
+  checks unchanged, deterministic full payloads and verified exports. Refresh the
+  dev.8 baseline deliberately. Main-build comparison against clean `4d0f6ee`
+  covers Harbor plus all four repos: exactly five summary-version differences;
+  all other normalized facts agree. The comparator's exit 1 is retained, not
+  redefined as a byte-preservation pass; its normalization rules are unchanged.
+- Full verification passes 760 tests with 81 explicit service-gated skips; the
+  CPython oracle and all 39 viewer journeys run. Typecheck, viewer build, dependency
+  direction and six generated contracts pass. [ADR-066](adr/ADR-066-python-namespace-precedence.md)
+  records the decision. Required CI is tracked in the fix PR. M2.6 corpus expansion
+  and M2.2 dev.8 capacity remain separate work; keep the old dev.7 measurements.
+  After PR #26 lands, the branch incorporates current main and full verification
+  passes again: 764 tests, 81 explicit skips, including the four added harness checks.
+
+### Production M2.6: uv workspace and mixed Python/TS corpus (2026-10-17)
+
+ADR-065 records two MIT-licensed immutable additions: Pydantic AI v0.0.49
+`a5a471e1cd8571c6b691bbb07fcf60f83432d772` and Full Stack FastAPI Template
+`b1125d8839482cb7bbae603ddc6d0081bf87532e`. Whole pinned trees contain 373 blobs /
+23,766,594 bytes and 252 blobs / 1,886,624 bytes. Source is read only through offline
+ingest after bounded acquisition; no checkout, installation, hooks or execution.
+
+Eighteen new source-derived expectations were written before analysis. The first
+dev.7 run failed the Pydantic `agent.py` → `pydantic_graph` expectation. Keep that
+failure and the expectations; the separate ADR-066 correction resolves the regular
+package ahead of the earlier namespace directory. The five-repeat dev.8 retest passes
+all six repositories, all 46 authored checks and streaming artifact verification.
+The original four pins, 28 checks and dev.8 baseline digests are unchanged.
+
+- Pydantic AI: 187 supported/parsed (177 Python, six TS, four JS), zero parse failures;
+  650 internal, 522 external, 596 builtin, one unresolved and five unsupported
+  observations. Twelve frames / 200 commits, commit-cap boundary; 0.728 MiB artifact.
+- FastAPI: 135 supported/parsed, zero failures; 322 internal, 276 external, 44 builtin,
+  31 unresolved and four excluded-target observations. Twelve frames / 145 commits,
+  day boundary; 0.252 MiB artifact. Unresolved/generated/asset examples are disclosed
+  in the report; complete analysis does not mean every import resolves.
+- The path comparator against the clean dev.8 prerequisite finds zero differences
+  for Harbor plus all six repositories. Against clean pre-fix main/dev.7, Harbor,
+  the original four and FastAPI have only the analyzer-version difference; Pydantic
+  has the deliberate namespace changes (1,837 normalized differences across history).
+  The latter comparison exits 1 as designed and is retained.
+- Actual CLI serving plus Chromium opens both new source-free exports, searches and
+  selects the authored file, and shows its dependencies. Both journeys report no page
+  errors, no attached source, and only loopback GETs (16 per journey). Both screenshots
+  were inspected; these functional checks make no reference-device performance claim.
+
+Full verification passes 760 tests with 81 explicit service-gated skips, including
+the CPython oracle and all 39 viewer journeys. After integrating the prerequisite's
+current-main merge, full verification passes again: 764 tests, 81 conditional skips.
+Expanded-corpus Windows/Linux CI,
+independent cross-OS comparison and owner merge are required before closing M2.6.
+M2.2 and G6 stay separate and open.
+
+### Production M2.4: bounded property tests (2026-10-17)
+
+- Pin development-only `fast-check` 4.10.2, as approved in the production plan.
+  Add 24 fixed-seed properties and explicitly bounded generators: 2,638 examples
+  covering canonical JSON, UTF-16 rejection, repository path identities/byte limits,
+  four Python manifest formats, cyclic requirements includes, artifact import/hash
+  verification, indexed/delta round-trips, malformed references and expansion bounds.
+- Initial focused run: 23 pass, one positive round-trip fails because its test data
+  uses an invalid extension namespace. Read `ExtensionsSchema` and correct the key
+  from `property` to `atlas.property`. The seed/replay path and minimized input are
+  in ADR-061. All 24 focused properties then pass; no production behavior changes.
+- Typecheck and the four-repository committed-baseline guard pass. The latter checks
+  the unchanged report, rather than claiming a fresh local corpus run. CI repeats
+  the actual analyses on both operating systems. Full verification passes 775 tests
+  with 81 explicit service-gated skips; CPython oracle and 39 viewer journeys run.
+  Typecheck, viewer build, dependency direction and six generated contracts pass.
+  Required CI is tracked in the PR; analyzer/artifact versions and budgets stay fixed.
+
+### Production M2.5: informational coverage and risk-driven tests (2026-10-17)
+
+- Pin test-only `@vitest/coverage-v8` 5.0.5, matched to Vitest, and add `pnpm coverage`.
+  Explicitly include unimported production TS/TSX and emit ignored HTML/JSON/text.
+  There is no percentage threshold or CI gate. ADR-061 records the dependency.
+- Initial standard-suite coverage passes 751 tests, 81 explicit skips: 57.47% lines,
+  56.19% statements, 49.42% branches, 52.48% functions. Node instrumentation does
+  not measure browser JavaScript or independent parser/CLI/sandbox processes.
+  Low database/S3 figures reflect gated execution, not proof those paths lack tests.
+- Add four boundary checks: hostile picked-file metadata without allocation,
+  real streaming expansion limits, 125-object paginated purge with another upload
+  preserved, and literal-only setup metadata with nonexecution/escaping-root checks.
+  Initial focused result: three pass, one expects no warning for computed metadata.
+  ADR-057 requires that warning; assert exact `SETUP_PY_NONLITERAL`. All four pass
+  after this test-expectation correction; production behavior remains unchanged.
+- Full verification passes 755 tests, 81 explicit skips, including the CPython
+  oracle and 39 viewer journeys. Typecheck, viewer build, dependency direction and
+  six generated contracts pass. The repeated full coverage suite also passes
+  755/81: 57.49% lines, 56.24% statements, 49.48% branches, 52.48% functions.
+  [Scope, low modules and exact counts](coverage.md) remain visible; required CI
+  is tracked in the PR. Other M2 work and G6 remain separate.
+
+### Integration of PRs #28–#32 (2026-10-17)
+
+The five M2 pull requests were merged into one branch, because #28 and #29 conflicted
+with `main` and #31 and #32 were stacked on #30. Merge order: #30 (namespace
+precedence, dev.8), #31, #32, #28, #29.
+- **Conflicts.** Every conflict was a pair of independent additions, and both sides were
+  kept: dated status sections, ADR-061 sections, `toolchain.md` rows and two dev
+  dependencies.
+- **Lockfile.** Not merged by hand. `main`'s side was kept, then `pnpm install` added
+  `@vitest/coverage-v8`. All 106 added lines match #29's lockfile exactly, and the
+  frozen install passes.
+- **The committed corpus baseline is #32's,** which already includes #30's dev.8 output.
+
+Verification on the combined tree, with Node 24.22.0:
+- `pnpm verify`: 794 tests passed, with 83 skipped because their services are not
+  enabled.
+- CPython 3.14.5 oracle: 1,841 files parsed by both, 0 mismatches.
+- Fresh acquisition of all six pinned repositories, then five offline cold repeats each.
+  `check-repository-baseline` reports every payload exact, and all authored source checks
+  hold.
+- Viewer journeys: 39/39, also with `CI=1`.
+- Hosted journeys: 7/7, on a throwaway PostgreSQL 17 container that was removed
+  afterwards.
+
+**Still open:**
+- M2.2's capacity matrix has 3 of 8 rows measured (ADR-063).
+- Uncommitted shared-edge-budget work (a proposed dev.9) is not part of this
+  integration.
 
 ### Reproduce verification
 
