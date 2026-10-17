@@ -7,12 +7,21 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Changed
+- Every viewer journey also runs in Firefox and WebKit, in CI and locally with
+  `ATLAS_E2E_BROWSER` ([ADR-069](docs/adr/ADR-069-firefox-and-webkit-journeys.md)).
 - CI runs `verify` and the pinned corpus on macOS as well as Windows and Linux. The
   determinism check compares all three ([ADR-068](docs/adr/ADR-068-macos-in-ci.md)).
 - CI and the release workflow run the CPython parser oracle against a pinned Python
   3.14.8 instead of each runner's default.
 
 ### Fixed
+- Search sometimes ignored Enter: if the results arrived just before the key, the choice
+  was lost. This was seen in WebKit, and could happen in any browser.
+- Safari could not open a picked artifact folder in the browser-only viewer. Every
+  attempt failed with `CHUNK_MISSING`, because Safari did not pass the files' folder paths
+  to the loader.
+- Firefox reported a page error when the viewer's security policy blocked zod's eval
+  probe. Browsers now validate without compiling code, with identical results.
 - Resolve Python namespace portions only after considering regular packages/modules
   across import roots, and prevent discarded parents from supplying child modules.
   Analyzer `0.1.0-dev.8` deliberately refreshes analysis identities (ADR-066).
