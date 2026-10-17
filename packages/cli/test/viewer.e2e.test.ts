@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -205,11 +205,13 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
   });
 
   it('J1: finds a named file by search', async () => {
+    expect(await audit(page, 'repository-overview')).toEqual([]);
     await page.keyboard.press('/');
     await page.keyboard.type('pricing');
     await expect
       .poll(() => page.locator('[role="option"][aria-selected="true"]').innerText())
       .toContain('src/server/pricing.ts');
+    expect(await audit(page, 'search-results')).toEqual([]);
     await page.keyboard.press('Enter');
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.ts');
     // Focus moves deliberately to the inspector heading; the live region announces it.
@@ -217,6 +219,7 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
     await expect
       .poll(() => page.locator('[role="status"][aria-live="polite"]').innerText())
       .toContain('src/server/pricing.ts');
+    expect(await audit(page, 'file-overview')).toEqual([]);
   });
 
   it('replaces the previous query and selects it with Enter, every time', async () => {
@@ -245,6 +248,7 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
     expect(text).toContain('dynamic import');
     expect(text).toMatch(/TYPE-ONLY\s*1/i);
     expect(text).toContain('inferred');
+    expect(await audit(page, 'file-dependencies')).toEqual([]);
     await capture(page, 'dependencies');
     await tabUntil(page, /^src\/server\/handlers\.ts$/);
     await page.keyboard.press('Enter');
@@ -284,6 +288,10 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
       expect(['src/server/router.ts', 'src/server/handlers.ts']).toContain(findingSourcePath);
       expect(panel).toContain('not a runtime deadlock');
       expect(panel).toMatch(/WARNING/);
+      for (const detail of await page.locator('.finding-detail').all()) {
+        if (await detail.getAttribute('open') === null) await detail.locator('summary').click();
+      }
+      expect(await audit(page, `file-findings-${file}`)).toEqual([]);
       if (file === 'router.ts') await capture(page, 'findings');
     }
   });
@@ -297,8 +305,36 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
         : "import { routes } from './router';";
     await expect.poll(() => page.locator('.source-panel').innerText()).toContain(findingSourcePath);
     await expect.poll(() => page.locator('.source-panel').innerText()).toContain(expectedImport);
+    expect(await audit(page, 'source-dialog')).toEqual([]);
     await page.keyboard.press('Escape');
     await expect.poll(() => page.locator('.source-panel').count()).toBe(0);
+  });
+
+  it('keeps source loading and unavailable states accessible, then restores the opener', async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const pattern = '**/api/source?*';
+    await page.route(pattern, async (route) => {
+      await held;
+      // An unreadable response follows the client's real error path without a network console error.
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{' });
+    });
+    const opener = page.getByRole('button', { name: 'View source at this line', exact: true }).first();
+    try {
+      await opener.focus();
+      await page.keyboard.press('Enter');
+      await page.getByRole('status').filter({ hasText: 'Loading source…' }).waitFor();
+      expect(await audit(page, 'source-loading')).toEqual([]);
+      release();
+      await page.getByRole('status').filter({ hasText: 'Source unavailable (invalid response).' }).waitFor();
+      expect(await audit(page, 'source-unavailable')).toEqual([]);
+      await page.keyboard.press('Escape');
+      expect(await page.locator('.source-panel').count()).toBe(0);
+      expect(await opener.evaluate((el) => el === document.activeElement)).toBe(true);
+    } finally {
+      release();
+      await page.unroute(pattern);
+    }
   });
 
   it('navigates the tree with arrow keys', async () => {
@@ -356,6 +392,9 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     expect(stats.buildings).toBe(loaded.bundle.layout.frameState.at(-1)!.files.length);
     expect(stats.drawCalls).toBeLessThan(30);
     expect(stats.pickCells).toBeGreaterThan(0);
+    expect(await page.getByRole('group', { name: 'City controls', exact: true }).count()).toBe(1);
+    expect(await page.getByRole('group', { name: 'City lens legend', exact: true }).count()).toBe(1);
+    expect(await audit(page, 'city-3d')).toEqual([]);
   });
   it('keeps the explorer inside the window and names the repository in the title (ADR-058)', async () => {
     // Visually hidden tree labels once grew the page to thousands of pixels, so a wheel over
@@ -404,6 +443,13 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     await page.getByRole('button', { name: 'Show reachable files', exact: true }).click();
     await expect.poll(() => page.locator('.reach-results').innerText()).toContain('depth ≤ 2');
     expect(await page.locator('.reach-results').innerText()).toContain('packages/ledger/src/index.ts');
+    for (const detail of await page.locator('.city-details').all()) {
+      if (await detail.getAttribute('open') === null) await detail.locator('summary').click();
+    }
+    expect(await audit(page, 'reachable-files-and-external-list')).toEqual([]);
+    for (const detail of await page.locator('.city-details').all()) {
+      if (await detail.getAttribute('open') !== null) await detail.locator('summary').click();
+    }
   });
   it('exports a bounded PNG and provenance without WebGL dependency', async () => {
     await page.getByLabel('View', { exact: true }).selectOption('map');
@@ -450,12 +496,13 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     await page.waitForSelector('[data-city-renderer="map"]');
     expect(await page.locator('#inspector-title').innerText()).toBe('pricing.ts');
     expect(await page.locator('.city-message').innerText()).toContain('context was lost');
+    expect(await audit(page, 'context-loss-map')).toEqual([]);
   });
   it('offers a semantic file table and passes automated AA checks', async () => {
     await page.getByLabel('View', { exact: true }).selectOption('table');
     expect(await page.locator('.city-table caption').innerText()).toContain('Included files');
     expect(await page.locator('.city-table').innerText()).toContain('src/server/pricing.ts');
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'file-table')).toEqual([]);
   });
   it('reflows controls at 320px and works with reduced motion and canvas disabled', async () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -464,7 +511,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     await page.addStyleTag({ content: 'canvas { display: none !important; }' });
     await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).click();
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'narrow-reduced-motion-table')).toEqual([]);
   });
 });
 
@@ -515,14 +562,16 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await page.keyboard.press('Enter');
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.ts');
     expect(await visible('.app.is-workspace')).toBe(true);
+    expect(await audit(page, 'workspace-expanded')).toEqual([]);
     await page.getByRole('button', { name: 'Hide the evidence panel' }).click();
     expect(await visible('.city-inspector')).toBe(false);
+    expect(await audit(page, 'workspace-evidence-hidden')).toEqual([]);
     await page.getByRole('button', { name: 'Show the evidence panel' }).click();
     await page.locator('.city-surface, [data-city-renderer]').first().focus();
     await page.keyboard.press('Escape');
     await expect.poll(() => page.locator('.app.is-workspace').count()).toBe(0);
     expect(await page.locator('#inspector-title').innerText()).toBe('pricing.ts');
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'workspace-restored')).toEqual([]);
   });
 
   it('highlights files by path pattern, with an exact count the table agrees with', async () => {
@@ -538,6 +587,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(paths.every((p) => p.startsWith('src/server/') && !p.endsWith('.test.ts'))).toBe(true);
     await highlight.fill('a'.repeat(300));
     expect(await page.locator('#city-pattern-help').innerText()).toContain('longer than 256');
+    expect(await audit(page, 'path-pattern-error')).toEqual([]);
     await highlight.fill('src/server');
   });
 
@@ -552,6 +602,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
   it('saves, applies, exports and imports named views', async () => {
     const views = page.locator('.city-saved');
     await views.locator('summary').click();
+    expect(await audit(page, 'saved-views-menu')).toEqual([]);
     await views.getByRole('textbox', { name: 'Name' }).fill('Server consumers');
     await views.getByRole('button', { name: 'Save current view' }).click();
     await expect.poll(() => views.locator('[role="status"]').innerText()).toContain('Saved the view');
@@ -574,11 +625,12 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await views.getByRole('button', { name: 'Server consumers', exact: true }).count()).toBe(0);
     await views.locator('input[type="file"]').setInputFiles(file!);
     await expect.poll(() => views.locator('[role="status"]').innerText()).toContain('Imported 1 view');
+    expect(await audit(page, 'saved-views-imported')).toEqual([]);
     expect(await views.getByRole('button', { name: 'Server consumers', exact: true }).count()).toBe(1);
     await views.locator('summary').click();
     await page.getByRole('searchbox', { name: 'Highlight paths' }).fill('');
     await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('3d');
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'saved-views-restored')).toEqual([]);
   });
 
   it('focuses on a folder and hides paths, keeping every plot fixed (ADR-051)', async () => {
@@ -611,7 +663,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     const [afterHide] = await caption();
     expect(afterHide).toBeLessThanOrEqual(shown);
     expect((await page.locator('.city-table tbody th').allInnerTexts()).some((p) => /\.(test|spec)\.ts$/.test(p))).toBe(false);
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'scope-menu')).toEqual([]);
     await scope.getByRole('button', { name: 'Show everything' }).click();
     expect((await caption())[0]).toBe(total);
     await scope.locator('summary').click();
@@ -636,10 +688,11 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     // An invalid edit is reported and the last valid bands stay in use.
     await bands.getByRole('spinbutton', { name: 'Band 3 starts at' }).fill('5');
     expect(await page.locator('#bands-problem').innerText()).toContain('must start above');
+    expect(await audit(page, 'bands-invalid-input')).toEqual([]);
     expect(await page.locator('.city-legend').innerText()).toContain('0-9');
     await bands.getByRole('button', { name: 'Even split' }).click();
     expect(sum(await legendCounts())).toBe(total);
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'bands-distribution')).toEqual([]);
     await bands.getByRole('button', { name: 'Reset' }).click();
     await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0-49');
     await bands.locator('summary').click();
@@ -665,6 +718,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await page.locator('.city-trail button').last().click();
     const notes = page.locator('.city-notes');
     await notes.locator('summary').click();
+    expect(await audit(page, 'notes-menu')).toEqual([]);
     const target = await notes.locator('form code').innerText();
     await notes.getByRole('radio', { name: 'Green' }).check();
     await notes.getByRole('textbox', { name: 'Note' }).fill('Pricing rules live here.');
@@ -685,7 +739,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await notes.locator('input[type="file"]').setInputFiles(file!);
     await expect.poll(() => notes.locator('[role="status"]').innerText()).toContain('Imported 1 note');
     expect(await page.locator('.legend-marks').innerText()).toContain(target);
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'notes-imported')).toEqual([]);
     await notes.getByRole('button', { name: 'Remove mark' }).click();
     await notes.locator('summary').click();
     await view.selectOption('3d');
@@ -706,6 +760,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await page.locator('.pkg-table tbody tr').count()).toBe(Math.min(200, dependencies));
     // Keyboard: a package box selects its package.
     const node = page.locator('.pkg-node').first();
+    expect(await node.getAttribute('aria-label')).toContain(await node.locator('.pkg-meta').textContent());
     const name = (await node.getAttribute('aria-label'))!.split(':')[0]!;
     await node.focus();
     await page.keyboard.press('Enter');
@@ -715,7 +770,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     const types = page.getByRole('checkbox', { name: 'Include type-only imports' });
     await types.check();
     expect((await counts())[1]).toBeGreaterThanOrEqual(dependencies);
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'package-graph')).toEqual([]);
     await types.uncheck();
     expect((await counts())[1]).toBe(dependencies);
     await view.selectOption('3d');
@@ -725,6 +780,14 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     const share = page.locator('.city-share');
     const { readFileSync } = await import('node:fs');
     await share.locator('summary').click();
+    const [helpBox, menuBox] = await Promise.all([
+      page.locator('.city-about > summary').boundingBox(),
+      share.locator('.city-views-panel').boundingBox(),
+    ]);
+    expect(helpBox).not.toBeNull();
+    expect(menuBox).not.toBeNull();
+    expect(menuBox!.y).toBeGreaterThanOrEqual(helpBox!.y + helpBox!.height);
+    expect(await audit(page, 'share-menu')).toEqual([]);
     let download = page.waitForEvent('download');
     await share.getByRole('button', { name: '3D print, coloured (3MF)' }).click();
     const threeMf = readFileSync((await (await download).path())!);
@@ -742,6 +805,20 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(triangles / 12).toBeGreaterThan(buildings);
     expect(await page.locator('.city-message').innerText()).toContain('STL has no colours');
     await share.locator('summary').click();
+  });
+
+  it('audits keyboard, city and history help while each disclosure is open', async () => {
+    await page.getByRole('button', { name: 'Keys', exact: true }).click();
+    expect(await page.locator('#shortcuts').isVisible()).toBe(true);
+    expect(await audit(page, 'keyboard-shortcuts')).toEqual([]);
+    await page.getByRole('button', { name: 'Keys', exact: true }).click();
+    for (const [selector, state] of [['.city-about', 'city-help'], ['.timeline-help', 'history-help']] as const) {
+      const disclosure = page.locator(selector);
+      await disclosure.locator('summary').click();
+      expect(await disclosure.getAttribute('open')).not.toBeNull();
+      expect(await audit(page, state)).toEqual([]);
+      await disclosure.locator('summary').click();
+    }
   });
 
   it('logged no page errors', () => {
@@ -791,6 +868,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
       });
       await page.goto(server.url);
       await page.waitForSelector('[data-city-renderer="map"]');
+      expect(await audit(page, 'touch-no-webgl-map')).toEqual([]);
       await page.getByRole('button', { name: 'Zoom in', exact: true }).tap();
       await page.getByRole('button', { name: 'Reset city', exact: true }).tap();
       const map = page.locator('[data-city-renderer="map"]');
@@ -836,6 +914,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     await expect
       .poll(() => page.locator('[role="status"][aria-live="polite"]').innerText())
       .toContain('unsupported or invalid');
+    expect(await audit(page, 'invalid-deep-link')).toEqual([]);
     await expect.poll(() => page.evaluate(() => location.hash)).toBe('');
     // Same-document rejection normalizes the fragment. Start a new document to
     // exercise initial invalid-link admission without racing that normalization.
@@ -845,6 +924,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     await expect
       .poll(() => page.locator('[role="status"][aria-live="polite"]').innerText())
       .toContain('unsupported or invalid');
+    expect(await audit(page, 'invalid-deep-link')).toEqual([]);
   });
 });
 
@@ -928,6 +1008,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     await goTo(12);
     await page.waitForSelector('.tombstone');
     expect(await page.locator('.tombstone .inspector-path').innerText()).toContain('Not present in snapshot 12');
+    expect(await audit(page, 'history-tombstone')).toEqual([]);
     await page.getByRole('button', { name: /Last seen: snapshot 11 as src\/ui\/legacy\.ts/ }).click();
     await expect.poll(active).toMatch(/^Snapshot 11 of 12/);
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('legacy.ts');
@@ -945,15 +1026,26 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     const panel = await page.locator('.tabpanel').innerText();
     expect(panel).toContain('git-rename');
     expect(panel).toContain('src/ui/Cargo.tsx → src/ui/Manifest.tsx');
+    expect(await audit(page, 'file-history-rename')).toEqual([]);
     await goTo(4);
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Cargo.tsx');
   });
 
-  it('compares A -> B with exact differences, ghosts and separate interval activity', async () => {
+  it('compares snapshots 6 -> 12 with exact differences, ghosts and separate interval activity', async () => {
     await goTo(12);
     await page.getByRole('button', { name: 'Compare snapshots…' }).click();
     await page.waitForSelector('.compare');
+    // Select values are zero-based: retain the original visible 6 -> 12 regression.
     await page.locator('.compare-pick select').first().selectOption('5');
+    const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
+    if (!loaded.ok) throw new Error('Invalid comparison reference artifact');
+    const frames = loaded.bundle.manifest.frames;
+    const expectedPaint = `${frames[5]!.snapshotId}>${frames[11]!.snapshotId}:codeLines`;
+    // The HTML result commits before ThreeCity's effects update the renderer. Wait for
+    // the existing paint readiness gate, for this exact pair, before reading its marks.
+    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint ?? '').toBe(expectedPaint);
+    expect(await page.locator('.compare-direction').innerText()).toContain('from snapshot 6');
+    expect(await page.locator('.compare-direction').innerText()).toContain('to snapshot 12');
     await expect.poll(() => page.locator('.compare-summary').innerText()).toContain('+ 4 added');
     const summary = await page.locator('.compare-summary').innerText();
     for (const part of ['− 1 deleted', '↪ 1 renamed', '✎ 4 content changed', '17 unchanged']) expect(summary).toContain(part);
@@ -961,7 +1053,6 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     expect(stats.ghosts).toBe(1);
     expect(stats.added).toBe(4);
     // Change colouring (ADR-050): on by default in code lines, legend bands sum to B's files.
-    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint ?? '').toMatch(/:codeLines$/);
     const colour = page.getByRole('combobox', { name: 'Colour by change' });
     expect(await colour.inputValue()).toBe('codeLines');
     expect(await page.locator('.city-legend strong').first().innerText()).toMatch(/^Change \d+ → \d+: code lines$/);
@@ -974,6 +1065,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('table');
     expect(await page.locator('.city-table thead').innerText()).toMatch(/Fan-in, snapshot \d+ → \d+/);
     expect(await page.locator('.city-table .change-cell').count()).toBeGreaterThan(0);
+    expect(await audit(page, 'comparison-table')).toEqual([]);
     await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('3d');
     await page.waitForFunction(() => window.__atlasCity !== undefined);
     // Picking a lens asks for lens colours.
@@ -991,13 +1083,35 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     const [cityBox, compareBox] = await Promise.all([page.locator('section.city').boundingBox(), page.locator('section.compare').boundingBox()]);
     expect(compareBox!.y).toBeGreaterThanOrEqual(cityBox!.y + cityBox!.height);
     await page.setViewportSize(viewport);
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'comparison-3d')).toEqual([]);
     // Explicit timeline navigation changes B and the comparison legend together.
     await goTo(11);
     await expect.poll(() => page.locator('.compare-pick select').last().inputValue()).toBe('10');
     await expect.poll(() => page.locator('.compare-direction').innerText()).toContain('to snapshot 11');
     await page.getByRole('button', { name: 'Close comparison' }).first().click();
     await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).ghosts).toBe(0);
+  });
+
+  it('matches the manual 5 -> 12 review card through the semantic table', async () => {
+    await goTo(12);
+    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await page.getByRole('button', { name: 'Compare snapshots…' }).click();
+    await page.locator('.compare-pick select').first().selectOption('4');
+    await expect.poll(() => page.locator('.compare-direction').innerText()).toContain('from snapshot 5');
+    await expect.poll(() => page.locator('.compare-summary').innerText()).toContain('+ 7 added');
+    // Independently checked from Harbor's Git trees/diff, not copied from analyzer output:
+    // snapshot 5 has 20 files; 7 additions, 1 deletion, 1 rename, 4 modifications leave
+    // 14 unchanged and 26 in snapshot 12. Snapshot 6 already has the tests/assets.
+    const summary = await page.locator('.compare-summary').innerText();
+    for (const part of ['− 1 deleted', '↪ 1 renamed', '✎ 4 content changed', '14 unchanged']) expect(summary).toContain(part);
+    const text = await page.locator('.compare').innerText();
+    for (const file of ['assets/harbor.png', 'assets/logo.svg', 'tests/pricing.test.ts', 'packages/geo/src/route.ts', 'src/server/db.cjs', 'src/server/store.json', 'src/ui/theme.json']) expect(text).toContain(file);
+    expect(text).toContain('src/ui/Cargo.tsx → src/ui/Manifest.tsx');
+    expect(await audit(page, 'manual-task-comparison-table')).toEqual([]);
+    await page.getByRole('button', { name: 'Close comparison' }).first().click();
+    await expect.poll(() => page.locator('.compare').count()).toBe(0);
+    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await page.waitForFunction(() => window.__atlasCity !== undefined);
   });
 
   it('colors churn and hotspot lenses with explained, never invented, values', async () => {
@@ -1051,7 +1165,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
       await expectNoSidewaysScroll(small);
       await small.getByRole('button', { name: 'Earlier' }).click();
       await expect.poll(() => small.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toMatch(/^Snapshot 11 of 12/);
-      expect(await audit(small)).toEqual([]);
+      expect(await audit(small, 'narrow-reduced-motion-history')).toEqual([]);
     } finally {
       await reduced.close();
     }
@@ -1091,6 +1205,72 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
     });
   });
 
+  it('audits starting and loading states and returns to the picker after cancellation', async () => {
+    const isolated = await browser.newContext();
+    let releaseSession!: () => void;
+    const sessionHeld = new Promise<void>((resolve) => { releaseSession = resolve; });
+    let releaseWorker!: () => void;
+    const workerHeld = new Promise<void>((resolve) => { releaseWorker = resolve; });
+    try {
+      const page = await isolated.newPage();
+      await page.route('**/api/session', async (route) => {
+        await sessionHeld;
+        await route.fulfill({ status: 404, body: '' });
+      });
+      await page.goto(`${origin}/`);
+      await page.getByRole('status').filter({ hasText: 'Starting…' }).waitFor();
+      expect(await audit(page, 'viewer-starting')).toEqual([]);
+      releaseSession();
+      await page.getByRole('button', { name: 'Open artifact folder…' }).waitFor();
+      await page.route('**/assets/loader.worker-*.js', async (route) => {
+        await workerHeld;
+        await route.abort();
+      });
+      await page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out'));
+      await page.getByRole('heading', { name: 'Validating the selected artifact' }).waitFor();
+      await expect.poll(() => page.getByRole('heading', { name: 'Validating the selected artifact' }).evaluate((el) => el === document.activeElement)).toBe(true);
+      expect(await audit(page, 'artifact-loading')).toEqual([]);
+      await page.getByRole('button', { name: 'Cancel loading' }).focus();
+      await page.keyboard.press('Enter');
+      await page.getByRole('heading', { name: 'Explore a repository as a city' }).waitFor();
+      expect(await page.locator('#overview-title').count()).toBe(0);
+      await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');
+      await expect.poll(() => page.getByRole('heading', { name: 'Explore a repository as a city' }).evaluate((el) => el === document.activeElement)).toBe(true);
+      expect(await audit(page, 'artifact-loading-cancelled')).toEqual([]);
+    } finally {
+      releaseSession();
+      releaseWorker();
+      await isolated.close();
+    }
+  });
+
+  it('audits malformed and unsupported artifact errors and recovers with a valid folder', async () => {
+    const isolated = await browser.newContext();
+    try {
+      const page = await isolated.newPage();
+      await page.goto(`${origin}/`);
+      await page.getByRole('button', { name: 'Open artifact folder…' }).waitFor();
+      for (const [name, manifest, heading] of [
+        ['malformed', '{', 'This artifact could not be opened'],
+        ['unsupported', JSON.stringify({ artifactVersion: 'atlas.artifact/99.0.0', schemaVersion: GRAPH_SCHEMA_VERSION }), 'This artifact needs a different ATLAS version'],
+      ] as const) {
+        const directory = path.join(work, name);
+        mkdirSync(directory);
+        writeFileSync(path.join(directory, 'manifest.json'), manifest);
+        await page.locator('input[type="file"]').setInputFiles(directory);
+        await page.getByRole('heading', { name: heading }).waitFor();
+        await expect.poll(() => page.getByRole('heading', { name: heading }).evaluate((el) => el === document.activeElement)).toBe(true);
+        expect(await page.getByRole('alert').isVisible()).toBe(true);
+        expect(await page.getByRole('button', { name: 'Open another folder…' }).isVisible()).toBe(true);
+        expect(await page.locator('#overview-title').count()).toBe(0);
+        expect(await audit(page, `artifact-error-${name}`)).toEqual([]);
+      }
+      await page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out'));
+      await page.waitForSelector('#overview-title');
+      expect(await audit(page, 'artifact-error-recovered')).toEqual([]);
+    } finally { await isolated.close(); }
+  });
+
   it('validates picked files locally and sends nothing anywhere', async () => {
     // A separate context: no session cookie, no server API, just static files.
     const isolated = await browser.newContext();
@@ -1104,9 +1284,11 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
       const preview = page.getByRole('img', { name: /vuejs\/core repository drawn as an ATLAS city/ });
       await expect.poll(() => preview.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1120);
       expect(await page.title()).toBe('ATLAS: your codebase as a city');
+      expect(await audit(page, 'browser-only-landing')).toEqual([]);
       const before = requests.length;
       await page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out'));
       await page.waitForSelector('#overview-title');
+      expect(await audit(page, 'browser-only-artifact')).toEqual([]);
       const after = requests.slice(before);
       // Only the viewer's own static files may be fetched: the loader worker script and, since
       // ADR-058, the bundled font subsets the explorer first uses. No artifact bytes are sent.

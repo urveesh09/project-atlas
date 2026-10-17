@@ -2,23 +2,18 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-17):** production-plan M2, Python correctness evidence;
-M2.1 documentation alignment landed in PR #25. M2.6 exposed a namespace-precedence
-defect, corrected in analyzer `0.1.0-dev.8` (ADR-066); required CI/owner merge follow.
-The expanded six-repository corpus now has local five-repeat/46-check evidence
-(ADR-065); required expanded-corpus CI and M2.2 capacity measurements remain pending.
-M1.1 landed in [PR #20](https://github.com/urveesh09/project-atlas/pull/20);
-M1.2/M1.3 landed together in [PR #22](https://github.com/urveesh09/project-atlas/pull/22),
-with separate implementation commits. M1.4 landed in
-[PR #23](https://github.com/urveesh09/project-atlas/pull/23); M1.5 landed in
-[PR #24](https://github.com/urveesh09/project-atlas/pull/24) (analyzer `0.1.0-dev.7`,
-ADR-062). Python (`.py`, `.pyi`) is implemented alongside TS/JS, including mixed
-repositories. Cython, notebooks and other unsupported languages remain opaque when
-included. M2 still needs Python/mixed capacity, the complete hosted Python journey,
-broader corpus and testing evidence. The public demo
-(<https://urveesh09.github.io/project-atlas/>) is a static viewer on a bundled vuejs/core
-analysis. The packages are `0.1.0-beta.1`. `main` requires a pull request and nine named
-checks (ADR-046). Beta 2 work is recorded at the end of Phase 6 below (ADR-046, ADR-047).
+**Current milestone (2026-10-17):** production-plan M3.3 accessibility preparation
+(ADR-070), following macOS CI (PR #34) and Firefox/WebKit journeys (PR #35). The
+numbered human screen-reader scripts are prepared; R6-04 remains open. M3.4 intermittent
+layout diagnosis and M3.5 silent WebGL fallback stay separate. M2.2 Python/mixed capacity
+and M2.7 lazy-import syntax remain open. The hosted Python journey, properties,
+coverage tooling, namespace correction and six-repository corpus have landed; dated
+evidence is recorded below. Analyzer `0.1.0-dev.8`, artifact 1.4.0 and package version
+`0.1.0-beta.1` are unchanged. Unsupported languages remain opaque when included.
+The [public demo](https://urveesh09.github.io/project-atlas/) is a static viewer on a
+bundled vuejs/core analysis. Changes require an owner-merged PR and all CI checks;
+the owner must add the macOS and browser jobs to required checks as documented in
+ADR-068/069. No human, reference-device or deployment gate is closed by automation.
 
 Unchanged since 2026-10-11:
 - The four product pillars and the Phase 6 candidate tooling are implemented.
@@ -1444,6 +1439,46 @@ and a new CI job, `viewer journeys (firefox|webkit)`, runs on Ubuntu.
 - **Follow-up:** M3.5, a silent fallback where WebGL2 is missing.
 - **Owner:** add `viewer journeys (firefox)` and `viewer journeys (webkit)` to the
   required checks.
+
+### Production M3.3: accessibility preparation (2026-10-17)
+
+- **Scope:** [ADR-070](adr/ADR-070-accessibility-preparation.md) and the
+  [coverage inventory](release/accessibility-preparation.md). Audit visible menus,
+  source-dialog states, entry/loading/error/recovery, evidence/history, workspace and
+  hosted lifecycle screens. Add the previously omitted WCAG 2.1 A rules. CI retains
+  named reports, including incomplete checks, for seven days.
+- **Four fixes:** cancellation no longer leaves focus on the page body; package buttons
+  include visible metadata and an SVG text separator; city controls/legend expose named
+  groups; city help sits above Share so its target cannot be partly obscured in Firefox.
+  The last change was visually inspected in a real Firefox screenshot and has a
+  non-overlap regression. City geometry and all analysis/artifact versions are unchanged.
+- **Failure evidence:** the pre-fix cancellation regression reports `BODY`; the added A
+  rules expose three package label-in-name violations. An initial expanded run had five
+  failures (two changing-index disclosure-driver timeouts, the package issue and two
+  consequent checks). The first SVG assertion incorrectly used HTML-only `innerText`;
+  fixing it to `textContent` and separating the SVG text resolves the follow-up. Firefox
+  then found the 7 × 24 px partly covered help target in three states. Failed logs/reports
+  remain in ignored local scratch. WebKit additionally exposed a GPU read before the
+  comparison effects applied (and one consequent lens failure). Move the existing
+  paint-readiness gate before the mark assertions and strengthen it to exact snapshot
+  IDs. Independent Git checking exposed the manual card's 6 → 12 counts under a 5 → 12
+  instruction: preserve the original 6 → 12 regression and add a separate 5 → 12 table
+  journey/card with 7 added, 1 deleted, 1 renamed, 4 changed and 14 unchanged. No rule,
+  budget, timeout or assertion was relaxed.
+- **Verification performed on Windows:** `pnpm verify` passes **804 tests**, with **83
+  service-gated skips** (68 passed files, four skipped). This includes all **45 Chromium
+  viewer journeys** and the available CPython 3.14.5 oracle. The pinned CI oracle is
+  3.14.8. The six-repository committed baseline check passes; 216 relative Markdown file
+  links resolve. The focused WebKit history/comparison run passes all ten journeys.
+  The viewer file now has 45 journeys per engine; full Firefox/WebKit and the seven
+  database-backed hosted journeys are enforced by the PR's CI jobs, whose named
+  accessibility reports retain the exact platform/state outcomes. CI's hosted job also
+  exercises S3 and container isolation; local process-runner checks do not prove that.
+- **Human handoff:** numbered NVDA/Firefox/Chrome and VoiceOver/Safari rehearsal scripts
+  now cover native pickers, zoom, announcements, navigation, source, history and public
+  lifecycle. All manual result cells remain pending. Incomplete contrast and symbol
+  checks are retained for judgment, never counted as passes. **R6-04/G6 remain open.**
+  M3.4, M3.5, M2.2 capacity and M2.7 lazy imports are separate unfinished tasks.
 
 ### Reproduce verification
 

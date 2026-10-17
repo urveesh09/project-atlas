@@ -48,8 +48,8 @@ ADR. It does not cover:
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
   - M1/M2 dependency decisions extend ADR-061. M2 task PRs reserve ADR-063–065;
     the namespace correction is ADR-066. ADR-067 is reserved by the edge-budget work,
-    macOS CI is ADR-068, and Firefox and WebKit journeys are ADR-069. The next new
-    decision is ADR-070.
+    macOS CI is ADR-068, Firefox and WebKit journeys are ADR-069, and accessibility
+    preparation is ADR-070. The next new decision is ADR-071.
 - **Evidence.**
   - After M1.5's five parser regressions, `pnpm verify` passes 751 tests; 81 more
     skip conditionally. The CPython oracle runs in this evidence. Per-commit
@@ -522,6 +522,11 @@ and owner merge remain pending; M2.2 capacity is tracked separately.
   human reviewers can follow it step by step: NVDA with Firefox or Chrome, and VoiceOver
   with Safari.
 - Do not mark R6-04 done: it needs people.
+
+Implementation and evidence: [ADR-070](../adr/ADR-070-accessibility-preparation.md),
+[automated coverage inventory](../release/accessibility-preparation.md), and the dated
+M3.3 entry in [implementation status](../implementation-status.md). This prepares the
+manual gate; it does not close it. M3.4/M3.5 remain separate work.
 
 #### M3.4 Intermittent sideways scroll in the narrow touch layout
 

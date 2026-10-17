@@ -4,6 +4,7 @@ import { useViewer } from '../app/context';
 import { PACKAGE_GRAPH, buildPackageGraph, packageMeta, type PackageGraphEdge, type PackageGraphNode } from '../app/package-graph';
 
 const TABLE_ROWS = 200;
+const visiblePackageLabel = (label: string) => label.length > 30 ? `${label.slice(0, 29)}…` : label;
 const KIND_LABEL: Record<string, string> = {
   'imports-value': 'value',
   'imports-type': 'type',
@@ -127,7 +128,7 @@ export function PackageGraphView() {
                 role="button"
                 tabIndex={0}
                 aria-pressed={selectedPackage === n.id}
-                aria-label={`${n.label}: ${n.files} files, depends on ${outCount(n.id)} packages, used by ${inCount(n.id)}${n.cyclic ? ', in a cycle' : ''}`}
+                aria-label={`${visiblePackageLabel(n.label)}: ${packageMeta(n.files, n.internalPairs)}${n.label.length > 30 ? `, full name ${n.label}` : ''}, depends on ${outCount(n.id)} packages, used by ${inCount(n.id)}${n.cyclic ? ', in a cycle' : ''}`}
                 className={`pkg-node${n.cyclic ? ' is-cycle' : ''}${selectedPackage === n.id ? ' is-selected' : ''}${focus && focus !== n.id && !near.has(n.id) ? ' is-dim' : ''}`}
                 transform={`translate(${n.x},${n.y})`}
                 onClick={() => select(n.id)}
@@ -139,8 +140,10 @@ export function PackageGraphView() {
               >
                 <rect width={n.width} height={h} rx={8} />
                 <text x={n.width / 2} y={15} textAnchor="middle" className="pkg-label">
-                  {n.label.length > 30 ? `${n.label.slice(0, 29)}…` : n.label}
+                  {visiblePackageLabel(n.label)}
                 </text>
+                {/* SVG line positioning alone leaves the two words joined in the DOM. */}
+                {' '}
                 <text x={n.width / 2} y={29} textAnchor="middle" className="pkg-meta">
                   {packageMeta(n.files, n.internalPairs)}
                 </text>

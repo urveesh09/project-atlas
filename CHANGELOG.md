@@ -7,6 +7,10 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Changed
+- Accessibility audits now inspect open menus, source-dialog states, loading/errors,
+  workspace and hosted lifecycle screens in addition to the main views, including
+  WCAG 2.1 A rules. CI retains named reports with incomplete checks for human review.
+  Step-by-step NVDA and VoiceOver scripts prepare R6-04, which remains open (ADR-070).
 - Every viewer journey also runs in Firefox and WebKit, in CI and locally with
   `ATLAS_E2E_BROWSER` ([ADR-069](docs/adr/ADR-069-firefox-and-webkit-journeys.md)).
 - CI runs `verify` and the pinned corpus on macOS as well as Windows and Linux. The
@@ -15,6 +19,18 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   3.14.8 instead of each runner's default.
 
 ### Fixed
+- Cancelling artifact validation stranded keyboard focus on the page body. Landing,
+  validation and error transitions now focus their heading once, without interrupting
+  progress navigation.
+- Package diagram buttons now include their visible file-pair counts in accessible
+  names, retaining the full package name when its visual label is shortened.
+- City controls and the lens legend now expose named groups; labels on generic
+  containers were not reliably available to assistive technology.
+- City help sits above the toolbar so an open Share menu cannot leave a partly
+  covered, undersized help target (found in Firefox).
+- Correct the Harbor 5→12 manual review card: its old counts were for 6→12. An
+  independent Git check and a separate table journey cover the intended task; the
+  original 6→12 assertions remain intact.
 - Search sometimes ignored Enter: if the results arrived just before the key, the choice
   was lost. This was seen in WebKit, and could happen in any browser.
 - Safari could not open a picked artifact folder in the browser-only viewer. Every
