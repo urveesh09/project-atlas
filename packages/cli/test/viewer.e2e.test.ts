@@ -78,10 +78,12 @@ beforeAll(async () => {
     viewerDir: viewerDirectory(),
     source: await SourceAttachment.attach(demo.dir, loaded.bundle),
   });
-  // GPU-less CI runners get software WebGL: SwiftShader in Chromium, and Firefox's software
-  // renderer, which it blocklists unless forced (ADR-069). WebKit needs nothing.
+  // GPU-less CI runners get software WebGL: SwiftShader in Chromium. Firefox needs a display
+  // for Mesa's software OpenGL, so CI runs it headed inside Xvfb with its software-renderer
+  // blocklist overridden (ADR-069). WebKit needs nothing.
   const ci = Boolean(process.env['CI']);
   browser = await engine.launch({
+    headless: process.env['ATLAS_E2E_HEADED'] !== '1',
     args: engineName === 'chromium' && ci ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [],
     ...(engineName === 'firefox' && ci ? { firefoxUserPrefs: { 'webgl.force-enabled': true } } : {}),
   });
