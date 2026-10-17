@@ -1224,6 +1224,8 @@ it does not assert identical acceptance of all syntax fixtures across Python ver
   direction and six generated contracts pass. [ADR-066](adr/ADR-066-python-namespace-precedence.md)
   records the decision. Required CI is tracked in the fix PR. M2.6 corpus expansion
   and M2.2 dev.8 capacity remain separate work; keep the old dev.7 measurements.
+  After PR #26 lands, the branch incorporates current main and full verification
+  passes again: 764 tests, 81 explicit skips, including the four added harness checks.
 
 ### Production M2.6: uv workspace and mixed Python/TS corpus (2026-10-17)
 
@@ -1258,7 +1260,9 @@ The original four pins, 28 checks and dev.8 baseline digests are unchanged.
   were inspected; these functional checks make no reference-device performance claim.
 
 Full verification passes 760 tests with 81 explicit service-gated skips, including
-the CPython oracle and all 39 viewer journeys. Expanded-corpus Windows/Linux CI,
+the CPython oracle and all 39 viewer journeys. After integrating the prerequisite's
+current-main merge, full verification passes again: 764 tests, 81 conditional skips.
+Expanded-corpus Windows/Linux CI,
 independent cross-OS comparison and owner merge are required before closing M2.6.
 M2.2 and G6 stay separate and open.
 
