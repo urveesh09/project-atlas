@@ -109,6 +109,12 @@ async function pageState(page: Page, errors: readonly string[]): Promise<string>
   });
   return JSON.stringify({ ...shown, pageErrors: errors.slice(-5) });
 }
+/**
+ * Waits until the browser has drawn two frames, so a change has been applied and rendered.
+ * With software WebGL (SwiftShader on macOS runners) the correct state can arrive after a
+ * poll's default second (ADR-068). This waits for that signal; it adds no arbitrary time.
+ */
+const settled = (page: Page) => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 const explain = (page: Page, errors: readonly string[]) => async (error: unknown) => {
   throw new Error(`${error instanceof Error ? error.message : String(error)}
 page state: ${await pageState(page, errors)}`, { cause: error });
@@ -777,6 +783,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     if (!loaded.ok) throw new Error('invalid');
     const node = loaded.bundle.graphs.at(-1)!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
     await page.goto(`${server.url}#v=1&file=${node.lineageId}&tab=dependencies`);
+    await settled(page);
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx').catch(explain(page, errors));
     expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('Dependencies');
     const invalidUrl = `${server.url}#v=1&file=javascript:alert(1)&evil=1`;
@@ -927,6 +934,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     // Picking a lens asks for lens colours.
     await page.getByLabel('Lens', { exact: true }).selectOption('complexity');
     expect(await colour.inputValue()).toBe('off');
+    await settled(page);
     await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint).toBeNull().catch(explain(page, errors));
     await page.getByLabel('Lens', { exact: true }).selectOption('structure');
     const text = await page.locator('.compare').innerText();
