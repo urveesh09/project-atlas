@@ -114,7 +114,9 @@ shared-dependency-edge-budget work in progress at the time of writing.)
   - Naming a missing interpreter fails the suite.
   - Unset, it discovers Python as before.
 - **Viewer journeys** pass 39/39 on Windows, also with `CI=1`.
-- **CI run 39008158815 (commit 2621814):** all 13 checks pass.
+- **CI run 39012520532 (commit bff121a), with the file-level poll default and the
+  explaining checks:** all 13 checks pass. The figures below come from run 39008158815 and
+  are identical in the final run.
   - `verify` passes on each of Ubuntu, Windows and macOS: 794 tests, 83 service-gated
     skips, and `verify:distribution`.
   - The oracle uses CPython 3.14.8 on all three, with identical results: 1,870 files,

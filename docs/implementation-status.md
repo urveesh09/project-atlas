@@ -1403,7 +1403,8 @@ Windows and macOS. The determinism job compares all three corpus reports.
     - The assertions are unchanged, and latency budgets are measured on reference
       hardware.
   - The 3.15 gap is real, and is tracked as production plan M2.7.
-- **Final CI run 39008158815:**
+- **CI:** run 39008158815 (the figures below), and the final run 39012520532, where all 13
+  checks pass:
   - all 13 checks pass;
   - 794 tests on each OS, with 83 service-gated skips;
   - identical oracle results on all three (1,863 files, 0 mismatches);
