@@ -33,12 +33,18 @@ jobs:
       - name: The tag must match every package version
         id: version
         run: echo "version=$(node scripts/check-release-version.mjs "$GITHUB_REF_NAME")" >> "$GITHUB_OUTPUT"
+      # The same pinned interpreter as CI for the CPython oracle (ADR-068).
+      - id: python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: 3.14.8
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @atlas/web exec playwright install --with-deps chromium
       - name: Full verification (typecheck, viewer build, dependency direction, contracts, tests)
         run: pnpm verify
         env:
           ATLAS_REQUIRE_BROWSER_TESTS: '1'
+          ATLAS_ORACLE_PYTHON: ${{ steps.python.outputs.python-path }}
       - name: Package the portable CLI and test it outside the checkout
         run: pnpm verify:distribution
       - name: Collect release files

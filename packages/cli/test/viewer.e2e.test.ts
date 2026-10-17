@@ -187,7 +187,7 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
     // another member is focused. A cycle has no single source range.
     for (const file of ['router.ts', 'handlers.ts']) {
       await page.keyboard.press('/');
-      await page.keyboard.press('Control+A');
+      await page.keyboard.press('ControlOrMeta+A');
       await page.keyboard.type(file);
       await page.keyboard.press('Enter');
       await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(file);
@@ -273,7 +273,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
   });
   const choose = async (name: string) => {
     await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).focus();
-    await page.keyboard.press('Control+A');
+    await page.keyboard.press('ControlOrMeta+A');
     await page.keyboard.type(name);
     await page.keyboard.press('Enter');
     await page.waitForSelector('#inspector-title');
@@ -440,7 +440,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await visible('.sidebar')).toBe(false);
     // find → select → explain without leaving the workspace
     await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).focus();
-    await page.keyboard.press('Control+A');
+    await page.keyboard.press('ControlOrMeta+A');
     await page.keyboard.type('pricing.ts');
     await page.keyboard.press('Enter');
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.ts');
@@ -792,7 +792,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
   };
   const choose = async (name: string) => {
     await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).focus();
-    await page.keyboard.press('Control+A');
+    await page.keyboard.press('ControlOrMeta+A');
     await page.keyboard.type(name);
     await page.keyboard.press('Enter');
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(name);
