@@ -510,6 +510,17 @@ and owner merge remain pending; M2.2 capacity is tracked separately.
   with Safari.
 - Do not mark R6-04 done: it needs people.
 
+#### M3.4 Intermittent sideways scroll in the narrow touch layout
+
+- **Seen once:** Windows `verify`, run 39010571149 (attempt 4), in the journey "works with
+  touch and unavailable WebGL". The 390 px page scrolled sideways just after the
+  inspector opened from the table. It passed in every other run.
+- **Since then,** `expectNoSidewaysScroll` names the widths and up to five elements that
+  stick out.
+- **Next time it fails,** use those names to find the element, fix the layout at its
+  cause, and add a regression check at that width.
+- **Never** rerun until green, or drop the check.
+
 ### M4. Hosted production kit
 
 All of M4 lives under a new `deploy/production/`, documented in

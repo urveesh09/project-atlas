@@ -1408,6 +1408,10 @@ Windows and macOS. The determinism job compares all three corpus reports.
   - 794 tests on each OS, with 83 service-gated skips;
   - identical oracle results on all three (1,863 files, 0 mismatches);
   - six repositories byte-identical on Linux, Windows and Darwin.
+- **Confirmation reruns.** macOS and Ubuntu `verify` passed again. Windows failed once on
+  a different, pre-existing check: sideways scrolling in the 390 px touch layout. Its
+  cause is unknown. The check now names the overflowing elements, and the failure is
+  tracked as plan M3.4, not counted as fixed.
 - **Owner:** add `verify (macos-latest)` and `pinned repository corpus (macos-latest)` to
   the required checks.
 

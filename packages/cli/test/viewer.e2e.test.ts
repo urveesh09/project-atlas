@@ -115,6 +115,21 @@ async function pageState(page: Page, errors: readonly string[]): Promise<string>
   });
   return JSON.stringify({ ...shown, pageErrors: errors.slice(-5) });
 }
+/**
+ * The page does not scroll sideways. A failure names the widths and the elements that
+ * stick out, so an intermittent overflow can be explained rather than rerun away.
+ */
+async function expectNoSidewaysScroll(page: Page): Promise<void> {
+  const layout = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth,
+    outside: [...document.querySelectorAll('body *')]
+      .filter((el) => el.getBoundingClientRect().right > innerWidth + 0.5)
+      .slice(0, 5)
+      .map((el) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${[...el.classList].map((c) => `.${c}`).join('')} right=${Math.round(el.getBoundingClientRect().right)}`),
+  }));
+  expect(layout.scrollWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.innerWidth);
+}
 const explain = (page: Page, errors: readonly string[]) => async (error: unknown) => {
   throw new Error(`${error instanceof Error ? error.message : String(error)}
 page state: ${await pageState(page, errors)}`, { cause: error });
@@ -418,7 +433,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
   it('reflows controls at 320px and works with reduced motion and canvas disabled', async () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 320, height: 800 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expectNoSidewaysScroll(page);
     await page.addStyleTag({ content: 'canvas { display: none !important; }' });
     await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).click();
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
@@ -771,7 +786,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
       await page.getByLabel('View', { exact: true }).selectOption('table');
       await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).tap();
       await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expectNoSidewaysScroll(page);
     } finally {
       await touch.close();
     }
@@ -1002,7 +1017,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
       await small.waitForSelector('.timeline-strip');
       expect(await small.getByRole('button', { name: 'Step through' }).count()).toBe(0);
       expect(await small.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toContain('Snapshot 12 of 12');
-      expect(await small.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expectNoSidewaysScroll(small);
       await small.getByRole('button', { name: 'Earlier' }).click();
       await expect.poll(() => small.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toMatch(/^Snapshot 11 of 12/);
       expect(await audit(small)).toEqual([]);

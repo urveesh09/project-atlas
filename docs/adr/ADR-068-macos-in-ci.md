@@ -85,6 +85,15 @@ shared-dependency-edge-budget work in progress at the time of writing.)
 6. **The CLI archive** is created with `COPYFILE_DISABLE=1`, so macOS `tar` adds no
    AppleDouble `._*` entries. Other platforms ignore the variable.
 
+- **Confirmation reruns of run 39010571149.** The macOS and Ubuntu `verify` jobs passed
+  again. The Windows rerun failed a different check, not a poll: in the 390 px touch
+  layout, the page scrolled sideways just after the inspector opened. That check had
+  passed on Windows in every earlier run, and nothing in this change touches it.
+  - With no state captured, its cause is unknown.
+  - All three sideways-scroll checks now name the widths and the elements that stick out,
+    with the assertion unchanged.
+  - It is tracked as production plan M3.4. It is not counted as fixed.
+
 ## Not decided here
 
 - **Python 3.15 syntax** (lazy imports and anything else new in 3.15) needs grammar
