@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { acquireGithubCommit, runBounded } from '@atlas/ingest';
-import { armExecutionTraps, buildDemoRepository, createGitFixture, runGit, type GitFixture } from '@atlas/test-fixtures';
+import { armExecutionTraps, buildDemoRepository, buildPythonDemoRepository, createGitFixture, runGit, type GitFixture } from '@atlas/test-fixtures';
+import { expectPythonBundle, readPythonPublication } from './python-expectations.js';
 import { DockerStageRunners, FRAME, FrameDecoder, runContainer, type SandboxRuntime } from '../src/index.js';
 import { ScriptedRunners, createHarness, databaseUrl, submission, type Harness } from './pipeline-harness.js';
 
@@ -44,12 +45,14 @@ const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }
 
 describe.runIf(enabled && !!databaseUrl)('hosted pipeline inside real containers (security gates)', () => {
   let demo: GitFixture;
+  let python: GitFixture;
   let trapped: GitFixture;
   let sentinelDir: string;
   let remoteSentinels: string;
   let h: Harness;
   beforeAll(async () => {
     demo = buildDemoRepository();
+    python = buildPythonDemoRepository();
     sentinelDir = mkdtempSync(path.join(tmpdir(), 'atlas-sentinel-hosted-'));
     // Committed content that would write sentinels if anything executed it: npm lifecycle
     // scripts, Git hooks managers, bundler configs, a TypeScript plugin, filter/diff
@@ -80,9 +83,11 @@ describe.runIf(enabled && !!databaseUrl)('hosted pipeline inside real containers
     remoteSentinels = armExecutionTraps(trapped).sentinelDir;
     const head = trapped.commits.at(-1)!;
     shareReadOnly(demo.dir);
+    shareReadOnly(python.dir);
     shareReadOnly(trapped.dir);
     h = await createHarness([
       { numericId: '737373', owner: 'atlas-demo', name: 'harbor', defaultBranch: 'main', headOid: demo.commits.at(-1)!, remotePath: demo.dir, visibility: 'public' },
+      { numericId: '757575', owner: 'atlas-demo', name: 'harbor-python', defaultBranch: 'main', headOid: python.commits.at(-1)!, remotePath: python.dir, visibility: 'public' },
       { numericId: '747474', owner: 'atlas-demo', name: 'trap', defaultBranch: 'main', headOid: head, remotePath: trapped.dir, visibility: 'public' },
     ]);
   });
@@ -90,11 +95,23 @@ describe.runIf(enabled && !!databaseUrl)('hosted pipeline inside real containers
   afterAll(async () => {
     await h?.close();
     demo?.dispose();
+    python?.dispose();
     trapped?.dispose();
     rmSync(sentinelDir, { recursive: true, force: true });
     rmSync(remoteSentinels, { recursive: true, force: true });
   });
-  const docker = () => new DockerStageRunners(runtime(), { kind: 'fixture', remoteFor: (id) => (id === '747474' ? trapped.dir : demo.dir) });
+  const docker = () => new DockerStageRunners(runtime(), { kind: 'fixture', remoteFor: (id) => (id === '747474' ? trapped.dir : id === '757575' ? python.dir : demo.dir) });
+
+  it('publishes independently checked Python facts through the real offline sandbox', async () => {
+    const job = await h.submit(submission('https://github.com/atlas-demo/harbor-python'));
+    await h.coordinator(docker(), { publishReserveMs: 10_000 }).runOnce();
+    const row = await h.job(job.jobId);
+    expect(row.state).toBe('READY');
+    expect(row.metrics.isolation).toBe('container');
+    expect(row.warnings).toEqual([]);
+    expectPythonBundle(await readPythonPublication(h.publications, row.analysis_id));
+    expect(await leftovers(job.jobId)).toBe('');
+  }, 240_000);
 
   it('runs the whole journey in containers and leaves no sandbox container or network behind', async () => {
     const job = await h.submit(submission('https://github.com/atlas-demo/harbor'));

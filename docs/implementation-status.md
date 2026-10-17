@@ -1191,6 +1191,53 @@ it does not assert identical acceptance of all syntax fixtures across Python ver
   restored. This is not a selected release. Required CI and owner merge follow;
   M2.2–M2.6 and G6 remain open.
 
+### Production M2.3: hosted Python evidence (2026-10-16)
+
+- Add a separate two-commit Python fixture with expectations authored before its
+  first analysis: eight files, five Python sources, seven imports, one PyPI
+  dependency, exact metrics and a content-preserving rename with surviving lineage.
+- The real Docker coordinator test and hosted Chromium journey validate every
+  published chunk and those source-derived facts. The browser journey also selects
+  a Python file with the keyboard, inspects internal/builtin/PyPI dependencies and
+  passes the unchanged accessibility audit. Existing URL-secret checks still apply.
+- All 145 local physical hosted checks pass: PostgreSQL, real S3, container security
+  and seven browser journeys. Initial result: 144 pass and the new browser test
+  fails because its broad option selector also matches native dropdown options.
+  Restrict it to search results, without changing product code or deadlines; the
+  complete 145-check retest passes. Artifact facts passed in the initial run too.
+- Final focused container/browser checks pass (two selected checks; twelve others
+  explicitly excluded by the test filter), including non-null rename lineage.
+  Full verification passes: 752 tests and 83 service-gated skips, with the CPython
+  oracle and all 39 local viewer journeys actually running. Typecheck, viewer build,
+  dependency direction and six generated-contract checks pass.
+- Runtime/image, policies and local evidence details are in
+  [ADR-064](adr/ADR-064-hosted-python-evidence.md); required CI is tracked in its PR.
+  No production analyzer, dependency pin, contract, version or corpus output changes.
+  M2.2 capacity, M2.6 corpus and G6 remain open.
+
+### M2.3 CI follow-up: browser page ownership (2026-10-17)
+
+Initial run 38996642868 failed the existing Windows history rename-search assertion;
+one targeted Windows rerun passed. The subsequent main-merge run 38998758410 failed
+a different existing Windows guided-start tab assertion. Both logs show polling
+timeouts, not a native Vitest crash. The exact scheduling cause remains unproven.
+
+Code inspection found that the serial local-viewer groups retained their live pages,
+renderers and query workers until file teardown, and two independent deep-link tests
+also left pages open. Each group now closes its owned page; independent deep-link
+journeys close theirs after each test. Empty-page assertions before each independent
+opening prevent this resource leak recurring. The sign-in cookie remains shared.
+This corrects test resource ownership without changing product code, assertions,
+timeouts or performance gates. Repeat local software-rendering and required CI
+outcomes are recorded in the PR; the ownership defect is established, but its causal
+relationship to either earlier timeout is not claimed.
+
+Local software-rendering verification passes all 39 viewer journeys in a focused
+run (67.01 s), then passes full `pnpm verify`: 756 tests, 83 explicit conditional
+skips (202.23 s), including the oracle and the same 39 journeys with ordinary test
+workloads present. Typecheck, viewer build, dependency direction and contracts pass.
+Required CI on this correction follows; do not reinterpret earlier failed runs.
+
 ### Reproduce verification
 
 ```sh

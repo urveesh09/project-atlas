@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION } from '@atlas/schema';
 import { run, type CliIO } from '@atlas/cli';
@@ -79,6 +79,7 @@ afterAll(async () => {
 });
 
 async function openViewer(): Promise<{ page: Page; requests: string[]; errors: string[] }> {
+  expect(context.pages()).toHaveLength(0);
   const page = await context.newPage();
   const requests: string[] = [];
   const errors: string[] = [];
@@ -138,6 +139,8 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
   let requests: string[];
   let errors: string[];
   let findingSourcePath: string;
+
+  afterAll(async () => { await page?.close(); });
 
   beforeAll(async () => {
     ({ page, requests, errors } = await openViewer());
@@ -252,7 +255,9 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
 
 describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () => {
   let page: Page;
+  afterAll(async () => { await page?.close(); });
   beforeAll(async () => {
+    expect(context.pages()).toHaveLength(0);
     page = await context.newPage();
     if (!signedIn) {
       await page.goto(server.sessionUrl);
@@ -400,6 +405,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
 describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', () => {
   let page: Page;
   let errors: string[];
+  afterAll(async () => { await page?.close(); });
   beforeAll(async () => {
     ({ page, errors } = await openViewer());
     await page.waitForSelector('#overview-title');
@@ -674,6 +680,9 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
 });
 
 describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
+  // These journeys own independent pages. Keep the shared sign-in cookie, but release
+  // each renderer/worker before the next journey instead of retaining live cities.
+  afterEach(async () => { await Promise.all(context.pages().map((page) => page.close())); });
   it('round-trips file, lens and fallback mode; latest search wins when input changes rapidly', async () => {
     const { page } = await openViewer();
     await page.waitForSelector('#overview-title');
@@ -774,6 +783,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
  */
 describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4)', () => {
   let page: Page;
+  afterAll(async () => { await page?.close(); });
   let errors: string[];
   const active = () => page.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label');
   const goTo = async (n: number) => {
@@ -788,6 +798,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(name);
   };
   beforeAll(async () => {
+    expect(context.pages()).toHaveLength(0);
     page = await context.newPage();
     errors = [];
     page.on('pageerror', (e) => errors.push(String(e)));

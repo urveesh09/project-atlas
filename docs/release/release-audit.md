@@ -41,6 +41,12 @@ recorded in [implementation status](../implementation-status.md).
 
 ## Outstanding acceptance work
 
+Production M2.3 adds full hosted Python evidence (2026-10-16, [ADR-064](../adr/ADR-064-hosted-python-evidence.md)):
+145 local PostgreSQL/S3/container/browser checks pass, including two authored Python
+frames, rename lineage and exact internal/builtin/PyPI facts. Required CI is tracked
+in its PR. This closes the missing local Python journey evidence; it does not close
+Python capacity (M2.2), corpus expansion (M2.6), deployment acceptance or G6.
+
 | ID | Owner needed | Required evidence / acceptance | Gate impact |
 |---|---|---|---|
 | R6-01 | Performance reviewer/operator | Recorded four-core/2 GiB job host + SSD; 20-run medium/large HEAD and 12-frame history incl. exact dense/union fixtures; Python/mixed capacity from M2.2; unchanged 15/60/90/240 s targets; sizes/omissions/peaks/leaks | P6.2 open |
