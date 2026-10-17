@@ -140,23 +140,44 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
       await expect.poll(() => panel.innerText()).toContain('policy.py');
       await expect.poll(() => panel.innerText()).toContain('requests');
       await expect.poll(() => panel.innerText()).toContain('decimal');
-      expect(await audit(page)).toEqual([]);
+      expect(await audit(page, 'hosted-python-dependencies')).toEqual([]);
     } finally { await context.close(); }
   }, 120_000);
 
   it('submits, follows stages, opens the city and deletes it (success journey, keyboard reachable)', async () => {
     const { context, page } = await open();
     await page.goto(`${api.origin}/`);
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'hosted-landing')).toEqual([]);
+    await page.getByLabel('Repository URL').fill('not a GitHub repository');
+    await page.getByLabel('I understand the result will be public').check();
+    await page.getByRole('button', { name: 'Analyze repository' }).click();
+    await page.getByRole('alert').waitFor();
+    expect(await page.getByLabel('Repository URL').getAttribute('aria-invalid')).toBe('true');
+    expect(await audit(page, 'hosted-submission-error')).toEqual([]);
     await capture(page, 'landing');
-    await submit(page);
+    let releaseStatus!: () => void;
+    const heldStatus = new Promise<void>((resolve) => { releaseStatus = resolve; });
+    const statusRoute = '**/api/v1/jobs/**';
+    await page.route(statusRoute, async (route) => { await heldStatus; await route.continue(); });
+    try {
+      await submit(page);
+      await page.getByRole('heading', { name: 'Loading the analysis…' }).waitFor();
+      expect(await audit(page, 'hosted-job-loading')).toEqual([]);
+    } finally {
+      releaseStatus();
+      // This is the only route installed so far. Drain it before changing interception;
+      // unroute() can otherwise handle a still-running callback's request a second time.
+      await page.unrouteAll({ behavior: 'wait' });
+    }
+    await page.getByRole('button', { name: 'Cancel analysis' }).waitFor();
+    expect(await audit(page, 'hosted-queued')).toEqual([]);
     startWorker();
     const openCity = page.getByRole('link', { name: 'Open the city' });
     await openCity.waitFor({ timeout: 90_000 });
     await worker;
     expect(await page.locator('.stage-done').count()).toBe(7);
     await expect(page.getByText('files discovered').isVisible()).resolves.toBe(true);
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'hosted-ready')).toEqual([]);
     await capture(page, 'job-ready');
     await openCity.focus();
     await page.keyboard.press('Enter');
@@ -195,10 +216,13 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     // Reload: the immutable URL reopens the same validated analysis.
     await page.reload();
     await page.locator('.topbar .repo-name').waitFor({ timeout: 60_000 });
+    expect(await audit(page, 'hosted-result')).toEqual([]);
     await page.getByRole('button', { name: 'Delete…' }).click();
+    expect(await page.getByRole('group', { name: 'Confirm deletion' }).isVisible()).toBe(true);
+    expect(await audit(page, 'hosted-delete-confirmation')).toEqual([]);
     await page.getByRole('button', { name: 'Delete permanently' }).click();
     await page.getByRole('heading', { name: 'This analysis was deleted' }).waitFor();
-    expect(await audit(page)).toEqual([]);
+    expect(await audit(page, 'hosted-deleted')).toEqual([]);
     await capture(page, 'deleted');
     await context.close();
   }, 180_000);
@@ -213,10 +237,12 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     await page.getByRole('heading', { name: 'Ready with partial coverage' }).waitFor({ timeout: 90_000 });
     await worker;
     expect(await page.getByText('256 MiB transfer limit').isVisible()).toBe(true);
+    expect(await audit(page, 'hosted-partial')).toEqual([]);
     await capture(page, 'job-partial');
     await page.getByRole('link', { name: 'Open the city' }).click();
     await page.locator('.topbar .repo-name').waitFor({ timeout: 60_000 });
     expect(await page.locator('.timeline-summary').innerText()).toContain('Requested but unavailable: stopped by a resource limit');
+    expect(await audit(page, 'hosted-partial-history')).toEqual([]);
     await context.close();
   }, 180_000);
 
@@ -232,6 +258,7 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     expect(await page.locator('.stage-done').count()).toBe(0);
     expect(await page.locator('.stage-unknown').innerText()).toBe('It stopped before a result was published.');
     expect(await page.getByRole('link', { name: 'Try again' }).isVisible()).toBe(true);
+    expect(await audit(page, 'hosted-failed')).toEqual([]);
     await capture(page, 'job-failed');
     await context.close();
   }, 120_000);
@@ -246,12 +273,14 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     const cancel = page.getByRole('button', { name: 'Cancel analysis' });
     await page.locator('.stage-active').waitFor({ timeout: 60_000 });
     await page.getByRole('heading', { name: 'Analyzing the selected commit' }).waitFor({ timeout: 60_000 });
+    expect(await audit(page, 'hosted-running')).toEqual([]);
     await cancel.click();
     await page.getByRole('heading', { name: 'Cancelled' }).waitFor({ timeout: 60_000 });
     await worker;
     expect(await page.locator('.stage-done').count()).toBe(0);
     expect(await page.locator('.stage-unknown').innerText()).toBe('It was cancelled before a result was published.');
     expect((await h.pool.query('SELECT count(*)::int AS n FROM publications')).rows[0].n).toBe(0);
+    expect(await audit(page, 'hosted-cancelled')).toEqual([]);
     await context.close();
   }, 120_000);
 
@@ -277,15 +306,18 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     await page.goto(`${api.origin}${analysisUrl}`);
     await page.getByRole('heading', { name: 'This analysis has expired' }).waitFor();
     expect(await page.locator('.topbar').count()).toBe(0);
+    expect(await audit(page, 'hosted-expired')).toEqual([]);
     await capture(page, 'expired');
     await page.goto(`${api.origin}/a/analysis_${'9'.repeat(64)}`);
     await page.getByRole('heading', { name: 'This analysis does not exist' }).waitFor();
+    expect(await audit(page, 'hosted-unknown')).toEqual([]);
     // Another browser cannot follow or cancel this job.
     const jobUrl = (await h.pool.query('SELECT id FROM jobs LIMIT 1')).rows[0].id;
     const other = await browser.newContext();
     const foreign = await other.newPage();
     await foreign.goto(`${api.origin}/jobs/${jobUrl}`);
     await foreign.getByRole('heading', { name: 'This analysis belongs to another browser session' }).waitFor();
+    expect(await audit(foreign, 'hosted-foreign-session')).toEqual([]);
     await other.close();
     await context.close();
   }, 120_000);

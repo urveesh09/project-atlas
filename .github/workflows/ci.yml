@@ -55,6 +55,7 @@ jobs:
           ATLAS_TEST_S3_ENDPOINT: http://127.0.0.1:7070
           ATLAS_REQUIRE_HOSTED_TESTS: '1'
           ATLAS_REQUIRE_BROWSER_TESTS: '1'
+          ATLAS_A11Y_REPORT_DIR: .atlas-tmp/accessibility
           ATLAS_CONTAINER_TESTS: '1'
           ATLAS_NETWORK_TESTS: '1'
       - name: No sandbox container or network may remain
@@ -62,6 +63,15 @@ jobs:
         run: |
           test -z "$(docker ps --all --filter label=atlas.sandbox --format '{{.Names}}')"
           test -z "$(docker network ls --filter label=atlas.sandbox=network --format '{{.Name}}')"
+
+      - name: Keep named accessibility audit reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: accessibility-hosted
+          retention-days: 7
+          include-hidden-files: true
+          path: .atlas-tmp/accessibility/*.jsonl
 
   verify:
     name: verify (${{ matrix.os }})
@@ -90,6 +100,7 @@ jobs:
       - run: pnpm verify
         env:
           ATLAS_REQUIRE_BROWSER_TESTS: '1'
+          ATLAS_A11Y_REPORT_DIR: .atlas-tmp/accessibility
           ATLAS_ORACLE_PYTHON: ${{ steps.python.outputs.python-path }}
       - name: Extract and verify the CLI candidate outside the checkout
         run: pnpm verify:distribution
@@ -102,6 +113,15 @@ jobs:
             docs/release/distribution-smoke.*
             .atlas-tmp/cli-distribution-result.json
             .atlas-tmp/releases/*/atlas-cli-candidate.tar.gz
+
+      - name: Keep named accessibility audit reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: accessibility-${{ matrix.os }}
+          retention-days: 7
+          include-hidden-files: true
+          path: .atlas-tmp/accessibility/*.jsonl
 
   browsers:
     # Every viewer journey in Firefox and WebKit too; verify runs them in Chromium (ADR-069).
@@ -130,8 +150,18 @@ jobs:
       - run: ${{ matrix.browser == 'firefox' && 'xvfb-run --auto-servernum' || '' }} pnpm exec vitest run packages/cli/test/viewer.e2e.test.ts
         env:
           ATLAS_REQUIRE_BROWSER_TESTS: '1'
+          ATLAS_A11Y_REPORT_DIR: .atlas-tmp/accessibility
           ATLAS_E2E_BROWSER: ${{ matrix.browser }}
           ATLAS_E2E_HEADED: ${{ matrix.browser == 'firefox' && '1' || '0' }}
+
+      - name: Keep named accessibility audit reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: accessibility-${{ matrix.browser }}
+          retention-days: 7
+          include-hidden-files: true
+          path: .atlas-tmp/accessibility/*.jsonl
 
   corpus:
     name: pinned repository corpus (${{ matrix.os }})

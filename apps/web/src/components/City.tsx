@@ -534,8 +534,21 @@ export function City() {
         <span className="city-counts">
           {model.city.buildings.length.toLocaleString('en-US')} files in {model.city.districts.filter((d) => d.kind === 'package').length} packages. Height shows code lines.
         </span>
+        {state.mode !== 'packages' && (
+          <details className="city-about">
+            <summary>How to read the city</summary>
+            <p className="city-note">
+            Height shows code lines, on a logarithmic scale. Shapes: △ source, ⬡ test, ▱ declaration, □ kiosk. × marks unavailable
+            analysis. Roads separate folders; they are spacing. City style, building shapes, storeys, windows, walls,
+            trees, paving, ground shading and the harbour are decorative and seeded per file; they carry no data. Roofs,
+            eaves and battlements share their building's lens colour. A blue ring marks each selected building. Click the
+            city to drive it with the keyboard. The 3D
+            city is in perspective, so nearer buildings look larger; the 2D map and file table compare sizes exactly.
+            </p>
+          </details>
+        )}
       </div>
-      <div className="city-toolbar" aria-label="City controls">
+      <div className="city-toolbar" role="group" aria-label="City controls">
         <label>
           View
           <select
@@ -721,7 +734,7 @@ export function City() {
         )}
       </div>
       {state.mode !== 'packages' && (
-      <div className="city-legend" aria-label="City lens legend">
+      <div className="city-legend" role="group" aria-label="City lens legend">
         <strong>{paint && state.compare ? `Change ${state.compare.a + 1} → ${state.compare.b + 1}: ${CHANGE_LABEL[paint.metric].toLowerCase()}` : LENS_LABEL[state.lens]}</strong>
         {paint ? (
           <>
@@ -775,17 +788,6 @@ export function City() {
             {notes.length > 12 && <span>and {notes.length - 12} more in Notes</span>}
           </span>
         )}
-        <details className="city-about">
-          <summary>How to read the city</summary>
-          <p className="city-note">
-          Height shows code lines, on a logarithmic scale. Shapes: △ source, ⬡ test, ▱ declaration, □ kiosk. × marks unavailable
-          analysis. Roads separate folders; they are spacing. City style, building shapes, storeys, windows, walls,
-          trees, paving, ground shading and the harbour are decorative and seeded per file; they carry no data. Roofs,
-          eaves and battlements share their building's lens colour. A blue ring marks each selected building. Click the
-          city to drive it with the keyboard. The 3D
-          city is in perspective, so nearer buildings look larger; the 2D map and file table compare sizes exactly.
-          </p>
-        </details>
       </div>
       )}
       <p id="city-pattern-help" className={`city-note${compiled.error ? ' city-note-error' : ''}`} hidden={!pattern && !compiled.error}>
