@@ -1465,15 +1465,22 @@ and a new CI job, `viewer journeys (firefox|webkit)`, runs on Ubuntu.
   instruction: preserve the original 6 → 12 regression and add a separate 5 → 12 table
   journey/card with 7 added, 1 deleted, 1 renamed, 4 changed and 14 unchanged. No rule,
   budget, timeout or assertion was relaxed.
+- **First CI failure and correction:** run 39053028580 (`bd8c2a2`) failed the hosted
+  job with `Route is already handled!`: 146 assertions passed but an unhandled rejection
+  correctly failed the gate. The local seven-journey run reproduced it. The loading
+  test now releases and drains its active request handler before removing interception
+  (`unrouteAll` with `behavior: 'wait'`); no error is suppressed. The local hosted retest
+  passes **7/7** without unhandled errors. Original logs/reports are retained.
 - **Verification performed on Windows:** `pnpm verify` passes **804 tests**, with **83
   service-gated skips** (68 passed files, four skipped). This includes all **45 Chromium
   viewer journeys** and the available CPython 3.14.5 oracle. The pinned CI oracle is
   3.14.8. The six-repository committed baseline check passes; 216 relative Markdown file
-  links resolve. The focused WebKit history/comparison run passes all ten journeys.
-  The viewer file now has 45 journeys per engine; full Firefox/WebKit and the seven
-  database-backed hosted journeys are enforced by the PR's CI jobs, whose named
-  accessibility reports retain the exact platform/state outcomes. CI's hosted job also
-  exercises S3 and container isolation; local process-runner checks do not prove that.
+  links resolve. Firefox and WebKit each pass all **45 viewer journeys** locally;
+  the focused WebKit history/comparison run passes ten. The hosted retest passes
+  **7/7**. Each browser records **48 audit checkpoints (47 named states)**; hosted
+  records **17**, all with zero reported violations. Incomplete checks remain for
+  judgment. CI retains platform/state reports and additionally exercises S3/container
+  isolation; local process-runner checks do not prove that.
 - **Human handoff:** numbered NVDA/Firefox/Chrome and VoiceOver/Safari rehearsal scripts
   now cover native pickers, zoom, announcements, navigation, source, history and public
   lifecycle. All manual result cells remain pending. Incomplete contrast and symbol

@@ -59,6 +59,15 @@ Keep the original 6 → 12 assertions, correct the manual card and add a separat
 HTML/table journey with the independently checked paths. No renderer behavior,
 analysis fact or interaction budget changes to accommodate a test.
 
+The first CI run, **39053028580** on `bd8c2a2`, failed its hosted gate despite
+146 passing assertions: the newly held job-status route was released and immediately
+removed, allowing interception cleanup to handle it before its callback continued.
+The local hosted run independently reproduced `Route is already handled!` with seven
+passing assertions and one unhandled rejection, so neither run is counted as passing.
+Release the gate, then `unrouteAll({ behavior: 'wait' })` drains the only installed
+handler before interception changes. Errors remain fatal; none are ignored. The
+seven-journey local retest passes without unhandled errors. Preserve both original logs.
+
 ## Decision
 
 1. Audit visible states with stable names across Chromium, Firefox and WebKit. Expand

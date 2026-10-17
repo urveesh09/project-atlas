@@ -165,7 +165,9 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
       expect(await audit(page, 'hosted-job-loading')).toEqual([]);
     } finally {
       releaseStatus();
-      await page.unroute(statusRoute);
+      // This is the only route installed so far. Drain it before changing interception;
+      // unroute() can otherwise handle a still-running callback's request a second time.
+      await page.unrouteAll({ behavior: 'wait' });
     }
     await page.getByRole('button', { name: 'Cancel analysis' }).waitFor();
     expect(await audit(page, 'hosted-queued')).toEqual([]);

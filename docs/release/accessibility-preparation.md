@@ -95,6 +95,12 @@ require contrast review. These are recorded as incomplete, never silently counte
 
 ## Human follow-up
 
+Local Windows verification records 48 checkpoints (47 named states) in each engine,
+plus 17 hosted checkpoints, with zero reported violations. Contrast and symbol-only
+label-in-name checks remain incomplete where axe cannot judge them. The first hosted
+CI run failed on a request-handler cleanup race despite passing assertions; ADR-070
+records the failure and the local fix/retest. Refer to the PR checks for final CI outcomes.
+
 Follow the numbered NVDA/Firefox/Chrome and VoiceOver/Safari scripts in
 [manual-review.md](manual-review.md). Inspect retained `incomplete` targets in that
 candidate, including contrast judgments over nonuniform backgrounds. Record actual
