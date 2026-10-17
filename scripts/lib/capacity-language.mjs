@@ -34,7 +34,7 @@ export function capacityFiles(files, language = 'typescript') {
     const lines = text.trimEnd().split('\n');
     const imports = lines.slice(0, 10);
     assert(imports.every((line) => line.startsWith('import ')), 'Expected ten authored import statements');
-    const converted = imports.slice(1).map((line) => {
+    const converted = imports.map((line) => {
       let m;
       if ((m = /^import \{ (f\d+) \} from '\.\.\/(m\d+)\/(f\d+)';$/.exec(line))) return `from p${p}.${m[2]}.${m[3]} import ${m[1]}`;
       if ((m = /^import \{ (f\d+) as (g\d+) \} from '@bench\/p(\d+)\/(m\d+)\/(f\d+)';$/.exec(line))) return `from p${peer(Number(m[3]), true)}.${m[4]}.${m[5]} import ${m[1]} as ${m[2]}`;
@@ -53,7 +53,7 @@ export function capacityFiles(files, language = 'typescript') {
       if ((m = /^  return x \? (\d+) : 0;$/.exec(line))) return `    return ${m[1]} if x else 0`;
       throw new Error(`Unexpected authored body: ${line}`);
     });
-    // One real typing import plus nine source imports keeps ten statements per file.
+    // Preserve every authored dependency. Python also needs its real typing import.
     return ['from typing import TYPE_CHECKING', ...converted, ...body, ''].join('\n');
   };
   return Object.fromEntries(Object.entries(files).map(([file, text]) => [

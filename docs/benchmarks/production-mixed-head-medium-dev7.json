@@ -1,0 +1,506 @@
+{
+  "task": "HEAD analysis capacity — medium, 1 frames",
+  "language": "mixed",
+  "mode": "head",
+  "recordedAt": "2026-10-16T16:07:40.606Z",
+  "environment": {
+    "os": "Linux 6.18.33.2-microsoft-standard-WSL2 x64",
+    "cpu": "Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz",
+    "cpuCount": 12,
+    "memoryGiB": 7.7,
+    "node": "v24.22.0",
+    "nodeFlags": "--max-old-space-size=1536",
+    "git": "2.47.3",
+    "parserWorkers": 2,
+    "processPerRun": true,
+    "containerLimits": {
+      "memoryBytes": 2147483648,
+      "cpuMax": "400000 100000"
+    },
+    "runtimeImage": "sha256:fcea3d16cf470c3c446b5a855e5afc84644025d96ff56b3e39d7b19198473719",
+    "sourceCommit": "c923ccb9052648531d623b5c7d148f2e1c47c51c",
+    "benchmarkSourceCommit": "c923ccb9052648531d623b5c7d148f2e1c47c51c",
+    "benchmarkWorkingTreeDirty": "false"
+  },
+  "fixture": {
+    "headFiles": 3142,
+    "importStatements": 30000,
+    "commits": 0,
+    "frames": 1,
+    "boundary": "none",
+    "renames": 0,
+    "lineages": 3142,
+    "historyStatus": "unavailable"
+  },
+  "runs": 20,
+  "warmupMs": 5563.367867,
+  "rawSampleMs": [
+    5489.449732,
+    5783.0576519999995,
+    5901.999917,
+    5528.021234,
+    5540.717361,
+    5520.568569999999,
+    5602.300123,
+    5548.530952,
+    5504.8540379999995,
+    5808.452837,
+    5434.005539,
+    5437.669082,
+    5711.582366000001,
+    5835.007447999999,
+    5741.755466,
+    5659.659229,
+    5762.091407999999,
+    5695.420924,
+    5450.343215000001,
+    5536.630545
+  ],
+  "sampleCompleteness": [
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 85,
+            "peakRSSBytes": 230031360
+          },
+          {
+            "pid": 86,
+            "peakRSSBytes": 214577152
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 124,
+            "peakRSSBytes": 213319680
+          },
+          {
+            "pid": 125,
+            "peakRSSBytes": 214573056
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 163,
+            "peakRSSBytes": 211972096
+          },
+          {
+            "pid": 164,
+            "peakRSSBytes": 215498752
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 202,
+            "peakRSSBytes": 213909504
+          },
+          {
+            "pid": 203,
+            "peakRSSBytes": 208044032
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 241,
+            "peakRSSBytes": 212660224
+          },
+          {
+            "pid": 242,
+            "peakRSSBytes": 213516288
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 280,
+            "peakRSSBytes": 213336064
+          },
+          {
+            "pid": 281,
+            "peakRSSBytes": 232456192
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 319,
+            "peakRSSBytes": 214106112
+          },
+          {
+            "pid": 320,
+            "peakRSSBytes": 214454272
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 358,
+            "peakRSSBytes": 229576704
+          },
+          {
+            "pid": 359,
+            "peakRSSBytes": 214216704
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 397,
+            "peakRSSBytes": 213291008
+          },
+          {
+            "pid": 398,
+            "peakRSSBytes": 214466560
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 436,
+            "peakRSSBytes": 211849216
+          },
+          {
+            "pid": 437,
+            "peakRSSBytes": 212533248
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 475,
+            "peakRSSBytes": 215904256
+          },
+          {
+            "pid": 476,
+            "peakRSSBytes": 213622784
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 514,
+            "peakRSSBytes": 228425728
+          },
+          {
+            "pid": 515,
+            "peakRSSBytes": 212488192
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 553,
+            "peakRSSBytes": 227864576
+          },
+          {
+            "pid": 554,
+            "peakRSSBytes": 213192704
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 592,
+            "peakRSSBytes": 216113152
+          },
+          {
+            "pid": 593,
+            "peakRSSBytes": 211636224
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 631,
+            "peakRSSBytes": 214851584
+          },
+          {
+            "pid": 632,
+            "peakRSSBytes": 210427904
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 670,
+            "peakRSSBytes": 211873792
+          },
+          {
+            "pid": 671,
+            "peakRSSBytes": 214122496
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 709,
+            "peakRSSBytes": 211877888
+          },
+          {
+            "pid": 710,
+            "peakRSSBytes": 216903680
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 748,
+            "peakRSSBytes": 211193856
+          },
+          {
+            "pid": 749,
+            "peakRSSBytes": 212983808
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 787,
+            "peakRSSBytes": 216784896
+          },
+          {
+            "pid": 788,
+            "peakRSSBytes": 215158784
+          }
+        ]
+      }
+    },
+    {
+      "complete": true,
+      "status": "complete",
+      "frames": 1,
+      "historyStatus": "unavailable",
+      "parserMemory": {
+        "available": true,
+        "method": "Linux /proc VmHWM every 50 ms and immediately before pool close; own direct parse-worker children only",
+        "children": [
+          {
+            "pid": 826,
+            "peakRSSBytes": 214142976
+          },
+          {
+            "pid": 827,
+            "peakRSSBytes": 215298048
+          }
+        ]
+      }
+    }
+  ],
+  "failedRun": null,
+  "analyzer": {
+    "version": "0.1.0-dev.7",
+    "parserVersion": "typescript@6.0.3 tree-sitter-python@0.25.0+wts@0.27.1",
+    "gitVersion": "2.47.3"
+  },
+  "parsedLanguages": {
+    "typescript": 1565,
+    "javascript": 0,
+    "python": 1565
+  },
+  "selectedCommit": "d43aa6c543d446a50bed62aa2053cd06bb76f379",
+  "layoutId": "layout_0f83fc2b9e2389957e5154386e8b64359a93f33a6265422dfd5f362b5625a366",
+  "resourceUsage": {
+    "peakBytes": 604696576,
+    "events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0
+    }
+  },
+  "secondsP50": 5.55,
+  "secondsP95": 5.84,
+  "secondsMax": 5.9,
+  "budgetSecondsP95": 15,
+  "artifact": {
+    "version": "atlas.artifact/1.4.0",
+    "compressedBytes": 1775510,
+    "headGraphBytes": 1423975,
+    "historicalGraphBytes": 0,
+    "historyBytes": 132240,
+    "layoutBytes": 219295,
+    "budgetBytes": 5242880
+  },
+  "timePass": true,
+  "sizePass": true,
+  "completenessPass": true,
+  "sampleCountPass": true,
+  "parserMemoryPass": true,
+  "languagePass": true,
+  "resourcePass": true,
+  "pass": true
+}

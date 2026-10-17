@@ -1,7 +1,7 @@
 # ADR-063: Python capacity fixtures and measurement
 
-Date: 2026-10-16. Status: implementation checkpoint; measurements pending.
-Production M2.2. Extends ADR-037; no analyzer or artifact version change.
+Date: 2026-10-16; amended 2026-10-17 before acceptance. Status: implementation checkpoint; final measurements pending.
+Production M2.2. Extends ADR-037; uses analyzer dev.8 from prerequisite ADR-066.
 
 ## Evidence and cause
 
@@ -15,11 +15,11 @@ single warm-up is not capacity evidence.
 - Keep the original TypeScript generator unchanged, pinned by an evolution digest
   checked against main before recording. Transform only authored synthetic source
   templates into Python. Never translate or execute analyzed repositories.
-- Preserve file counts, ten import statements per generated function module, ten
+- Preserve file counts, all ten original dependency imports per function module, ten
   projects, branching bodies and the 40-commit edit/add/delete/rename schedule.
   Python uses source-layout projects, package stubs, literal project metadata,
   standard-library and declared PyPI imports and TYPE_CHECKING guards. Its typing
-  import replaces one generated import, retaining ten statements. Mixed fixtures
+  import is additional: eleven Python statements versus ten TS statements. Mixed fixtures
   use five projects per language (equal base counts); temporal additions/deletions
   can slightly change the ratio. Imports between projects remain within a language.
 - Add explicit language/mode metadata to prepared fixtures; new language/mode runs
@@ -55,3 +55,31 @@ whole-job peak 455,606,272 bytes and zero OOM events. It uses the prior developm
 runtime image and dirty benchmark scripts solely to validate the harness. It is
 explicitly a one-shot diagnostic, not a twenty-sample pass or release identity.
 Clean-commit matrix results follow; no capacity pass is claimed yet.
+
+## Pre-acceptance correction (2026-10-17)
+
+The initial transformation replaced the first original dependency import with
+`from typing import TYPE_CHECKING` to retain ten statements. That made the Python
+graph less demanding. Preserve all ten original imports and add the real typing
+import instead. This deliberately makes Python's observation workload slightly
+heavier, without dropping a dependency or relaxing any budget. Type guards remain
+real Python, rather than using a fake unreachable branch solely to match counts.
+
+Three dev.7 HEAD batches completed before the session stopped between batches:
+Python medium p95 5.78 s, mixed medium 5.84 s, Python large 18.53 s. Retain their
+exact reports as historical, superseded evidence; they do not validate this stronger
+fixture or dev.8. Restart every matrix row from a clean source/image containing
+ADR-066's semantic correction. Keep the original TS evolution digest unchanged.
+
+Also retain structured JSON/Markdown when no analysis completes, including the
+warm-up. Unknown fixture/artifact/parser facts are null and every gate is false;
+only actual environment/cgroup observations are recorded. A real subprocess test
+with an absent fixture first fails because no report exists, then passes after
+this correction. A killed entire container can still have only its host/session
+log; missing measurements never become a pass.
+
+The amended five-check harness suite passes, including the real first-warm-up
+failure path. Full premeasurement verification on dev.8 passes 765 tests with
+81 explicit service-gated skips; the CPython oracle and 39 viewer journeys run.
+The original TS evolution digest still matches. These checks validate the tool,
+not the outstanding twenty-run capacity matrix.
