@@ -68,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -79,11 +79,18 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: git --version
+      # The CPython oracle compares the Python parser with this exact interpreter on every
+      # OS. Runners' default Pythons differ (3.12 on Ubuntu and Windows, 3.15 on macOS) (ADR-068).
+      - id: python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: 3.14.8
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @atlas/web exec playwright install --with-deps chromium
       - run: pnpm verify
         env:
           ATLAS_REQUIRE_BROWSER_TESTS: '1'
+          ATLAS_ORACLE_PYTHON: ${{ steps.python.outputs.python-path }}
       - name: Extract and verify the CLI candidate outside the checkout
         run: pnpm verify:distribution
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -101,7 +108,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
@@ -138,7 +145,13 @@ jobs:
         with:
           pattern: repository-corpus-*
           path: .atlas-tmp/corpus-reports
-      - run: node scripts/compare-repository-reports.mjs .atlas-tmp/corpus-reports/repository-corpus-ubuntu-latest/real-repositories.json .atlas-tmp/corpus-reports/repository-corpus-windows-latest/real-repositories.json
+      # The job keeps its name because branch protection requires it; it now compares all
+      # three operating systems (ADR-068).
+      - run: >-
+          node scripts/compare-repository-reports.mjs
+          .atlas-tmp/corpus-reports/repository-corpus-ubuntu-latest/real-repositories.json
+          .atlas-tmp/corpus-reports/repository-corpus-windows-latest/real-repositories.json
+          .atlas-tmp/corpus-reports/repository-corpus-macos-latest/real-repositories.json
 
   acquisition:
     name: live GitHub acquisition spike

@@ -16,7 +16,11 @@ import { extractPythonFacts, initPythonParser } from '@atlas/analyzer-py';
 const ORACLE = fileURLToPath(new URL('./oracle/ast_oracle.py', import.meta.url));
 
 function findPython(): { command: string; args: string[]; version: string; stdlib: string } | null {
-  for (const [command, ...prefix] of [['python3'], ['python'], ['py', '-3']] as const) {
+  // CI names the interpreter it installed, so the oracle's CPython version is chosen rather
+  // than whatever a runner happens to have (ADR-068). A named interpreter must work.
+  const pinned = process.env['ATLAS_ORACLE_PYTHON'];
+  const candidates: [string, ...string[]][] = pinned ? [[pinned]] : [['python3'], ['python'], ['py', '-3']];
+  for (const [command, ...prefix] of candidates) {
     try {
       const out = execFileSync(command, [...prefix, '-I', '-c', 'import sys, sysconfig; print(".".join(map(str, sys.version_info[:3]))); print(sysconfig.get_paths()["stdlib"])'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 20_000 });
       const [version, stdlib] = out.trim().split(/\r?\n/);
@@ -26,6 +30,7 @@ function findPython(): { command: string; args: string[]; version: string; stdli
       // not this one
     }
   }
+  if (pinned) throw new Error(`ATLAS_ORACLE_PYTHON=${pinned} is not a usable Python 3.10+ interpreter`);
   return null;
 }
 

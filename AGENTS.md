@@ -101,9 +101,13 @@ fault tests deliberately exhaust memory and PIDs.
 checks, with no bypass ([ADR-046](docs/adr/ADR-046-security-triage-and-enforced-checks.md)).
 Work on a branch, push it and open a pull request; it merges once the checks pass.
 
-**CI** (`.github/workflows/ci.yml`): eight jobs. They are verify on Windows and Ubuntu,
-hosted gates, live GitHub, corpus on both OSes, a cross-OS determinism comparison, and the
-render spike. All must be green before a change counts as verified.
+**CI** (`.github/workflows/ci.yml`):
+- `verify` and the pinned corpus each run on Ubuntu, Windows and macOS (ADR-068);
+- the determinism job compares all three corpus reports;
+- hosted gates, live GitHub and the render spike.
+
+`verify` names CPython 3.14.8 for the parser oracle (`ATLAS_ORACLE_PYTHON`). All jobs
+must be green before a change counts as verified.
 
 ## 5. Recording work
 

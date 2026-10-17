@@ -140,7 +140,8 @@ const manifest = {
 assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), sourceCommit, 'Source revision changed during packaging');
 await writeFile(path.join(bundle, 'distribution.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 const archive = path.join(staging, 'atlas-cli-candidate.tar.gz');
-execFileSync('tar', ['-czf', archive, '-C', staging, 'atlas-cli'], { windowsHide: true });
+// macOS tar would add AppleDouble `._*` entries for extended attributes; other tars ignore this.
+execFileSync('tar', ['-czf', archive, '-C', staging, 'atlas-cli'], { windowsHide: true, env: { ...process.env, COPYFILE_DISABLE: '1' } });
 const archiveBytes = await readFile(archive);
 const result = { bundle, archive, sha256: createHash('sha256').update(archiveBytes).digest('hex'), archiveBytes: archiveBytes.length, files: files.length, sourceCommit: manifest.sourceCommit, workingTreeDirty: manifest.workingTreeDirty };
 await writeFile(path.join(staging, 'package-result.json'), `${JSON.stringify(result, null, 2)}\n`);

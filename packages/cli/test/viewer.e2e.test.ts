@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION } from '@atlas/schema';
 import { run, type CliIO } from '@atlas/cli';
@@ -13,6 +13,12 @@ import { startViewerServer, type RunningViewerServer } from '../src/server/serve
 import { buildDemoRepository, type GitFixture } from '@atlas/test-fixtures';
 import { audit } from '../../../apps/web/test/audit.js';
 import type {} from '../../../apps/web/src/city/probe.js';
+
+// Every poll here checks a correct state after a real browser action, not a latency
+// budget: interaction budgets are measured on reference hardware. On CI's GPU-less
+// runners (software WebGL), correct states were observed arriving after Vitest's default
+// one-second poll, most often on macOS (ADR-068). The assertions are unchanged.
+vi.setConfig({ expect: { poll: { timeout: 5_000 } } });
 
 /**
  * Gate G2 journeys in a real browser, keyboard only (plan §17 P2.6): find a file, inspect
@@ -91,6 +97,43 @@ async function openViewer(): Promise<{ page: Page; requests: string[]; errors: s
   signedIn = true;
   return { page, requests, errors };
 }
+
+/**
+ * What the page shows, for a poll that timed out: a failure then says what the viewer
+ * did instead (for example, fell back from 3D), not only that it did not succeed in time.
+ */
+async function pageState(page: Page, errors: readonly string[]): Promise<string> {
+  const shown = await page.evaluate(() => {
+    const text = (selector: string) => document.querySelector(selector)?.textContent?.trim().slice(0, 160) ?? null;
+    let stats: unknown = null;
+    try {
+      stats = window.__atlasCity?.stats() ?? null;
+    } catch (error) {
+      stats = `stats() threw: ${String(error)}`;
+    }
+    return { hash: location.hash, inspector: text('#inspector-title'), city3d: window.__atlasCity !== undefined, stats, cityMessage: text('.city-message'), status: text('[role="status"][aria-live="polite"]') };
+  });
+  return JSON.stringify({ ...shown, pageErrors: errors.slice(-5) });
+}
+/**
+ * The page does not scroll sideways. A failure names the widths and the elements that
+ * stick out, so an intermittent overflow can be explained rather than rerun away.
+ */
+async function expectNoSidewaysScroll(page: Page): Promise<void> {
+  const layout = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth,
+    outside: [...document.querySelectorAll('body *')]
+      .filter((el) => el.getBoundingClientRect().right > innerWidth + 0.5)
+      .slice(0, 5)
+      .map((el) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${[...el.classList].map((c) => `.${c}`).join('')} right=${Math.round(el.getBoundingClientRect().right)}`),
+  }));
+  expect(layout.scrollWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.innerWidth);
+}
+const explain = (page: Page, errors: readonly string[]) => async (error: unknown) => {
+  throw new Error(`${error instanceof Error ? error.message : String(error)}
+page state: ${await pageState(page, errors)}`, { cause: error });
+};
 
 /** Reads the provenance JSON from a PNG `iTXt` chunk, parsed here independently of the viewer. */
 function embeddedProvenance(png: Buffer): Record<string, unknown> {
@@ -187,7 +230,7 @@ describe.runIf(browserAvailable && viewerBuilt)('viewer journeys (keyboard only)
     // another member is focused. A cycle has no single source range.
     for (const file of ['router.ts', 'handlers.ts']) {
       await page.keyboard.press('/');
-      await page.keyboard.press('Control+A');
+      await page.keyboard.press('ControlOrMeta+A');
       await page.keyboard.type(file);
       await page.keyboard.press('Enter');
       await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(file);
@@ -273,7 +316,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
   });
   const choose = async (name: string) => {
     await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).focus();
-    await page.keyboard.press('Control+A');
+    await page.keyboard.press('ControlOrMeta+A');
     await page.keyboard.type(name);
     await page.keyboard.press('Enter');
     await page.waitForSelector('#inspector-title');
@@ -390,7 +433,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
   it('reflows controls at 320px and works with reduced motion and canvas disabled', async () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 320, height: 800 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expectNoSidewaysScroll(page);
     await page.addStyleTag({ content: 'canvas { display: none !important; }' });
     await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).click();
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
@@ -440,7 +483,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await visible('.sidebar')).toBe(false);
     // find → select → explain without leaving the workspace
     await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).focus();
-    await page.keyboard.press('Control+A');
+    await page.keyboard.press('ControlOrMeta+A');
     await page.keyboard.type('pricing.ts');
     await page.keyboard.press('Enter');
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.ts');
@@ -743,19 +786,19 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
       await page.getByLabel('View', { exact: true }).selectOption('table');
       await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).tap();
       await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expectNoSidewaysScroll(page);
     } finally {
       await touch.close();
     }
   });
   it('restores a file and tab from an allowlisted fragment and ignores others', async () => {
-    const { page } = await openViewer();
+    const { page, errors } = await openViewer();
     await page.waitForSelector('#overview-title');
     const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
     if (!loaded.ok) throw new Error('invalid');
     const node = loaded.bundle.graphs.at(-1)!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
     await page.goto(`${server.url}#v=1&file=${node.lineageId}&tab=dependencies`);
-    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx').catch(explain(page, errors));
     expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('Dependencies');
     const invalidUrl = `${server.url}#v=1&file=javascript:alert(1)&evil=1`;
     await page.goto(invalidUrl);
@@ -792,7 +835,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
   };
   const choose = async (name: string) => {
     await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).focus();
-    await page.keyboard.press('Control+A');
+    await page.keyboard.press('ControlOrMeta+A');
     await page.keyboard.type(name);
     await page.keyboard.press('Enter');
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(name);
@@ -905,7 +948,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     // Picking a lens asks for lens colours.
     await page.getByLabel('Lens', { exact: true }).selectOption('complexity');
     expect(await colour.inputValue()).toBe('off');
-    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint).toBeNull();
+    await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint).toBeNull().catch(explain(page, errors));
     await page.getByLabel('Lens', { exact: true }).selectOption('structure');
     const text = await page.locator('.compare').innerText();
     expect(text).toContain('src/ui/Cargo.tsx → src/ui/Manifest.tsx');
@@ -974,7 +1017,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
       await small.waitForSelector('.timeline-strip');
       expect(await small.getByRole('button', { name: 'Step through' }).count()).toBe(0);
       expect(await small.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toContain('Snapshot 12 of 12');
-      expect(await small.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expectNoSidewaysScroll(small);
       await small.getByRole('button', { name: 'Earlier' }).click();
       await expect.poll(() => small.locator('.timeline-frame[aria-current="step"]').getAttribute('aria-label')).toMatch(/^Snapshot 11 of 12/);
       expect(await audit(small)).toEqual([]);

@@ -1382,6 +1382,40 @@ Verification on the combined tree, with Node 24.22.0:
 - Uncommitted shared-edge-budget work (a proposed dev.9) is not part of this
   integration.
 
+### Production M3.1: macOS in CI (2026-10-17)
+
+[ADR-068](adr/ADR-068-macos-in-ci.md): `verify` and the pinned corpus run on Ubuntu,
+Windows and macOS. The determinism job compares all three corpus reports.
+- **The first macOS run** passed the corpus and matched all six repositories across the
+  three systems. Seven `verify` tests failed, none in product code:
+  - six viewer journeys selected all with `Control+A`, which does not select on macOS;
+  - the CPython oracle used the runner's default Python 3.15.0. Its lazy imports
+    (PEP 810) are not in the grammar: 59 of 2,054 files, 2.96%, against a 1% bound.
+- **Fixes, each addressing its cause:**
+  - tests now use `ControlOrMeta+A`;
+  - CI and the release workflow name CPython 3.14.8 for the oracle, and a named
+    interpreter that doesn't work fails instead of skipping;
+  - the browser-journey file's polls now wait up to 5 s, set for that file only.
+    - Diagnostics from macOS runs showed the final state was already correct, only late.
+    - Two narrower fixes did not converge, and both are recorded in ADR-068: waiting for
+      two drawn frames, then lengthening only two polls.
+    - Ubuntu and Windows had shown the same class of timeout.
+    - The assertions are unchanged, and latency budgets are measured on reference
+      hardware.
+  - The 3.15 gap is real, and is tracked as production plan M2.7.
+- **CI:** run 39008158815 (the figures below), and the final run 39012520532, where all 13
+  checks pass:
+  - all 13 checks pass;
+  - 794 tests on each OS, with 83 service-gated skips;
+  - identical oracle results on all three (1,863 files, 0 mismatches);
+  - six repositories byte-identical on Linux, Windows and Darwin.
+- **Confirmation reruns.** macOS and Ubuntu `verify` passed again. Windows failed once on
+  a different, pre-existing check: sideways scrolling in the 390 px touch layout. Its
+  cause is unknown. The check now names the overflowing elements, and the failure is
+  tracked as plan M3.4, not counted as fixed.
+- **Owner:** add `verify (macos-latest)` and `pinned repository corpus (macos-latest)` to
+  the required checks.
+
 ### Reproduce verification
 
 ```sh
