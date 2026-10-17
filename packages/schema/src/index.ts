@@ -1,3 +1,6 @@
+// First, so browsers skip zod's eval probe before any schema is defined (ADR-069).
+import './strict-csp.js';
+
 export * from './versions.js';
 export * from './limits.js';
 export * from './canonical.js';

@@ -3,7 +3,8 @@ import type { LoadResult } from '@atlas/artifact';
 import { ARTIFACT_VERSION, type Capabilities } from '@atlas/schema';
 import { CityPreview } from '../components/CityPreview';
 import { Explorer } from '../components/Explorer';
-import { PublicationUnavailableError, detectLocalSession, filesFromInput, loadInWorker, type SourceStatus } from '../data/load';
+import { PublicationUnavailableError, detectLocalSession, loadInWorker, type SourceStatus } from '../data/load';
+import { entriesFromInput } from '../data/picked';
 import { detectHostedService } from '../hosted/api';
 import { HostedLanding } from '../hosted/HostedLanding';
 import { JobPage } from '../hosted/JobPage';
@@ -160,7 +161,7 @@ export function App() {
       multiple
       onChange={(e) => {
         if (e.target.files && e.target.files.length > 0)
-          void run('Validating the selected artifact', { kind: 'files', files: filesFromInput(e.target.files) }, null);
+          void run('Validating the selected artifact', { kind: 'files', files: entriesFromInput(e.target.files) }, null);
         e.target.value = '';
       }}
     />
