@@ -47,7 +47,8 @@ ADR. It does not cover:
   - Graph: `atlas.graph/1.1.0`.
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
   - M1/M2 dependency decisions extend ADR-061. M2 task PRs reserve ADR-063–065;
-    the namespace correction is ADR-066. The next new decision is ADR-067.
+    the namespace correction is ADR-066. ADR-067 is reserved by the edge-budget work,
+    and macOS CI is ADR-068. The next new decision is ADR-069.
 - **Evidence.**
   - After M1.5's five parser regressions, `pnpm verify` passes 751 tests; 81 more
     skip conditionally. The CPython oracle runs in this evidence. Per-commit
@@ -85,7 +86,7 @@ progress by updating this table's status column as tasks land.
 |---|---|---|
 | P1 | No dependency or runtime with a known, fixable vulnerability. The pins are current within their supported major versions, and a record says why each major version is held back | M1 landed in PRs #20/#22/#23/#24; dated audit and hold decisions in ADR-061/062. Recheck at release (M5) |
 | P2 | Python has the same evidence quality as TS/JS: several real repositories with checks written before analysis, capacity budgets met, and the hosted path proven | Open (M2) |
-| P3 | The CLI is tested on Windows, Linux and macOS. The viewer is tested in Chromium, Firefox and WebKit | Open (M3) |
+| P3 | The CLI is tested on Windows, Linux and macOS. The viewer is tested in Chromium, Firefox and WebKit | Partly done: three operating systems (M3.1); browsers open (M3.2) |
 | P4 | An operator can deploy the hosted service from the repository alone, with TLS, an egress firewall, least-privilege roles, monitoring with alerts, backups with a tested restore, and verified images | Open (M4) |
 | P5 | The master plan's §16.5 definition of done: all gates pass, no P0/P1 defects, docs match the implementation, a reproducible demo, visible limitations, and operator recovery | Open (M5; needs R6 evidence) |
 
@@ -442,6 +443,27 @@ and owner merge remain pending; M2.2 capacity is tracked separately.
 - **Analyzer bugs** found this way get their own pull request first, following the "Exact
   bytes" rule.
 
+#### M2.7 Python 3.15 syntax (found by M3.1)
+
+- **Why.** CPython 3.15 (released 2026-10) adds lazy imports (PEP 810: `lazy import x`,
+  `lazy from x import y`), and its own standard library uses them. The vendored grammar
+  cannot parse them: on macOS's default Python 3.15.0, 59 of 2,054 standard-library files
+  parse only in CPython (2.96%, above the oracle's 1% bound; ADR-068).
+  - A 3.15 file using new syntax is a visible parse failure today, never a silent
+    omission.
+  - For a dependency analyzer, lazy imports are dependencies, and they must be found.
+- **Change.**
+  1. Find or build a tree-sitter-python grammar that parses 3.15 syntax. Follow ADR-056's
+     vendoring rules: licence, recorded SHA-256 and its test.
+  2. Extract lazy imports as ordinary import facts. Decide, and record in an ADR, whether
+     "lazy" is kept as evidence. It does not change what depends on what.
+  3. Check every other 3.15 grammar change.
+- **Test.**
+  - The oracle against CPython 3.15 locally, with `ATLAS_ORACLE_PYTHON`. The gap must
+    fall under 1%, and the remaining files must be named and explained.
+  - Keep the CI oracle on 3.14 until 3.15 passes, then move it.
+  - Run the corpus baseline. Changed parse results follow the "Exact bytes" rule.
+
 ### M3. Platforms and browsers
 
 #### M3.1 macOS in CI
@@ -455,6 +477,16 @@ and owner merge remain pending; M2.2 capacity is tracked separately.
   match. Any difference is a bug to fix, not to accept.
 - **Branch protection.** The new jobs become required checks only after the owner adds
   them. Tell the owner the exact job names.
+- **Done, 2026-10-17 (ADR-068, PR #34).**
+  - The corpus is byte-identical on all three operating systems.
+  - The first macOS failures were all test or CI problems, each fixed by its cause:
+    - `Control+A` select-all in tests;
+    - an unpinned oracle Python; CI now uses 3.14.8;
+    - two polls that ran ahead of software rendering. They now wait for two drawn frames,
+      and no timeout changed.
+  - The Python 3.15 gap it exposed is M2.7.
+  - The owner must add `verify (macos-latest)` and `pinned repository corpus
+    (macos-latest)` to the required checks.
 
 #### M3.2 Firefox and WebKit journeys
 

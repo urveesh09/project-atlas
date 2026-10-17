@@ -6,6 +6,12 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 
 ## [Unreleased]
 
+### Changed
+- CI runs `verify` and the pinned corpus on macOS as well as Windows and Linux. The
+  determinism check compares all three ([ADR-068](docs/adr/ADR-068-macos-in-ci.md)).
+- CI and the release workflow run the CPython parser oracle against a pinned Python
+  3.14.8 instead of each runner's default.
+
 ### Fixed
 - Resolve Python namespace portions only after considering regular packages/modules
   across import roots, and prevent discarded parents from supplying child modules.

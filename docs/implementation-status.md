@@ -1382,6 +1382,31 @@ Verification on the combined tree, with Node 24.22.0:
 - Uncommitted shared-edge-budget work (a proposed dev.9) is not part of this
   integration.
 
+### Production M3.1: macOS in CI (2026-10-17)
+
+[ADR-068](adr/ADR-068-macos-in-ci.md): `verify` and the pinned corpus run on Ubuntu,
+Windows and macOS. The determinism job compares all three corpus reports.
+- **The first macOS run** passed the corpus and matched all six repositories across the
+  three systems. Seven `verify` tests failed, none in product code:
+  - six viewer journeys selected all with `Control+A`, which does not select on macOS;
+  - the CPython oracle used the runner's default Python 3.15.0. Its lazy imports
+    (PEP 810) are not in the grammar: 59 of 2,054 files, 2.96%, against a 1% bound.
+- **Fixes, each addressing its cause:**
+  - tests now use `ControlOrMeta+A`;
+  - CI and the release workflow name CPython 3.14.8 for the oracle, and a named
+    interpreter that doesn't work fails instead of skipping;
+  - two polls that ran ahead of SwiftShader rendering now wait for two drawn frames. A
+    diagnostic run showed their final state was already correct. No assertion or timeout
+    changed.
+  - The 3.15 gap is real, and is tracked as production plan M2.7.
+- **Final CI run 39008158815:**
+  - all 13 checks pass;
+  - 794 tests on each OS, with 83 service-gated skips;
+  - identical oracle results on all three (1,863 files, 0 mismatches);
+  - six repositories byte-identical on Linux, Windows and Darwin.
+- **Owner:** add `verify (macos-latest)` and `pinned repository corpus (macos-latest)` to
+  the required checks.
+
 ### Reproduce verification
 
 ```sh
