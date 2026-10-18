@@ -2,9 +2,10 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-18):** production-plan M3.5 silent WebGL fallback and
-its CI corrections for GPU-free diagnostics and primary-action contrast (ADR-071,
-PR #37), following accessibility
+**Current milestone (2026-10-18):** production-plan M4.1 reference hosted deployment
+kit (ADR-072): hardened API/TLS profile, worker units, expiring GitHub egress sets
+and isolated configuration/transport/packet rehearsals. M3.5 fallback, diagnostics
+and primary-action contrast landed in PR #37 (all 15 checks green on `d444c67`), following accessibility
 preparation (PR #36), macOS CI (PR #34) and
 Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
 prepared; R6-04 remains open. M3.4 intermittent layout diagnosis remains open.
@@ -1594,6 +1595,48 @@ and a new CI job, `viewer journeys (firefox|webkit)`, runs on Ubuntu.
   Markdown file links** in the changed documentation pass. The PR records the final
   exact-head CI result; both prior failures remain part of its evidence. M3.4 and
   R6-01…R6-07/G6 remain open.
+
+### Production M4.1: reference hosted deployment kit (2026-10-18)
+
+- **Implementation:** [production kit](../deploy/production/README.md),
+  [ADR-072](adr/ADR-072-reference-hosted-deployment.md) and the
+  [functional report](benchmarks/production-reference-deployment.md).
+  Separate production API/TLS Compose profile, immutable images, file secrets,
+  uid 10001/read-only/capability-free services, exact proxy trust, 16 KiB body
+  ceiling, unbuffered SSE, unknown-host rejection and privacy-preserving logging.
+  Worker service/credentials/local scratch, early-boot firewall and Docker ordering
+  drop-in, initial/periodic atomic expiring GitHub ranges are included. Maintenance
+  has no total drain bound, so the service does not invent a finite stop timeout.
+- **Defects found and corrected:** upstream Caddy's file capability prevented exec
+  under dropped capabilities; strip it in the derived image. Dynamic IPAM could
+  allocate the proxy's trusted address first; reserve a separate allocation pool
+  and reject the collision. Packet-fixture socket errors and the first TLS probe's
+  generic error are retained with their evidence limits; no failed run counts as a pass.
+- **Code review:** CodeQL alert #70 flagged the rehearsal's HTTPS client, whose request
+  options held the throwaway CA. Its unresolved thread blocked PR #38, so the work was
+  re-raised with the CA in a dedicated `https.Agent`. Requests and assertions are
+  unchanged.
+- **Local verification:** 14 production-profile steps pass: actual Caddy/nft/systemd
+  validation, real routed packet allow/deny controls and stale-set expiry, verified
+  loopback TLS/secure sessions, exact size boundary, Host/Origin, queued SSE/cancel,
+  XFF quota resistance and API DDL denial. The production API has no development
+  flag. A random project and labelled packet fixtures are cleaned without touching
+  unrelated Docker resources. No host firewall is installed by the rehearsal.
+- **Regressions:** 34 metadata checks plus eight preflight checks (42 total).
+  The full `pnpm verify` passes **855 tests**, **83 service-gated skips**, including
+  **48/48 Chromium viewer journeys**, with type/build/dependency/contract checks.
+  The complete separate physical hosted run passes **185/185**, including all seven
+  browser journeys, PostgreSQL/S3/containers, offline/egress gates and Python history;
+  it preceded the final three added IPv6 rejection cases, covered by the full suite.
+  Audit reports retain 49 viewer/17 hosted checkpoints, zero violations, and the
+  existing incomplete checks for human review. The six-repository baseline guard
+  passes. No analysis semantics, versions or dependency pins change.
+- **CI/acceptance:** the hosted job repeats the actual production profile/packet
+  rehearsal and keeps only its report, before the existing real-job gates. The task
+  pull request records exact-head CI and review-thread outcomes before owner merge.
+  R6-06 still requires a real boot, domain/certificate renewal, site firewall/Docker,
+  database/storage identity and recovery evidence. M4.2–M4.6, M3.4, M2.2/M2.7 and
+  all R6/G6 human/device/site acceptance remain open.
 
 ### Reproduce verification
 

@@ -1,0 +1,16 @@
+[Unit]
+Description=Refresh only ATLAS GitHub address sets, atomically
+Requires=atlas-egress.service
+After=atlas-egress.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/atlas/node/bin/node /opt/atlas/production/refresh-github-ranges.mjs --apply
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/run/atlas-egress
+CapabilityBoundingSet=CAP_NET_ADMIN
+TimeoutStartSec=30s

@@ -1,6 +1,6 @@
 # ATLAS V0.1 release audit
 
-Updated: 2026-10-18 (M3.5 fallback, diagnostics and transition contrast). **G6 OPEN — candidate preparation, not release sign-off.**
+Updated: 2026-10-18 (M4.1 reference deployment kit; M3.5 merged). **G6 OPEN — candidate preparation, not release sign-off.**
 The four pillars are implemented; runtime tracing/instrumentation remains wholly deferred.
 This audit distinguishes implementation/test evidence from human, reference-device and
 public-infrastructure acceptance. The canonical requirements remain the [master plan](../plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md).
@@ -40,6 +40,14 @@ recorded in [implementation status](../implementation-status.md).
 | P6.5 release traceability (§17/18) | This table; [status](../implementation-status.md), all ADRs, [operator runbook](../hosted-operations.md) | Audit prepared; final signed acceptance pending |
 
 ## Outstanding acceptance work
+
+Production M4.1 prepares the [reference deployment](../../deploy/production/README.md)
+and [ADR-072](../adr/ADR-072-reference-hosted-deployment.md): real production API/TLS
+transport rehearsal, configuration validators and isolated packet-policy enforcement,
+alongside the existing hosted acquisition/analysis gates. It does not install a host
+firewall, run systemd on the deployment machine, verify site credentials/renewal,
+or create a public service. Those remain R6-06, with later M4 monitoring/backup/
+supply-chain/SLO/legal work still open. See the [dated report](../benchmarks/production-reference-deployment.md).
 
 Production M2.3 adds full hosted Python evidence (2026-10-16, [ADR-064](../adr/ADR-064-hosted-python-evidence.md)):
 145 local PostgreSQL/S3/container/browser checks pass, including two authored Python

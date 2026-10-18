@@ -49,14 +49,17 @@ ADR. It does not cover:
   - M1/M2 dependency decisions extend ADR-061. M2 task PRs reserve ADR-063–065;
     the namespace correction is ADR-066. ADR-067 is reserved by the edge-budget work,
     macOS CI is ADR-068, Firefox and WebKit journeys are ADR-069, and accessibility
-    preparation is ADR-070. The next new decision is ADR-071.
+    preparation is ADR-070. M3.5 fallback/diagnostics/contrast is ADR-071 (merged
+    PR #37); the M4.1 reference deployment is ADR-072. Allocate ADR-073 next.
 - **Evidence.**
-  - After M1.5's five parser regressions, `pnpm verify` passes 751 tests; 81 more
-    skip conditionally. The CPython oracle runs in this evidence. Per-commit
-    results are in the status log.
-  - The viewer file has 39 browser journeys, and the hosted file 6 PostgreSQL journeys.
-  - Four public repositories are pinned and reproduced byte for byte on Windows and Linux:
-    is-plain-obj, vuejs/core, vite and pallets/flask.
+  - The M3.5 baseline passes 813 tests with 83 conditional skips; the CPython oracle
+    runs in this evidence. M4.1 adds operator-tooling regressions; exact current
+    counts and subsequent CI outcomes are in the status log and task pull request.
+  - The viewer file has 48 journeys in each of Chromium/Firefox/WebKit, and the
+    hosted file has 7 PostgreSQL/Chromium journeys.
+  - Six public repositories are pinned and reproduced byte for byte on Windows,
+    Linux and macOS: is-plain-obj, vuejs/core, vite, pallets/flask,
+    pydantic/pydantic-ai and fastapi/full-stack-fastapi-template.
 - **Open gate.** G6 is open until R6-01…R6-07 in the
   [release audit](../release/release-audit.md) have real evidence. These items need human
   reviewers, reference hardware or a real deployment.
@@ -570,6 +573,16 @@ All of M4 lives under a new `deploy/production/`, documented in
 domain or address from a real deployment. Use placeholders such as `atlas.example.org`.
 
 #### M4.1 Reference deployment
+
+**Implementation prepared, 2026-10-18:** [reference kit](../../deploy/production/README.md)
+and [ADR-072](../adr/ADR-072-reference-hosted-deployment.md). The hosted CI job
+validates Caddy/nft/systemd, exercises the real production API under loopback TLS,
+and enforces packet policy only inside isolated container namespaces, before the
+existing real-job gates. Evidence and exact-head CI are tracked in the status log
+and task pull request. DNS, coordinator visibility checks and fixed database/S3
+destinations are explicit infrastructure exceptions. Drain also awaits maintenance;
+the worker unit waits indefinitely rather than inventing a batch-wide bound.
+This is reference-kit implementation; R6-06 real site acceptance remains open.
 
 - **Reverse proxy.** A pinned Caddy (or nginx) config implementing
   hosted-operations.md's "Reverse proxy requirements" exactly:

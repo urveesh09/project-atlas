@@ -15,3 +15,5 @@ atlas-output/
 # Development deployment secrets (deploy/dev-secrets.mjs)
 deploy/secrets/
 deploy/.env
+deploy/production/*.env
+deploy/production/secrets/

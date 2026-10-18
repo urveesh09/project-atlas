@@ -19,9 +19,11 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
 **Current state (2026-10-18):** the four pillars and Phase 6 candidate tooling are
 implemented for committed TS/JS and Python (`.py`, `.pyi`), including mixed repositories.
 M3.3 accessibility preparation landed in PR #36, after macOS and cross-browser CI
-landed in PRs #34 and #35. The current task is M3.5 silent WebGL fallback and its
-CI corrections for GPU-free diagnostics and primary-action transition contrast
-(ADR-071, PR #37).
+landed in PRs #34 and #35. M3.5 silent WebGL fallback, GPU-free diagnostics and
+primary-action contrast landed in PR #37 (ADR-071). The current task is M4.1,
+the reference hosted deployment kit (ADR-072): production API profile, hardened
+worker units, expiring egress sets and isolated transport/packet rehearsals.
+It does not authorize a live deployment or close R6-06. M4.2–M4.6 remain separate tasks.
 Human R6-04 review and M3.4 intermittent layout diagnosis remain open. M2.2
 capacity and M2.7 lazy-import syntax remain open. M1 upgrades landed in PRs #20, #22,
 #23 and #24. Analyzer `0.1.0-dev.8` records corrected namespace lookup
@@ -73,7 +75,7 @@ an ADR first.
 | `packages/cli` | `atlas doctor/analyze/inspect/verify/serve` |
 | `packages/control` | Hosted control plane: migrations, roles, storage, publications, GitHub budget |
 | `apps/api`, `apps/worker`, `apps/web` | Hosted HTTP API; coordinator and sandboxes; React/Three.js viewer |
-| `deploy/` | Sandbox and API images, compose stack |
+| `deploy/` | Sandbox and API images, development stack; `production/` reference kit and validation tooling |
 | `scripts/` | Benchmarks, corpus validation, packaging, contract generation, release guard, demo site |
 | `.github/` | CI, release, security, Scorecard and demo-site workflows; Dependabot; issue forms ([release process](docs/release/release-process.md)) |
 | `.atlas-tmp/` | Ignored scratch: corpus, fixtures, reports. Never commit it |
@@ -127,8 +129,8 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-071; ADR-067 is reserved by the separate
-  edge-budget work. Allocate ADR-072 next.
+  The current sequence is ADR-001…ADR-072; ADR-067 is reserved by the separate
+  edge-budget work. Allocate ADR-073 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls
@@ -144,6 +146,9 @@ must be green before a change counts as verified.
   fails closed. Wait for the reset rather than using someone's personal token.
 - **One Docker engine per ATLAS database/coordinator** (ADR-034). Never remove containers
   or networks you didn't create; sandboxes are labelled `atlas.job`.
+- **Production firewall:** the reference rules default-deny host output/forwarding.
+  Never apply them on the developer/CI host; use the isolated container packet probe.
+  Only an operator installs the reviewed site copy on a dedicated worker host.
 - **Memory:** a hosted analysis job has 2 GiB total (parent heap 1536 MiB plus parser
   children). Large-history export is the tightest phase. Profile before optimizing, and
   prove optimizations byte-identical (ADR-036, ADR-037).

@@ -1,0 +1,24 @@
+[Unit]
+Description=ATLAS dedicated-worker egress firewall
+DefaultDependencies=no
+Wants=network-pre.target
+After=local-fs.target
+Before=network-pre.target docker.service atlas-worker.service shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Load once per boot. For changes use nft -c and an operator-controlled atomic replace.
+ExecStart=/usr/sbin/nft -f /etc/atlas/worker-egress.nft
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/run/atlas-egress
+RuntimeDirectory=atlas-egress
+RuntimeDirectoryMode=0700
+CapabilityBoundingSet=CAP_NET_ADMIN
+
+[Install]
+WantedBy=sysinit.target
