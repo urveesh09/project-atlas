@@ -71,6 +71,13 @@ unproven. Neither journey nor its assertions/deadlines were changed; the correct
 head must pass them, along with all other checks, before merge. Both new image gates
 already passed on the initial head with pinned BuildKit 0.34.0.
 
+The descriptor correction closed alert 71 on `69c9c33`. CodeQL then identified the
+regression's deliberate in-process pathname replacement (alert 72). The replacement
+now runs in an independent Node process which never inherits the original descriptor;
+the creator/reader stays descriptor-only and the same original-bytes/size assertions
+remain. Neither query nor test scope is excluded. This models the competing actor
+instead of embedding its path mutation in the trusted reader.
+
 ## Phase 0: prove constraints and lock contracts
 
 | Task | Status | Evidence | Checks |

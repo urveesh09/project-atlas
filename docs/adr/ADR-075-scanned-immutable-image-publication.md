@@ -99,3 +99,9 @@ the original bytes are read. No alert is dismissed or query disabled. The initia
 live-acquisition rate-limit and unproven WebKit 30-second timeout are separately retained
 in [implementation status](../implementation-status.md); their tests and budgets stay
 unchanged and the corrected head requires all checks green.
+
+CodeQL confirmed alert 71 fixed on `69c9c33`, then flagged the test's deliberate
+replacement step as alert 72. The final regression uses a separate Node process for
+the competing pathname mutation; it has no copy of the original descriptor. The
+trusted creator/reader performs only descriptor I/O. The file-replacement and size-bound
+assertions are unchanged, with no query suppression or path exclusion.

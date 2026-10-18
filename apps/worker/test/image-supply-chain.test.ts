@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { closeSync, mkdtempSync, openSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, mkdtempSync, openSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 // @ts-expect-error Release tooling is plain Node ESM outside runtime packages.
@@ -23,8 +24,9 @@ describe('release image gate', () => {
     const report = path.join(directory, 'report.json'), fd = openSync(report, 'wx+', 0o600);
     try {
       writeFileSync(fd, '{"source":"original"}');
-      renameSync(report, path.join(directory, 'original.json'));
-      writeFileSync(report, '{"source":"replaced"}');
+      // An independent actor has only the pathname, never the original descriptor.
+      // Keep the creator/reader descriptor-only, as in the production gate.
+      execFileSync(process.execPath, ['-e', "const f=require('node:fs'),p=require('node:path'),file=process.argv[1];f.renameSync(file,p.join(p.dirname(file),'original.json'));f.writeFileSync(file,JSON.stringify({source:'replaced'}))", report], { timeout: 5000, windowsHide: true });
       expect(JSON.parse(readDescriptor(fd).toString())).toEqual({ source: 'original' });
       expect(() => readDescriptor(fd, 1)).toThrow('limit');
     } finally {
