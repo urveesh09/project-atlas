@@ -78,6 +78,30 @@ the creator/reader stays descriptor-only and the same original-bytes/size assert
 remain. Neither query nor test scope is excluded. This models the competing actor
 instead of embedding its path mutation in the trusted reader.
 
+**Starting/loading/cancellation journey stall (2026-10-18):** on head `65315be`, the same
+journey timed out after 30 seconds, this time in Firefox
+([CI run 39125232653](https://github.com/urveesh09/project-atlas/actions/runs/39125232653),
+47 passed/1 failed). The other journeys are unaffected.
+- **Where it stalls.** The retained axe records show the stall at the same point in both
+  failures, WebKit on `9eaf3da` and Firefox here. The `viewer-starting` audit completed,
+  and `artifact-loading` never did. That leaves the picker, the folder selection, the
+  validation heading or the loading audit, each of which waited without its own bound.
+- **Not this change, not the runner.** The PR changes no viewer code, browser job or test.
+  The same runner image (ubuntu-24.04 20261012.334.1) passed the journey in the runs
+  before and between.
+- **Not reproduced.** None of these stalled:
+  - 32 isolated repetitions of the journey's steps in Firefox on Windows;
+  - 3 complete headed Firefox runs of the file (48/48 each);
+  - 63 repetitions in headed Firefox under Xvfb, in Playwright 1.64.1's Linux image with
+    2 CPUs.
+
+  The slowest step took 0.76 s.
+- **Change.** Each step of that journey is now bounded at 8 s, well inside the old 30 s
+  test timeout. A stall now names its stage and records the gate's headings, status,
+  focus, whether the worker request was intercepted, recent requests and page errors.
+  A deliberately missing heading confirmed the report. Assertions are unchanged.
+  The cause remains open until a failure reports its state.
+
 ## Phase 0: prove constraints and lock contracts
 
 | Task | Status | Evidence | Checks |
