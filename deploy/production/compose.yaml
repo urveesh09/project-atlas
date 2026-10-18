@@ -61,7 +61,16 @@ services:
       ATLAS_LISTEN_HOST: 0.0.0.0
       ATLAS_PORT: "8080"
       ATLAS_OPERATOR_PORT: "9090"
+      # The owner's public-service texts and contact (M4.6, ADR-077); the API refuses to start without them.
+      ATLAS_PRIVACY_FILE: /etc/atlas/legal/privacy.txt
+      ATLAS_TERMS_FILE: /etc/atlas/legal/terms.txt
+      ATLAS_TAKEDOWN_FILE: /etc/atlas/legal/takedown.txt
+      ATLAS_CONTACT: "${ATLAS_CONTACT:?set the public contact, a mailto address or an https page}"
     secrets: [api_database_url, quota_secret, api_storage_access_key, api_storage_secret]
+    configs:
+      - { source: legal_privacy, target: /etc/atlas/legal/privacy.txt }
+      - { source: legal_terms, target: /etc/atlas/legal/terms.txt }
+      - { source: legal_takedown, target: /etc/atlas/legal/takedown.txt }
     read_only: true
     tmpfs: ["/tmp:rw,noexec,nosuid,nodev,uid=10001,gid=10001,mode=0700,size=16777216"]
     cap_drop: [ALL]
@@ -100,6 +109,13 @@ services:
 
 volumes:
   prometheus-data: {}
+
+# The owner's texts, not secrets: UTF-8 plain text readable by uid 10001. The shipped
+# legal.example/ files are placeholders that the API refuses outside development.
+configs:
+  legal_privacy: { file: "${ATLAS_LEGAL_DIR:?set the directory holding the owner's privacy, terms and takedown texts}/privacy.txt" }
+  legal_terms: { file: "${ATLAS_LEGAL_DIR}/terms.txt" }
+  legal_takedown: { file: "${ATLAS_LEGAL_DIR}/takedown.txt" }
 
 networks:
   api:

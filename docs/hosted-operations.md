@@ -47,6 +47,8 @@ Every variable listed as a secret can be given as `NAME_FILE`, with an absolute 
 | `ATLAS_GITHUB_TOKEN` (secret) | ✓ | ✓ | Optional token with public metadata read access only. Sent only to `api.github.com`, never to Git or a sandbox |
 | `ATLAS_HOURLY_JOBS`, `ATLAS_QUEUED_JOBS` | ✓ | | Admission quotas. Defaults: 5 per client per hour, 20 queued service-wide |
 | `ATLAS_DEMO_ANALYSIS_ID` | ✓ | | Optional publication shown as the landing-page demo |
+| `ATLAS_PRIVACY_FILE`, `ATLAS_TERMS_FILE`, `ATLAS_TAKEDOWN_FILE` | ✓ | | Absolute paths to the owner's own UTF-8 plain text for `/privacy`, `/terms` and `/takedown`, each at most 64 KiB. Required outside development; the shipped placeholders are refused ([public-service pages](#public-service-pages)) |
+| `ATLAS_CONTACT` | ✓ | | The public contact: `mailto:name@domain` or an `https:` page. Required outside development |
 | `ATLAS_SANDBOX_IMAGE` | | ✓ | Immutable sandbox image ID (`sha256:…`) built from `deploy/sandbox.Dockerfile` |
 | `ATLAS_DOCKER_EXECUTABLE` | | ✓ | Trusted Docker CLI path, when it is not on `PATH` |
 | `ATLAS_WORK_ROOT` | | ✓ | Per-attempt scratch, on local disk |
@@ -54,6 +56,30 @@ Every variable listed as a secret can be given as `NAME_FILE`, with an absolute 
 | `ATLAS_DEVELOPMENT=1` | dev | dev | Enables loopback HTTP origins, fixture repositories and process isolation. **Never set it in production** |
 
 Development-only modes refuse to start without `ATLAS_DEVELOPMENT=1`: fixture acquisition, `ATLAS_SANDBOX=process`, and HTTP origins on loopback. Process isolation also requires fixture repositories.
+
+### Public-service pages
+
+The hosted landing links `/privacy`, `/terms`, `/takedown` and the contact
+([ADR-077](adr/ADR-077-public-service-pages.md)).
+- **The wording is the owner's.** ATLAS ships only placeholders, in
+  [`deploy/production/legal.example/`](../deploy/production/legal.example/). They carry the
+  marker `ATLAS-PLACEHOLDER`, and the API refuses to start with them outside development.
+- **The texts are plain text,** shown as text and never as markup. A blank line starts a
+  new paragraph.
+- **Beside the owner's text,** the privacy and takedown pages list what the code actually
+  does, marked as implementation facts, not legal wording:
+  - no source text is stored;
+  - publications last 7 days, unless deleted sooner, and are withdrawn when their repository
+    stops being public;
+  - IP addresses are neither stored nor logged; a keyed daily hash is kept for 24 hours;
+  - logs carry job IDs and a pseudonymous repository tag, never a name;
+  - downloaded copies cannot be recalled.
+- **Job records are kept.** The database keeps each job's submitted repository URL, and
+  job records are not deleted automatically. A retention period for them is the owner's
+  decision; the privacy facts say so until one exists.
+- **Changing a text:** replace the file and recreate the API container. Like secrets, a
+  bind-mounted file can keep its old inode.
+- **A development service** without the files shows a clearly marked placeholder instead.
 
 ## Release procedure
 

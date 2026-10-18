@@ -552,6 +552,75 @@
           "demoAnalysisId"
         ],
         "additionalProperties": false
+      },
+      "LegalNotices": {
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documents": {
+            "type": "object",
+            "properties": {
+              "privacy": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "terms": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "takedown": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "privacy",
+              "terms",
+              "takedown"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "configured",
+          "contact",
+          "documents"
+        ],
+        "additionalProperties": false
       }
     },
     "securitySchemes": {
@@ -1064,6 +1133,23 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/legal": {
+      "get": {
+        "operationId": "getLegalNotices",
+        "responses": {
+          "200": {
+            "description": "Operator-supplied privacy, terms and takedown text, and the contact",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalNotices"
                 }
               }
             }

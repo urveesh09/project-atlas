@@ -3,10 +3,12 @@ import {
   CapabilitiesSchema,
   ErrorEnvelopeSchema,
   JobStatusSchema,
+  LegalNoticesSchema,
   type AnalysisAccepted,
   type Capabilities,
   type ErrorEnvelope,
   type JobStatus,
+  type LegalNotices,
 } from '@atlas/schema';
 
 /**
@@ -53,6 +55,18 @@ export async function detectHostedService(): Promise<Capabilities | null> {
   } catch {
     return null;
   }
+}
+
+/** The operator's public-service texts; unconfigured if the service cannot answer. */
+export async function fetchLegalNotices(): Promise<LegalNotices> {
+  try {
+    const response = await fetch(`${API}/legal`, { credentials: 'same-origin', cache: 'no-store' });
+    const parsed = response.ok ? LegalNoticesSchema.safeParse(await response.json()) : null;
+    if (parsed?.success) return parsed.data;
+  } catch {
+    // fall through
+  }
+  return { configured: false, contact: null, documents: { privacy: null, terms: null, takedown: null } };
 }
 
 export async function ensureSession(): Promise<void> {

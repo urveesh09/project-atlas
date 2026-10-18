@@ -123,7 +123,27 @@ export const CapabilitiesSchema = z.strictObject({
   demoAnalysisId: AnalysisIdSchema.nullable(),
 });
 
+/** The hosted service's public-service pages (M4.6, ADR-077). */
+export const LEGAL_DOCUMENTS = ['privacy', 'terms', 'takedown'] as const;
+export type LegalDocument = (typeof LEGAL_DOCUMENTS)[number];
+
+/**
+ * Operator-supplied plain text for each page and a contact (`mailto:` or `https:`).
+ * `configured` is false only on a development service, where they may be absent; a
+ * production service refuses to start without all of them.
+ */
+export const LegalNoticesSchema = z.strictObject({
+  configured: z.boolean(),
+  contact: z.string().max(512).nullable(),
+  documents: z.strictObject({
+    privacy: z.string().max(65_536).nullable(),
+    terms: z.string().max(65_536).nullable(),
+    takedown: z.string().max(65_536).nullable(),
+  }),
+});
+
 export type ErrorEnvelope = z.infer<typeof ErrorEnvelopeSchema>;
+export type LegalNotices = z.infer<typeof LegalNoticesSchema>;
 export type AnalysisSubmission = z.infer<typeof AnalysisSubmissionSchema>;
 export type AnalysisAccepted = z.infer<typeof AnalysisAcceptedSchema>;
 export type JobStatus = z.infer<typeof JobStatusSchema>;

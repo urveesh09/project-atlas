@@ -52,7 +52,7 @@ ADR. It does not cover:
     preparation is ADR-070. M3.5 fallback/diagnostics/contrast is ADR-071 (merged
     PR #37); the M4.1 reference deployment is ADR-072 and M4.2 monitoring is ADR-073.
     M4.3 backups are ADR-074, M4.4 image supply chain ADR-075 and M4.5 service levels
-    ADR-076. Allocate ADR-077 next.
+    ADR-076. M4.6 public-service pages are ADR-077. Allocate ADR-078 next.
 - **Evidence.**
   - The M3.5 baseline passes 813 tests with 83 conditional skips; the CPython oracle
     runs in this evidence. M4.1 adds operator-tooling regressions; exact current
@@ -690,6 +690,15 @@ the others give their measured basis.
 - Keep the targets honest: base them on the rehearsal's measured numbers, not wishes.
 
 #### M4.6 Public-service pages
+
+**Implementation prepared, 2026-10-18:** [ADR-077](../adr/ADR-077-public-service-pages.md).
+- `/privacy`, `/terms` and `/takedown` show the owner's plain text and contact, linked from
+  the hosted landing.
+- The privacy and takedown pages add tested facts of what the code does.
+- A production API refuses to start without the texts and contact, or with the shipped
+  `ATLAS-PLACEHOLDER` files.
+- **Owner:** supply the texts and contact, and decide a retention period for job
+  records. These hold the submitted repository URL and are never deleted automatically.
 
 - Add privacy, terms and takedown pages to the hosted landing, plus a contact link.
 - The **owner** must supply the legal text and the contact address. The agent builds the

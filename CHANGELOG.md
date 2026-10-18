@@ -7,6 +7,13 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Changed
+- The hosted service has privacy, terms and takedown pages and a contact link
+  ([ADR-077](docs/adr/ADR-077-public-service-pages.md)).
+  - The wording is the owner's plain text.
+  - ATLAS adds only labelled facts of what its code does with data.
+  - A production API refuses to start without the texts and contact, or with the
+    shipped placeholders.
+  - New public route: `GET /api/v1/legal`.
 - Hosted service levels ([docs/hosted-slo.md](docs/hosted-slo.md),
   [ADR-076](docs/adr/ADR-076-service-levels.md)) are now defined:
   - provisional objectives for publication availability, job success and queue wait;

@@ -43,6 +43,13 @@ export function assertProductionProfile(config) {
   assert(subnet(pool.subnet).check(address, 'ipv4'), 'proxy must be inside API subnet');
   assert(!subnet(pool.ip_range).check(address, 'ipv4'), 'proxy must be outside dynamic allocation pool');
   for (const s of Object.values(config.secrets)) assert(path.isAbsolute(s.file), 'absolute secret file paths required');
+  // The owner's public-service texts (M4.6, ADR-077) arrive as mounted configs, never volumes.
+  const legalTargets = (api.configs ?? []).map((c) => c.target);
+  for (const name of ['ATLAS_PRIVACY_FILE', 'ATLAS_TERMS_FILE', 'ATLAS_TAKEDOWN_FILE']) {
+    assert(legalTargets.includes(api.environment[name]), `${name} must name a mounted config`);
+  }
+  assert(/^(?:mailto:|https:\/\/)/.test(api.environment.ATLAS_CONTACT ?? ''), 'ATLAS_CONTACT must be a mailto: address or an https: page');
+  for (const c of Object.values(config.configs ?? {})) assert(path.isAbsolute(c.file), 'absolute legal text paths required');
   // Optional monitoring (M4.2, ADR-073): inside the API's namespace, publishing nothing.
   const prometheus = config.services.prometheus;
   if (prometheus) {

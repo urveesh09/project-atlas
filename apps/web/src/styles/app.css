@@ -1671,6 +1671,30 @@ select:focus-visible {
   margin: 0;
   padding-inline-start: 18px;
 }
+/* Public-service pages (M4.6): the operator's plain text, line breaks kept. */
+.legal-text p {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.legal-facts h2 {
+  font-size: 17px;
+  margin: 20px 0 0;
+}
+.legal-facts ul {
+  padding-inline-start: 18px;
+}
+.legal-links ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  font-size: 13px;
+}
+.legal-links a[aria-current='page'] {
+  font-weight: 600;
+}
 .hosted-error {
   border-inline-start: 3px solid var(--error);
   padding: 8px 12px;

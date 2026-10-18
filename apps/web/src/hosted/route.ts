@@ -1,8 +1,10 @@
+import type { LegalDocument } from '@atlas/schema';
+
 /**
  * Hosted client routes. Paths carry only opaque public IDs; viewer state stays in the
  * fragment and nothing secret ever enters a URL (plan §3.1, §13.1).
  */
-export type HostedRoute = { kind: 'home' } | { kind: 'job'; jobId: string } | { kind: 'analysis'; analysisId: string } | { kind: 'unknown' };
+export type HostedRoute = { kind: 'home' } | { kind: 'job'; jobId: string } | { kind: 'analysis'; analysisId: string } | { kind: 'legal'; document: LegalDocument } | { kind: 'unknown' };
 
 export function parseRoute(pathname: string): HostedRoute {
   if (pathname === '/' || pathname === '') return { kind: 'home' };
@@ -10,6 +12,8 @@ export function parseRoute(pathname: string): HostedRoute {
   if (job) return { kind: 'job', jobId: job[1]! };
   const analysis = /^\/a\/(analysis_[0-9a-f]{64})$/.exec(pathname);
   if (analysis) return { kind: 'analysis', analysisId: analysis[1]! };
+  const legal = /^\/(privacy|terms|takedown)$/.exec(pathname);
+  if (legal) return { kind: 'legal', document: legal[1] as LegalDocument };
   return { kind: 'unknown' };
 }
 

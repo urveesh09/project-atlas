@@ -163,6 +163,7 @@ R6-01 and R6-02, then R6-05, R6-06 and R6-07.
 | Private backups and isolated restore drill | [production backups](production-backups.md) |
 | Verify images, SBOMs, vulnerability scans and signed release origin | [image supply chain](image-supply-chain.md) |
 | Service-level objectives, severity levels and incident response | [service levels](hosted-slo.md) |
+| Privacy, terms and takedown pages: what the owner must supply | [operations → public-service pages](hosted-operations.md#public-service-pages) |
 | Contracts | [CLI](contracts/cli.md), [identity](contracts/identity.md), [metrics](contracts/metrics.md), [capabilities and limits](contracts/capabilities.md), [OpenAPI](api/openapi.json) |
 | Measurements | [benchmarks](benchmarks/) |
 | Real-repository results | [real repositories](release/real-repositories.md) |

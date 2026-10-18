@@ -144,6 +144,44 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     } finally { await context.close(); }
   }, 120_000);
 
+  it('links privacy, terms and takedown pages: placeholders until configured, then the operator text and contact', async () => {
+    const { context, page } = await open();
+    try {
+      await page.goto(`${api.origin}/`);
+      const footer = page.getByRole('navigation', { name: 'Service information' });
+      await footer.getByRole('link', { name: 'Privacy' }).click();
+      await page.getByRole('heading', { level: 1, name: 'Privacy' }).waitFor();
+      expect(new URL(page.url()).pathname).toBe('/privacy');
+      // A development service has no operator text; the page says so instead of inventing any.
+      expect(await page.getByRole('note').innerText()).toContain('Placeholder.');
+      expect(await page.getByRole('heading', { name: 'How this service handles data' }).count()).toBe(1);
+      expect(await page.getByText('IP addresses are not stored or written to logs.', { exact: false }).count()).toBe(1);
+      expect(await audit(page, 'hosted-privacy-placeholder')).toEqual([]);
+      await page.getByRole('navigation', { name: 'Service information' }).getByRole('link', { name: 'Takedown requests' }).click();
+      await page.getByRole('heading', { level: 1, name: 'Takedown requests' }).waitFor();
+      expect(await page.getByRole('heading', { name: 'What a takedown can do' }).count()).toBe(1);
+      await page.goBack();
+      await page.getByRole('heading', { level: 1, name: 'Privacy' }).waitFor();
+    } finally { await context.close(); }
+
+    const configured = await startApi({ store: h.admission, quotaSecret: 'f'.repeat(32), developmentLoopback: true, publications: h.publications, storage: h.store, webRoot,
+      legal: { configured: true, contact: 'mailto:operator@example.org', documents: { privacy: 'Operator privacy text.\n\nSecond paragraph.', terms: 'Operator terms text.', takedown: 'Operator takedown text.' } } });
+    const second = await open();
+    try {
+      await second.page.goto(`${configured.origin}/terms`);
+      await second.page.getByRole('heading', { level: 1, name: 'Terms of use' }).waitFor();
+      expect(await second.page.locator('.legal-text p').allInnerTexts()).toEqual(['Operator terms text.']);
+      expect(await second.page.getByRole('note').count()).toBe(0);
+      expect(await second.page.getByRole('link', { name: 'operator@example.org' }).getAttribute('href')).toBe('mailto:operator@example.org');
+      expect(await audit(second.page, 'hosted-terms-configured')).toEqual([]);
+      await second.page.goto(`${configured.origin}/`);
+      expect(await second.page.getByRole('navigation', { name: 'Service information' }).getByRole('link', { name: 'Contact' }).getAttribute('href')).toBe('mailto:operator@example.org');
+    } finally {
+      await second.context.close();
+      await configured.close();
+    }
+  });
+
   it('submits, follows stages, opens the city and deletes it (success journey, keyboard reachable)', async () => {
     const { context, page } = await open();
     await page.goto(`${api.origin}/`);

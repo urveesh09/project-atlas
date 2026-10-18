@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, CapabilitiesSchema, ErrorEnvelopeSchema, IdempotencyKeySchema, JobStatusSchema, SessionStatusSchema } from './api.js';
+import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, CapabilitiesSchema, ErrorEnvelopeSchema, IdempotencyKeySchema, JobStatusSchema, LegalNoticesSchema, SessionStatusSchema } from './api.js';
 import { ArtifactManifestSchema } from './artifact.js';
 import { GraphSnapshotSchema } from './graph.js';
 import { IndexedGraphSchema } from './indexed-graph.js';
@@ -29,6 +29,7 @@ const API_SCHEMAS = {
   JobStatus: JobStatusSchema,
   ErrorEnvelope: ErrorEnvelopeSchema,
   Capabilities: CapabilitiesSchema,
+  LegalNotices: LegalNoticesSchema,
 } as const;
 
 function convert(schema: z.ZodType, io: 'input' | 'output' = 'output'): Record<string, unknown> {
@@ -161,6 +162,9 @@ export function openApiDocument(): Record<string, unknown> {
       },
       '/capabilities': {
         get: { operationId: 'getCapabilities', responses: { '200': { description: 'Static service contract', content: { 'application/json': { schema: { $ref: '#/components/schemas/Capabilities' } } } } } },
+      },
+      '/legal': {
+        get: { operationId: 'getLegalNotices', responses: { '200': { description: 'Operator-supplied privacy, terms and takedown text, and the contact', content: { 'application/json': { schema: { $ref: '#/components/schemas/LegalNotices' } } } } } },
       },
       '/health/live': { get: { operationId: 'live', responses: { '200': { description: 'Process is alive' } } } },
       '/health/ready': { get: { operationId: 'ready', responses: { '200': { description: 'Ready to admit jobs' }, '503': { description: 'Not ready' } } } },
