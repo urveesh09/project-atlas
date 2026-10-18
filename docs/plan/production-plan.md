@@ -634,6 +634,13 @@ against the real API. Alert delivery is the operator's configuration.
 
 #### M4.3 Backups and restore drill
 
+Implementation: [ADR-074](../adr/ADR-074-private-backups-and-restore-drill.md),
+[operator procedure](../production-backups.md),
+[physical evidence](../benchmarks/production-backup-restore.md).
+Scratch cleanup uses fresh storage and quarantines restored live publications and
+unfinished jobs, including stale state predating a later deletion/cancellation.
+This is preparation; it does not close the live-site R6-06 drill.
+
 - **Change.**
   - A backup script and timer: `pg_dump -Fc`, kept for 7 days, as hosted-operations.md
     says. Storage needs no backup.

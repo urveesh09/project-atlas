@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily ATLAS metadata backup
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 UTC
+Persistent=yes
+Unit=atlas-backup.service
+
+[Install]
+WantedBy=timers.target

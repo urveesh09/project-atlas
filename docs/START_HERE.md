@@ -157,9 +157,10 @@ R6-01 and R6-02, then R6-05, R6-06 and R6-07.
 | Product specification | [master plan](plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md) |
 | What is built and its evidence | [implementation status](implementation-status.md) |
 | Requirement-by-requirement trace and open items | [release audit](release/release-audit.md) |
-| Why things are the way they are | [decision records (ADR-001 … ADR-037)](adr/) |
+| Why things are the way they are | [decision records](adr/) |
 | Install/demo/privacy for end users | [candidate guide](release/README.md), [release notes](release/release-notes.md) |
 | Hosted setup, configuration, runbooks | [hosted development](hosted-development.md), [hosted operations](hosted-operations.md) |
+| Private backups and isolated restore drill | [production backups](production-backups.md) |
 | Contracts | [CLI](contracts/cli.md), [identity](contracts/identity.md), [metrics](contracts/metrics.md), [capabilities and limits](contracts/capabilities.md), [OpenAPI](api/openapi.json) |
 | Measurements | [benchmarks](benchmarks/) |
 | Real-repository results | [real repositories](release/real-repositories.md) |

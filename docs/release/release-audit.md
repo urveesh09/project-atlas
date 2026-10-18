@@ -1,6 +1,6 @@
 # ATLAS V0.1 release audit
 
-Updated: 2026-10-18 (M4.1 reference deployment kit; M3.5 merged). **G6 OPEN — candidate preparation, not release sign-off.**
+Updated: 2026-10-18 (M4.3 private backup/restore preparation; M4.1/M4.2 merged). **G6 OPEN — candidate preparation, not release sign-off.**
 The four pillars are implemented; runtime tracing/instrumentation remains wholly deferred.
 This audit distinguishes implementation/test evidence from human, reference-device and
 public-infrastructure acceptance. The canonical requirements remain the [master plan](../plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md).
@@ -46,12 +46,21 @@ and [ADR-072](../adr/ADR-072-reference-hosted-deployment.md): real production AP
 transport rehearsal, configuration validators and isolated packet-policy enforcement,
 alongside the existing hosted acquisition/analysis gates. It does not install a host
 firewall, run systemd on the deployment machine, verify site credentials/renewal,
-or create a public service. Those remain R6-06, with later M4 backup/
+or create a public service. Those remain R6-06, with later M4
 supply-chain/SLO/legal work still open. See the [dated report](../benchmarks/production-reference-deployment.md).
 M4.2 ([ADR-073](../adr/ADR-073-operator-monitoring.md)) adds Prometheus text metrics,
 alert rules with unit tests and an optional in-namespace Prometheus, rehearsed against
 the real production API. R6-06's live alert checks still need the site's own alert
 delivery.
+
+M4.3 ([ADR-074](../adr/ADR-074-private-backups-and-restore-drill.md)) adds daily private
+backups and independent expiry pruning, plus a guarded scratch restore that runs actual
+sweep/reconciliation against fresh storage. It preserves original lifecycle evidence and
+quarantines stale live state, including later-deleted publications and cancelled jobs.
+The [physical report](../benchmarks/production-backup-restore.md) records real TLS
+PostgreSQL, corruption/failure recovery and untouched live storage. No backup secrets or
+archives are CI artifacts. Operator installation, alert delivery, promotion, post-backup
+takedown reconciliation and a live-site recovery drill remain R6-06.
 
 Production M2.3 adds full hosted Python evidence (2026-10-16, [ADR-064](../adr/ADR-064-hosted-python-evidence.md)):
 145 local PostgreSQL/S3/container/browser checks pass, including two authored Python

@@ -2,8 +2,9 @@
 
 This kit is for a **dedicated Linux worker host** and a separate API host. It does
 not create a public service. R6-06 deployment acceptance and G6 remain open.
-Optional monitoring is [below](#monitoring) (M4.2). Backup automation, supply-chain
-scanning, SLOs and legal pages are M4.3–M4.6.
+Optional monitoring is [below](#monitoring) (M4.2). Private backup automation and the
+scratch-only restore drill are documented in [Production backups](../../docs/production-backups.md)
+(M4.3). Supply-chain scanning, SLOs and legal pages remain M4.4–M4.6.
 Read [operations](../../docs/hosted-operations.md) and [ADR-072](../../docs/adr/ADR-072-reference-hosted-deployment.md).
 
 ## Prerequisites and boundaries

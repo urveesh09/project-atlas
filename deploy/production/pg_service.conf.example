@@ -1,0 +1,9 @@
+# Root-owned mode 0600 at /etc/atlas/backup/pg_service.conf; systemd copies it privately.
+# Restricted subset: one section, one unquoted value per key, no spaces or includes.
+[atlas_backup]
+host=database.example.org
+port=5432
+dbname=atlas
+user=atlas_backup
+sslmode=verify-full
+sslrootcert=/etc/atlas/backup-ca.crt
