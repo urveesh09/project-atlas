@@ -48,14 +48,28 @@ Agents: read [AGENTS.md](../AGENTS.md).
   yields zero fixable findings in both images; 157/256 ignored/unfixed results stay in
   full JSON. No application dependency, Node, Git, analyzer or artifact version changed.
 - **Local checks:** both real scans and exact-digest private registry copies pass;
-  all owned resources removed. Required-browser `pnpm verify`: 883 passed, 84 skipped
-  on the merged M4.3 base, plus eight focused policy tests; six-repository baseline,
+  all owned resources removed. Required-browser `pnpm verify`: 884 passed, 84 skipped
+  after the descriptor correction below; nine focused policy tests pass;
+  six-repository baseline,
   checksum-verified actionlint 1.7.12 and diff whitespace checks pass. Failed reports
   are retained, with causes/fixes described in the ADR. CI rebuilds and repeats the
   physical gates with pinned BuildKit 0.34.0 and runs existing hosted runtime tests.
 - **Boundary:** exact-head CI and owner merge remain required. No release tag, public
   package, live signing or deployment was created. R6-06/G6, M4.5/M4.6, M3.4 and
   M2.2/M2.7 remain open.
+
+**M4.4 CI review correction (2026-10-18):** on initial head `9eaf3da`, CodeQL alert
+71 identified reopening the scanner report by pathname after creating it exclusively.
+The gate now keeps its `wx+` descriptor open, reads that same inode at offset zero
+after the child exits, bounds report bytes and closes descriptors on all paths. A real
+filename-replacement regression test passes, including on Windows. No security alert
+was dismissed. The initial [CI run](https://github.com/urveesh09/project-atlas/actions/runs/39123573477)
+also retained two failures in existing journeys: live GitHub acquisition returned
+`UPSTREAM_RATE_LIMITED` (41 passed/1 failed; its single-job retry then passed 42/42), and WebKit timed out after 30 seconds in
+the starting/loading/cancellation audit (47 passed/1 failed). The isolated WebKit retry passed 48/48; its timeout cause remains
+unproven. Neither journey nor its assertions/deadlines were changed; the corrected
+head must pass them, along with all other checks, before merge. Both new image gates
+already passed on the initial head with pinned BuildKit 0.34.0.
 
 ## Phase 0: prove constraints and lock contracts
 

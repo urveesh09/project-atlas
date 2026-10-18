@@ -29,8 +29,8 @@ All owned scanner caches/containers and copy-rehearsal networks/containers were 
 Additional checks:
 
 - `pnpm verify` with required Chromium journeys on the merged M4.3 base:
-  **883 passed, 84 skipped**. Service/OS-gated skips remain disclosed.
-- Eight new unit cases cover policy pins, both max-provenance versions, invalid
+  **884 passed, 84 skipped** after the descriptor correction. Service/OS-gated skips remain disclosed.
+- Nine new unit cases cover the report inode/size bound, policy pins, both max-provenance versions, invalid
   statements, image mismatch, fixed High/Critical blocking, lower/unfixed results,
   scanner failures, stale data, exclusions and suppressed fixed-high findings.
 - Six-repository committed baseline guard passes.
@@ -65,3 +65,11 @@ The zero count is **fixable findings**, not all advisories: ignored/unfixed resu
 retained rather than hidden. Live OIDC attestation issuance/verification and GHCR
 publication require an owner-approved release tag and were not performed here. CI's
 read-only jobs do not create signed releases. Deployment acceptance and G6 remain open.
+
+The initial PR head `9eaf3da` passed both new physical image jobs under CI's pinned
+BuildKit 0.34.0. CodeQL then caught the report reopen race; the corrected implementation
+reads through its original descriptor and adds the filename-replacement regression.
+The initial live-GitHub rate limit and WebKit timeout, plus the unchanged assertions
+and isolated reruns, are recorded in implementation status. The unchanged live check
+then passed 42/42 and WebKit 48/48; initial failures remain failures. The timeout cause
+is unproven. The corrected head still requires every CI check before merge.

@@ -119,5 +119,55 @@
     }
   },
   "livePublication": false,
-  "liveSigning": false
+  "liveSigning": false,
+  "reviewCorrection": {
+    "initialHead": "9eaf3da472379f0e1cd6ce76499725b4f5abf0cb",
+    "codeqlAlert": 71,
+    "descriptorRegressionPassed": true,
+    "apiDescriptorScan": {
+      "format": "atlas.image-scan/1",
+      "passed": true,
+      "database": {
+        "schemaVersion": "v6.1.10",
+        "from": "https://grype.anchore.io/databases/v6/vulnerability-db_v6.1.10_2026-10-17T00:31:44Z_1792304837.tar.zst?checksum=sha256%3Ae3d1010ec6e5dee9d3e84b2d5723c534d799e104e6573160e05b22c5292f091e",
+        "built": "2026-10-18T06:27:17Z",
+        "valid": true
+      },
+      "matches": 0,
+      "suppressed": 157,
+      "blocking": [],
+      "scanner": "anchore/grype@sha256:e4a44ef45d285b829ce6efe2642980329661bd2d18eab5fc539138d4adaebbbe",
+      "scannerVersion": "0.120.1",
+      "exitCode": 0,
+      "cleaned": true
+    },
+    "initialCiRun": 39123573477,
+    "retainedFailures": [
+      {
+        "check": "live GitHub acquisition",
+        "code": "UPSTREAM_RATE_LIMITED",
+        "passed": 41,
+        "failed": 1
+      },
+      {
+        "check": "viewer journeys (webkit)",
+        "case": "starting/loading/cancellation audit",
+        "timeoutMs": 30000,
+        "passed": 47,
+        "failed": 1,
+        "cause": "unproven"
+      }
+    ],
+    "isolatedRetries": {
+      "liveGitHub": {
+        "passed": 42,
+        "failed": 0
+      },
+      "webkit": {
+        "passed": 48,
+        "failed": 0,
+        "timeoutCause": "unproven"
+      }
+    }
+  }
 }

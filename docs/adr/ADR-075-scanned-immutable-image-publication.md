@@ -87,3 +87,15 @@ remain separate responsibilities. R6-06 and G6 remain open.
 - [Docker build attestations](https://docs.docker.com/build/metadata/attestations/).
 - [ORAS OCI archive copying](https://oras.land/docs/commands/oras_cp/).
 - [GitHub attestation verification](https://cli.github.com/manual/gh_attestation_verify).
+
+## CI review correction, 2026-10-18
+
+Initial head `9eaf3da` passed both new physical image jobs, including pinned BuildKit
+0.34.0, but CodeQL alert 71 caught a report pathname race. The implementation now
+opens the scanner output `wx+` mode 0600, keeps that descriptor through child completion,
+reads its inode at explicit offset zero with a 64 MiB bound, and closes it on all paths.
+The regression replaces the pathname while the original descriptor is open and proves
+the original bytes are read. No alert is dismissed or query disabled. The initial
+live-acquisition rate-limit and unproven WebKit 30-second timeout are separately retained
+in [implementation status](../implementation-status.md); their tests and budgets stay
+unchanged and the corrected head requires all checks green.

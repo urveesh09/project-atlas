@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { closeSync, mkdtempSync, openSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 // @ts-expect-error Release tooling is plain Node ESM outside runtime packages.
-import { evaluateScan, policy, validateStatements } from '../../../scripts/image-supply-chain.mjs';
+import { evaluateScan, policy, readDescriptor, validateStatements } from '../../../scripts/image-supply-chain.mjs';
 const digest = `sha256:${'a'.repeat(64)}`, imageDigest = `sha256:${'b'.repeat(64)}`, configDigest = `sha256:${'c'.repeat(64)}`;
 const now = Date.parse('2026-10-18T12:00:00Z');
 function scan() {
@@ -15,6 +18,21 @@ function statements() {
     { subject, predicateType: 'https://slsa.dev/provenance/v1', predicate: { buildDefinition: { buildType: 'https://github.com/moby/buildkit/blob/master/docs/attestations/slsa-definitions.md', internalParameters: { buildConfig: { llbDefinition: [] } } } } }];
 }
 describe('release image gate', () => {
+  it('reads the original report even after its filename is replaced, and bounds bytes', () => {
+    const base = realpathSync(os.tmpdir()), directory = realpathSync(mkdtempSync(path.join(base, 'atlas-image-fd-')));
+    const report = path.join(directory, 'report.json'), fd = openSync(report, 'wx+', 0o600);
+    try {
+      writeFileSync(fd, '{"source":"original"}');
+      renameSync(report, path.join(directory, 'original.json'));
+      writeFileSync(report, '{"source":"replaced"}');
+      expect(JSON.parse(readDescriptor(fd).toString())).toEqual({ source: 'original' });
+      expect(() => readDescriptor(fd, 1)).toThrow('limit');
+    } finally {
+      closeSync(fd);
+      expect(realpathSync(directory)).toBe(directory); expect(path.dirname(directory)).toBe(base);
+      expect(path.basename(directory)).toMatch(/^atlas-image-fd-/); rmSync(directory, { recursive: true });
+    }
+  });
   it('pins scanner, SBOM generator and publisher by immutable digest', () => {
     for (const name of ['scanner', 'sbomGenerator', 'publisher', 'cacheInitializer', 'registryFixture', 'builder']) expect(policy[name]).toMatch(/@sha256:[a-f0-9]{64}$/);
     expect(policy.buildxVersion).toBe('v0.37.1');

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from 'node:fs';
+import { closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -20,6 +20,13 @@ export const run = (exe, args, options = {}) => execFileSync(exe, args, { cwd: r
 const docker = (args, options) => run('docker', args, options);
 const json = (bytes) => JSON.parse(bytes.toString('utf8'));
 export const writeJson = (file, value) => writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
+/** Read the exact inode we created, at offset zero after the child advanced its offset. */
+export function readDescriptor(fd, limit = 64 * 1024 * 1024) {
+  const size = fstatSync(fd).size; assert(size <= limit, 'Scanner report exceeds its size limit');
+  const bytes = Buffer.alloc(size); let offset = 0;
+  while (offset < size) { const n = readSync(fd, bytes, offset, size - offset, offset); assert(n > 0, 'Incomplete scanner report'); offset += n; }
+  return bytes;
+}
 
 /** Read a named metadata entry, never extract an archive into the host filesystem. */
 function entry(archive, name, limit = 32 * 1024 * 1024) {
@@ -95,10 +102,12 @@ export function scanArchive(archive, out, configDigest) {
       '--mount', `type=bind,source=${path.resolve(archive)},target=/scan/image.tar,readonly`,
       '--mount', `type=bind,source=${path.join(root, 'deploy/grype.yaml')},target=/scan/config.yaml,readonly`,
       '--env', 'GRYPE_DB_CACHE_DIR=/cache', policy.scanner, 'oci-archive:/scan/image.tar', '--config', '/scan/config.yaml', '--only-fixed', '--fail-on', 'high', '--output', 'json'];
-    const output = openSync(reportFile, 'wx'), diagnostics = openSync(logFile, 'wx'); let code = 0;
-    try { docker(args, { stdio: ['ignore', output, diagnostics] }); } catch (error) { code = error.status ?? -1; }
-    finally { closeSync(output); closeSync(diagnostics); }
-    result = { ...evaluateScan(json(readFileSync(reportFile)), code, configDigest), scanner: policy.scanner, scannerVersion: policy.scannerVersion, exitCode: code };
+    const output = openSync(reportFile, 'wx+', 0o600); let diagnostics, code = 0;
+    try {
+      diagnostics = openSync(logFile, 'wx', 0o600);
+      try { docker(args, { stdio: ['ignore', output, diagnostics] }); } catch (error) { code = error.status ?? -1; }
+      result = { ...evaluateScan(json(readDescriptor(output)), code, configDigest), scanner: policy.scanner, scannerVersion: policy.scannerVersion, exitCode: code };
+    } finally { closeSync(output); if (diagnostics !== undefined) closeSync(diagnostics); }
   } finally {
     try {
       for (const container of docker(['ps', '--all', '--quiet', '--filter', `label=${label}`]).toString().trim().split(/\s+/).filter(Boolean)) {
