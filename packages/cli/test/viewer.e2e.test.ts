@@ -408,6 +408,34 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     if (!loaded.ok) throw new Error('invalid');
     expect(await page.title()).toBe(`${loaded.bundle.manifest.repo.displayName} as a city · ATLAS`);
   });
+  it('reads city diagnostics without querying the graphics driver', async () => {
+    const result = await page.evaluate(() => {
+      const city = window.__atlasCity!;
+      const canvas = document.querySelector<HTMLCanvasElement>('.city-canvas')!;
+      const gl = canvas.getContext('webgl2')!;
+      const info = gl.getExtension('WEBGL_debug_renderer_info');
+      const expectedRenderer = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : 'unknown';
+      const getExtension = gl.getExtension, getParameter = gl.getParameter;
+      const calls: string[] = [];
+      gl.getExtension = function (this: WebGL2RenderingContext, name: string) {
+        calls.push('getExtension');
+        return Reflect.apply(getExtension, this, [name]);
+      } as typeof getExtension;
+      gl.getParameter = function (name) {
+        calls.push('getParameter');
+        return getParameter.call(this, name);
+      };
+      try {
+        return { stats: city.stats(), expectedRenderer, calls };
+      } finally {
+        gl.getExtension = getExtension;
+        gl.getParameter = getParameter;
+      }
+    });
+    expect(result.calls).toEqual([]);
+    expect(result.stats.renderer).toBe(result.expectedRenderer);
+    expect(result.stats.buildings).toBeGreaterThan(0);
+  });
   it('keeps the camera still on selection and across lenses', async () => {
     const before = await page.evaluate(() => window.__atlasCity!.cameraState());
     await choose('pricing.ts');
@@ -1079,7 +1107,12 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     expect(await page.locator('.city-table .change-cell').count()).toBeGreaterThan(0);
     expect(await audit(page, 'comparison-table')).toEqual([]);
     await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('3d');
-    await page.waitForFunction(() => window.__atlasCity !== undefined);
+    // A published handle is not a drawn city: first finish the preceding mode switch,
+    // with this comparison's paint, before timing the next lens-state assertion.
+    await page.waitForFunction((paint) => {
+      const stats = window.__atlasCity?.stats();
+      return stats !== undefined && stats.drawCalls > 0 && stats.paint === paint;
+    }, `${frames[5]!.snapshotId}>${frames[11]!.snapshotId}:fanIn`);
     // Picking a lens asks for lens colours.
     await page.getByLabel('Lens', { exact: true }).selectOption('complexity');
     expect(await colour.inputValue()).toBe('off');

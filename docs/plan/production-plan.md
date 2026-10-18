@@ -553,6 +553,11 @@ manual gate; it does not close it. Landed in PR #36. M3.4/M3.5 remain separate w
   console/page errors, exactly one attempt and no three.js canvas, plus the existing
   table/inspector and overflow assertions. Six focused checks cover probe cleanup.
   See the dated M3.5 status entry and its pull request for verification; M3.4 remains open.
+- **CI follow-up, 2026-10-18 (PR #37):** remove driver queries from renderer diagnostics
+  and wait for the preceding 3D mode switch to draw its comparison before testing the
+  next lens action. The original macOS callback timeout is retained in ADR-071; the
+  five-second assertion and comparison counts remain unchanged. Retest all engines
+  and the full suite before the follow-up commit; exact-head CI must pass before merge.
 
 ### M4. Hosted production kit
 

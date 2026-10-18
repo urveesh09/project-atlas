@@ -2,6 +2,8 @@
 
 Date: 2026-10-17. Status: accepted. Production plan M3.5; follows ADR-069/070.
 
+Updated: 2026-10-18 with the first CI failure and the diagnostic-read correction.
+
 ## Evidence and cause
 
 The existing touch journey disables WebGL and successfully opens the map, then selects
@@ -18,6 +20,22 @@ defect above; both original logs remain in ignored scratch.
 The 390 px overflow assertion passes during this reproduction. M3.4's previously
 recorded intermittent overflow has no identified cause and remains open. No CSS,
 overflow assertion, functional deadline or performance budget changes here.
+
+The first CI run, [39057047530](https://github.com/urveesh09/project-atlas/actions/runs/39057047530),
+on `01035cc`, failed macOS verification: 809 assertions passed and two failed. Both
+disabled-WebGL journeys passed. The first failure was a five-second diagnostic poll
+after returning from table to 3D and selecting the complexity lens; the second was
+consequent state left by the unclosed comparison. The later failure report shows the
+correct complexity lens and null paint. Vitest's error says the callback did not
+resolve, not that a wrong value was returned. This run is not counted as passing.
+
+`stats()` queried `getExtension` and `getParameter` on every read, although startup
+already queried the same immutable renderer identity. A new browser regression
+records both calls before the correction. Such queries can block on graphics work
+([MDN](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices#avoid_blocking_api_calls_in_production)).
+The CI report alone cannot distinguish a driver stall from browser/host scheduling;
+do not claim that particular cause is proven. The existing mode-switch wait also
+tested only publication of the renderer handle, before its first draw.
 
 ## Decision
 
@@ -41,6 +59,14 @@ overflow assertion, functional deadline or performance budget changes here.
    graphics API, missing extension and both optional cleanup failures. The existing 3D
    journeys guard the normal renderer path. Analyzer, artifact and geometry versions
    and the six-repository analysis baseline are unchanged.
+6. Reuse the renderer identity already read at startup, keeping `stats()` free of
+   graphics-driver queries. A real-browser regression observes the actual WebGL
+   context methods and independently checks that the cached name equals the driver
+   result. Before the next lens action, strengthen the existing 3D mode-switch wait
+   to require its first draw and the exact comparison's fan-in paint. The subsequent
+   five-second lens-state assertion and all comparison counts stay unchanged.
+   Keep the original CI log and its accessibility reports, including incomplete
+   checkpoints; retest the changed code in every browser and the full suite.
 
 ## Verification
 

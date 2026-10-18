@@ -305,6 +305,8 @@ export class CityRenderer {
   private settleTimer: ReturnType<typeof setTimeout> | null = null;
   /** Full pixel ratio, the ratio the frame guard currently allows, and its samples. */
   private readonly fullRatio: number;
+  /** Context identity is constant for this renderer; diagnostics must not query the GPU. */
+  private readonly gpuRenderer: string;
   private ratio: number;
   private readonly late: number[] = [];
   private lastFrameAt = 0;
@@ -335,6 +337,7 @@ export class CityRenderer {
     // trees, clouds, waves and facade patterns cost CPU time that the rest of the page needs.
     const info = this.renderer.getContext().getExtension('WEBGL_debug_renderer_info');
     const gpu = info ? String(this.renderer.getContext().getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+    this.gpuRenderer = info ? gpu : 'unknown';
     this.lite = lowQuality || /swiftshader|llvmpipe|software|microsoft basic/i.test(gpu);
     const lite = this.lite;
     this.shadowsOn = !lite;
@@ -1822,8 +1825,6 @@ export class CityRenderer {
     return hit === null ? null : this.city.buildings[hit]!.nodeId;
   }
   stats() {
-    const ctx = this.renderer.getContext(),
-      ext = ctx.getExtension('WEBGL_debug_renderer_info');
     return {
       drawCalls: this.drawCalls,
       /** Extra calls of the last shadow-map update, which runs only when buildings change. */
@@ -1847,7 +1848,7 @@ export class CityRenderer {
       gpuMsPerMegapixel: this.gpuPerPixel * 1e6,
       views: { count: this.views.length, index: this.viewIndex },
       zoom: this.pixelsPerUnit(),
-      renderer: ext ? String(ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'unknown',
+      renderer: this.gpuRenderer,
       heapBytes: (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null,
     };
   }

@@ -2,8 +2,9 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-17):** production-plan M3.5 silent WebGL fallback
-(ADR-071), following accessibility preparation (PR #36), macOS CI (PR #34) and
+**Current milestone (2026-10-18):** production-plan M3.5 silent WebGL fallback and
+its CI follow-up for GPU-free diagnostics (ADR-071, PR #37), following accessibility
+preparation (PR #36), macOS CI (PR #34) and
 Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
 prepared; R6-04 remains open. M3.4 intermittent layout diagnosis remains open.
 M2.2 Python/mixed capacity
@@ -1519,6 +1520,42 @@ and a new CI job, `viewer journeys (firefox|webkit)`, runs on Ubuntu.
   probe checks pass, and all **215 relative Markdown file links** in changed
   documentation resolve. CI must independently pass on the pull request's exact head;
   its hosted gates cover the services skipped by this local run.
+
+### Production M3.5 follow-up: diagnostics and mode-switch readiness (2026-10-18)
+
+- **First CI result:** [run 39057047530](https://github.com/urveesh09/project-atlas/actions/runs/39057047530)
+  on `01035cc` failed macOS verification (809 passed, two failed); all other checks
+  passed. Both disabled-WebGL cases passed. A comparison test's five-second polling
+  callback did not resolve after returning from table to 3D and choosing complexity.
+  Its later diagnostic report has the correct lens and null paint. The unclosed
+  comparison then caused the next test to time out. This run is not counted as
+  passing. Its full log and all six accessibility bundles are retained; macOS
+  reached only 47 of the expected 49 audit checkpoints.
+- **Correction:** [ADR-071](adr/ADR-071-silent-webgl-fallback.md). Cache the GPU identity
+  already read at startup so diagnostics do not query the graphics driver. A new
+  browser regression records `getExtension` and `getParameter` before the fix, and
+  independently compares the cached identity with the actual context afterwards.
+  Strengthen the existing table-to-3D wait to require a first draw with the exact
+  comparison paint before the next lens action. The subsequent five-second assertion,
+  comparison counts and every other deadline stay unchanged. The CI report does not
+  prove whether driver blocking or browser/host scheduling caused that callback stall.
+- **Focused verification:** the diagnostics regression and all history/comparison
+  journeys pass **11/11** locally. The initial typed wrapper for the new test exposed
+  a TypeScript overload error; correcting its signature/forwarding makes type checks
+  pass without changing the product behavior. Original failed logs are retained.
+- **Browser retest on Windows:** all **47 journeys** pass in Firefox and WebKit,
+  including the new driver-query regression, every comparison and both disabled-WebGL
+  cases. Each retains **49 accessibility checkpoints (48 named states)** with zero
+  reported violations. The new diagnostics test adds no audit state. Incomplete
+  checks still require human judgment. M3.4 and R6-01…R6-07/G6 remain open.
+- **Full retest:** `pnpm verify` passes **812 tests**, with **83 service-gated skips**
+  (69 passed files, four skipped), including all **47 Chromium viewer journeys**.
+  Chromium also records 49 checkpoints, making **147 local audit checkpoints** across
+  the three engines with zero reported violations. The six-repository committed
+  payload/check baseline guard passes; all **216 relative Markdown file links** in
+  the pull request's changed documentation resolve. The exact follow-up head must
+  pass CI independently; the PR records the final outcome and retains the initial
+  failure. No deadline, budget, rule or existing comparison assertion was relaxed.
 
 ### Reproduce verification
 

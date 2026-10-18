@@ -22,6 +22,8 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 - Devices without WebGL2 now open the map/table fallback without three.js context
   errors. Startup probes release their temporary graphics context; blocked graphics
   APIs that throw also fall back (ADR-071).
+- City diagnostics reuse the graphics identity read at startup, so observing a city
+  no longer queries the graphics driver during rendering (ADR-071).
 - Cancelling artifact validation stranded keyboard focus on the page body. Landing,
   validation and error transitions now focus their heading once, without interrupting
   progress navigation.

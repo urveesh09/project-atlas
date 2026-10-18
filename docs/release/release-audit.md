@@ -1,6 +1,6 @@
 # ATLAS V0.1 release audit
 
-Updated: 2026-10-17 (M3.5 silent WebGL fallback). **G6 OPEN — candidate preparation, not release sign-off.**
+Updated: 2026-10-18 (M3.5 fallback/diagnostics follow-up). **G6 OPEN — candidate preparation, not release sign-off.**
 The four pillars are implemented; runtime tracing/instrumentation remains wholly deferred.
 This audit distinguishes implementation/test evidence from human, reference-device and
 public-infrastructure acceptance. The canonical requirements remain the [master plan](../plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md).
