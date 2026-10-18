@@ -1305,30 +1305,59 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
     const workerHeld = new Promise<void>((resolve) => { releaseWorker = resolve; });
     try {
       const page = await isolated.newPage();
+      // Firefox CI run 39125232653 stalled once between the first two audits until the
+      // 30 s test timeout, and 95 local repetitions did not reproduce it. Every step is
+      // bounded and a stall names its stage and what the gate showed.
+      const requests: string[] = [];
+      const pageErrors: string[] = [];
+      let workerRouted = 0;
+      page.on('request', (request) => requests.push(new URL(request.url()).pathname.split('/').pop() || '/'));
+      page.on('pageerror', (error) => pageErrors.push(String(error)));
+      const stage = async <T>(name: string, run: () => Promise<T>): Promise<T> => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          return await Promise.race([run(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('no result within 8 s')), 8_000); })]);
+        } catch (error) {
+          const shown = await page.evaluate(() => ({
+            headings: [...document.querySelectorAll('h1')].map((h) => h.textContent),
+            status: document.querySelector('[role="status"]')?.textContent?.trim().slice(0, 160) ?? null,
+            focused: document.activeElement?.tagName ?? null,
+          })).catch((reason: unknown) => `unreadable: ${String(reason)}`);
+          throw new Error(`${name}: ${error instanceof Error ? error.message : String(error)}
+gate state: ${JSON.stringify({ shown, workerRouted, requests: requests.slice(-12), pageErrors: pageErrors.slice(-5) })}`, { cause: error });
+        } finally {
+          clearTimeout(timer);
+        }
+      };
       await page.route('**/api/session', async (route) => {
         await sessionHeld;
         await route.fulfill({ status: 404, body: '' });
       });
-      await page.goto(`${origin}/`);
-      await page.getByRole('status').filter({ hasText: 'Starting…' }).waitFor();
-      expect(await audit(page, 'viewer-starting')).toEqual([]);
+      await stage('open the viewer', async () => {
+        await page.goto(`${origin}/`);
+        await page.getByRole('status').filter({ hasText: 'Starting…' }).waitFor();
+      });
+      expect(await stage('audit starting', () => audit(page, 'viewer-starting'))).toEqual([]);
       releaseSession();
-      await page.getByRole('button', { name: 'Open artifact folder…' }).waitFor();
+      await stage('show the picker', () => page.getByRole('button', { name: 'Open artifact folder…' }).waitFor());
       await page.route('**/assets/loader.worker-*.js', async (route) => {
+        workerRouted++;
         await workerHeld;
         await route.abort();
       });
-      await page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out'));
-      await page.getByRole('heading', { name: 'Validating the selected artifact' }).waitFor();
+      await stage('pick the folder', () => page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out')));
+      await stage('show validation', () => page.getByRole('heading', { name: 'Validating the selected artifact' }).waitFor());
       await expect.poll(() => page.getByRole('heading', { name: 'Validating the selected artifact' }).evaluate((el) => el === document.activeElement)).toBe(true);
-      expect(await audit(page, 'artifact-loading')).toEqual([]);
-      await page.getByRole('button', { name: 'Cancel loading' }).focus();
-      await page.keyboard.press('Enter');
-      await page.getByRole('heading', { name: 'Explore a repository as a city' }).waitFor();
+      expect(await stage('audit loading', () => audit(page, 'artifact-loading'))).toEqual([]);
+      await stage('cancel', async () => {
+        await page.getByRole('button', { name: 'Cancel loading' }).focus();
+        await page.keyboard.press('Enter');
+        await page.getByRole('heading', { name: 'Explore a repository as a city' }).waitFor();
+      });
       expect(await page.locator('#overview-title').count()).toBe(0);
       await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');
       await expect.poll(() => page.getByRole('heading', { name: 'Explore a repository as a city' }).evaluate((el) => el === document.activeElement)).toBe(true);
-      expect(await audit(page, 'artifact-loading-cancelled')).toEqual([]);
+      expect(await stage('audit cancelled', () => audit(page, 'artifact-loading-cancelled'))).toEqual([]);
     } finally {
       releaseSession();
       releaseWorker();

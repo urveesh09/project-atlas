@@ -1,0 +1,13 @@
+{
+  "format": "atlas.image-policy/1",
+  "platform": "linux/amd64",
+  "buildxVersion": "v0.37.1",
+  "builder": "moby/buildkit@sha256:b059f8d7226d0b326bc871af489a5dddf65e36af4d20d14251b072974d9ee87c",
+  "scanner": "anchore/grype@sha256:e4a44ef45d285b829ce6efe2642980329661bd2d18eab5fc539138d4adaebbbe",
+  "scannerVersion": "0.120.1",
+  "publisher": "ghcr.io/oras-project/oras@sha256:f7bc056d54d97baa399414ed5048ecc67c3371b750d4bbce1d871827a5758179",
+  "cacheInitializer": "node@sha256:7f486cabe892bff8fef04c0f7da8dba84a560be3e4e2740b7a86afc57ebec315",
+  "sbomGenerator": "docker/buildkit-syft-scanner@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9",
+  "registryFixture": "registry@sha256:ddf754342cfc8acc51a56d5d0ab6af06826461864460636d8bd5c546dab2a7b8",
+  "maximumDatabaseAgeHours": 120
+}

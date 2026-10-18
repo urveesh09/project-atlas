@@ -1,6 +1,6 @@
 # ATLAS V0.1 release audit
 
-Updated: 2026-10-18 (M4.3 private backup/restore preparation; M4.1/M4.2 merged). **G6 OPEN — candidate preparation, not release sign-off.**
+Updated: 2026-10-18 (M4.4 image supply chain preparation; M4.1–M4.3 merged). **G6 OPEN — candidate preparation, not release sign-off.**
 The four pillars are implemented; runtime tracing/instrumentation remains wholly deferred.
 This audit distinguishes implementation/test evidence from human, reference-device and
 public-infrastructure acceptance. The canonical requirements remain the [master plan](../plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md).
@@ -61,6 +61,14 @@ The [physical report](../benchmarks/production-backup-restore.md) records real T
 PostgreSQL, corruption/failure recovery and untouched live storage. No backup secrets or
 archives are CI artifacts. Operator installation, alert delivery, promotion, post-backup
 takedown reconciliation and a live-site recovery drill remain R6-06.
+
+M4.4 ([ADR-075](../adr/ADR-075-scanned-immutable-image-publication.md)) adds pinned
+scanner/SBOM/publisher tools, exact OCI graph scanning before either image publication,
+signed workflow/tag/commit verification and an isolated registry-copy rehearsal. Runtime
+package managers are removed after a real scan found vulnerable npm dependencies.
+See [image verification](../image-supply-chain.md) and [dated evidence](../benchmarks/production-image-supply-chain.md).
+No live signing, release tag, public package or deployment is produced by this task;
+actual release and R6-06 acceptance remain owner/operator work.
 
 Production M2.3 adds full hosted Python evidence (2026-10-16, [ADR-064](../adr/ADR-064-hosted-python-evidence.md)):
 145 local PostgreSQL/S3/container/browser checks pass, including two authored Python

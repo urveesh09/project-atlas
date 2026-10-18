@@ -654,6 +654,12 @@ This is preparation; it does not close the live-site R6-06 drill.
 
 #### M4.4 Image supply chain
 
+Implementation: [ADR-075](../adr/ADR-075-scanned-immutable-image-publication.md),
+[operator verification](../image-supply-chain.md),
+[dated physical evidence](../benchmarks/production-image-supply-chain.md).
+Named OCI archives are scanned before publication, then copied without rebuilding.
+Both image gates must pass; live signing/publishing still require an approved release tag.
+
 - **Release workflow.** For both images:
   - generate an SBOM (`docker/build-push-action` with `sbom: true` and
     `provenance: mode=max`);

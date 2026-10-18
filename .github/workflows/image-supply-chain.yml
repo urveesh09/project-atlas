@@ -1,0 +1,65 @@
+name: image supply chain
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-supply-chain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  images:
+    name: image supply chain (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [api, sandbox]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Resolve the reviewed, immutable SBOM generator
+        id: policy
+        run: |
+          node -e "const p=require('./deploy/image-policy.json'); for(const k of ['sbomGenerator','builder','buildxVersion']) console.log(k+'='+p[k])" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          version: ${{ steps.policy.outputs.buildxVersion }}
+          driver-opts: image=${{ steps.policy.outputs.builder }}
+      - name: Build the release-form OCI archive with SBOM and max provenance
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/${{ matrix.image }}.Dockerfile
+          platforms: linux/amd64
+          tags: atlas-${{ matrix.image }}:candidate
+          push: false
+          outputs: type=oci,dest=${{ runner.temp }}/image.tar
+          provenance: mode=max
+          sbom: generator=${{ steps.policy.outputs.sbomGenerator }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+      - name: Verify the graph, SBOM, provenance and real vulnerability gate
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: node scripts/image-supply-chain.mjs check "$RUNNER_TEMP/image.tar" "$DIGEST" "$GITHUB_SHA" "$RUNNER_TEMP/reports"
+      - name: Rehearse exact-digest publication in an isolated registry
+        run: node scripts/rehearse-image-copy.mjs "$RUNNER_TEMP/image.tar" "$RUNNER_TEMP/reports/image.json" "$GITHUB_SHA"
+      - name: Keep reports on success and failure, never the image tar
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: image-supply-chain-${{ matrix.image }}
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/reports/*.json
+            ${{ runner.temp }}/reports/*.log

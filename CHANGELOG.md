@@ -7,6 +7,11 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Changed
+- API and sandbox releases now scan the exact OCI archive before publishing, block
+  fixable high/critical findings, preserve its pinned-generator SBOM/provenance and
+  verify signed release identity. Unused package managers are removed from runtime
+  images; build tooling and application dependencies are unchanged
+  ([ADR-075](docs/adr/ADR-075-scanned-immutable-image-publication.md)).
 - Private daily PostgreSQL backups, independent seven-day expiry cleanup and an
   isolated restore drill now ship with the production reference kit. Restored live
   analyses are quarantined and unfinished work is fenced; lifecycle denials and

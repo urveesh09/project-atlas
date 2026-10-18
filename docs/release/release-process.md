@@ -5,10 +5,10 @@ Everything here uses free GitHub features for public repositories.
 
 ## Development flow
 
-- `main` is always releasable. Work happens on short branches merged by pull request after
-  review. The maintainer may push small changes directly while working solo; CI still runs.
+- Work happens on short branches merged by pull request after review. The enforced
+  main rules require a PR; there is no direct-push bypass (ADR-046).
 - Required before merge:
-  - CI, all eight jobs (`.github/workflows/ci.yml`);
+  - all CI and image supply-chain jobs (`ci.yml`, `image-supply-chain.yml`);
   - CodeQL and dependency review (`security.yml`);
   - a review by the code owner.
 - A known flaky failure is confirmed by rerunning only the failed job. The failure is
@@ -34,9 +34,13 @@ version. Between releases it ends in `-dev`.
 4. The **release** workflow verifies everything again, then creates:
    - a **draft** GitHub release with `atlas-cli-<version>.tar.gz`, `SHA256SUMS`, the
      distribution smoke report and a provenance attestation;
-   - images `ghcr.io/urveesh09/atlas-api:<version>` and `atlas-sandbox:<version>`, with SBOM
-     and provenance.
-5. Review the draft and publish it. Publishing also deploys the demo site.
+   - both images built once as named OCI archives, with a pinned-generator SBOM and max
+     provenance; both scans must pass before either image is published. ORAS preserves
+     the scanned index digest, then GitHub attests it and verifies its signed identity.
+     Fixable high/critical findings or scanner/database errors block the release.
+5. The final job creates a draft only after CLI and both signed image publications
+   pass. Review **every job in the release run**, both scan reports and signed
+   identities, then publish it. Publishing also deploys the demo site.
 6. Set the versions back to the next `-dev` version in a follow-up commit.
 
 Users can check a download:
@@ -45,6 +49,13 @@ Users can check a download:
 sha256sum -c SHA256SUMS
 gh attestation verify atlas-cli-<version>.tar.gz --repo urveesh09/project-atlas
 ```
+
+Operators must additionally constrain the signer workflow, release tag and approved
+source commit for the archive **and both container digests**, and reject self-hosted
+signers. Follow [Image supply chain](../image-supply-chain.md#what-to-verify-before-deployment)
+for the complete commands and the distinction between registry digests and local image
+IDs. Review the independently approved release SHA rather than trusting downloaded
+metadata to tell you its own expected identity.
 
 ## Demo site
 
@@ -88,8 +99,8 @@ node scripts/build-demo-site.mjs --artifact .atlas-tmp/release-corpus/vuejs-core
   pin**, then rebuild the sandbox and pass the hosted container gates; do not remove
   the version constraint or bypass the security suite.
 
-These checks establish dated package/image currency, not a vulnerability scan or
-production deployment sign-off.
+These currency checks accompany the M4.4 image vulnerability gate. Its reports record
+dated advisory data; they do not establish zero vulnerabilities or production sign-off.
 
 ## Pilot feedback
 
