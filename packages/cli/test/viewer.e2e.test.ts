@@ -388,13 +388,32 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
   it('shows real artifact buildings and bounded draw calls', async () => {
     const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
     if (!loaded.ok) throw new Error('invalid');
-    const stats = await page.evaluate(() => window.__atlasCity!.stats());
+    // Draw calls are counted per finished frame. Read them only once a steady frame exists:
+    // WebKit could be read mid-bake, when 0 calls passed the bound vacuously (ADR-079).
+    const steady = async (lite: boolean) => {
+      await expect.poll(() => page.evaluate(() => {
+        const s = window.__atlasCity?.stats();
+        return s ? { lite: s.lite, drawn: s.drawCalls > 0, settled: s.occlusion !== 'baking' && !s.cameraMoving } : null;
+      }), { timeout: 15_000 }).toMatchObject({ lite, drawn: true, settled: true });
+      return page.evaluate(() => window.__atlasCity!.stats());
+    };
+    const initial = await page.evaluate(() => window.__atlasCity!.stats().lite);
+    const stats = await steady(initial);
     expect(stats.buildings).toBe(loaded.bundle.layout.frameState.at(-1)!.files.length);
-    expect(stats.drawCalls).toBeLessThan(30);
+    // The default scene is held to the master plan's budget (<= 150 for a medium default
+    // view). Full detail is animated and its count moves with what is in view.
+    expect(stats.drawCalls).toBeLessThanOrEqual(150);
     expect(stats.pickCells).toBeGreaterThan(0);
     expect(await page.getByRole('group', { name: 'City controls', exact: true }).count()).toBe(1);
     expect(await page.getByRole('group', { name: 'City lens legend', exact: true }).count()).toBe(1);
     expect(await audit(page, 'city-3d')).toEqual([]);
+    // The low-detail scene, which software renderers get when their name reveals them and
+    // anyone can choose, stays compact: under 30 calls for Harbor in every engine (ADR-041).
+    const lowDetail = page.getByRole('checkbox', { name: 'Low detail' });
+    await lowDetail.check();
+    expect((await steady(true)).drawCalls).toBeLessThan(30);
+    await lowDetail.uncheck();
+    await steady(initial);
   });
   it('keeps the explorer inside the window and names the repository in the title (ADR-058)', async () => {
     // Visually hidden tree labels once grew the page to thousands of pixels, so a wheel over
@@ -1297,35 +1316,54 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
     });
   });
 
+  /**
+   * Bounded steps for a gate page: a stall names its step and what the page showed, so a
+   * CI failure explains itself (Firefox run 39125232653 timed out with no detail).
+   *
+   * A folder pick waits for the page's response, not for Playwright to acknowledge the
+   * pick. In WebKit CI, setInputFiles sometimes never returned although the page had
+   * already received the folder (run 39137944001: the gate was validating). Whether the
+   * pick returned is still recorded, and reported if anything stalls.
+   */
+  const watch = (page: Page) => {
+    const requests: string[] = [];
+    const pageErrors: string[] = [];
+    const picks: string[] = [];
+    page.on('request', (request) => requests.push(new URL(request.url()).pathname.split('/').pop() || '/'));
+    page.on('pageerror', (error) => pageErrors.push(String(error)));
+    const stage = async <T>(name: string, run: () => Promise<T>): Promise<T> => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([run(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('no result within 8 s')), 8_000); })]);
+      } catch (error) {
+        const shown = await page.evaluate(() => ({
+          headings: [...document.querySelectorAll('h1')].map((h) => h.textContent),
+          status: document.querySelector('[role="status"]')?.textContent?.trim().slice(0, 160) ?? null,
+          focused: document.activeElement?.tagName ?? null,
+        })).catch((reason: unknown) => `unreadable: ${String(reason)}`);
+        throw new Error(`${name}: ${error instanceof Error ? error.message : String(error)}
+gate state: ${JSON.stringify({ shown, picks, requests: requests.slice(-12), pageErrors: pageErrors.slice(-5) })}`, { cause: error });
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+    const pick = (folder: string) => {
+      const entry = picks.push(`${path.basename(folder)}: pending`) - 1;
+      void page.locator('input[type="file"]').setInputFiles(folder).then(
+        () => { picks[entry] = `${path.basename(folder)}: returned`; },
+        (error: unknown) => { picks[entry] = `${path.basename(folder)}: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`; },
+      );
+    };
+    return { stage, pick, requests };
+  };
+
   it('audits starting and loading states and returns to the picker after cancellation', async () => {
     const isolated = await browser.newContext();
     let releaseSession!: () => void;
     const sessionHeld = new Promise<void>((resolve) => { releaseSession = resolve; });
     try {
       const page = await isolated.newPage();
-      // Every step is bounded and a stall names its stage and what the gate showed
-      // (Firefox CI run 39125232653 timed out here with no detail).
-      const requests: string[] = [];
-      const pageErrors: string[] = [];
-      let workerRouted = 0;
-      page.on('request', (request) => requests.push(new URL(request.url()).pathname.split('/').pop() || '/'));
-      page.on('pageerror', (error) => pageErrors.push(String(error)));
-      const stage = async <T>(name: string, run: () => Promise<T>): Promise<T> => {
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        try {
-          return await Promise.race([run(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('no result within 8 s')), 8_000); })]);
-        } catch (error) {
-          const shown = await page.evaluate(() => ({
-            headings: [...document.querySelectorAll('h1')].map((h) => h.textContent),
-            status: document.querySelector('[role="status"]')?.textContent?.trim().slice(0, 160) ?? null,
-            focused: document.activeElement?.tagName ?? null,
-          })).catch((reason: unknown) => `unreadable: ${String(reason)}`);
-          throw new Error(`${name}: ${error instanceof Error ? error.message : String(error)}
-gate state: ${JSON.stringify({ shown, workerRouted, requests: requests.slice(-12), pageErrors: pageErrors.slice(-5) })}`, { cause: error });
-        } finally {
-          clearTimeout(timer);
-        }
-      };
+      const { stage, pick } = watch(page);
       await page.route('**/api/session', async (route) => {
         await sessionHeld;
         await route.fulfill({ status: 404, body: '' });
@@ -1337,14 +1375,9 @@ gate state: ${JSON.stringify({ shown, workerRouted, requests: requests.slice(-12
       expect(await stage('audit starting', () => audit(page, 'viewer-starting'))).toEqual([]);
       releaseSession();
       await stage('show the picker', () => page.getByRole('button', { name: 'Open artifact folder…' }).waitFor());
-      // A loader that never answers keeps the gate in "Validating" until Cancel. It is
-      // served at once: holding the request open instead made setInputFiles itself stall
-      // (WebKit CI run 39137944001: the gate was already validating, the request routed).
-      await page.route('**/assets/loader.worker-*.js', async (route) => {
-        workerRouted++;
-        await route.fulfill({ status: 200, contentType: 'text/javascript', body: '// A loader that never answers.\n' });
-      });
-      await stage('pick the folder', () => page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out')));
+      // A loader that never answers keeps the gate in "Validating" until Cancel.
+      await page.route('**/assets/loader.worker-*.js', (route) => route.fulfill({ status: 200, contentType: 'text/javascript', body: '// A loader that never answers.\n' }));
+      pick(path.join(work, 'harbor-out'));
       await stage('show validation', () => page.getByRole('heading', { name: 'Validating the selected artifact' }).waitFor());
       await expect.poll(() => page.getByRole('heading', { name: 'Validating the selected artifact' }).evaluate((el) => el === document.activeElement)).toBe(true);
       expect(await stage('audit loading', () => audit(page, 'artifact-loading'))).toEqual([]);
@@ -1367,8 +1400,11 @@ gate state: ${JSON.stringify({ shown, workerRouted, requests: requests.slice(-12
     const isolated = await browser.newContext();
     try {
       const page = await isolated.newPage();
-      await page.goto(`${origin}/`);
-      await page.getByRole('button', { name: 'Open artifact folder…' }).waitFor();
+      const { stage, pick } = watch(page);
+      await stage('open the viewer', async () => {
+        await page.goto(`${origin}/`);
+        await page.getByRole('button', { name: 'Open artifact folder…' }).waitFor();
+      });
       for (const [name, manifest, heading] of [
         ['malformed', '{', 'This artifact could not be opened'],
         ['unsupported', JSON.stringify({ artifactVersion: 'atlas.artifact/99.0.0', schemaVersion: GRAPH_SCHEMA_VERSION }), 'This artifact needs a different ATLAS version'],
@@ -1376,17 +1412,17 @@ gate state: ${JSON.stringify({ shown, workerRouted, requests: requests.slice(-12
         const directory = path.join(work, name);
         mkdirSync(directory);
         writeFileSync(path.join(directory, 'manifest.json'), manifest);
-        await page.locator('input[type="file"]').setInputFiles(directory);
-        await page.getByRole('heading', { name: heading }).waitFor();
+        pick(directory);
+        await stage(`show the ${name} error`, () => page.getByRole('heading', { name: heading }).waitFor());
         await expect.poll(() => page.getByRole('heading', { name: heading }).evaluate((el) => el === document.activeElement)).toBe(true);
         expect(await page.getByRole('alert').isVisible()).toBe(true);
         expect(await page.getByRole('button', { name: 'Open another folder…' }).isVisible()).toBe(true);
         expect(await page.locator('#overview-title').count()).toBe(0);
-        expect(await audit(page, `artifact-error-${name}`)).toEqual([]);
+        expect(await stage(`audit the ${name} error`, () => audit(page, `artifact-error-${name}`))).toEqual([]);
       }
-      await page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out'));
-      await page.waitForSelector('#overview-title');
-      expect(await audit(page, 'artifact-error-recovered')).toEqual([]);
+      pick(path.join(work, 'harbor-out'));
+      await stage('open the valid folder', () => page.waitForSelector('#overview-title'));
+      expect(await stage('audit the recovery', () => audit(page, 'artifact-error-recovered'))).toEqual([]);
     } finally { await isolated.close(); }
   });
 
@@ -1395,19 +1431,22 @@ gate state: ${JSON.stringify({ shown, workerRouted, requests: requests.slice(-12
     const isolated = await browser.newContext();
     try {
       const page = await isolated.newPage();
+      const { stage, pick } = watch(page);
       const requests: { url: string; method: string }[] = [];
       page.on('request', (r) => requests.push({ url: r.url(), method: r.method() }));
-      await page.goto(`${origin}/`);
-      await page.getByRole('button', { name: 'Open artifact folder…' }).waitFor();
+      await stage('open the viewer', async () => {
+        await page.goto(`${origin}/`);
+        await page.getByRole('button', { name: 'Open artifact folder…' }).waitFor();
+      });
       // The start screen shows a real render of the demo city, described for screen readers.
       const preview = page.getByRole('img', { name: /vuejs\/core repository drawn as an ATLAS city/ });
       await expect.poll(() => preview.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1120);
       expect(await page.title()).toBe('ATLAS: your codebase as a city');
       expect(await audit(page, 'browser-only-landing')).toEqual([]);
       const before = requests.length;
-      await page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out'));
-      await page.waitForSelector('#overview-title');
-      expect(await audit(page, 'browser-only-artifact')).toEqual([]);
+      pick(path.join(work, 'harbor-out'));
+      await stage('open the picked folder', () => page.waitForSelector('#overview-title'));
+      expect(await stage('audit the opened artifact', () => audit(page, 'browser-only-artifact'))).toEqual([]);
       const after = requests.slice(before);
       // Only the viewer's own static files may be fetched: the loader worker script and, since
       // ADR-058, the bundled font subsets the explorer first uses. No artifact bytes are sent.

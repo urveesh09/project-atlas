@@ -31,6 +31,30 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Browser-journey failures on PRs #46 and #47 (2026-10-18)
+
+[ADR-079](adr/ADR-079-draw-call-guards-and-folder-picks.md). Each PR failed one WebKit
+viewer journey. Neither changes the viewer.
+
+- **#47, draw calls (run 39141253002): `expected 30 to be less than 30`.**
+  - WebKit (`Apple GPU`) and Firefox (`ANGLE (NVIDIA …), or similar`) hide their
+    renderer, so CI's CPU rendering gets the full animated scene. Measured with the real
+    test: WebKit 29/30/29, Firefox 28/27/27. Chromium's detected SwiftShader gets low
+    detail: 22/22/23.
+  - Two of three WebKit reads were 0, taken mid-bake, so the bound passed vacuously.
+  - **Fix:** read from a steady frame. Low detail stays under 30 in every engine; the
+    default scene is held to the master plan's budget of at most 150.
+- **#46, error recovery (run 39141392240): timed out at 30 s** before its first audit.
+  - **Fix:** folder picks wait for the page's response rather than Playwright's
+    acknowledgement, which WebKit once withheld after delivering the folder. Every
+    browser-only step is bounded and reports its state.
+  - The suite-level cause is still unidentified: 60 isolated WebKit picks never stalled.
+- **Found while verifying: `share-menu` audit failed 2 of 8 Chromium runs** (2.56:1
+  contrast, because the menu was mid-fade). `audit()` now waits for finite animations to
+  finish, bounded at 2 s.
+- **Local evidence after the fixes:** the 48-test journey file passed 5/5 in Chromium,
+  2/2 in WebKit and 2/2 in Firefox.
+
 ### Record retention and the status channel (2026-10-18)
 
 - **Decided under the owner's delegation:** [ADR-078](adr/ADR-078-record-retention-and-status.md).
