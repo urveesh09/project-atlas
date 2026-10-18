@@ -43,13 +43,28 @@ export function assertProductionProfile(config) {
   assert(subnet(pool.subnet).check(address, 'ipv4'), 'proxy must be inside API subnet');
   assert(!subnet(pool.ip_range).check(address, 'ipv4'), 'proxy must be outside dynamic allocation pool');
   for (const s of Object.values(config.secrets)) assert(path.isAbsolute(s.file), 'absolute secret file paths required');
+  // Optional monitoring (M4.2, ADR-073): inside the API's namespace, publishing nothing.
+  const prometheus = config.services.prometheus;
+  if (prometheus) {
+    assert(immutable(prometheus.image), 'prometheus: immutable image required');
+    assert.equal(prometheus.network_mode, 'service:api', 'prometheus must share the API network namespace');
+    assert(!prometheus.ports?.length && !prometheus.networks, 'prometheus must not publish ports or join networks');
+    assert(prometheus.read_only === true && typeof prometheus.user === 'string' && !/^(0|root)(:|$)/.test(prometheus.user), 'prometheus: non-root read-only service required');
+    assert.deepEqual(prometheus.cap_drop, ['ALL']);
+    assert(!prometheus.cap_add?.length && !prometheus.privileged && prometheus.security_opt?.includes('no-new-privileges:true'), 'prometheus: no added privileges');
+    assert(!prometheus.secrets?.length, 'prometheus receives no secrets');
+    for (const v of prometheus.volumes ?? []) {
+      assert(v.type === 'volume' || (v.type === 'bind' && v.read_only === true), 'prometheus: configuration mounts must be read-only');
+      assert(!/docker\.sock|\/var\/run/.test(`${v.source ?? ''} ${v.target ?? ''}`), 'prometheus: host control socket forbidden');
+    }
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     assert(process.argv.length === 4 && process.argv[2] === '--env-file' && path.isAbsolute(process.argv[3]), 'absolute --env-file required');
     const yaml = fileURLToPath(new URL('./compose.yaml', import.meta.url));
-    const model = execFileSync('docker', ['compose', '-f', yaml, '--env-file', process.argv[3], '--profile', 'api-host', 'config', '--format', 'json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15_000, maxBuffer: 1024 * 1024 });
+    const model = execFileSync('docker', ['compose', '-f', yaml, '--env-file', process.argv[3], '--profile', 'api-host', '--profile', 'monitoring', 'config', '--format', 'json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15_000, maxBuffer: 1024 * 1024 });
     assertProductionProfile(JSON.parse(model));
     console.log('atlas.production.profile-valid');
   } catch {

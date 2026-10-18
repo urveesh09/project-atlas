@@ -1,0 +1,106 @@
+{
+  "__inputs": [
+    { "name": "DS_PROMETHEUS", "label": "Prometheus", "description": "The Prometheus that scrapes the ATLAS operator listener", "type": "datasource", "pluginId": "prometheus", "pluginName": "Prometheus" }
+  ],
+  "title": "ATLAS hosted service",
+  "description": "Operator metrics from the loopback listener (M4.2, ADR-073). Aggregates only: no repository names, paths or addresses.",
+  "uid": "atlas-hosted",
+  "tags": ["atlas"],
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-24h", "to": "now" },
+  "refresh": "1m",
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "Queue", "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "atlas_queue_queued", "legendFormat": "queued" },
+        { "refId": "B", "expr": "atlas_queue_active", "legendFormat": "active" },
+        { "refId": "C", "expr": "atlas_queue_cancel_requested", "legendFormat": "cancel requested" }
+      ]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Oldest queued job", "description": "Alert AtlasQueueStalled above 10 minutes.", "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "s", "noValue": "none queued", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 600 }] } }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "atlas_queue_oldest_queued_seconds" }]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Worker leases", "description": "Alert AtlasExpiredLeases when expired stays above 0 for 2 minutes.", "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "atlas_leases_live", "legendFormat": "live" },
+        { "refId": "B", "expr": "atlas_leases_expired", "legendFormat": "expired" }
+      ]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Outcomes, last 24 hours", "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [{ "refId": "A", "expr": "atlas_outcomes_24h", "legendFormat": "{{state}}" }]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Failures by code, last 24 hours", "description": "ANALYSIS_RESOURCE_LIMIT and REPOSITORY_TOO_LARGE are expected outcomes, not incidents.", "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [{ "refId": "A", "expr": "atlas_failures_24h", "legendFormat": "{{code}}" }]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Stage p95, last 24 hours", "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "atlas_stage_p95_24h_seconds", "legendFormat": "{{stage}}" }]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Bytes per job, p95, last 24 hours", "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "atlas_network_p95_24h_bytes", "legendFormat": "network" },
+        { "refId": "B", "expr": "atlas_artifact_p95_24h_bytes", "legendFormat": "artifact" }
+      ]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Publications", "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "atlas_publications_live", "legendFormat": "live" },
+        { "refId": "B", "expr": "atlas_publications_expired", "legendFormat": "expired" },
+        { "refId": "C", "expr": "atlas_publications_deleted", "legendFormat": "deleted" },
+        { "refId": "D", "expr": "atlas_publications_revoked", "legendFormat": "revoked" },
+        { "refId": "E", "expr": "atlas_publications_awaiting_purge", "legendFormat": "awaiting purge" }
+      ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Storage", "description": "Alert AtlasStoragePurgeStuck when purging stays above 0 for an hour.", "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "atlas_storage_live_objects", "legendFormat": "live objects" },
+        { "refId": "B", "expr": "atlas_storage_pending_uploads", "legendFormat": "pending uploads" },
+        { "refId": "C", "expr": "atlas_storage_purging_uploads", "legendFormat": "purging uploads" }
+      ]
+    },
+    {
+      "id": 10, "type": "stat", "title": "Stored bytes", "gridPos": { "h": 8, "w": 6, "x": 0, "y": 32 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "atlas_storage_live_bytes" }]
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "GitHub API budget", "description": "Alert AtlasUpstreamBlocked when back-off lasts over 15 minutes.", "gridPos": { "h": 8, "w": 12, "x": 6, "y": 32 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "atlas_upstream_blocked_seconds", "legendFormat": "back-off seconds" },
+        { "refId": "B", "expr": "atlas_upstream_remaining", "legendFormat": "requests remaining" }
+      ]
+    },
+    {
+      "id": 12, "type": "stat", "title": "Operator listener", "description": "Alert AtlasOperatorMetricsDown after 5 minutes without a scrape.", "gridPos": { "h": 8, "w": 6, "x": 18, "y": 32 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "down", "color": "red" }, "1": { "text": "up", "color": "green" } } }] }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "up{job=\"atlas-operator\"}" }]
+    }
+  ]
+}

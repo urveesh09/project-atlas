@@ -1,0 +1,88 @@
+# promtool unit tests for alerts.yml: each alert's threshold and hold time, and recovery.
+rule_files: [alerts.yml]
+evaluation_interval: 1m
+
+tests:
+  - name: expired leases page after two minutes and clear once reaped
+    interval: 1m
+    input_series:
+      - series: 'atlas_leases_expired{job="atlas-operator",instance="127.0.0.1:9090"}'
+        values: '0 1 1 1 0 0'
+    alert_rule_test:
+      - { eval_time: 2m, alertname: AtlasExpiredLeases, exp_alerts: [] }
+      - eval_time: 3m
+        alertname: AtlasExpiredLeases
+        exp_alerts:
+          - exp_labels: { severity: page, job: atlas-operator, instance: '127.0.0.1:9090' }
+            exp_annotations:
+              summary: 1 worker lease(s) expired and not yet reaped
+              runbook: docs/hosted-operations.md#stalled-job-or-the-reaper
+      - { eval_time: 4m, alertname: AtlasExpiredLeases, exp_alerts: [] }
+
+  - name: a queued job older than ten minutes pages at once
+    interval: 1m
+    input_series:
+      - series: 'atlas_queue_oldest_queued_seconds{job="atlas-operator",instance="127.0.0.1:9090"}'
+        values: '480 540 600 660'
+    alert_rule_test:
+      - { eval_time: 2m, alertname: AtlasQueueStalled, exp_alerts: [] }
+      - eval_time: 3m
+        alertname: AtlasQueueStalled
+        exp_alerts:
+          - exp_labels: { severity: page, job: atlas-operator, instance: '127.0.0.1:9090' }
+            exp_annotations:
+              summary: The oldest queued job has waited 11m 0s
+              runbook: docs/hosted-operations.md#stalled-job-or-the-reaper
+
+  - name: no queued job means no queue alert
+    interval: 1m
+    input_series:
+      - series: 'atlas_queue_queued{job="atlas-operator",instance="127.0.0.1:9090"}'
+        values: '0x5'
+    alert_rule_test:
+      - { eval_time: 5m, alertname: AtlasQueueStalled, exp_alerts: [] }
+
+  - name: purging uploads raise a ticket after an hour
+    interval: 1m
+    input_series:
+      - series: 'atlas_storage_purging_uploads{job="atlas-operator",instance="127.0.0.1:9090"}'
+        values: '2x61'
+    alert_rule_test:
+      - { eval_time: 59m, alertname: AtlasStoragePurgeStuck, exp_alerts: [] }
+      - eval_time: 60m
+        alertname: AtlasStoragePurgeStuck
+        exp_alerts:
+          - exp_labels: { severity: ticket, job: atlas-operator, instance: '127.0.0.1:9090' }
+            exp_annotations:
+              summary: 2 upload(s) have been purging for over an hour
+              runbook: docs/hosted-operations.md#storage-reconciliation
+
+  - name: GitHub back-off raises a ticket after fifteen minutes
+    interval: 1m
+    input_series:
+      - series: 'atlas_upstream_blocked_seconds{job="atlas-operator",instance="127.0.0.1:9090"}'
+        values: '0 900x16'
+    alert_rule_test:
+      - { eval_time: 15m, alertname: AtlasUpstreamBlocked, exp_alerts: [] }
+      - eval_time: 16m
+        alertname: AtlasUpstreamBlocked
+        exp_alerts:
+          - exp_labels: { severity: ticket, job: atlas-operator, instance: '127.0.0.1:9090' }
+            exp_annotations:
+              summary: GitHub API back-off has lasted over 15 minutes
+              runbook: docs/hosted-operations.md#upstream-github-outage-or-throttling
+
+  - name: a silent operator listener pages after five minutes
+    interval: 1m
+    input_series:
+      - series: 'up{job="atlas-operator",instance="127.0.0.1:9090"}'
+        values: '1 0x6'
+    alert_rule_test:
+      - { eval_time: 5m, alertname: AtlasOperatorMetricsDown, exp_alerts: [] }
+      - eval_time: 6m
+        alertname: AtlasOperatorMetricsDown
+        exp_alerts:
+          - exp_labels: { severity: page, job: atlas-operator, instance: '127.0.0.1:9090' }
+            exp_annotations:
+              summary: The operator metrics listener has not answered for 5 minutes; the other alerts cannot fire
+              runbook: docs/hosted-operations.md#metrics

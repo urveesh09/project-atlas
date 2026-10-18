@@ -2,7 +2,8 @@
 
 This kit is for a **dedicated Linux worker host** and a separate API host. It does
 not create a public service. R6-06 deployment acceptance and G6 remain open.
-Monitoring, backup automation, supply-chain scanning, SLOs and legal pages are M4.2–M4.6.
+Optional monitoring is [below](#monitoring) (M4.2). Backup automation, supply-chain
+scanning, SLOs and legal pages are M4.3–M4.6.
 Read [operations](../../docs/hosted-operations.md) and [ADR-072](../../docs/adr/ADR-072-reference-hosted-deployment.md).
 
 ## Prerequisites and boundaries
@@ -109,6 +110,36 @@ proxy with `up -d --no-deps --force-recreate proxy` and the same Compose options
 A bind-mounted file can retain the old inode after replacement; a restart/reload is
 insufficient. Verify the new certificate. Existing streams reconnect or poll.
 Recreate affected API/migration containers after secret rotation for the same reason.
+
+## Monitoring
+
+The operator listener binds only the API container's `127.0.0.1:9090`. The optional
+`prometheus` service (pinned Prometheus 3.15.0) runs in the API's network namespace
+(`network_mode: service:api`) to scrape it, and evaluates [`alerts.yml`](alerts.yml).
+It publishes nothing, joins no network of its own, runs as `nobody` with a read-only
+root and no capabilities, and keeps 15 days of samples in the `prometheus-data` volume.
+Its UI listens on that namespace's loopback, port 9091.
+
+1. Copy `prometheus.yml` into the operator-owned configuration. Add your Alertmanager
+   under `alerting`, and `remote_write` if dashboards or history live elsewhere. Without
+   them, alerts are evaluated but delivered nowhere.
+2. Start it with the API host, adding the profile to the same command:
+
+   ```sh
+   docker compose -f deploy/production/compose.yaml --env-file /etc/atlas/api.env --profile api-host --profile monitoring up -d --wait
+   ```
+
+   The preflight checks this service too: immutable image, shared API namespace, nothing
+   published, non-root, read-only configuration.
+3. Recreating the API container also needs Prometheus recreated, because it joined the
+   old container's namespace. `up` with both profiles does this.
+4. Import [`grafana-dashboard.json`](grafana-dashboard.json) into Grafana if you use it.
+   It asks for the Prometheus data source that receives these metrics.
+
+The metrics, the five alerts and their runbooks are in
+[operations → Metrics](../../docs/hosted-operations.md#metrics). Check changed rules with
+`promtool check rules alerts.yml` and `promtool test rules alerts.test.yml` in the
+same pinned image.
 
 ## Worker host and firewall
 

@@ -52,8 +52,9 @@ const prodMount = production.replaceAll('\\', '/');
 const report = { task: 'M4.1', started: new Date().toISOString(), sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
   dirty: Boolean(execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim()),
   images: { api: apiImage, validation: validationImage, proxy: caddyImage, postgres: postgresImage, storage: storageImage }, steps: [] };
-report.configurationSha256 = Object.fromEntries([...readdirSync(production).filter((f) => /\.(mjs|yaml|nft|service|timer|Dockerfile|json)$/.test(f)).map((f) => `deploy/production/${f}`),
+report.configurationSha256 = Object.fromEntries([...readdirSync(production).filter((f) => /\.(mjs|ya?ml|nft|service|timer|Dockerfile|json)$/.test(f)).map((f) => `deploy/production/${f}`),
   'deploy/production/docker.service.d/atlas-egress.conf', 'scripts/hosted-rehearsal.mjs', 'scripts/production-rehearsal.mjs', 'scripts/production-firewall-probe.mjs'].sort().map((f) => [f, createHash('sha256').update(readFileSync(path.join(root, f))).digest('hex')]));
+let prometheusImage;
 const step = async (name, run) => {
   const start = performance.now();
   try {
@@ -68,7 +69,7 @@ const step = async (name, run) => {
 const overlay = path.join(work, 'compose.json');
 const composeEnv = { ...process.env, ATLAS_API_IMAGE: apiImage, ATLAS_PROXY_IMAGE: caddyImage, ATLAS_DOMAIN: 'localhost', ATLAS_PUBLIC_ORIGIN: 'https://localhost',
   ATLAS_SECRET_DIR: secretDir, ATLAS_S3_ENDPOINT: 'https://storage:8443', ATLAS_S3_BUCKET: 'atlas-rehearsal', ATLAS_HTTPS_PORT: '0', ATLAS_BIND_ADDRESS: '127.0.0.1' };
-const compose = (params, options) => docker(['compose', '-p', project, '-f', path.join(production, 'compose.yaml'), '-f', overlay, '--profile', 'api-host', ...params], { env: composeEnv, ...options });
+const compose = (params, options) => docker(['compose', '-p', project, '-f', path.join(production, 'compose.yaml'), '-f', overlay, '--profile', 'api-host', '--profile', 'monitoring', ...params], { env: composeEnv, ...options });
 // The throwaway CA only verifies the loopback server; it is a trust anchor, never request
 // data. It exists after the first step, so the agent is created on first use. Keep-alive
 // matches Node's global agent, which these requests used before.
@@ -121,6 +122,8 @@ try {
     assert.equal(config.services.api.ports, undefined);
     assert.equal(config.services.api.environment.ATLAS_TRUSTED_PROXIES, '172.30.10.2');
     assert.match(config.services.proxy.image, /^sha256:[a-f0-9]{64}$/);
+    assert.equal(config.services.prometheus.network_mode, 'service:api');
+    prometheusImage = config.services.prometheus.image;
   });
   await step('Caddy validates the actual production configuration and certificate', () => {
     compose(['run', '--rm', '--no-deps', 'proxy', 'caddy', 'validate', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile']);
@@ -135,6 +138,10 @@ try {
   await step('systemd validates the shipped worker and firewall units', () => {
     docker(['run', '--rm', '--network=none', '--mount', `type=bind,source=${prodMount},target=/production,readonly`, validationImage, 'sh', '-ec',
       'mkdir -p /opt/atlas/node/bin /opt/atlas/current /etc/atlas /var/lib/atlas/jobs /run/atlas-egress /tmp/units /etc/systemd/system/docker.service.d; ln -s /usr/local/bin/node /opt/atlas/node/bin/node; touch /etc/atlas/worker.env; printf "#!/bin/sh\\nexit 0\\n" > /usr/bin/docker; chmod +x /usr/bin/docker; printf "[Service]\\nExecStart=/usr/bin/true\\n" > /etc/systemd/system/docker.service; cp /production/docker.service.d/atlas-egress.conf /etc/systemd/system/docker.service.d/; cp /production/*.service /production/*.timer /tmp/units/; chmod 644 /tmp/units/* /etc/systemd/system/docker.service.d/*; systemd-analyze verify /tmp/units/*.service /tmp/units/*.timer']);
+  });
+  await step('promtool validates the Prometheus configuration, alert rules and their unit tests', () => {
+    docker(['run', '--rm', '--network=none', '--mount', `type=bind,source=${prodMount},target=/etc/prometheus,readonly`, '--workdir', '/etc/prometheus', '--entrypoint', 'sh', prometheusImage, '-ec',
+      'promtool check config prometheus.yml; promtool check rules alerts.yml; promtool test rules alerts.test.yml']);
   });
   await step('firewall enforces broker and coordinator destinations in isolated container networks', () => {
     execFileSync(process.execPath, [path.join(root, 'scripts/production-firewall-probe.mjs'), '--validation-image', validationImage], { cwd: root, stdio: 'inherit', timeout: 120_000 });
@@ -223,6 +230,34 @@ try {
     for (let n = 1; n < 30; n++) assert.equal((await request(port, '/api/v1/session', { method: 'POST', headers: { Origin: origin, 'X-Forwarded-For': `198.51.100.${n}` } })).status, 201);
     assert.equal((await request(port, '/api/v1/session', { method: 'POST', headers: { Origin: origin, 'X-Forwarded-For': '203.0.113.1' } })).status, 429);
   });
+  await step('Prometheus scrapes the loopback-only operator listener from the API namespace and loads every alert', async () => {
+    const apiId = compose(['ps', '-q', 'api']);
+    // Same network, different namespace: the proxy is refused, so only a scraper in the API's namespace can read it.
+    assert.throws(() => compose(['exec', '-T', 'proxy', 'wget', '-q', '-O', '-', '-T', '3', 'http://api:9090/metrics'], { stdio: ['ignore', 'pipe', 'pipe'] }),
+      (error) => /refused/i.test(String(error.stderr)));
+    const text = docker(['exec', apiId, 'node', '-e',
+      "fetch('http://127.0.0.1:9090/metrics',{headers:{accept:'text/plain;version=0.0.4'}}).then(async(r)=>{if(r.headers.get('content-type')!=='text/plain; version=0.0.4; charset=utf-8')process.exit(2);process.stdout.write(await r.text());})"]);
+    const lint = execFileSync('docker', ['run', '--rm', '-i', '--network=none', '--entrypoint', 'promtool', prometheusImage, 'check', 'metrics'],
+      { input: `${text}\n`, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 60_000 });
+    assert.equal(lint.trim(), '');
+    compose(['up', '-d', '--no-deps', 'prometheus']);
+    const query = (target) => JSON.parse(docker(['exec', apiId, 'node', '-e', `fetch('http://127.0.0.1:9091${target}').then((r)=>r.text()).then((t)=>process.stdout.write(t))`]));
+    const deadline = Date.now() + 90_000;
+    for (;;) {
+      let up = [], rules = [];
+      try {
+        up = query('/api/v1/query?query=up').data.result;
+        rules = query('/api/v1/rules').data.groups.flatMap((group) => group.rules);
+      } catch { /* Prometheus is still starting. */ }
+      if (up.some((s) => s.metric.job === 'atlas-operator' && s.value[1] === '1') && rules.length === 5 && rules.every((rule) => rule.health === 'ok')) break;
+      if (Date.now() > deadline) throw new Error(`Prometheus did not scrape and evaluate in time: up ${JSON.stringify(up)}, rules ${JSON.stringify(rules.map((rule) => [rule.name, rule.health]))}`);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    // The job cancelled above is in the scraped data.
+    const cancelled = query('/api/v1/query?query=atlas_outcomes_24h').data.result.find((s) => s.metric.state === 'CANCELLED');
+    assert(Number(cancelled?.value[1]) >= 1);
+    return { metricFamilies: text.match(/^# TYPE /gm).length, alertRules: 5 };
+  });
   await step('runtime database role cannot alter the schema', () => {
     const result = compose(['exec', '-T', 'api', 'node', '--input-type=module', '-e',
       "import {databasePool} from '/atlas/node_modules/@atlas/control/dist/index.js'; const pool=databasePool(process.env); try { await pool.query('CREATE TABLE forbidden_probe(id int)'); process.exitCode=1; } catch(e) { if(e.code!=='42501') throw e; } finally { await pool.end(); }"]);
@@ -242,7 +277,7 @@ try {
     report.cleaned = true;
   } catch { report.cleaned = false; process.exitCode = 1; }
   report.finished = new Date().toISOString();
-  report.passed = report.steps.length === 14 && report.steps.every((s) => s.passed) && report.cleaned;
+  report.passed = report.steps.length === 16 && report.steps.every((s) => s.passed) && report.cleaned;
   if (!report.passed) process.exitCode = 1;
   mkdirSync(path.dirname(reportPath), { recursive: true });
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);

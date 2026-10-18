@@ -4,7 +4,8 @@ Maintained per plan §20.1. A task is **done** only when its completion evidence
 
 **Current milestone (2026-10-18):** production-plan M4.1 reference hosted deployment
 kit (ADR-072): hardened API/TLS profile, worker units, expiring GitHub egress sets
-and isolated configuration/transport/packet rehearsals. M3.5 fallback, diagnostics
+and isolated configuration/transport/packet rehearsals; M4.2 operator monitoring
+(ADR-073) stacks on it. M3.5 fallback, diagnostics
 and primary-action contrast landed in PR #37 (all 15 checks green on `d444c67`), following accessibility
 preparation (PR #36), macOS CI (PR #34) and
 Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
@@ -1637,6 +1638,38 @@ and a new CI job, `viewer journeys (firefox|webkit)`, runs on Ubuntu.
   R6-06 still requires a real boot, domain/certificate renewal, site firewall/Docker,
   database/storage identity and recovery evidence. M4.2–M4.6, M3.4, M2.2/M2.7 and
   all R6/G6 human/device/site acceptance remain open.
+
+### Production M4.2: operator monitoring (2026-10-18)
+
+- **Implementation:** [ADR-073](adr/ADR-073-operator-monitoring.md), stacked on M4.1.
+  - The operator `/metrics` answers Prometheus text 0.0.4 when `text/plain` outranks
+    JSON in `Accept`. That covers Prometheus's own header; curl and browsers still get JSON.
+  - One gauge per field, named in [operations → Metrics](hosted-operations.md#prometheus).
+    Null fields are left out.
+  - `startOperatorServer` no longer takes a host, so the listener can only bind `127.0.0.1`.
+  - The kit adds:
+    - an optional `prometheus` service: Prometheus 3.15.0 by digest, in the API's network
+      namespace, publishing nothing, non-root, read-only, no capabilities;
+    - `alerts.yml`, with the runbook's four alerts and `AtlasOperatorMetricsDown`, plus
+      promtool unit tests;
+    - a Grafana dashboard.
+  - The profile validator checks the sidecar whenever it is present.
+- **Local verification (Windows, Node 24.22.0, Docker 29.8.1):**
+  - **Production rehearsal: 16/16 steps,** with images built from this branch. The two
+    new steps:
+    - promtool validates the configuration, the rules and their unit tests;
+    - against the real production API, the proxy is refused at `api:9090`, and the real
+      text passes `promtool check metrics` with 15 families (the 7 null fields left
+      out). The sidecar reports `up` = 1 with all 5 rules healthy and scrapes the
+      rehearsal's cancelled job. Owned containers and volumes were removed.
+  - **promtool:** `check config`/`check rules`/`test rules` pass. Shortening one hold
+    time makes the unit tests fail.
+  - **`pnpm verify`: 866 tests, 83 service-gated skips.** The 11 new tests cover the text
+    format, negotiation and the loopback listener, the sidecar validator, and
+    consistency between the alerts, dashboard, runbook and emitted gauges.
+  - 249 relative Markdown links in the changed documents resolve.
+- **Open:** alert delivery and history are site configuration, and live alert checks
+  remain part of R6-06. Worker-host metrics and SLO targets (M4.5) are not decided here.
 
 ### Reproduce verification
 

@@ -50,7 +50,8 @@ ADR. It does not cover:
     the namespace correction is ADR-066. ADR-067 is reserved by the edge-budget work,
     macOS CI is ADR-068, Firefox and WebKit journeys are ADR-069, and accessibility
     preparation is ADR-070. M3.5 fallback/diagnostics/contrast is ADR-071 (merged
-    PR #37); the M4.1 reference deployment is ADR-072. Allocate ADR-073 next.
+    PR #37); the M4.1 reference deployment is ADR-072 and M4.2 monitoring is ADR-073.
+    Allocate ADR-074 next.
 - **Evidence.**
   - The M3.5 baseline passes 813 tests with 83 conditional skips; the CPython oracle
     runs in this evidence. M4.1 adds operator-tooling regressions; exact current
@@ -612,6 +613,13 @@ This is reference-kit implementation; R6-06 real site acceptance remains open.
   - Run the existing egress-isolation container gates.
 
 #### M4.2 Monitoring
+
+**Implementation prepared, 2026-10-18:** [ADR-073](../adr/ADR-073-operator-monitoring.md).
+`/metrics` negotiates Prometheus text, and the listener can only bind loopback. An
+optional pinned Prometheus shares the API's network namespace to scrape it. The kit
+ships `alerts.yml` (the runbook's four alerts and a scrape-failure alert), promtool unit
+tests and a Grafana dashboard. The production rehearsal proves the scrape and rules
+against the real API. Alert delivery is the operator's configuration.
 
 - **Prometheus text.** Add Prometheus text exposition to the operator listener, for
   example `GET /metrics` with `Accept: text/plain`. Keep the JSON. Use the same fields,

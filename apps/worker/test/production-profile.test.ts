@@ -49,6 +49,21 @@ describe('production configuration preflight', () => {
       expect(() => assertProductionProfile(config)).toThrow();
     }
   });
+  it('accepts the optional Prometheus only inside the API namespace, publishing nothing', () => {
+    const prometheus = () => ({ image: `prom/prometheus@sha256:${'b'.repeat(64)}`, network_mode: 'service:api', user: '65534:65534', read_only: true,
+      cap_drop: ['ALL'], security_opt: ['no-new-privileges:true'],
+      volumes: [{ type: 'bind', source: path.resolve('deploy/production/prometheus.yml'), target: '/etc/prometheus/prometheus.yml', read_only: true },
+        { type: 'volume', source: 'prometheus-data', target: '/prometheus' }] });
+    expect(() => assertProductionProfile({ ...profile(), services: { ...profile().services, prometheus: prometheus() } })).not.toThrow();
+    for (const change of [{ image: 'prom/prometheus:latest' }, { network_mode: undefined }, { network_mode: 'host' },
+      { ports: [{ target: 9091, published: '9091' }] }, { networks: { api: {} } }, { user: '0:0' }, { user: undefined }, { read_only: false },
+      { cap_add: ['NET_RAW'] }, { secrets: ['quota_secret'] },
+      { volumes: [{ type: 'bind', source: path.resolve('prometheus.yml'), target: '/etc/prometheus/prometheus.yml' }] },
+      { volumes: [{ type: 'bind', source: '/var/run/docker.sock', target: '/var/run/docker.sock', read_only: true }] }]) {
+      const config = profile();
+      expect(() => assertProductionProfile({ ...config, services: { ...config.services, prometheus: { ...prometheus(), ...change } } }), JSON.stringify(change)).toThrow();
+    }
+  });
   it('rejects direct API port publication and Docker socket mounts', () => {
     for (const extra of [{ ports: [{ target: 8080, published: '8080' }] }, { volumes: [{ target: '/var/run/docker.sock' }] },
       { volumes: [{ source: '/var/run/docker.sock', target: '/engine/socket' }] }, { volumes: [{ source: '/tmp/engine.sock', target: '/socket' }] }]) {

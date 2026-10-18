@@ -46,8 +46,12 @@ and [ADR-072](../adr/ADR-072-reference-hosted-deployment.md): real production AP
 transport rehearsal, configuration validators and isolated packet-policy enforcement,
 alongside the existing hosted acquisition/analysis gates. It does not install a host
 firewall, run systemd on the deployment machine, verify site credentials/renewal,
-or create a public service. Those remain R6-06, with later M4 monitoring/backup/
+or create a public service. Those remain R6-06, with later M4 backup/
 supply-chain/SLO/legal work still open. See the [dated report](../benchmarks/production-reference-deployment.md).
+M4.2 ([ADR-073](../adr/ADR-073-operator-monitoring.md)) adds Prometheus text metrics,
+alert rules with unit tests and an optional in-namespace Prometheus, rehearsed against
+the real production API. R6-06's live alert checks still need the site's own alert
+delivery.
 
 Production M2.3 adds full hosted Python evidence (2026-10-16, [ADR-064](../adr/ADR-064-hosted-python-evidence.md)):
 145 local PostgreSQL/S3/container/browser checks pass, including two authored Python
