@@ -53,7 +53,7 @@ ADR. It does not cover:
     PR #37); the M4.1 reference deployment is ADR-072 and M4.2 monitoring is ADR-073.
     M4.3 backups are ADR-074, M4.4 image supply chain ADR-075 and M4.5 service levels
     ADR-076. M4.6 public-service pages are ADR-077, record retention and the status
-    channel ADR-078. Allocate ADR-079 next.
+    channel ADR-078, browser-journey guards ADR-079. Allocate ADR-080 next.
 - **Evidence.**
   - The M3.5 baseline passes 813 tests with 83 conditional skips; the CPython oracle
     runs in this evidence. M4.1 adds operator-tooling regressions; exact current

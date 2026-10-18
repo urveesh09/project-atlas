@@ -138,8 +138,8 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-078; ADR-067 is reserved by the separate
-  edge-budget work. Allocate ADR-079 next.
+  The current sequence is ADR-001…ADR-079; ADR-067 is reserved by the separate
+  edge-budget work. Allocate ADR-080 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls
