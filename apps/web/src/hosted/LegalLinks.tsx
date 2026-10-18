@@ -2,8 +2,8 @@ import { LEGAL_DOCUMENTS, type LegalDocument } from '@atlas/schema';
 import { LEGAL_TITLES } from './legal';
 import { navigate } from './route';
 
-/** Footer links to the public-service pages and the operator's contact (M4.6). */
-export function LegalLinks({ contact, current }: { contact: string | null; current?: LegalDocument }) {
+/** Footer links to the public-service pages, the operator's contact (M4.6) and status page (ADR-078). */
+export function LegalLinks({ contact, status, current }: { contact: string | null; status: string | null; current?: LegalDocument }) {
   return (
     <nav className="legal-links" aria-label="Service information">
       <ul>
@@ -17,6 +17,11 @@ export function LegalLinks({ contact, current }: { contact: string | null; curre
         {contact && (
           <li>
             <a href={contact} rel="noreferrer">Contact</a>
+          </li>
+        )}
+        {status && (
+          <li>
+            <a href={status} rel="noreferrer">Service status</a>
           </li>
         )}
       </ul>

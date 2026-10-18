@@ -49,6 +49,8 @@ export const LIMITS = Object.freeze({
   shareFragmentBytes: 4_096,
   apiRequestBodyBytes: 16 * 1024,
   publicationTtlDays: 7,
+  /** Ended hosted jobs and their bookkeeping are deleted after this (ADR-078). */
+  jobRecordRetentionDays: 30,
 } as const);
 
 export type LimitName = keyof typeof LIMITS;

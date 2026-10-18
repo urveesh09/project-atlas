@@ -12,7 +12,7 @@ function profile() {
       api: { ...structuredClone(common), environment: { ATLAS_PUBLIC_ORIGIN: 'https://atlas.example.org', ATLAS_STORAGE: 's3',
         ATLAS_S3_ENDPOINT: 'https://storage.example.org', ATLAS_TRUSTED_PROXIES: '172.30.10.2', ATLAS_DATABASE_URL_FILE: '/run/secrets/api_database_url',
         ATLAS_PRIVACY_FILE: '/etc/atlas/legal/privacy.txt', ATLAS_TERMS_FILE: '/etc/atlas/legal/terms.txt', ATLAS_TAKEDOWN_FILE: '/etc/atlas/legal/takedown.txt',
-        ATLAS_CONTACT: 'mailto:operator@example.org' } as Record<string, string>,
+        ATLAS_CONTACT: 'mailto:operator@example.org', ATLAS_STATUS_URL: 'https://status.example.org/' } as Record<string, string>,
       configs: ['privacy', 'terms', 'takedown'].map((name) => ({ source: `legal_${name}`, target: `/etc/atlas/legal/${name}.txt` })) },
       migrate: structuredClone(common),
       proxy: { ...structuredClone(common), environment: { ATLAS_DOMAIN: 'atlas.example.org' }, networks: { api: { ipv4_address: '172.30.10.2' } } },
@@ -33,6 +33,8 @@ describe('production configuration preflight', () => {
       (c) => { c.services.api.configs = []; },
       (c) => { delete c.services.api.environment['ATLAS_CONTACT']; },
       (c) => { c.services.api.environment['ATLAS_CONTACT'] = 'javascript:alert(1)'; },
+      (c) => { delete c.services.api.environment['ATLAS_STATUS_URL']; },
+      (c) => { c.services.api.environment['ATLAS_STATUS_URL'] = 'http://status.example.org/'; },
       (c) => { c.configs['legal_privacy'] = { file: 'legal/privacy.txt' }; },
     ];
     for (const change of changes) {

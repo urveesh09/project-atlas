@@ -159,6 +159,7 @@ export async function createHarness(repositories: FixtureRepository[], options: 
       for (const role of roles) {
         await role.pool.end();
         await admin.query(`REVOKE ALL ON ALL TABLES IN SCHEMA ${schema} FROM "${role.name}"`);
+        await admin.query(`REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ${schema} FROM "${role.name}"`);
         await admin.query(`REVOKE ALL ON SCHEMA ${schema} FROM "${role.name}"`);
         await admin.query(`DROP ROLE IF EXISTS "${role.name}"`);
       }

@@ -17,6 +17,7 @@ const owner = {
   ATLAS_TERMS_FILE: file('terms.txt', 'Owner terms text.'),
   ATLAS_TAKEDOWN_FILE: file('takedown.txt', 'Owner takedown text.'),
   ATLAS_CONTACT: 'mailto:operator@example.org',
+  ATLAS_STATUS_URL: 'https://github.com/example/service/issues?q=label%3Aincident',
 };
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -25,6 +26,7 @@ describe('legal notices from the environment', () => {
     expect(legalNoticesFromEnv(owner, false)).toEqual({
       configured: true,
       contact: 'mailto:operator@example.org',
+      status: 'https://github.com/example/service/issues?q=label%3Aincident',
       documents: { privacy: 'Owner privacy text.\n\nSecond paragraph.', terms: 'Owner terms text.', takedown: 'Owner takedown text.' },
     });
     expect(legalNoticesFromEnv({ ...owner, ATLAS_CONTACT: 'https://example.org/contact' }, false).contact).toBe('https://example.org/contact');
@@ -57,8 +59,14 @@ describe('legal notices from the environment', () => {
     }
   });
 
+  it('accepts only a plain https: URL as the status page', () => {
+    for (const status of ['http://status.example.org', 'mailto:ops@example.org', 'https://user:pw@status.example.org/', 'status.example.org']) {
+      expect(() => legalNoticesFromEnv({ ...owner, ATLAS_STATUS_URL: status }, false), status).toThrow('ATLAS_STATUS_URL must be an https: URL');
+    }
+  });
+
   it('shows placeholders on a development service, and never invents text', () => {
-    expect(legalNoticesFromEnv({}, true)).toEqual({ configured: false, contact: null, documents: { privacy: null, terms: null, takedown: null } });
+    expect(legalNoticesFromEnv({}, true)).toEqual({ configured: false, contact: null, status: null, documents: { privacy: null, terms: null, takedown: null } });
     // The shipped examples may be used in development; they are still not a configured service.
     const partial = legalNoticesFromEnv({ ATLAS_PRIVACY_FILE: file('dev.txt', `${LEGAL_PLACEHOLDER_MARKER} example`) }, true);
     expect(partial.configured).toBe(false);

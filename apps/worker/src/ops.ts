@@ -1,4 +1,4 @@
-import { PublicationStore, databasePool, operatorCancel, operatorMetrics, resolverFromEnv, storageFromEnv, type Env } from '@atlas/control';
+import { PublicationStore, databasePool, forgetEndedJobs, operatorCancel, operatorMetrics, resolverFromEnv, storageFromEnv, type Env } from '@atlas/control';
 import { JobQueue } from './queue.js';
 
 /**
@@ -14,7 +14,8 @@ export const OPS_USAGE = `atlas-ops <command>
   reap                            fence expired leases now (normally every 5 s)
   sweep                           purge expired/deleted/revoked content and stale uploads
   revalidate                      re-check visibility of repositories with live publications
-  reconcile-storage               delete stored upload prefixes with no database owner`;
+  reconcile-storage               delete stored upload prefixes with no database owner
+  forget                          delete ended jobs past the 30-day record retention (normally hourly)`;
 
 export async function runOps(env: Env, args: readonly string[], out: (line: string) => void = (l) => process.stdout.write(`${l}\n`)): Promise<number> {
   const [command, target] = args;
@@ -61,6 +62,9 @@ export async function runOps(env: Env, args: readonly string[], out: (line: stri
         return 0;
       case 'reconcile-storage':
         print(await publications().reconcileStorage());
+        return 0;
+      case 'forget':
+        print(await forgetEndedJobs(pool));
         return 0;
       default:
         out(OPS_USAGE);

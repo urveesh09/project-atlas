@@ -31,6 +31,35 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Record retention and the status channel (2026-10-18)
+
+- **Decided under the owner's delegation:** [ADR-078](adr/ADR-078-record-retention-and-status.md).
+- **Retention:**
+  - job records are deleted 30 days after the job ends (`LIMITS.jobRecordRetentionDays`),
+    with their events, admission, checkpoint, purged publication, artifact and upload rows,
+    and unreferenced repository rows;
+  - taken-down repositories are kept so revocation keeps applying;
+  - nothing is deleted before its storage is purged or while another publication reuses
+    its artifact.
+- **Privilege:** migration 3's `SECURITY DEFINER` function (fixed search path, fixed
+  period) is the only way to delete. The worker may execute it and still has no `DELETE`
+  on jobs. It runs hourly, and on demand as `atlas-ops forget`.
+- **Status channel:** `ATLAS_STATUS_URL` (`https:`) is required in production and linked as
+  "Service status". The default is the project's GitHub issues labelled `incident`.
+- **Legal texts** stay as placeholders until the owner supplies them.
+- **Local verification (Windows, Node 24.22.0, Docker 29.8.1):**
+  - **PostgreSQL** (pinned image, throwaway container): 5 retention tests pass. Removing
+    the storage-purged condition, the reuse condition or the takedown exception each fails
+    one test.
+  - **Existing PostgreSQL suites** (control, queue, hosted API): 52 tests pass. The two test
+    role cleanups now also revoke function privileges. Their `DROP ROLE` failed until then,
+    and that was the only failure.
+  - **Hosted browser journeys:** 8/8, including the "Service status" link.
+  - **Production rehearsal: 17/17.** The real migration job applied migration 3 and
+    granted the function to the worker role, and `/api/v1/legal` returns the status URL.
+  - **`pnpm verify`: 901 passed, 91 service-gated skips**, of which the 5 new retention
+    tests skip without PostgreSQL.
+
 ### Production M4.6: public-service pages (2026-10-18)
 
 - **Implementation:** [ADR-077](adr/ADR-077-public-service-pages.md) and

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LIMITS } from '@atlas/schema';
-import { contactLabel, dataHandlingFacts, paragraphs, safeContact, takedownFacts } from '../src/hosted/legal';
+import { contactLabel, dataHandlingFacts, paragraphs, safeContact, safeStatus, takedownFacts } from '../src/hosted/legal';
 import { parseRoute } from '../src/hosted/route';
 
 describe('public-service pages', () => {
@@ -12,8 +12,9 @@ describe('public-service pages', () => {
   });
 
   it("states the service's own publication lifetime, not a copied number", () => {
-    const limits = { ...LIMITS, publicationTtlDays: 3 } as Record<string, number>;
+    const limits = { ...LIMITS, publicationTtlDays: 3, jobRecordRetentionDays: 11 } as Record<string, number>;
     expect(dataHandlingFacts(limits).join(' ')).toContain('for 3 days');
+    expect(dataHandlingFacts(limits).join(' ')).toContain('deleted 11 days after the job ends');
     expect(takedownFacts(limits).join(' ')).toContain('after 3 days');
     expect(dataHandlingFacts(LIMITS as unknown as Record<string, number>).join(' ')).toContain(`for ${LIMITS.publicationTtlDays} days`);
   });
@@ -29,5 +30,7 @@ describe('public-service pages', () => {
     expect(contactLabel('mailto:operator@example.org')).toBe('operator@example.org');
     expect(contactLabel('https://example.org/contact')).toBe('example.org/contact');
     expect(contactLabel('https://example.org/')).toBe('example.org');
+    expect(safeStatus('https://status.example.org/')).toBe('https://status.example.org/');
+    for (const unsafe of ['http://status.example.org', 'javascript:alert(1)', null]) expect(safeStatus(unsafe)).toBeNull();
   });
 });

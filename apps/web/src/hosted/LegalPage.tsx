@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Capabilities, LegalDocument, LegalNotices } from '@atlas/schema';
-import { LEGAL_TITLES, contactLabel, dataHandlingFacts, paragraphs, safeContact, takedownFacts } from './legal';
+import { LEGAL_TITLES, contactLabel, dataHandlingFacts, paragraphs, safeContact, safeStatus, takedownFacts } from './legal';
 import { LegalLinks } from './LegalLinks';
 import { navigate } from './route';
 
@@ -15,6 +15,7 @@ export function LegalPage({ document, notices, capabilities }: { document: Legal
   useEffect(() => heading.current?.focus(), [document]);
   const text = notices.documents[document];
   const contact = safeContact(notices.contact);
+  const status = safeStatus(notices.status);
   const facts = document === 'privacy' ? dataHandlingFacts(capabilities.limits) : document === 'takedown' ? takedownFacts(capabilities.limits) : null;
   return (
     <main className="gate">
@@ -56,7 +57,7 @@ export function LegalPage({ document, notices, capabilities }: { document: Legal
         <a className="button" href="/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
           Back to the start page
         </a>
-        <LegalLinks contact={contact} current={document} />
+        <LegalLinks contact={contact} status={status} current={document} />
       </article>
     </main>
   );

@@ -49,6 +49,7 @@ export function assertProductionProfile(config) {
     assert(legalTargets.includes(api.environment[name]), `${name} must name a mounted config`);
   }
   assert(/^(?:mailto:|https:\/\/)/.test(api.environment.ATLAS_CONTACT ?? ''), 'ATLAS_CONTACT must be a mailto: address or an https: page');
+  assert(/^https:\/\//.test(api.environment.ATLAS_STATUS_URL ?? ''), 'ATLAS_STATUS_URL must be an https: page');
   for (const c of Object.values(config.configs ?? {})) assert(path.isAbsolute(c.file), 'absolute legal text paths required');
   // Optional monitoring (M4.2, ADR-073): inside the API's namespace, publishing nothing.
   const prometheus = config.services.prometheus;

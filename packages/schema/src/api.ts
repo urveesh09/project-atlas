@@ -128,13 +128,15 @@ export const LEGAL_DOCUMENTS = ['privacy', 'terms', 'takedown'] as const;
 export type LegalDocument = (typeof LEGAL_DOCUMENTS)[number];
 
 /**
- * Operator-supplied plain text for each page and a contact (`mailto:` or `https:`).
- * `configured` is false only on a development service, where they may be absent; a
- * production service refuses to start without all of them.
+ * Operator-supplied plain text for each page, a contact (`mailto:` or `https:`) and a
+ * status page. `configured` is false only on a development service, where they may be
+ * absent; a production service refuses to start without all of them.
  */
 export const LegalNoticesSchema = z.strictObject({
   configured: z.boolean(),
   contact: z.string().max(512).nullable(),
+  /** Where incidents are announced: an `https:` page (ADR-078). */
+  status: z.string().max(512).nullable(),
   documents: z.strictObject({
     privacy: z.string().max(65_536).nullable(),
     terms: z.string().max(65_536).nullable(),

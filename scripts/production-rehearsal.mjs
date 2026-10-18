@@ -74,7 +74,7 @@ const legalTexts = { privacy: 'Rehearsal privacy text for an isolated test servi
 for (const [name, text] of Object.entries(legalTexts)) writeFileSync(path.join(legalDir, `${name}.txt`), `${text}\n`);
 const composeEnv = { ...process.env, ATLAS_API_IMAGE: apiImage, ATLAS_PROXY_IMAGE: caddyImage, ATLAS_DOMAIN: 'localhost', ATLAS_PUBLIC_ORIGIN: 'https://localhost',
   ATLAS_SECRET_DIR: secretDir, ATLAS_S3_ENDPOINT: 'https://storage:8443', ATLAS_S3_BUCKET: 'atlas-rehearsal', ATLAS_HTTPS_PORT: '0', ATLAS_BIND_ADDRESS: '127.0.0.1',
-  ATLAS_LEGAL_DIR: legalDir, ATLAS_CONTACT: 'mailto:operator@example.org' };
+  ATLAS_LEGAL_DIR: legalDir, ATLAS_CONTACT: 'mailto:operator@example.org', ATLAS_STATUS_URL: 'https://status.example.org/' };
 const compose = (params, options) => docker(['compose', '-p', project, '-f', path.join(production, 'compose.yaml'), '-f', overlay, '--profile', 'api-host', '--profile', 'monitoring', ...params], { env: composeEnv, ...options });
 // The throwaway CA only verifies the loopback server; it is a trust anchor, never request
 // data. It exists after the first step, so the agent is created on first use. Keep-alive
@@ -228,7 +228,7 @@ try {
     assert.match(String(refusal.stdout), /"event":"api\.fatal".*still holds the shipped placeholder/);
     const notices = await request(port, '/api/v1/legal');
     assert.equal(notices.status, 200);
-    assert.deepEqual(JSON.parse(notices.text), { configured: true, contact: 'mailto:operator@example.org', documents: legalTexts });
+    assert.deepEqual(JSON.parse(notices.text), { configured: true, contact: 'mailto:operator@example.org', status: 'https://status.example.org/', documents: legalTexts });
     for (const page of ['/privacy', '/terms', '/takedown']) {
       const shell = await request(port, page);
       assert.equal(shell.status, 200);

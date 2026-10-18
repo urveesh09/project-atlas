@@ -165,7 +165,7 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
     } finally { await context.close(); }
 
     const configured = await startApi({ store: h.admission, quotaSecret: 'f'.repeat(32), developmentLoopback: true, publications: h.publications, storage: h.store, webRoot,
-      legal: { configured: true, contact: 'mailto:operator@example.org', documents: { privacy: 'Operator privacy text.\n\nSecond paragraph.', terms: 'Operator terms text.', takedown: 'Operator takedown text.' } } });
+      legal: { configured: true, contact: 'mailto:operator@example.org', status: 'https://status.example.org/', documents: { privacy: 'Operator privacy text.\n\nSecond paragraph.', terms: 'Operator terms text.', takedown: 'Operator takedown text.' } } });
     const second = await open();
     try {
       await second.page.goto(`${configured.origin}/terms`);
@@ -175,7 +175,9 @@ describe.runIf(!!databaseUrl && browserAvailable && viewerBuilt)('hosted journey
       expect(await second.page.getByRole('link', { name: 'operator@example.org' }).getAttribute('href')).toBe('mailto:operator@example.org');
       expect(await audit(second.page, 'hosted-terms-configured')).toEqual([]);
       await second.page.goto(`${configured.origin}/`);
-      expect(await second.page.getByRole('navigation', { name: 'Service information' }).getByRole('link', { name: 'Contact' }).getAttribute('href')).toBe('mailto:operator@example.org');
+      const footer = second.page.getByRole('navigation', { name: 'Service information' });
+      expect(await footer.getByRole('link', { name: 'Contact' }).getAttribute('href')).toBe('mailto:operator@example.org');
+      expect(await footer.getByRole('link', { name: 'Service status' }).getAttribute('href')).toBe('https://status.example.org/');
     } finally {
       await second.context.close();
       await configured.close();

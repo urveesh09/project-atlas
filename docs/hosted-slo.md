@@ -169,9 +169,17 @@ reports, reviews or audits. Treat any credible report as SEV1 until it is ruled 
 - Expired, deleted and revoked publications say which of these happened.
 - Nothing is published from a failed job.
 
-**What the operator adds.** Every hosted page links the owner's contact (`ATLAS_CONTACT`,
-M4.6). The service has no status page, so before launch the owner also names a status
-channel, for example on that contact page. Then:
+**The status channel.** Every hosted page links the contact (`ATLAS_CONTACT`) and
+"Service status" (`ATLAS_STATUS_URL`), and a production service needs both to start
+([ADR-078](adr/ADR-078-record-retention-and-status.md)).
+- By default, incidents are announced as issues labelled `incident` in the project's
+  GitHub repository. GitHub serves that page, so it stays up when the service is down, and
+  people can follow it.
+- Each incident issue states the severity, what users see, and the next update time. It
+  is closed with the summary.
+- A site that announces elsewhere sets its own URL.
+
+Then:
 - **SEV1 and SEV2:** post on the status channel within 1 hour of acknowledging, and
   update at least every 2 hours until resolved. Afterwards, post a summary of the cause
   and the fix.
