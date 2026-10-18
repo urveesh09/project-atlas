@@ -2,10 +2,10 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-18):** production-plan M4.3 private backups and an isolated,
-quarantined restore drill (ADR-074), following merged reference deployment PR #39
-(M4.1, ADR-072) and monitoring PR #40 (M4.2, ADR-073).
-M4.4 supply chain is next; live-site R6-06 remains open. M3.5 fallback, diagnostics
+**Current milestone (2026-10-18):** production-plan M4.4 scanned immutable image
+publication and signed-origin verification (ADR-075). M4.3 backups/restore landed in
+PR #41, following deployment PR #39 and monitoring PR #40. M4.5 SLOs/incidents is next;
+live-site R6-06 remains open. M3.5 fallback, diagnostics
 and primary-action contrast landed in PR #37 (all 15 checks green on `d444c67`), following accessibility
 preparation (PR #36), macOS CI (PR #34) and
 Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
@@ -30,6 +30,32 @@ Unchanged since 2026-10-11:
 - Runtime instrumentation remains deferred.
 
 Agents: read [AGENTS.md](../AGENTS.md).
+
+### Production M4.4: scanned immutable image publication (2026-10-18)
+
+- **Implementation:** [ADR-075](adr/ADR-075-scanned-immutable-image-publication.md),
+  [operator verification](image-supply-chain.md), [dated evidence](benchmarks/production-image-supply-chain.md).
+  API/sandbox OCI archives carry a pinned-generator SPDX inventory and max provenance;
+  pinned Grype blocks fixable High/Critical findings before either image publication.
+  Read-only scanner jobs have no Docker socket, project mount or release credentials.
+- **Identity:** metadata hashes/subjects, platform/config/source label and scan identity
+  are checked. Both candidates must pass before ORAS copies their exact original graphs.
+  Registry digest readback, GitHub attestation verification (workflow/tag/commit/hosted
+  runner), and a final draft job prevent an early draft after a failed image gate.
+  Operator commands cover the CLI archive and both immutable container digests.
+- **Measured correction:** the old API scan found three fixable High advisories in npm's
+  bundled dependencies. Removing unused runtime npm/Corepack/Yarn, keeping build tooling,
+  yields zero fixable findings in both images; 157/256 ignored/unfixed results stay in
+  full JSON. No application dependency, Node, Git, analyzer or artifact version changed.
+- **Local checks:** both real scans and exact-digest private registry copies pass;
+  all owned resources removed. Required-browser `pnpm verify`: 883 passed, 84 skipped
+  on the merged M4.3 base, plus eight focused policy tests; six-repository baseline,
+  checksum-verified actionlint 1.7.12 and diff whitespace checks pass. Failed reports
+  are retained, with causes/fixes described in the ADR. CI rebuilds and repeats the
+  physical gates with pinned BuildKit 0.34.0 and runs existing hosted runtime tests.
+- **Boundary:** exact-head CI and owner merge remain required. No release tag, public
+  package, live signing or deployment was created. R6-06/G6, M4.5/M4.6, M3.4 and
+  M2.2/M2.7 remain open.
 
 ## Phase 0: prove constraints and lock contracts
 

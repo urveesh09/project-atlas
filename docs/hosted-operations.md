@@ -57,7 +57,12 @@ Development-only modes refuse to start without `ATLAS_DEVELOPMENT=1`: fixture ac
 
 ## Release procedure
 
-1. **Build images.**
+1. **Verify the release images before deployment.** Follow
+   [Image supply chain](image-supply-chain.md#what-to-verify-before-deployment): verify
+   the CLI archive and both OCI index attestations against the approved workflow, tag
+   and source commit; require both image scan jobs and the entire release run to pass.
+   Pull by verified digest and record the engine's local image IDs. Never substitute a
+   mutable tag for the reviewed image. Local development builds are:
    - `docker build -f deploy/api.Dockerfile -t atlas-api:<version> .`
    - `docker build -f deploy/sandbox.Dockerfile -t atlas-sandbox:<version> .`
    - Record both image IDs.

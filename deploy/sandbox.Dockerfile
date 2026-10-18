@@ -22,6 +22,8 @@ FROM ${NODE_IMAGE}
 RUN apt-get update \
  && apt-get install --yes --no-install-recommends git=1:2.47.3-0+deb13u1 ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+ && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg \
  && groupadd --gid 10001 atlas && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp atlas
 COPY --from=build --chown=root:root /atlas /atlas
 USER 10001:10001

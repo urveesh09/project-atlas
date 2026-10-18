@@ -16,7 +16,10 @@ RUN pnpm install --frozen-lockfile \
  && cp -r apps/web/dist /atlas/web
 
 FROM ${NODE_IMAGE}
-RUN groupadd --gid 10001 atlas && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp atlas
+# Runtime needs Node, not package managers (including their unrelated dependencies).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+ && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+ && groupadd --gid 10001 atlas && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp atlas
 COPY --from=build --chown=root:root /atlas /atlas
 USER 10001:10001
 ENV NODE_ENV=production ATLAS_WEB_ROOT=/atlas/web ATLAS_LISTEN_HOST=0.0.0.0 ATLAS_PORT=8080

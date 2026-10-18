@@ -1,0 +1,123 @@
+{
+  "task": "M4.4",
+  "date": "2026-10-18",
+  "localBuildTools": {
+    "node": "24.22.0",
+    "dockerEngine": "29.8.1",
+    "buildx": "0.37.1",
+    "buildkit": "0.33.0"
+  },
+  "policy": {
+    "format": "atlas.image-policy/1",
+    "platform": "linux/amd64",
+    "buildxVersion": "v0.37.1",
+    "builder": "moby/buildkit@sha256:b059f8d7226d0b326bc871af489a5dddf65e36af4d20d14251b072974d9ee87c",
+    "scanner": "anchore/grype@sha256:e4a44ef45d285b829ce6efe2642980329661bd2d18eab5fc539138d4adaebbbe",
+    "scannerVersion": "0.120.1",
+    "publisher": "ghcr.io/oras-project/oras@sha256:f7bc056d54d97baa399414ed5048ecc67c3371b750d4bbce1d871827a5758179",
+    "cacheInitializer": "node@sha256:7f486cabe892bff8fef04c0f7da8dba84a560be3e4e2740b7a86afc57ebec315",
+    "sbomGenerator": "docker/buildkit-syft-scanner@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9",
+    "registryFixture": "registry@sha256:ddf754342cfc8acc51a56d5d0ab6af06826461864460636d8bd5c546dab2a7b8",
+    "maximumDatabaseAgeHours": 120
+  },
+  "initialApi": {
+    "scannerExitCode": 2,
+    "fixableFindings": 11,
+    "blocking": [
+      {
+        "id": "GHSA-rfgv-xxqx-mfg5",
+        "package": "undici",
+        "installed": "6.28.0",
+        "fixed": [
+          "6.28.1"
+        ]
+      },
+      {
+        "id": "GHSA-qhr7-859c-m2p7",
+        "package": "brace-expansion",
+        "installed": "5.0.9",
+        "fixed": [
+          "5.0.11"
+        ]
+      },
+      {
+        "id": "GHSA-6j4f-fj2g-mc7p",
+        "package": "brace-expansion",
+        "installed": "5.0.9",
+        "fixed": [
+          "5.0.10"
+        ]
+      }
+    ]
+  },
+  "images": {
+    "api": {
+      "format": "atlas.release-image/1",
+      "revision": "211d471ef1f0094d86a64b8a6c4e5797866f616f",
+      "scannedAt": "2026-10-18T11:24:26.122Z",
+      "dirty": true,
+      "platform": "linux/amd64",
+      "digest": "sha256:5aea4123dc18d9b81a23d285ad22a30340ad8dbdd769f29fc7bbce50b9aca334",
+      "imageDigest": "sha256:ff5250a3514a4d4e8f9ca9021faf24c096bd6b8568705d23f3c3e16381bff8b3",
+      "configDigest": "sha256:af36f73106ec670570dd9269a71d061c356e176969d3416f65eec9c04f4abe64",
+      "archiveSha256": "sha256:644d33ef8a4534d843f5731e3cf720100e6ce2e12deccafa3926ee37d857bfe2",
+      "passed": true,
+      "database": {
+        "schemaVersion": "v6.1.10",
+        "from": "https://grype.anchore.io/databases/v6/vulnerability-db_v6.1.10_2026-10-17T00:31:44Z_1792304837.tar.zst?checksum=sha256%3Ae3d1010ec6e5dee9d3e84b2d5723c534d799e104e6573160e05b22c5292f091e",
+        "built": "2026-10-18T06:27:17Z",
+        "valid": true
+      },
+      "matches": 0,
+      "suppressed": 157,
+      "blocking": [],
+      "scanner": "anchore/grype@sha256:e4a44ef45d285b829ce6efe2642980329661bd2d18eab5fc539138d4adaebbbe",
+      "scannerVersion": "0.120.1",
+      "exitCode": 0,
+      "cleaned": true,
+      "copy": {
+        "passed": true,
+        "cleaned": true,
+        "digest": "sha256:5aea4123dc18d9b81a23d285ad22a30340ad8dbdd769f29fc7bbce50b9aca334",
+        "portsPublished": 0,
+        "publicRegistry": false
+      },
+      "sbomPackages": 102
+    },
+    "sandbox": {
+      "format": "atlas.release-image/1",
+      "revision": "211d471ef1f0094d86a64b8a6c4e5797866f616f",
+      "scannedAt": "2026-10-18T11:27:27.250Z",
+      "dirty": true,
+      "platform": "linux/amd64",
+      "digest": "sha256:145fd68905855c798928b60642d991b8fa8e013d5662d9fff70eab02d630258f",
+      "imageDigest": "sha256:60e14261c2f9fca4dbb5be072ab1bce6e50729f8e6fab0c9ec875479a1fe257b",
+      "configDigest": "sha256:8ea6d5e43e43206251adf9639c65033db6a544a2aa04290d453fccc0612fc837",
+      "archiveSha256": "sha256:d20bb4a6c8e16a8c31782addff131812b1de0ce08a9c97222006ab1e5abcfa32",
+      "passed": true,
+      "database": {
+        "schemaVersion": "v6.1.10",
+        "from": "https://grype.anchore.io/databases/v6/vulnerability-db_v6.1.10_2026-10-17T00:31:44Z_1792304837.tar.zst?checksum=sha256%3Ae3d1010ec6e5dee9d3e84b2d5723c534d799e104e6573160e05b22c5292f091e",
+        "built": "2026-10-18T06:27:17Z",
+        "valid": true
+      },
+      "matches": 0,
+      "suppressed": 256,
+      "blocking": [],
+      "scanner": "anchore/grype@sha256:e4a44ef45d285b829ce6efe2642980329661bd2d18eab5fc539138d4adaebbbe",
+      "scannerVersion": "0.120.1",
+      "exitCode": 0,
+      "cleaned": true,
+      "copy": {
+        "passed": true,
+        "cleaned": true,
+        "digest": "sha256:145fd68905855c798928b60642d991b8fa8e013d5662d9fff70eab02d630258f",
+        "portsPublished": 0,
+        "publicRegistry": false
+      },
+      "sbomPackages": 146
+    }
+  },
+  "livePublication": false,
+  "liveSigning": false
+}

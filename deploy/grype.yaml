@@ -1,0 +1,11 @@
+# Release gate: no allowlist, VEX, path exclusion or severity downgrade.
+check-for-app-update: false
+only-fixed: true
+fail-on-severity: high
+search:
+  scope: squashed
+db:
+  auto-update: true
+  validate-age: true
+  max-allowed-built-age: 120h
+  require-update-check: true
