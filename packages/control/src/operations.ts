@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { JOB_DEADLINE_SECONDS } from './jobs.js';
 
 /**
  * Operator metrics (plan §15.4): queue depth, leases, outcomes, stage durations, bytes
@@ -6,7 +7,8 @@ import type { Pool } from 'pg';
  * no repository names, paths, tokens or source text.
  */
 export interface OperatorMetrics {
-  queue: { queued: number; active: number; cancelRequested: number; oldestQueuedSeconds: number | null };
+  /** `waitSecondsP95_24h`: p95 queue wait of jobs that reached a worker in the last 24 hours. */
+  queue: { queued: number; active: number; cancelRequested: number; oldestQueuedSeconds: number | null; waitSecondsP95_24h: number | null };
   leases: { live: number; expired: number };
   outcomes24h: Record<string, number>;
   failures24h: Record<string, number>;
@@ -27,7 +29,10 @@ export async function operatorMetrics(pool: Pool): Promise<OperatorMetrics> {
       count(*) FILTER (WHERE lease_owner IS NOT NULL AND lease_expires_at>clock_timestamp()) AS live,
       count(*) FILTER (WHERE lease_owner IS NOT NULL AND lease_expires_at<=clock_timestamp()) AS expired
     FROM jobs`)).rows[0]!;
-  const outcomes = (await pool.query<{ state: string; count: string }>(`SELECT state,count(*) FROM jobs WHERE updated_at>clock_timestamp()-interval '24 hours'
+  // The first claim sets deadline to claim time plus JOB_DEADLINE_SECONDS, once.
+  const waited = (await pool.query(`SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY extract(epoch FROM deadline-make_interval(secs => $1)-created_at)::float8) AS wait
+    FROM jobs WHERE deadline IS NOT NULL AND deadline-make_interval(secs => $1)>clock_timestamp()-interval '24 hours'`, [JOB_DEADLINE_SECONDS])).rows[0];
+  const outcomes =(await pool.query<{ state: string; count: string }>(`SELECT state,count(*) FROM jobs WHERE updated_at>clock_timestamp()-interval '24 hours'
     AND state IN ('READY','PARTIAL','FAILED','CANCELLED') GROUP BY state`)).rows;
   const failures = (await pool.query<{ code: string; count: string }>(`SELECT error->>'code' AS code,count(*) FROM jobs WHERE state='FAILED'
     AND updated_at>clock_timestamp()-interval '24 hours' GROUP BY 1`)).rows;
@@ -50,7 +55,8 @@ export async function operatorMetrics(pool: Pool): Promise<OperatorMetrics> {
       (SELECT count(*) FROM uploads WHERE state='purging') AS purging`)).rows[0]!;
   const upstream = (await pool.query(`SELECT greatest(extract(epoch FROM blocked_until-clock_timestamp()),0)::float8 AS blocked,remaining FROM upstream_budgets WHERE name='github-api'`)).rows[0];
   return {
-    queue: { queued: n(queue['queued']), active: n(queue['active']), cancelRequested: n(queue['cancel_requested']), oldestQueuedSeconds: queue['oldest'] === null ? null : Math.round(n(queue['oldest'])) },
+    queue: { queued: n(queue['queued']), active: n(queue['active']), cancelRequested: n(queue['cancel_requested']), oldestQueuedSeconds: queue['oldest'] === null ? null : Math.round(n(queue['oldest'])),
+      waitSecondsP95_24h: waited?.['wait'] == null ? null : Math.round(n(waited['wait'])) },
     leases: { live: n(queue['live']), expired: n(queue['expired']) },
     outcomes24h: Object.fromEntries(outcomes.map((r) => [r.state, n(r.count)])),
     failures24h: Object.fromEntries(failures.map((r) => [r.code ?? 'UNKNOWN', n(r.count)])),
@@ -74,13 +80,14 @@ type Sample = readonly [labels: Readonly<Record<string, string>> | null, value: 
  * one gauge named `atlas_` plus its JSON path in snake case, with the unit last; keyed maps
  * become labels. Stage durations are converted to seconds, Prometheus's base unit. A null
  * field is omitted rather than reported as 0, so "unknown" never reads as "healthy".
+ * Publication reads, when given, are this process's counters (ADR-076).
  */
-export function operatorMetricsText(m: OperatorMetrics): string {
+export function operatorMetricsText(m: OperatorMetrics, reads?: PublicationReads): string {
   const lines: string[] = [];
-  const family = (name: string, help: string, samples: readonly Sample[]) => {
+  const family = (name: string, help: string, samples: readonly Sample[], type: 'gauge' | 'counter' = 'gauge') => {
     const present = samples.filter((sample): sample is readonly [Sample[0], number] => sample[1] !== null);
     if (present.length === 0) return;
-    lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} gauge`);
+    lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} ${type}`);
     for (const [labels, value] of present) lines.push(`${name}${labelText(labels)} ${value}`);
   };
   const one = (name: string, help: string, value: number | null) => family(name, help, [[null, value]]);
@@ -91,6 +98,7 @@ export function operatorMetricsText(m: OperatorMetrics): string {
   one('atlas_queue_active', 'Jobs a worker is acquiring, analyzing or publishing.', m.queue.active);
   one('atlas_queue_cancel_requested', 'Jobs whose cancellation is in progress.', m.queue.cancelRequested);
   one('atlas_queue_oldest_queued_seconds', 'Age of the oldest queued job; absent when none is queued.', m.queue.oldestQueuedSeconds);
+  one('atlas_queue_wait_p95_24h_seconds', 'p95 queue wait of jobs that reached a worker in the last 24 hours; absent when none did.', m.queue.waitSecondsP95_24h);
   one('atlas_leases_live', 'Worker leases that are still valid.', m.leases.live);
   one('atlas_leases_expired', 'Worker leases past expiry that the reaper has not fenced yet.', m.leases.expired);
   keyed('atlas_outcomes_24h', 'Jobs that reached each terminal state in the last 24 hours.', 'state',
@@ -111,7 +119,26 @@ export function operatorMetricsText(m: OperatorMetrics): string {
   one('atlas_storage_purging_uploads', 'Uploads whose storage deletion has not finished.', m.storage.purgingUploads);
   one('atlas_upstream_blocked_seconds', 'Remaining shared GitHub API back-off; absent before the first GitHub call.', m.upstream.blockedSeconds);
   one('atlas_upstream_remaining', 'GitHub API requests remaining in the current window, when known.', m.upstream.remaining === null ? null : Number(m.upstream.remaining));
+  if (reads) {
+    family('atlas_publication_reads_total', 'Publication manifest and chunk reads this API process answered since it started, by result.',
+      PUBLICATION_READ_RESULTS.map((result) => [{ result }, reads[result]]), 'counter');
+  }
   return `${lines.join('\n')}\n`;
+}
+
+/**
+ * Publication manifest and chunk reads one API process answered, by result: `ok`, `ended`
+ * (404/410: deleted, expired, revoked or unknown, as designed), `rejected` (other 4xx) and
+ * `unavailable` (5xx, including failing closed when GitHub visibility cannot be checked).
+ * Availability is ok / (ok + unavailable) (ADR-076).
+ */
+export interface PublicationReads { ok: number; ended: number; rejected: number; unavailable: number }
+export const PUBLICATION_READ_RESULTS = ['ended', 'ok', 'rejected', 'unavailable'] as const satisfies readonly (keyof PublicationReads)[];
+
+export function publicationReadResult(status: number): keyof PublicationReads {
+  if (status < 400) return 'ok';
+  if (status === 404 || status === 410) return 'ended';
+  return status >= 500 ? 'unavailable' : 'rejected';
 }
 
 function labelText(labels: Readonly<Record<string, string>> | null): string {

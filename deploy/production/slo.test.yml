@@ -1,0 +1,137 @@
+# promtool unit tests for slo.yml: the indicators, each objective alert, and the cases that
+# must stay quiet (budget-compatible errors, expected outcomes, low volume).
+rule_files: [slo.yml]
+evaluation_interval: 1m
+
+tests:
+  - name: availability excludes ended and rejected reads
+    interval: 1m
+    input_series:
+      - series: 'atlas_publication_reads_total{job="atlas-operator",instance="127.0.0.1:9090",result="ok"}'
+        values: '0+99x60'
+      - series: 'atlas_publication_reads_total{job="atlas-operator",instance="127.0.0.1:9090",result="unavailable"}'
+        values: '0+1x60'
+      - series: 'atlas_publication_reads_total{job="atlas-operator",instance="127.0.0.1:9090",result="ended"}'
+        values: '0+50x60'
+      - series: 'atlas_publication_reads_total{job="atlas-operator",instance="127.0.0.1:9090",result="rejected"}'
+        values: '0+50x60'
+    promql_expr_test:
+      - expr: atlas:publication_read_errors:ratio_rate1h
+        eval_time: 60m
+        exp_samples: [{ labels: 'atlas:publication_read_errors:ratio_rate1h', value: 0.01 }]
+      - expr: atlas:publication_read_availability:ratio_30d
+        eval_time: 60m
+        exp_samples: [{ labels: 'atlas:publication_read_availability:ratio_30d', value: 0.99 }]
+    alert_rule_test:
+      # 1% errors is twice the 0.5% budget rate: neither burn alert fires.
+      - { eval_time: 60m, alertname: AtlasPublicationBudgetFastBurn, exp_alerts: [] }
+      - { eval_time: 60m, alertname: AtlasPublicationBudgetSlowBurn, exp_alerts: [] }
+
+  - name: a fast burn pages, and stops once reads recover
+    interval: 1m
+    input_series:
+      - series: 'atlas_publication_reads_total{job="atlas-operator",instance="127.0.0.1:9090",result="ok"}'
+        values: '0+90x60 5490+100x30'
+      - series: 'atlas_publication_reads_total{job="atlas-operator",instance="127.0.0.1:9090",result="unavailable"}'
+        values: '0+10x60 610+0x30'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: AtlasPublicationBudgetFastBurn
+        exp_alerts:
+          - exp_labels: { severity: page }
+            exp_annotations:
+              summary: Publication reads are failing at 10%, spending the 30-day error budget 14x too fast
+              runbook: docs/hosted-slo.md#publication-availability
+      # The 1-hour window still shows errors, but the 5-minute window has recovered.
+      - { eval_time: 70m, alertname: AtlasPublicationBudgetFastBurn, exp_alerts: [] }
+
+  - name: a slow burn raises a ticket without paging
+    interval: 1m
+    input_series:
+      - series: 'atlas_publication_reads_total{job="atlas-operator",instance="127.0.0.1:9090",result="ok"}'
+        values: '0+96x400'
+      - series: 'atlas_publication_reads_total{job="atlas-operator",instance="127.0.0.1:9090",result="unavailable"}'
+        values: '0+4x400'
+    alert_rule_test:
+      - { eval_time: 390m, alertname: AtlasPublicationBudgetFastBurn, exp_alerts: [] }
+      - eval_time: 390m
+        alertname: AtlasPublicationBudgetSlowBurn
+        exp_alerts:
+          - exp_labels: { severity: ticket }
+            exp_annotations:
+              summary: Publication reads are failing at 4% over six hours
+              runbook: docs/hosted-slo.md#publication-availability
+
+  - name: job success excludes expected outcomes and alerts below 98%
+    interval: 1m
+    input_series:
+      - series: 'atlas_outcomes_24h{job="atlas-operator",instance="127.0.0.1:9090",state="READY"}'
+        values: '45x90'
+      - series: 'atlas_outcomes_24h{job="atlas-operator",instance="127.0.0.1:9090",state="PARTIAL"}'
+        values: '2x90'
+      - series: 'atlas_outcomes_24h{job="atlas-operator",instance="127.0.0.1:9090",state="FAILED"}'
+        values: '5x90'
+      - series: 'atlas_outcomes_24h{job="atlas-operator",instance="127.0.0.1:9090",state="CANCELLED"}'
+        values: '7x90'
+      - series: 'atlas_failures_24h{job="atlas-operator",instance="127.0.0.1:9090",code="ANALYSIS_RESOURCE_LIMIT"}'
+        values: '3x90'
+      - series: 'atlas_failures_24h{job="atlas-operator",instance="127.0.0.1:9090",code="UPSTREAM_UNAVAILABLE"}'
+        values: '2x90'
+    promql_expr_test:
+      # 47 succeeded of 52 terminal non-cancelled jobs, 3 of which hit expected limits.
+      - expr: atlas:job_counted:count_24h
+        eval_time: 10m
+        exp_samples: [{ labels: 'atlas:job_counted:count_24h', value: 49 }]
+      - expr: atlas:job_success:ratio_24h
+        eval_time: 10m
+        exp_samples: [{ labels: 'atlas:job_success:ratio_24h', value: 0.9591836734693877 }]
+    alert_rule_test:
+      - { eval_time: 59m, alertname: AtlasJobSuccessBelowObjective, exp_alerts: [] }
+      - eval_time: 60m
+        alertname: AtlasJobSuccessBelowObjective
+        exp_alerts:
+          - exp_labels: { severity: ticket }
+            exp_annotations:
+              summary: 95.92% of counted jobs succeeded in the last 24 hours (objective 98%)
+              runbook: docs/hosted-slo.md#job-success
+
+  - name: only expected failures, or too few jobs, never alert
+    interval: 1m
+    input_series:
+      - series: 'atlas_outcomes_24h{job="atlas-operator",instance="127.0.0.1:9090",state="READY"}'
+        values: '10x90'
+      - series: 'atlas_outcomes_24h{job="atlas-operator",instance="127.0.0.1:9090",state="FAILED"}'
+        values: '4x90'
+      - series: 'atlas_failures_24h{job="atlas-operator",instance="127.0.0.1:9090",code="REPOSITORY_TOO_LARGE"}'
+        values: '4x90'
+    promql_expr_test:
+      - expr: atlas:job_success:ratio_24h
+        eval_time: 10m
+        exp_samples: [{ labels: 'atlas:job_success:ratio_24h', value: 1 }]
+    alert_rule_test:
+      - { eval_time: 90m, alertname: AtlasJobSuccessBelowObjective, exp_alerts: [] }
+
+  - name: no counted jobs leaves the ratio absent
+    interval: 1m
+    input_series:
+      - series: 'atlas_outcomes_24h{job="atlas-operator",instance="127.0.0.1:9090",state="CANCELLED"}'
+        values: '3x10'
+    promql_expr_test:
+      - expr: atlas:job_success:ratio_24h
+        eval_time: 5m
+        exp_samples: []
+
+  - name: queue wait above ten minutes raises a ticket after half an hour
+    interval: 1m
+    input_series:
+      - series: 'atlas_queue_wait_p95_24h_seconds{job="atlas-operator",instance="127.0.0.1:9090"}'
+        values: '420 900x40'
+    alert_rule_test:
+      - { eval_time: 30m, alertname: AtlasQueueWaitAboveObjective, exp_alerts: [] }
+      - eval_time: 31m
+        alertname: AtlasQueueWaitAboveObjective
+        exp_alerts:
+          - exp_labels: { severity: ticket, job: atlas-operator, instance: '127.0.0.1:9090' }
+            exp_annotations:
+              summary: Queue wait p95 over 24 hours is 15m 0s (objective 10 minutes)
+              runbook: docs/hosted-slo.md#queue-wait

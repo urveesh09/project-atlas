@@ -51,7 +51,8 @@ ADR. It does not cover:
     macOS CI is ADR-068, Firefox and WebKit journeys are ADR-069, and accessibility
     preparation is ADR-070. M3.5 fallback/diagnostics/contrast is ADR-071 (merged
     PR #37); the M4.1 reference deployment is ADR-072 and M4.2 monitoring is ADR-073.
-    Allocate ADR-074 next.
+    M4.3 backups are ADR-074, M4.4 image supply chain ADR-075 and M4.5 service levels
+    ADR-076. Allocate ADR-077 next.
 - **Evidence.**
   - The M3.5 baseline passes 813 tests with 83 conditional skips; the CPython oracle
     runs in this evidence. M4.1 adds operator-tooling regressions; exact current
@@ -671,6 +672,13 @@ Both image gates must pass; live signing/publishing still require an approved re
   or locally with the same commands.
 
 #### M4.5 Service levels and incidents
+
+**Implementation prepared, 2026-10-18:** [hosted-slo.md](../hosted-slo.md) and
+[ADR-076](../adr/ADR-076-service-levels.md). `/metrics` gains the 24-hour queue-wait p95
+and per-process publication read counters, so all three objectives come from it.
+`slo.yml` records them and alerts on them, with promtool tests. Objectives are
+provisional until 30 days of real traffic. Availability is stated as unmeasured, and
+the others give their measured basis.
 
 - Write `docs/hosted-slo.md`. It should define:
   - targets: publication availability, job success rate excluding expected limit

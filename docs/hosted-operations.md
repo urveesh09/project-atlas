@@ -187,7 +187,7 @@ reconciliation require a separate operator procedure; R6-06 remains open.
 
 | Field | Contents |
 |---|---|
-| `queue` | Queued, active and cancel-requested jobs; age of the oldest queued job |
+| `queue` | Queued, active and cancel-requested jobs; age of the oldest queued job; p95 queue wait of jobs that reached a worker in the last 24 hours |
 | `leases` | Live and expired leases |
 | `outcomes24h`, `failures24h` | Terminal states and failure codes over the last 24 hours |
 | `stageMsP95_24h` | Per-stage p95: validate, acquire HEAD and history, analyze HEAD and history, verify, upload |
@@ -195,6 +195,7 @@ reconciliation require a separate operator procedure; R6-06 remains open.
 | `publications` | Live, expired, deleted, revoked, and awaiting purge |
 | `storage` | Live objects and bytes; pending and purging uploads |
 | `upstream` | GitHub budget: shared block time and remaining quota |
+| `publicationReads` | Publication manifest and chunk reads this API process answered since it started: `ok`, `ended` (404/410), `rejected` (other 4xx), `unavailable` (5xx). Only the API's operator listener reports it, not `atlas-ops metrics` |
 
 Alert on:
 
@@ -209,12 +210,12 @@ The same endpoint answers in the Prometheus text format (0.0.4) when the request
 `text/plain`, as Prometheus's own scrape request does. Without that, including curl's
 default, it answers JSON as before ([ADR-073](adr/ADR-073-operator-monitoring.md)).
 
-Each field is a gauge. A null field, such as the oldest queued job when none is queued,
-is left out rather than reported as 0.
+Each field is a gauge, except the publication read counter. A null field, such as the
+oldest queued job when none is queued, is left out rather than reported as 0.
 
-| JSON field | Prometheus gauge |
+| JSON field | Prometheus series |
 |---|---|
-| `queue` | `atlas_queue_queued`, `atlas_queue_active`, `atlas_queue_cancel_requested`, `atlas_queue_oldest_queued_seconds` |
+| `queue` | `atlas_queue_queued`, `atlas_queue_active`, `atlas_queue_cancel_requested`, `atlas_queue_oldest_queued_seconds`, `atlas_queue_wait_p95_24h_seconds` |
 | `leases` | `atlas_leases_live`, `atlas_leases_expired` |
 | `outcomes24h` | `atlas_outcomes_24h{state}`: all four terminal states, 0 when none |
 | `failures24h` | `atlas_failures_24h{code}` |
@@ -223,6 +224,7 @@ is left out rather than reported as 0.
 | `publications` | `atlas_publications_live`, `atlas_publications_expired`, `atlas_publications_deleted`, `atlas_publications_revoked`, `atlas_publications_awaiting_purge` |
 | `storage` | `atlas_storage_live_objects`, `atlas_storage_live_bytes`, `atlas_storage_pending_uploads`, `atlas_storage_purging_uploads` |
 | `upstream` | `atlas_upstream_blocked_seconds`, `atlas_upstream_remaining` |
+| `publicationReads` | `atlas_publication_reads_total{result}`, a counter that restarts with the API process; `rate()` and `increase()` handle the restart |
 
 The operator listener only ever binds `127.0.0.1`, so a scraper must share the API's
 network namespace. The reference kit does this with an optional Prometheus service
@@ -232,4 +234,5 @@ network namespace. The reference kit does this with an optional Prometheus servi
 to its runbook. It adds a fifth, `AtlasOperatorMetricsDown`: if scrapes fail for 5 minutes,
 for example because the database is down and the listener answers 503, the other four
 cannot fire. [`grafana-dashboard.json`](../deploy/production/grafana-dashboard.json) is an
-optional dashboard with every gauge.
+optional dashboard with every series. The service-level objectives, their alerts and
+incident handling are in [service levels](hosted-slo.md).

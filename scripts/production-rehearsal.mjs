@@ -141,7 +141,7 @@ try {
   });
   await step('promtool validates the Prometheus configuration, alert rules and their unit tests', () => {
     docker(['run', '--rm', '--network=none', '--mount', `type=bind,source=${prodMount},target=/etc/prometheus,readonly`, '--workdir', '/etc/prometheus', '--entrypoint', 'sh', prometheusImage, '-ec',
-      'promtool check config prometheus.yml; promtool check rules alerts.yml; promtool test rules alerts.test.yml']);
+      'promtool check config prometheus.yml; promtool check rules alerts.yml slo.yml; promtool test rules alerts.test.yml slo.test.yml']);
   });
   await step('firewall enforces broker and coordinator destinations in isolated container networks', () => {
     execFileSync(process.execPath, [path.join(root, 'scripts/production-firewall-probe.mjs'), '--validation-image', validationImage], { cwd: root, stdio: 'inherit', timeout: 120_000 });
@@ -230,8 +230,10 @@ try {
     for (let n = 1; n < 30; n++) assert.equal((await request(port, '/api/v1/session', { method: 'POST', headers: { Origin: origin, 'X-Forwarded-For': `198.51.100.${n}` } })).status, 201);
     assert.equal((await request(port, '/api/v1/session', { method: 'POST', headers: { Origin: origin, 'X-Forwarded-For': '203.0.113.1' } })).status, 429);
   });
-  await step('Prometheus scrapes the loopback-only operator listener from the API namespace and loads every alert', async () => {
+  await step('Prometheus scrapes the loopback-only operator listener from the API namespace and loads every alert and service-level rule', async () => {
     const apiId = compose(['ps', '-q', 'api']);
+    // An unknown publication is an ended read (ADR-076); it must reach the API's counter through the proxy.
+    assert.equal((await request(port, `/api/v1/analyses/analysis_${'0'.repeat(64)}`)).status, 404);
     // Same network, different namespace: the proxy is refused, so only a scraper in the API's namespace can read it.
     assert.throws(() => compose(['exec', '-T', 'proxy', 'wget', '-q', '-O', '-', '-T', '3', 'http://api:9090/metrics'], { stdio: ['ignore', 'pipe', 'pipe'] }),
       (error) => /refused/i.test(String(error.stderr)));
@@ -240,6 +242,7 @@ try {
     const lint = execFileSync('docker', ['run', '--rm', '-i', '--network=none', '--entrypoint', 'promtool', prometheusImage, 'check', 'metrics'],
       { input: `${text}\n`, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 60_000 });
     assert.equal(lint.trim(), '');
+    assert.match(text, /^atlas_publication_reads_total\{result="ended"\} 1$/m);
     compose(['up', '-d', '--no-deps', 'prometheus']);
     const query = (target) => JSON.parse(docker(['exec', apiId, 'node', '-e', `fetch('http://127.0.0.1:9091${target}').then((r)=>r.text()).then((t)=>process.stdout.write(t))`]));
     const deadline = Date.now() + 90_000;
@@ -249,14 +252,16 @@ try {
         up = query('/api/v1/query?query=up').data.result;
         rules = query('/api/v1/rules').data.groups.flatMap((group) => group.rules);
       } catch { /* Prometheus is still starting. */ }
-      if (up.some((s) => s.metric.job === 'atlas-operator' && s.value[1] === '1') && rules.length === 5 && rules.every((rule) => rule.health === 'ok')) break;
+      if (up.some((s) => s.metric.job === 'atlas-operator' && s.value[1] === '1') && rules.length === 16 && rules.every((rule) => rule.health === 'ok')) break;
       if (Date.now() > deadline) throw new Error(`Prometheus did not scrape and evaluate in time: up ${JSON.stringify(up)}, rules ${JSON.stringify(rules.map((rule) => [rule.name, rule.health]))}`);
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
     // The job cancelled above is in the scraped data.
     const cancelled = query('/api/v1/query?query=atlas_outcomes_24h').data.result.find((s) => s.metric.state === 'CANCELLED');
     assert(Number(cancelled?.value[1]) >= 1);
-    return { metricFamilies: text.match(/^# TYPE /gm).length, alertRules: 5 };
+    const ended = query('/api/v1/query?query=atlas_publication_reads_total').data.result.find((s) => s.metric.result === 'ended');
+    assert(Number(ended?.value[1]) >= 1);
+    return { metricFamilies: text.match(/^# TYPE /gm).length, rules: 16 };
   });
   await step('runtime database role cannot alter the schema', () => {
     const result = compose(['exec', '-T', 'api', 'node', '--input-type=module', '-e',

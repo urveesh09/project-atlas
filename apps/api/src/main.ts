@@ -37,7 +37,7 @@ export async function startApiFromEnv(env: Env) {
     ...(proxies.length > 0 ? { trustedProxy: { addresses: proxies } } : {}),
     ...(env['ATLAS_DEMO_ANALYSIS_ID'] ? { demoAnalysisId: env['ATLAS_DEMO_ANALYSIS_ID'] } : {}),
   });
-  const operator = env['ATLAS_OPERATOR_PORT'] ? await startOperatorServer({ pool, port: Number(env['ATLAS_OPERATOR_PORT']) }) : null;
+  const operator = env['ATLAS_OPERATOR_PORT'] ? await startOperatorServer({ pool, port: Number(env['ATLAS_OPERATOR_PORT']), publicationReads: api.publicationReads }) : null;
   // Hourly privacy sweep of sessions, admissions and client buckets (ADR-029).
   const sweep = setInterval(() => void store.sweepAdmissions().catch(() => log('api.sweep-failed', {})), 3_600_000);
   log('api.started', { origin: api.origin, development, operatorPort: operator?.port ?? null });

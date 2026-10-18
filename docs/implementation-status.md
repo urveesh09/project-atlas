@@ -4,8 +4,8 @@ Maintained per plan §20.1. A task is **done** only when its completion evidence
 
 **Current milestone (2026-10-18):** production-plan M4.4 scanned immutable image
 publication and signed-origin verification (ADR-075). M4.3 backups/restore landed in
-PR #41, following deployment PR #39 and monitoring PR #40. M4.5 SLOs/incidents is next;
-live-site R6-06 remains open. M3.5 fallback, diagnostics
+PR #41, following deployment PR #39 and monitoring PR #40. M4.5 service levels and
+incidents (ADR-076) stack on it; live-site R6-06 remains open. M3.5 fallback, diagnostics
 and primary-action contrast landed in PR #37 (all 15 checks green on `d444c67`), following accessibility
 preparation (PR #36), macOS CI (PR #34) and
 Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
@@ -30,6 +30,51 @@ Unchanged since 2026-10-11:
 - Runtime instrumentation remains deferred.
 
 Agents: read [AGENTS.md](../AGENTS.md).
+
+### Production M4.5: service levels and incidents (2026-10-18)
+
+- **Implementation:** [hosted-slo.md](hosted-slo.md) and
+  [ADR-076](adr/ADR-076-service-levels.md).
+- **Objectives, all provisional until 30 days of real traffic:**
+  - publication availability 99.5% over 30 days, stated as unmeasured;
+  - job success 98% per day, excluding cancelled jobs, refused input and V0.1 limits;
+  - queue-wait p95 at most 10 minutes per day.
+
+  The success and queue objectives give their measured basis from the Phase 5
+  rehearsal: every non-cancelled job `READY`; 7.8 s, 162 s and 145 s durations. The
+  document also defines severity levels, first response for every alert, and how users
+  are told.
+- **Metrics:**
+  - The p95 queue wait to the first claim, derived exactly from the deadline the
+    claim sets once (`JOB_DEADLINE_SECONDS`, shared by the claim and the metric). No
+    schema change.
+  - The API's publication read counters by final status (`ok`, `ended`, `rejected`,
+    `unavailable`), in JSON and as `atlas_publication_reads_total`.
+- **Rules:** `slo.yml` has 7 recording rules and 4 alerts:
+  - publication fast and slow burn;
+  - job success, with a minimum of 20 counted jobs;
+  - queue wait.
+
+  Prometheus loads it and keeps 35 days, up from ADR-073's 15, for the 30-day window.
+  The dashboard shows the indicators.
+- **Local verification (Windows, Node 24.22.0, Docker 29.8.1):**
+  - **Production rehearsal: 16/16 steps,** with images built from this branch:
+    - promtool checks and tests both rule files;
+    - an unknown publication read through the proxy is counted `ended`, in the
+      listener and in Prometheus;
+    - Prometheus loads all 16 rules, healthy;
+    - the listener writes 16 metric families.
+  - **promtool 3.15.0:** 11 SLO rules found, and 7 unit-test groups pass. Four
+    deliberate rule mutations each make them fail.
+  - **PostgreSQL** (pinned image, throwaway container): the queue and control suites pass
+    20 tests, including the new queue-wait test (S3 tests skipped). The wait is measured
+    to the first claim, a still-queued job is excluded, and a retry keeps the first wait.
+  - **`pnpm verify`: 889 passed, 85 service-gated skips.** That is 5 new unit tests,
+    plus the PostgreSQL test, which skips there.
+- **Open:**
+  - the path in front of the API needs an external canary;
+  - the status channel and contact are M4.6;
+  - confirming the objectives against real traffic is R6-06.
 
 ### Production M4.4: scanned immutable image publication (2026-10-18)
 

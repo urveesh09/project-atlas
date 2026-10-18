@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
+import { JOB_DEADLINE_SECONDS } from '@atlas/control';
 import { JobStatusSchema, type AnalysisSubmission, type JobStatus } from '@atlas/schema';
 
 export interface Lease {
@@ -24,12 +25,12 @@ export class JobQueue {
     ), claimed AS (
       UPDATE jobs SET state='ACQUIRING',stage='acquire',attempt=attempt+1,generation=generation+1,
         lease_owner=$1,lease_expires_at=clock_timestamp()+interval '30 seconds',
-        deadline=COALESCE(deadline,clock_timestamp()+interval '300 seconds'),
+        deadline=COALESCE(deadline,clock_timestamp()+make_interval(secs => $2)),
         revision=revision+1,updated_at=clock_timestamp()
       FROM next WHERE jobs.id=next.id RETURNING jobs.*
     ), event AS (
       INSERT INTO job_events SELECT id,revision,'state',jsonb_build_object('jobId',id,'revision',revision,'state',state) FROM claimed
-    ) SELECT id,generation,attempt,deadline,input,(extract(epoch FROM deadline-clock_timestamp())*1000)::float8 AS remaining_ms FROM claimed`, [this.owner])).rows[0];
+    ) SELECT id,generation,attempt,deadline,input,(extract(epoch FROM deadline-clock_timestamp())*1000)::float8 AS remaining_ms FROM claimed`, [this.owner, JOB_DEADLINE_SECONDS])).rows[0];
     return row ? { jobId: row.id, owner: this.owner, generation: row.generation, attempt: row.attempt, deadline: row.deadline, input: row.input, remainingMs: Math.max(0, row.remaining_ms) } : null;
   }
   async heartbeat(lease: Lease): Promise<boolean> {
