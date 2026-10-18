@@ -1612,6 +1612,10 @@ and a new CI job, `viewer journeys (firefox|webkit)`, runs on Ubuntu.
   allocate the proxy's trusted address first; reserve a separate allocation pool
   and reject the collision. Packet-fixture socket errors and the first TLS probe's
   generic error are retained with their evidence limits; no failed run counts as a pass.
+- **Code review:** CodeQL alert #70 flagged the rehearsal's HTTPS client, whose request
+  options held the throwaway CA. Its unresolved thread blocked PR #38, so the work was
+  re-raised with the CA in a dedicated `https.Agent`. Requests and assertions are
+  unchanged.
 - **Local verification:** 14 production-profile steps pass: actual Caddy/nft/systemd
   validation, real routed packet allow/deny controls and stale-set expiry, verified
   loopback TLS/secure sessions, exact size boundary, Host/Origin, queued SSE/cancel,

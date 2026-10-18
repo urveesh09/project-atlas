@@ -36,6 +36,14 @@ configured Host, retain the four-second probe deadline and verify healthy → un
 storage → recovered with the actual container health command. The failed
 `m41-production-readiness.json` remains alongside the earlier reports.
 
+CodeQL's first review of the pull request (alert #70, `js/file-access-to-http`) flagged
+the rehearsal's HTTPS client: the request options held the throwaway CA read from
+scratch. The CA only verifies the loopback server, and none of its bytes are sent. The
+alert left an unresolved review thread, which blocks merging, so the pull request was
+replaced. The client now loads the CA once into a dedicated `https.Agent`, with keep-alive
+like the Node global agent it used before. Requests, assertions and destinations are
+unchanged.
+
 ## Decisions
 
 1. **Separate production profile.** `deploy/production/compose.yaml` publishes only a

@@ -15,6 +15,10 @@ proxy/validator/PostgreSQL/S3 image identities. Local runs deliberately identify
 uncommitted implementation as dirty; they are not a release candidate. The exact-head
 clean-checkout CI report is the `production-rehearsal` artifact on the task pull request.
 Service configuration is tested from the working files; images run compiled applications.
+After this report, the rehearsal's HTTPS client was changed to load its CA into a
+dedicated agent, after CodeQL review (ADR-072). The report's digest for
+`scripts/production-rehearsal.mjs` is therefore of the earlier client. The change was
+rehearsed again locally, and CI's report covers the final file.
 Analyzer/artifact/package versions and application analysis bytes are unchanged.
 
 ## Checks

@@ -69,8 +69,13 @@ const overlay = path.join(work, 'compose.json');
 const composeEnv = { ...process.env, ATLAS_API_IMAGE: apiImage, ATLAS_PROXY_IMAGE: caddyImage, ATLAS_DOMAIN: 'localhost', ATLAS_PUBLIC_ORIGIN: 'https://localhost',
   ATLAS_SECRET_DIR: secretDir, ATLAS_S3_ENDPOINT: 'https://storage:8443', ATLAS_S3_BUCKET: 'atlas-rehearsal', ATLAS_HTTPS_PORT: '0', ATLAS_BIND_ADDRESS: '127.0.0.1' };
 const compose = (params, options) => docker(['compose', '-p', project, '-f', path.join(production, 'compose.yaml'), '-f', overlay, '--profile', 'api-host', ...params], { env: composeEnv, ...options });
+// The throwaway CA only verifies the loopback server; it is a trust anchor, never request
+// data. It exists after the first step, so the agent is created on first use. Keep-alive
+// matches Node's global agent, which these requests used before.
+let trusted;
 const request = (port, urlPath, { method = 'GET', body, headers = {}, stream = false } = {}) => new Promise((resolve, reject) => {
-  const req = https.request({ hostname: '127.0.0.1', servername: 'localhost', port, path: urlPath, method, ca: readFileSync(path.join(secretDir, 'ca.crt')),
+  trusted ??= new https.Agent({ ca: readFileSync(path.join(secretDir, 'ca.crt')), keepAlive: true });
+  const req = https.request({ hostname: '127.0.0.1', servername: 'localhost', port, path: urlPath, method, agent: trusted,
     headers: { Host: `localhost:${port}`, ...headers, ...(body !== undefined ? { 'Content-Length': Buffer.byteLength(body) } : {}) }, timeout: 10_000 }, (res) => {
     let text = '';
     res.setEncoding('utf8');
@@ -229,6 +234,7 @@ try {
   console.error(`M4.1 rehearsal failed (${error.name}). Retain this report; local failure logs saved in scratch.`);
   process.exitCode = 1;
 } finally {
+  trusted?.destroy();
   try {
     compose(['down', '--volumes', '--remove-orphans']);
     const remaining = docker(['ps', '-aq', '--filter', `label=com.docker.compose.project=${project}`]);
