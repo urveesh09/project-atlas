@@ -558,6 +558,10 @@ manual gate; it does not close it. Landed in PR #36. M3.4/M3.5 remain separate w
   next lens action. The original macOS callback timeout is retained in ADR-071; the
   five-second assertion and comparison counts remain unchanged. Retest all engines
   and the full suite before the follow-up commit; exact-head CI must pass before merge.
+- **Second CI finding, 2026-10-18:** the hosted error-state audit caught a primary
+  button's transitional text contrast. Switch its foreground/background as a pair;
+  keep border/shadow/press transitions. A dedicated browser regression samples both
+  themes/directions without suppressing animations or excluding an audit rule (ADR-071).
 
 ### M4. Hosted production kit
 

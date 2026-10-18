@@ -3,7 +3,8 @@
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
 **Current milestone (2026-10-18):** production-plan M3.5 silent WebGL fallback and
-its CI follow-up for GPU-free diagnostics (ADR-071, PR #37), following accessibility
+its CI corrections for GPU-free diagnostics and primary-action contrast (ADR-071,
+PR #37), following accessibility
 preparation (PR #36), macOS CI (PR #34) and
 Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
 prepared; R6-04 remains open. M3.4 intermittent layout diagnosis remains open.
@@ -1556,6 +1557,43 @@ and a new CI job, `viewer journeys (firefox|webkit)`, runs on Ubuntu.
   the pull request's changed documentation resolve. The exact follow-up head must
   pass CI independently; the PR records the final outcome and retains the initial
   failure. No deadline, budget, rule or existing comparison assertion was relaxed.
+
+### Production M3.5 follow-up: primary-action transition contrast (2026-10-18)
+
+- **Second CI result:** [run 39091246140](https://github.com/urveesh09/project-atlas/actions/runs/39091246140)
+  on `efe5731` passes macOS verification, including the previous comparison failure.
+  Its hosted gate fails a serious `color-contrast` check (145 passed, one failed):
+  the Analyze repository button in the submission-error screen has 4.38:1 contrast
+  during its colour transition, against the unchanged 4.5:1 threshold. The original
+  log and hosted report are retained; this is not a passing run.
+- **Cause and correction:** both primary-action palettes are readable at rest. In
+  light mode, enabling inverts the text/background relationship, and animating both
+  colours crosses unreadable pairs. A new browser regression using the actual shared
+  stylesheet reproduces **1.705:1** at transition fraction 0.1. Primary foreground and
+  background now switch together; border, shadow and press-motion transitions remain.
+  [ADR-071](adr/ADR-071-silent-webgl-fallback.md) records the correction. No colour
+  palette, disabled behavior, audit rule or budget changes.
+- **Regression:** sample seven fixed fractions in each transition direction and each
+  theme, checking all **28 readings per engine** against 4.5:1. The focused Chromium
+  regression passes after the CSS correction. The real hosted journey is retested
+  separately; no animation is hidden or rule excluded from axe.
+- **Hosted retest:** all **7/7 journeys** pass against an isolated local PostgreSQL
+  database and process runners, including the actual submission-error audit. The
+  report contains all **17 checkpoints**, with zero reported violations. The owned
+  disposable database was removed afterwards. This verifies the UI correction;
+  container/S3 isolation remains independently gated by CI.
+- **Browser retest:** Firefox and WebKit each pass all **48 viewer journeys**,
+  including the transition regression's 28 contrast readings in each engine. Each
+  retains all 49 accessibility checkpoints, with zero reported violations. Existing
+  incomplete findings remain for human judgment.
+- **Full retest:** `pnpm verify` passes **813 tests**, with **83 service-gated skips**
+  (69 passed files, four skipped), including all **48 Chromium viewer journeys**.
+  All three engines check 28 contrast readings each. Chromium also records 49 audit
+  checkpoints: **164 local checkpoints** across the viewer and hosted runs, with
+  zero reported violations. The six-repository baseline guard and all **217 relative
+  Markdown file links** in the changed documentation pass. The PR records the final
+  exact-head CI result; both prior failures remain part of its evidence. M3.4 and
+  R6-01…R6-07/G6 remain open.
 
 ### Reproduce verification
 

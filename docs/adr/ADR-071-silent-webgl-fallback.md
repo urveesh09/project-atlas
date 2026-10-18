@@ -2,7 +2,7 @@
 
 Date: 2026-10-17. Status: accepted. Production plan M3.5; follows ADR-069/070.
 
-Updated: 2026-10-18 with the first CI failure and the diagnostic-read correction.
+Updated: 2026-10-18 with CI failures, diagnostic-read correction and transition contrast.
 
 ## Evidence and cause
 
@@ -37,6 +37,17 @@ The CI report alone cannot distinguish a driver stall from browser/host scheduli
 do not claim that particular cause is proven. The existing mode-switch wait also
 tested only publication of the renderer handle, before its first draw.
 
+The follow-up [run 39091246140](https://github.com/urveesh09/project-atlas/actions/runs/39091246140)
+on `efe5731` passes macOS verification, including that comparison. Its hosted gate
+instead reports 145 passing checks and one `color-contrast` failure on the Analyze
+repository button in `hosted-submission-error`: text `#ebedef` on `#407298`, 4.38:1
+against the required 4.5:1. Both final palettes are readable, but changing from the
+disabled light background/dark text to enabled dark background/light text animates
+both colours through unreadable intermediate pairs. The actual shared stylesheet,
+paused at fixed transition fractions in a browser, reproduces 1.705:1 at fraction
+0.1 in light mode. Preserve that failed log and the hosted audit bundle. Neither
+failure is handled by excluding a rule or waiting for the animation to disappear.
+
 ## Decision
 
 1. Before each renderer startup, probe WebGL2 on a detached 1 × 1 canvas, using the
@@ -67,6 +78,13 @@ tested only publication of the renderer handle, before its first draw.
    five-second lens-state assertion and all comparison counts stay unchanged.
    Keep the original CI log and its accessibility reports, including incomplete
    checkpoints; retest the changed code in every browser and the full suite.
+7. Switch a primary action's text and background colours together. Keep its border,
+   shadow and press-motion transitions. Existing colours and disabled semantics stay
+   unchanged. A real-browser check loads the actual shared stylesheet and measures
+   computed colour contrast at seven fixed fractions, in both enabled/disabled
+   directions and both themes: 28 readings per engine must each meet 4.5:1. Run the
+   actual hosted submission/error journey as well; do not suppress animation in the
+   audit or change axe's rules. This corrects a second CI-discovered defect in this PR.
 
 ## Verification
 

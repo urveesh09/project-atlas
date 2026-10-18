@@ -436,6 +436,53 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     expect(result.stats.renderer).toBe(result.expectedRenderer);
     expect(result.stats.buildings).toBeGreaterThan(0);
   });
+  it('keeps primary action text readable throughout enabled and disabled colour changes', async () => {
+    const controls = await browser.newContext();
+    try {
+      const sample = await controls.newPage();
+      await sample.setContent('<button class="button primary" style="margin:40px">Analyze repository</button>');
+      // Exercise the actual shared CSS; pause state transitions at fixed fractions.
+      await sample.addStyleTag({ path: path.resolve('apps/web/src/styles/app.css') });
+      for (const theme of ['light', 'dark'] as const) {
+        await sample.emulateMedia({ colorScheme: theme });
+        const readings = await sample.evaluate(() => {
+          const button = document.querySelector('button')!;
+          const canvas = document.createElement('canvas');
+          canvas.width = canvas.height = 1;
+          const context = canvas.getContext('2d')!;
+          const luminance = (color: string) => {
+            context.fillStyle = color;
+            context.fillRect(0, 0, 1, 1);
+            const [r, g, b] = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map((v) => {
+              const c = v / 255;
+              return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+          };
+          const rows: { fromDisabled: boolean; fraction: number; ratio: number; color: string; background: string }[] = [];
+          for (const fromDisabled of [true, false]) {
+            button.disabled = fromDisabled;
+            for (const animation of button.getAnimations()) animation.finish();
+            void getComputedStyle(button).backgroundColor;
+            button.disabled = !fromDisabled;
+            const animations = button.getAnimations();
+            for (const animation of animations) animation.pause();
+            for (const fraction of [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]) {
+              for (const animation of animations) animation.currentTime = Number(animation.effect!.getTiming().duration) * fraction;
+              const style = getComputedStyle(button), color = style.color, background = style.backgroundColor;
+              const a = luminance(color), b = luminance(background);
+              rows.push({ fromDisabled, fraction, color, background, ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) });
+            }
+            for (const animation of animations) animation.finish();
+          }
+          return rows;
+        });
+        for (const reading of readings) expect(reading.ratio, JSON.stringify({ theme, ...reading })).toBeGreaterThanOrEqual(4.5);
+      }
+    } finally {
+      await controls.close();
+    }
+  });
   it('keeps the camera still on selection and across lenses', async () => {
     const before = await page.evaluate(() => window.__atlasCity!.cameraState());
     await choose('pricing.ts');

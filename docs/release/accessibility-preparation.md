@@ -31,6 +31,12 @@ The source panel is the application's nonmodal dialog. Menus are native disclosu
 deletion is an inline confirmation group. Native folder pickers/download interfaces,
 screen-reader speech, zoom and visual focus require the separate human protocol.
 
+Primary-action enabled/disabled transitions also have an independent contrast check
+(ADR-071): the actual shared CSS is sampled at seven fixed fractions in each direction
+and both themes. All 28 computed foreground/background ratios per engine must meet
+4.5:1. The hosted audit still checks the real submission-error screen; no rule or
+animation is excluded to obtain a pass.
+
 ## Method and retained evidence
 
 The shared `apps/web/test/audit.ts` runs axe's WCAG 2 A/AA, 2.1 A/AA and 2.2 AA rule

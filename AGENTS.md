@@ -20,7 +20,8 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
 implemented for committed TS/JS and Python (`.py`, `.pyi`), including mixed repositories.
 M3.3 accessibility preparation landed in PR #36, after macOS and cross-browser CI
 landed in PRs #34 and #35. The current task is M3.5 silent WebGL fallback and its
-CI follow-up for GPU-free diagnostics (ADR-071, PR #37).
+CI corrections for GPU-free diagnostics and primary-action transition contrast
+(ADR-071, PR #37).
 Human R6-04 review and M3.4 intermittent layout diagnosis remain open. M2.2
 capacity and M2.7 lazy-import syntax remain open. M1 upgrades landed in PRs #20, #22,
 #23 and #24. Analyzer `0.1.0-dev.8` records corrected namespace lookup

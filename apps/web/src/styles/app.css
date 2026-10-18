@@ -204,6 +204,12 @@ kbd {
   color: var(--accent-ink);
   border-color: transparent;
   font-weight: 600;
+  /* Enabled/disabled palettes invert in light mode. Switch the text and background
+     together: interpolating both passes through unreadable intermediate pairs. */
+  transition:
+    border-color 0.12s var(--ease),
+    box-shadow 0.12s var(--ease),
+    transform 0.06s var(--ease);
 }
 .button.primary {
   min-height: 44px;
