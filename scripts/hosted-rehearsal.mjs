@@ -26,6 +26,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+// Production transport/config rehearsal is separate from authored fixture acquisition:
+// it never enables ATLAS_DEVELOPMENT on the production API profile.
+if (process.argv.includes('--production-profile')) {
+  await import('./production-rehearsal.mjs');
+  process.exit(process.exitCode ?? 0);
+}
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const imp = (p) => import(pathToFileURL(path.join(root, p)).href);
 const { createGitFixture, buildDemoRepository } = await imp('packages/test-fixtures/dist/index.js');

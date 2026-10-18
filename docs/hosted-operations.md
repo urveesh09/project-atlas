@@ -2,6 +2,13 @@
 
 This guide covers configuration, deployment and runbooks for the hosted ATLAS service (plan §15.4, P5.6). Design decisions are in [ADR-031](adr/ADR-031-hosted-acquisition-and-analysis-pipeline.md), [ADR-032](adr/ADR-032-publication-storage-and-lifecycle.md) and [ADR-033](adr/ADR-033-hosted-flow-deployment-and-operations.md). For development setup and test commands, see [hosted-development.md](hosted-development.md).
 
+The [production reference kit](../deploy/production/README.md) implements M4.1:
+TLS proxy/API profile, file secrets, worker service and an expiring, default-deny
+worker firewall. Follow its site preparation/preflight/rehearsal instructions before
+an operator rollout. [ADR-072](adr/ADR-072-reference-hosted-deployment.md) records
+the decisions and test boundaries. Monitoring, backup automation, supply-chain scans,
+SLOs and legal pages remain M4.2–M4.6; R6-06 and G6 are open.
+
 ## Topology
 
 ```text

@@ -1,0 +1,46 @@
+{
+	admin off
+	# Even proxy error logs can include request URLs and addresses. API emits safe codes.
+	log {
+		output discard
+	}
+	auto_https disable_redirects
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 10s
+			idle 1m
+		}
+	}
+}
+
+# A valid TLS connection with a different HTTP Host must never reach the API.
+https://:8443 {
+	tls /run/secrets/tls_certificate /run/secrets/tls_key
+	respond 421
+}
+
+# Certificates are provisioned/renewed by the operator, outside this container.
+# No access log: URLs, client addresses and capability headers must not be logged.
+https://{$ATLAS_DOMAIN}:8443 {
+	tls /run/secrets/tls_certificate /run/secrets/tls_key
+	header Strict-Transport-Security "max-age=31536000"
+	@unsupported not method GET POST DELETE
+	respond @unsupported 405
+	request_body {
+		max_size 16384
+	}
+	@api path /api /api/*
+	header @api Cache-Control "no-store"
+	reverse_proxy api:8080 {
+		# Caddy discards untrusted incoming XFF and adds the actual client address.
+		# The API trusts only this proxy's fixed address and takes the last hop.
+		header_up Host {http.request.hostport}
+		flush_interval -1
+		stream_timeout 330s
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 10s
+		}
+	}
+}

@@ -97,6 +97,11 @@ installed and fixture code is never executed.
 
 ## Operator rehearsal
 
+For the production TLS/profile/firewall rehearsal, use the separate
+[reference kit instructions](../deploy/production/README.md#drain-recovery-and-validation).
+It runs the actual production API without development mode and never changes the
+host firewall. The authored-fixture recovery/backup rehearsal below remains separate.
+
 ```sh
 node scripts/hosted-rehearsal.mjs --admin-url postgres://postgres:atlas-local-test@127.0.0.1:55432/postgres \
   --postgres-container atlas-phase5-postgres --docker <sandbox image id> --s3 http://127.0.0.1:7070

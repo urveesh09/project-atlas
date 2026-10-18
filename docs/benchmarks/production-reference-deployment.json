@@ -1,0 +1,109 @@
+{
+  "task": "M4.1",
+  "started": "2026-10-18T03:52:19.012Z",
+  "sourceCommit": "d4096942d6275412797f008234f0d01abffe3ba4",
+  "dirty": true,
+  "images": {
+    "api": "sha256:1ffa9521eb4e437887d1c4322841a4f765ef9b9f653de2ba678f652c2a4a643d",
+    "validation": "sha256:1841628bb7e1152b1e5e1cf71d7678e20e2d284f24d4238b0b0e58ae8b39d86a",
+    "proxy": "sha256:77bbff29145c9f364edd944b98d91f1b3e40e682a0d9d145f0dbe27e0daa5afe",
+    "postgres": "postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24",
+    "storage": "versity/versitygw@sha256:605de57c0cdc297fc5bc905ece592965d542d8df70d6eedf755734c80f2eb797"
+  },
+  "steps": [
+    {
+      "name": "throwaway CA and hostname-verified server certificate",
+      "passed": true,
+      "ms": 701
+    },
+    {
+      "name": "production profile preserves immutable images, secret mounts and isolation",
+      "passed": true,
+      "ms": 402
+    },
+    {
+      "name": "Caddy validates the actual production configuration and certificate",
+      "passed": true,
+      "ms": 883
+    },
+    {
+      "name": "nft validates current GitHub ranges in its own network namespace; host rules are untouched",
+      "passed": true,
+      "ms": 774,
+      "detail": {
+        "githubIpv4Ranges": 78,
+        "githubIpv6Ranges": 2
+      }
+    },
+    {
+      "name": "systemd validates the shipped worker and firewall units",
+      "passed": true,
+      "ms": 504
+    },
+    {
+      "name": "firewall enforces broker and coordinator destinations in isolated container networks",
+      "passed": true,
+      "ms": 23117
+    },
+    {
+      "name": "start disposable dependencies and create a private HTTPS bucket",
+      "passed": true,
+      "ms": 4674
+    },
+    {
+      "name": "real migration provisions roles; production API becomes healthy",
+      "passed": true,
+      "ms": 13748
+    },
+    {
+      "name": "TLS, HSTS, no-store and secure same-origin session",
+      "passed": true,
+      "ms": 10856
+    },
+    {
+      "name": "proxy rejects unsupported methods and oversized bodies",
+      "passed": true,
+      "ms": 11
+    },
+    {
+      "name": "forged Host/Origin are rejected through the real proxy",
+      "passed": true,
+      "ms": 5
+    },
+    {
+      "name": "admit, stream first event before completion, cancel through HTTPS",
+      "passed": true,
+      "ms": 40
+    },
+    {
+      "name": "spoofed forwarding headers cannot bypass client session quotas",
+      "passed": true,
+      "ms": 115
+    },
+    {
+      "name": "runtime database role cannot alter the schema",
+      "passed": true,
+      "ms": 631
+    }
+  ],
+  "configurationSha256": {
+    "deploy/production/atlas-egress-refresh.service": "0ac6e9d221939f43d8dda324a3908263ca9f7454cedb0c1b01665eb87884b43f",
+    "deploy/production/atlas-egress-refresh.timer": "7a46adff408e08545e1de73874d1d92d2301f6ca9a909b6e2c8bb8b51df99813",
+    "deploy/production/atlas-egress.service": "8a0693cb180cfce20ad81c8ab869f79bdf8ea8a326e3a3f27dd8f45188cda667",
+    "deploy/production/atlas-worker.service": "912aed02a19c8cffba738e703955cda6c04bbc1541a99adfc3d758530dc36c17",
+    "deploy/production/check-profile.mjs": "2926f6d08669fb1fc4d560ff429bfeac011f1b242270c2f35d7c959ac0a50381",
+    "deploy/production/compose.yaml": "1436508aeb95e0d7be989bb29795d46a4c7c77414b2811f772c074fb6ee5b690",
+    "deploy/production/docker-daemon.example.json": "0dc75829efa3f81fa0bc7b931d60f357ec639ecc347e54fd3680827a1e2e0494",
+    "deploy/production/docker.service.d/atlas-egress.conf": "341931a8fea7e9348945265b2f76ab517248d68b9926f4b967e209c47c94f27d",
+    "deploy/production/proxy.Dockerfile": "35e3afb313df9ea6cff38fce60439febe7f4726996d127077a17cff93035fb8a",
+    "deploy/production/refresh-github-ranges.mjs": "4e3faeb1d92bffdaf672a744d04bce98bf2109386de956ac02ef9b43adabf3bf",
+    "deploy/production/validation.Dockerfile": "12375e1896fe937133ec2a0827217a628300d8235a06be2b3e1773f3564e364a",
+    "deploy/production/worker-egress.nft": "1bc41bc5f36c18bf68047833b83660621dd2bb46597c79bffd524b2984169c77",
+    "scripts/hosted-rehearsal.mjs": "c4d0cce4d3301931205aeefbebeafb5d720edc34aee218d0b63e0258d7250b10",
+    "scripts/production-firewall-probe.mjs": "b2f52a7a3de6b205885f76bf2ff77091f5bbfe85c5f297ef942b5ab3ad722406",
+    "scripts/production-rehearsal.mjs": "db5ae0233a5e178fe88d899e73ad9772cabb4afb5bf090fe3c6a147f9637846c"
+  },
+  "cleaned": true,
+  "finished": "2026-10-18T03:53:31.884Z",
+  "passed": true
+}

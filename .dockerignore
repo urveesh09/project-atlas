@@ -10,4 +10,7 @@ coverage
 test-results
 playwright-report
 **/.env
+**/*.env
+deploy/secrets
+deploy/production/secrets
 **/*.pem

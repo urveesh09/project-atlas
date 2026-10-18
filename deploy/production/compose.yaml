@@ -1,0 +1,98 @@
+# API host only. PostgreSQL and private HTTPS S3 are operator-provisioned services.
+# Worker runs on a separate, dedicated Linux Docker host. See README.md.
+services:
+  proxy:
+    # Built from proxy.Dockerfile (pinned Caddy, unnecessary file capability removed).
+    image: ${ATLAS_PROXY_IMAGE:?set the immutable proxy image ID}
+    pull_policy: never
+    profiles: [api-host]
+    user: "10001:10001"
+    environment:
+      ATLAS_DOMAIN: ${ATLAS_DOMAIN:?set the certificate hostname}
+      XDG_DATA_HOME: /tmp/data
+      XDG_CONFIG_HOME: /tmp/config
+    ports: ["${ATLAS_BIND_ADDRESS:-0.0.0.0}:${ATLAS_HTTPS_PORT:-443}:8443"]
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro"]
+    secrets: [tls_certificate, tls_key]
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,uid=10001,gid=10001,mode=0700,size=16777216"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+    networks:
+      api: { ipv4_address: "${ATLAS_PROXY_IP:-172.30.10.2}" }
+
+  migrate:
+    image: ${ATLAS_API_IMAGE:?set an immutable API image ID}
+    pull_policy: never
+    profiles: [api-host]
+    command: [migrate]
+    user: "10001:10001"
+    environment:
+      ATLAS_MIGRATION_DATABASE_URL_FILE: /run/secrets/migration_url
+      ATLAS_API_ROLE_PASSWORD_FILE: /run/secrets/api_role_password
+      ATLAS_WORKER_ROLE_PASSWORD_FILE: /run/secrets/worker_role_password
+    secrets: [migration_url, api_role_password, worker_role_password]
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,uid=10001,gid=10001,mode=0700,size=16777216"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+    networks: [api]
+
+  api:
+    image: ${ATLAS_API_IMAGE:?set an immutable API image ID}
+    pull_policy: never
+    profiles: [api-host]
+    user: "10001:10001"
+    environment:
+      ATLAS_DATABASE_URL_FILE: /run/secrets/api_database_url
+      ATLAS_QUOTA_SECRET_FILE: /run/secrets/quota_secret
+      ATLAS_STORAGE: s3
+      ATLAS_S3_ENDPOINT: ${ATLAS_S3_ENDPOINT:?set the private HTTPS S3 origin}
+      ATLAS_S3_REGION: ${ATLAS_S3_REGION:-us-east-1}
+      ATLAS_S3_BUCKET: ${ATLAS_S3_BUCKET:?set the private bucket}
+      ATLAS_S3_ACCESS_KEY_ID_FILE: /run/secrets/api_storage_access_key
+      ATLAS_S3_SECRET_ACCESS_KEY_FILE: /run/secrets/api_storage_secret
+      ATLAS_PUBLIC_ORIGIN: ${ATLAS_PUBLIC_ORIGIN:?set the exact HTTPS origin}
+      ATLAS_TRUSTED_PROXIES: ${ATLAS_PROXY_IP:-172.30.10.2}
+      ATLAS_LISTEN_HOST: 0.0.0.0
+      ATLAS_PORT: "8080"
+      ATLAS_OPERATOR_PORT: "9090"
+    secrets: [api_database_url, quota_secret, api_storage_access_key, api_storage_secret]
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,uid=10001,gid=10001,mode=0700,size=16777216"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      # Node fetch rewrites Host; http.get sends the configured public Host unchanged.
+      test: [CMD, node, -e, "const q=require('node:http').get({hostname:'127.0.0.1',port:8080,path:'/api/v1/health/ready',headers:{Host:new URL(process.env.ATLAS_PUBLIC_ORIGIN).host},timeout:4000},r=>{r.resume();r.on('end',()=>process.exit(r.statusCode===200?0:1))});q.on('error',()=>process.exit(1));q.on('timeout',()=>q.destroy());"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    networks: [api]
+
+networks:
+  api:
+    ipam:
+      # Keep dynamic services away from the trusted proxy's static address.
+      config: [{ subnet: "${ATLAS_API_SUBNET:-172.30.10.0/24}", ip_range: "${ATLAS_API_DYNAMIC_POOL:-172.30.10.128/25}" }]
+
+# Docker Compose bind-mounts these files; its uid/gid fields do not remap ownership.
+# Provision readable-by-10001 files in a root-owned, non-world-traversable directory.
+secrets:
+  tls_certificate: { file: "${ATLAS_SECRET_DIR:?set an absolute secret directory}/tls_certificate" }
+  tls_key: { file: "${ATLAS_SECRET_DIR}/tls_key" }
+  migration_url: { file: "${ATLAS_SECRET_DIR}/migration_url" }
+  api_role_password: { file: "${ATLAS_SECRET_DIR}/api_role_password" }
+  worker_role_password: { file: "${ATLAS_SECRET_DIR}/worker_role_password" }
+  api_database_url: { file: "${ATLAS_SECRET_DIR}/api_database_url" }
+  quota_secret: { file: "${ATLAS_SECRET_DIR}/quota_secret" }
+  api_storage_access_key: { file: "${ATLAS_SECRET_DIR}/api_storage_access_key" }
+  api_storage_secret: { file: "${ATLAS_SECRET_DIR}/api_storage_secret" }

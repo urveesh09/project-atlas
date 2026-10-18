@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh ATLAS GitHub ranges hourly (sets expire after 24 hours)
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+Persistent=yes
+Unit=atlas-egress-refresh.service
+
+[Install]
+WantedBy=timers.target

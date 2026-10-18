@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Changed
+- Add the M4.1 reference hosted deployment kit: hardened TLS/API profile, worker
+  service units, expiring atomic GitHub egress sets, configuration preflight and
+  production transport/packet rehearsals. Public deployment acceptance remains open.
 - Accessibility audits now inspect open menus, source-dialog states, loading/errors,
   workspace and hosted lifecycle screens in addition to the main views, including
   WCAG 2.1 A rules. CI retains named reports with incomplete checks for human review.
