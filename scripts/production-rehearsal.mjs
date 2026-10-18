@@ -67,8 +67,14 @@ const step = async (name, run) => {
   }
 };
 const overlay = path.join(work, 'compose.json');
+// Rehearsal-only texts standing in for the owner's (ADR-077); they are not legal wording.
+const legalDir = path.join(work, 'legal');
+mkdirSync(legalDir);
+const legalTexts = { privacy: 'Rehearsal privacy text for an isolated test service.', terms: 'Rehearsal terms text.\n\nSecond paragraph.', takedown: 'Rehearsal takedown text.' };
+for (const [name, text] of Object.entries(legalTexts)) writeFileSync(path.join(legalDir, `${name}.txt`), `${text}\n`);
 const composeEnv = { ...process.env, ATLAS_API_IMAGE: apiImage, ATLAS_PROXY_IMAGE: caddyImage, ATLAS_DOMAIN: 'localhost', ATLAS_PUBLIC_ORIGIN: 'https://localhost',
-  ATLAS_SECRET_DIR: secretDir, ATLAS_S3_ENDPOINT: 'https://storage:8443', ATLAS_S3_BUCKET: 'atlas-rehearsal', ATLAS_HTTPS_PORT: '0', ATLAS_BIND_ADDRESS: '127.0.0.1' };
+  ATLAS_SECRET_DIR: secretDir, ATLAS_S3_ENDPOINT: 'https://storage:8443', ATLAS_S3_BUCKET: 'atlas-rehearsal', ATLAS_HTTPS_PORT: '0', ATLAS_BIND_ADDRESS: '127.0.0.1',
+  ATLAS_LEGAL_DIR: legalDir, ATLAS_CONTACT: 'mailto:operator@example.org' };
 const compose = (params, options) => docker(['compose', '-p', project, '-f', path.join(production, 'compose.yaml'), '-f', overlay, '--profile', 'api-host', '--profile', 'monitoring', ...params], { env: composeEnv, ...options });
 // The throwaway CA only verifies the loopback server; it is a trust anchor, never request
 // data. It exists after the first step, so the agent is created on first use. Keep-alive
@@ -210,6 +216,25 @@ try {
     assert.equal((await request(port, '/api/v1/session', { method: 'POST', headers: { Origin: 'https://forged.example.org' } })).status, 403);
     assert.equal((await request(port, '/api/v1/session', { method: 'POST', headers: { Host: 'forged.example.org', Origin: origin } })).status, 421);
   });
+  await step("the API refuses the shipped placeholder texts and serves the operator's pages", async () => {
+    // The production image with the shipped examples exits before any connection.
+    let refusal = null;
+    try {
+      compose(['run', '--rm', '--no-deps', 'api'], { env: { ...composeEnv, ATLAS_LEGAL_DIR: path.join(production, 'legal.example') }, stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (error) {
+      refusal = error;
+    }
+    assert.equal(refusal?.status, 1);
+    assert.match(String(refusal.stdout), /"event":"api\.fatal".*still holds the shipped placeholder/);
+    const notices = await request(port, '/api/v1/legal');
+    assert.equal(notices.status, 200);
+    assert.deepEqual(JSON.parse(notices.text), { configured: true, contact: 'mailto:operator@example.org', documents: legalTexts });
+    for (const page of ['/privacy', '/terms', '/takedown']) {
+      const shell = await request(port, page);
+      assert.equal(shell.status, 200);
+      assert.match(shell.headers['content-security-policy'], /default-src 'self'/);
+    }
+  });
   await step('admit, stream first event before completion, cancel through HTTPS', async () => {
     const submission = await request(port, '/api/v1/analyses', { method: 'POST', headers: { Origin: origin, Cookie: cookie, 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
       body: JSON.stringify({ repositoryUrl: 'https://github.com/atlas-demo/harbor', commitSha: null, profile: 'v0.1-default', history: { enabled: false }, publication: 'public-expiring' }) });
@@ -282,7 +307,7 @@ try {
     report.cleaned = true;
   } catch { report.cleaned = false; process.exitCode = 1; }
   report.finished = new Date().toISOString();
-  report.passed = report.steps.length === 16 && report.steps.every((s) => s.passed) && report.cleaned;
+  report.passed = report.steps.length === 17 && report.steps.every((s) => s.passed) && report.cleaned;
   if (!report.passed) process.exitCode = 1;
   mkdirSync(path.dirname(reportPath), { recursive: true });
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);

@@ -1301,13 +1301,10 @@ describe.runIf(browserAvailable && viewerBuilt)('browser-only artifact opening',
     const isolated = await browser.newContext();
     let releaseSession!: () => void;
     const sessionHeld = new Promise<void>((resolve) => { releaseSession = resolve; });
-    let releaseWorker!: () => void;
-    const workerHeld = new Promise<void>((resolve) => { releaseWorker = resolve; });
     try {
       const page = await isolated.newPage();
-      // Firefox CI run 39125232653 stalled once between the first two audits until the
-      // 30 s test timeout, and 95 local repetitions did not reproduce it. Every step is
-      // bounded and a stall names its stage and what the gate showed.
+      // Every step is bounded and a stall names its stage and what the gate showed
+      // (Firefox CI run 39125232653 timed out here with no detail).
       const requests: string[] = [];
       const pageErrors: string[] = [];
       let workerRouted = 0;
@@ -1340,10 +1337,12 @@ gate state: ${JSON.stringify({ shown, workerRouted, requests: requests.slice(-12
       expect(await stage('audit starting', () => audit(page, 'viewer-starting'))).toEqual([]);
       releaseSession();
       await stage('show the picker', () => page.getByRole('button', { name: 'Open artifact folder…' }).waitFor());
+      // A loader that never answers keeps the gate in "Validating" until Cancel. It is
+      // served at once: holding the request open instead made setInputFiles itself stall
+      // (WebKit CI run 39137944001: the gate was already validating, the request routed).
       await page.route('**/assets/loader.worker-*.js', async (route) => {
         workerRouted++;
-        await workerHeld;
-        await route.abort();
+        await route.fulfill({ status: 200, contentType: 'text/javascript', body: '// A loader that never answers.\n' });
       });
       await stage('pick the folder', () => page.locator('input[type="file"]').setInputFiles(path.join(work, 'harbor-out')));
       await stage('show validation', () => page.getByRole('heading', { name: 'Validating the selected artifact' }).waitFor());
@@ -1360,7 +1359,6 @@ gate state: ${JSON.stringify({ shown, workerRouted, requests: requests.slice(-12
       expect(await stage('audit cancelled', () => audit(page, 'artifact-loading-cancelled'))).toEqual([]);
     } finally {
       releaseSession();
-      releaseWorker();
       await isolated.close();
     }
   });

@@ -169,8 +169,9 @@ reports, reviews or audits. Treat any credible report as SEV1 until it is ruled 
 - Expired, deleted and revoked publications say which of these happened.
 - Nothing is published from a failed job.
 
-**What the operator adds.** The service has no status page. Before launch, the owner names
-a status channel and a contact address (M4.6). Then:
+**What the operator adds.** Every hosted page links the owner's contact (`ATLAS_CONTACT`,
+M4.6). The service has no status page, so before launch the owner also names a status
+channel, for example on that contact page. Then:
 - **SEV1 and SEV2:** post on the status channel within 1 hour of acknowledging, and
   update at least every 2 hours until resolved. Afterwards, post a summary of the cause
   and the fix.

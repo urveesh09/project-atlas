@@ -27,8 +27,10 @@ restore drill (ADR-074). The current task is M4.4: scanned, immutable OCI image
 publication and signed-origin verification (ADR-075). Never point restored cleanup at live storage; older backups
 cannot remember later deletions. M4.5 service levels stack on it
 ([hosted-slo.md](docs/hosted-slo.md), ADR-076): provisional objectives measured from
-`/metrics`, with tested rules and incident handling. None authorizes a live deployment
-or closes R6-06. M4.6 remains a separate task.
+`/metrics`, with tested rules and incident handling. M4.6 adds privacy, terms and
+takedown pages (ADR-077): the owner supplies the wording and contact, and a production
+API refuses to start without them or with the shipped placeholders. None authorizes a
+live deployment or closes R6-06.
 Human R6-04 review and M3.4 intermittent layout diagnosis remain open. M2.2
 capacity and M2.7 lazy-import syntax remain open. M1 upgrades landed in PRs #20, #22,
 #23 and #24. Analyzer `0.1.0-dev.8` records corrected namespace lookup
@@ -134,8 +136,8 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-076; ADR-067 is reserved by the separate
-  edge-budget work. Allocate ADR-077 next.
+  The current sequence is ADR-001…ADR-077; ADR-067 is reserved by the separate
+  edge-budget work. Allocate ADR-078 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

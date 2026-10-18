@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import type { Capabilities } from '@atlas/schema';
+import type { Capabilities, LegalNotices } from '@atlas/schema';
 import { CityPreview } from '../components/CityPreview';
 import { HostedApiError, submitAnalysis } from './api';
+import { safeContact } from './legal';
+import { LegalLinks } from './LegalLinks';
 import { errorText } from './messages';
 import { navigate } from './route';
 
@@ -15,7 +17,7 @@ const ROOT_URL = /^https:\/\/github\.com\/[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0
  * Hosted landing (plan §3.1, §3.3): one repository field, a concrete public-output notice
  * the visitor must accept, the language and limit summary, the demo and the local route.
  */
-export function HostedLanding({ capabilities, onOpenFolder }: { capabilities: Capabilities; onOpenFolder: () => void }) {
+export function HostedLanding({ capabilities, notices, onOpenFolder }: { capabilities: Capabilities; notices: LegalNotices; onOpenFolder: () => void }) {
   const [url, setUrl] = useState('');
   const [history, setHistory] = useState(true);
   const [consent, setConsent] = useState(false);
@@ -116,6 +118,7 @@ export function HostedLanding({ capabilities, onOpenFolder }: { capabilities: Ca
         <p className="gate-small">
           Private code: run <code>atlas analyze .</code> then <code>atlas serve ./atlas-output</code>. Local analysis never uploads anything; opened folders stay in this browser.
         </p>
+        <LegalLinks contact={safeContact(notices.contact)} />
       </div>
       <CityPreview />
       </div>

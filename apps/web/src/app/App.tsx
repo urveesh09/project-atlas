@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LoadResult } from '@atlas/artifact';
-import { ARTIFACT_VERSION, type Capabilities } from '@atlas/schema';
+import { ARTIFACT_VERSION, type Capabilities, type LegalDocument, type LegalNotices } from '@atlas/schema';
 import { CityPreview } from '../components/CityPreview';
 import { Explorer } from '../components/Explorer';
 import { PublicationUnavailableError, detectLocalSession, loadInWorker, type SourceStatus } from '../data/load';
 import { entriesFromInput } from '../data/picked';
-import { detectHostedService } from '../hosted/api';
+import { detectHostedService, fetchLegalNotices } from '../hosted/api';
 import { HostedLanding } from '../hosted/HostedLanding';
 import { JobPage } from '../hosted/JobPage';
+import { LegalPage } from '../hosted/LegalPage';
 import { Unavailable } from '../hosted/Unavailable';
 import { onNavigate, parseRoute } from '../hosted/route';
 import { ViewerProvider } from './context';
@@ -28,7 +29,8 @@ type Phase =
         | { code: 'LOAD_FAILED'; issues: { code: string; path: string; message: string }[] };
     }
   | { kind: 'ready'; head: ViewerModel; source: SourceStatus | null; hosted: { analysisId: string } | null }
-  | { kind: 'hosted-landing'; capabilities: Capabilities }
+  | { kind: 'hosted-landing'; capabilities: Capabilities; notices: LegalNotices }
+  | { kind: 'legal'; document: LegalDocument; capabilities: Capabilities; notices: LegalNotices }
   | { kind: 'job'; jobId: string }
   | { kind: 'unavailable'; code: string };
 
@@ -130,8 +132,11 @@ export function App() {
       if (session) return void run('Loading the served artifact', { kind: 'server', base: '/artifact/' }, session.source);
       const capabilities = await detectHostedService();
       if (stale()) return;
-      if (capabilities && current.kind === 'home') setPhase({ kind: 'hosted-landing', capabilities });
-      else if (capabilities) setPhase({ kind: 'unavailable', code: 'ARTIFACT_NOT_FOUND' });
+      if (capabilities && (current.kind === 'home' || current.kind === 'legal')) {
+        const notices = await fetchLegalNotices();
+        if (stale()) return;
+        setPhase(current.kind === 'legal' ? { kind: 'legal', document: current.document, capabilities, notices } : { kind: 'hosted-landing', capabilities, notices });
+      } else if (capabilities) setPhase({ kind: 'unavailable', code: 'ARTIFACT_NOT_FOUND' });
       // A static demo build (ADR-044) opens its bundled artifact through the same validation.
       // The worker fetches it, so resolve the folder against the page, not the worker script.
       else if (DEMO_BASE) void run('Loading the demo city', { kind: 'server', base: new URL(DEMO_BASE, location.href).pathname }, null);
@@ -187,10 +192,11 @@ export function App() {
     return (
       <>
         {picker}
-        <HostedLanding capabilities={phase.capabilities} onOpenFolder={openPicker} />
+        <HostedLanding capabilities={phase.capabilities} notices={phase.notices} onOpenFolder={openPicker} />
       </>
     );
   }
+  if (phase.kind === 'legal') return <LegalPage document={phase.document} notices={phase.notices} capabilities={phase.capabilities} />;
   if (phase.kind === 'job') return <JobPage key={phase.jobId} jobId={phase.jobId} />;
   if (phase.kind === 'unavailable') return <Unavailable code={phase.code} />;
   const card = (

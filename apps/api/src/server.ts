@@ -4,8 +4,9 @@ import { isIP, type AddressInfo } from 'node:net';
 import nodePath from 'node:path';
 import { migrationsCurrent, operatorMetrics, operatorMetricsText, PROMETHEUS_TEXT_CONTENT_TYPE, publicationReadResult, type ObjectStore, type PublicationReads, type PublicationStore } from '@atlas/control';
 import { parseGithubRepositoryUrl } from '@atlas/ingest';
-import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, API_REQUEST_BODY_LIMIT, ARTIFACT_VERSION, CapabilitiesSchema, ErrorEnvelopeSchema, GRAPH_SCHEMA_VERSION, IdempotencyKeySchema, JobIdSchema, LAYOUT_VERSION, LIMITS, METRIC_DEFINITION_VERSION, RELEASE_PROFILE, SessionStatusSchema } from '@atlas/schema';
+import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, API_REQUEST_BODY_LIMIT, ARTIFACT_VERSION, CapabilitiesSchema, ErrorEnvelopeSchema, GRAPH_SCHEMA_VERSION, IdempotencyKeySchema, JobIdSchema, LAYOUT_VERSION, LegalNoticesSchema, LIMITS, METRIC_DEFINITION_VERSION, RELEASE_PROFILE, SessionStatusSchema, type LegalNotices } from '@atlas/schema';
 import type { Pool } from 'pg';
+import { UNCONFIGURED_LEGAL_NOTICES } from './legal.js';
 import { AdmissionStore, type Credentials } from './store.js';
 import { clientBucket, opaqueId, ServiceError, terminal } from './security.js';
 
@@ -63,7 +64,7 @@ const STATIC_TYPES: Record<string, string> = {
 /** The viewer's CSP: same-origin scripts, workers and connections only (plan §8.6). */
 const VIEWER_CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 /** Client routes that render the single-page viewer (no server-side state in the path). */
-const VIEWER_ROUTES = /^\/(?:|a\/analysis_[0-9a-f]{64}|jobs\/job_[0-9a-f]{32})$/;
+const VIEWER_ROUTES = /^\/(?:|a\/analysis_[0-9a-f]{64}|jobs\/job_[0-9a-f]{32}|privacy|terms|takedown)$/;
 
 /** A regular file whose real path is `full`, read through one handle (no check-then-read gap). */
 async function readRegularFile(full: string): Promise<Buffer | null> {
@@ -115,6 +116,8 @@ export interface ApiOptions {
   trustedProxy?: TrustedProxy;
   /** Publication of the authored demo shown on the landing page (operator-maintained). */
   demoAnalysisId?: string;
+  /** Operator-supplied public-service texts (ADR-077); placeholders when absent. */
+  legal?: LegalNotices;
 }
 
 /** Hosted HTTP surface (plan §13). No repository executes here; analysis runs only in worker sandboxes. */
@@ -128,6 +131,7 @@ export async function startApi(options: ApiOptions) {
   }
   const webRoot = options.webRoot ? await realpath(options.webRoot) : null;
   const capabilities = serviceCapabilities(options.demoAnalysisId ?? null);
+  const legal = LegalNoticesSchema.parse(options.legal ?? UNCONFIGURED_LEGAL_NOTICES);
   const cookieName = options.developmentLoopback ? 'atlas_session' : '__Host-atlas-session';
   const streams = new Set<ServerResponse>();
   const streamsPerJob = new Map<string, number>();
@@ -163,6 +167,7 @@ export async function startApi(options: ApiOptions) {
         return json(res, ready ? 200 : 503, { ready });
       }
       if (req.method === 'GET' && path === '/api/v1/capabilities') return json(res, 200, capabilities);
+      if (req.method === 'GET' && path === '/api/v1/legal') return json(res, 200, legal);
 
       const analysis = /^\/api\/v1\/analyses\/(analysis_[0-9a-f]{64})(?:\/chunks\/([a-z0-9_]{1,80}))?$/.exec(path);
       if (analysis && req.method === 'GET') {

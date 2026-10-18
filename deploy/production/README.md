@@ -5,7 +5,8 @@ not create a public service. R6-06 deployment acceptance and G6 remain open.
 Optional monitoring is [below](#monitoring) (M4.2). Private backup automation and the
 scratch-only restore drill are documented in [Production backups](../../docs/production-backups.md)
 (M4.3). [Image supply chain](../../docs/image-supply-chain.md) covers M4.4's scan and
-signed-origin release gates. SLOs and legal pages remain M4.5–M4.6.
+signed-origin release gates. [Service levels](../../docs/hosted-slo.md) are M4.5. The
+owner's privacy, terms and takedown texts and contact are required (M4.6, step 3 below).
 Read [operations](../../docs/hosted-operations.md) and [ADR-072](../../docs/adr/ADR-072-reference-hosted-deployment.md).
 
 ## Prerequisites and boundaries
@@ -79,7 +80,14 @@ empty bounding set. Both image bases and the validation package versions are pin
    mode 0440. Provision copies through your secret manager. Compose file-backed
    secrets do not remap host uid/gid; check readability as uid 10001. Only explicitly
    named files enter each container. Never pass secrets as command-line arguments.
-3. Preflight and start, substituting the absolute path to your environment file:
+3. Put the owner's own `privacy.txt`, `terms.txt` and `takedown.txt` in `ATLAS_LEGAL_DIR`,
+   and set `ATLAS_CONTACT` to a `mailto:` address or an `https:` page.
+   - These are UTF-8 plain texts, not secrets: root-owned and readable by uid 10001.
+   - [`legal.example/`](legal.example/) shows the shape only. Its placeholders carry
+     `ATLAS-PLACEHOLDER`, and the API refuses to start with them.
+   - Never commit the owner's texts here
+     ([operations](../../docs/hosted-operations.md#public-service-pages)).
+4. Preflight and start, substituting the absolute path to your environment file:
 
    ```sh
    node deploy/production/check-profile.mjs --env-file /etc/atlas/api.env
@@ -93,7 +101,7 @@ empty bounding set. Both image bases and the validation package versions are pin
    9090 is published. Operator metrics stay on the API container's loopback interface.
    Private CA mounts, PostgreSQL CA files and an optional public-metadata GitHub token
    are site-specific **read-only secret-file overrides**, never relaxed TLS checks.
-4. Check the real domain/certificate, health, canary, session and deletion paths in
+5. Check the real domain/certificate, health, canary, session and deletion paths in
    [operations](../../docs/hosted-operations.md). API/worker runtime roles must not
    have DDL or the other's grants. Grant each storage credential only the operations
    its role needs on the private bucket. Do not configure public bucket access.

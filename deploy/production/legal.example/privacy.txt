@@ -1,0 +1,3 @@
+ATLAS-PLACEHOLDER: this is not privacy text.
+
+The owner of the service supplies this page. Replace this file with the owner's own text, outside this checkout, before starting a production service. ATLAS never provides legal wording, and the API refuses to start while this marker is present.

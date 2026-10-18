@@ -1,4 +1,5 @@
 import { ConfigError, PublicationStore, S3ObjectStore, databasePool, isDevelopment, migrate, migrationsCurrent, provisionRoles, required, resolverFromEnv, secret, storageFromEnv, type Env } from '@atlas/control';
+import { legalNoticesFromEnv } from './legal.js';
 import { startApi, startOperatorServer } from './server.js';
 import { AdmissionStore } from './store.js';
 
@@ -14,6 +15,8 @@ export const log = (event: string, fields: Record<string, string | number | bool
 
 export async function startApiFromEnv(env: Env) {
   const development = isDevelopment(env);
+  // Before any connection: a public service without the owner's texts must not start (ADR-077).
+  const legal = legalNoticesFromEnv(env, development);
   const pool = databasePool({ ...env, ATLAS_PROCESS_NAME: 'atlas-api' }, 10);
   if (!(await migrationsCurrent(pool))) throw new ConfigError('Database migrations are not current; run the migration job first');
   const storage = storageFromEnv(env);
@@ -36,6 +39,7 @@ export async function startApiFromEnv(env: Env) {
     ...(env['ATLAS_WEB_ROOT'] ? { webRoot: env['ATLAS_WEB_ROOT'] } : {}),
     ...(proxies.length > 0 ? { trustedProxy: { addresses: proxies } } : {}),
     ...(env['ATLAS_DEMO_ANALYSIS_ID'] ? { demoAnalysisId: env['ATLAS_DEMO_ANALYSIS_ID'] } : {}),
+    legal,
   });
   const operator = env['ATLAS_OPERATOR_PORT'] ? await startOperatorServer({ pool, port: Number(env['ATLAS_OPERATOR_PORT']), publicationReads: api.publicationReads }) : null;
   // Hourly privacy sweep of sessions, admissions and client buckets (ADR-029).

@@ -2,10 +2,10 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-18):** production-plan M4.4 scanned immutable image
-publication and signed-origin verification (ADR-075). M4.3 backups/restore landed in
-PR #41, following deployment PR #39 and monitoring PR #40. M4.5 service levels and
-incidents (ADR-076) stack on it; live-site R6-06 remains open. M3.5 fallback, diagnostics
+**Current milestone (2026-10-18):** production-plan M4.6 public-service pages
+(ADR-077), the last M4 task. M4.4 image supply chain (PR #43) and M4.5 service levels
+(PR #44) landed, after M4.3 backups (PR #41), deployment (PR #39) and monitoring
+(PR #40); live-site R6-06 remains open. M3.5 fallback, diagnostics
 and primary-action contrast landed in PR #37 (all 15 checks green on `d444c67`), following accessibility
 preparation (PR #36), macOS CI (PR #34) and
 Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
@@ -30,6 +30,54 @@ Unchanged since 2026-10-11:
 - Runtime instrumentation remains deferred.
 
 Agents: read [AGENTS.md](../AGENTS.md).
+
+### Production M4.6: public-service pages (2026-10-18)
+
+- **Implementation:** [ADR-077](adr/ADR-077-public-service-pages.md) and
+  [operations → public-service pages](hosted-operations.md#public-service-pages).
+  - `/privacy`, `/terms` and `/takedown` render the owner's plain text and the contact,
+    linked from the hosted landing, through `GET /api/v1/legal` (in the OpenAPI).
+  - The privacy and takedown pages add labelled implementation facts, checked against
+    the code: no source text; 7-day publications withdrawn when private; no stored or
+    logged IP addresses; pseudonymous repository tags in logs; downloads cannot be
+    recalled.
+  - Outside development, the API refuses to start, before connecting, without
+    `ATLAS_PRIVACY_FILE`, `ATLAS_TERMS_FILE`, `ATLAS_TAKEDOWN_FILE` and `ATLAS_CONTACT`,
+    or with the shipped `ATLAS-PLACEHOLDER` examples.
+  - The production profile mounts the texts as Compose configs, and the preflight checks
+    them.
+- **Found while checking the facts:** job records keep the submitted repository URL and
+  are never deleted automatically. The privacy facts say so. A retention period is the
+  owner's decision.
+- **Retained failure:** the first local rehearsal stopped at the profile step. An
+  unquoted `${ATLAS_CONTACT:?…}` message contained `mailto: address`, which YAML read as
+  a mapping. The message is now quoted, and a missing contact still fails resolution
+  with its own message. The failed report stays in ignored scratch (`m46-first.json`).
+- **Local verification (Windows, Node 24.22.0, Docker 29.8.1):**
+  - **Production rehearsal: 17/17 steps** with images built from this branch. With the
+    shipped examples, the real API exits 1 with the placeholder refusal. With the
+    rehearsal's texts, `/api/v1/legal` returns them and all three pages are served under
+    the viewer CSP.
+  - **Hosted browser journeys** (PostgreSQL, Chromium): 8/8, including the new
+    placeholder-to-configured journey, with axe finding no violations.
+  - **`pnpm verify`: 900 passed, 86 service-gated skips** (11 new unit tests; the new
+    hosted journey skips there). Contracts were regenerated: OpenAPI gains `/legal`.
+  - 209 relative Markdown links resolve.
+- **CI follow-up: the journey stall is diagnosed.** On this PR's first head, WebKit hit
+  the starting/loading/cancellation stall again
+  ([run 39137944001](https://github.com/urveesh09/project-atlas/actions/runs/39137944001)).
+  The bounded stages added in M4.4 reported it precisely: `setInputFiles` had not
+  returned after 8 s, yet the gate already showed "Validating the selected artifact"
+  and the loader request had been routed. The page was correct. The test held that
+  request open, and the pick sometimes waited on it.
+  - The test now answers the loader request at once with a worker that never replies,
+    so the gate still stays in "Validating" until Cancel, and assertions are unchanged.
+  - The three browser-only journeys passed 5 runs out of 5 in each of WebKit, Firefox and
+    Chromium locally.
+- **Owner:**
+  - the wording itself and the contact;
+  - the status channel the service-levels page asks for;
+  - the job-record retention decision.
 
 ### Production M4.5: service levels and incidents (2026-10-18)
 

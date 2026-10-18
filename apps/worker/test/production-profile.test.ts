@@ -10,17 +10,35 @@ function profile() {
   return {
     services: {
       api: { ...structuredClone(common), environment: { ATLAS_PUBLIC_ORIGIN: 'https://atlas.example.org', ATLAS_STORAGE: 's3',
-        ATLAS_S3_ENDPOINT: 'https://storage.example.org', ATLAS_TRUSTED_PROXIES: '172.30.10.2', ATLAS_DATABASE_URL_FILE: '/run/secrets/api_database_url' } },
+        ATLAS_S3_ENDPOINT: 'https://storage.example.org', ATLAS_TRUSTED_PROXIES: '172.30.10.2', ATLAS_DATABASE_URL_FILE: '/run/secrets/api_database_url',
+        ATLAS_PRIVACY_FILE: '/etc/atlas/legal/privacy.txt', ATLAS_TERMS_FILE: '/etc/atlas/legal/terms.txt', ATLAS_TAKEDOWN_FILE: '/etc/atlas/legal/takedown.txt',
+        ATLAS_CONTACT: 'mailto:operator@example.org' } as Record<string, string>,
+      configs: ['privacy', 'terms', 'takedown'].map((name) => ({ source: `legal_${name}`, target: `/etc/atlas/legal/${name}.txt` })) },
       migrate: structuredClone(common),
       proxy: { ...structuredClone(common), environment: { ATLAS_DOMAIN: 'atlas.example.org' }, networks: { api: { ipv4_address: '172.30.10.2' } } },
     },
     networks: { api: { ipam: { config: [{ subnet: '172.30.10.0/24', ip_range: '172.30.10.128/25' }] } } },
     secrets: { api_database_url: { file: path.resolve('.atlas-tmp/secrets/api_database_url') } },
+    configs: { legal_privacy: { file: path.resolve('.atlas-tmp/legal/privacy.txt') } } as Record<string, { file: string }>,
   };
 }
 describe('production configuration preflight', () => {
   it('accepts immutable hardened services and a proxy outside the dynamic pool', () => {
     expect(() => assertProductionProfile(profile())).not.toThrow();
+  });
+  it("requires the owner's texts as mounted configs and a mailto: or https: contact", () => {
+    const changes: ((config: ReturnType<typeof profile>) => void)[] = [
+      (c) => { delete c.services.api.environment['ATLAS_TERMS_FILE']; },
+      (c) => { c.services.api.environment['ATLAS_PRIVACY_FILE'] = '/run/secrets/privacy.txt'; },
+      (c) => { c.services.api.configs = []; },
+      (c) => { delete c.services.api.environment['ATLAS_CONTACT']; },
+      (c) => { c.services.api.environment['ATLAS_CONTACT'] = 'javascript:alert(1)'; },
+      (c) => { c.configs['legal_privacy'] = { file: 'legal/privacy.txt' }; },
+    ];
+    for (const change of changes) {
+      const config = profile(); change(config);
+      expect(() => assertProductionProfile(config), String(change)).toThrow();
+    }
   });
   it('rejects the real allocation collision found in the first full rehearsal', () => {
     const config = profile(); config.networks.api.ipam.config[0]!.ip_range = '172.30.10.0/24';
