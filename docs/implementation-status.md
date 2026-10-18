@@ -63,6 +63,17 @@ Agents: read [AGENTS.md](../AGENTS.md).
   - **`pnpm verify`: 900 passed, 86 service-gated skips** (11 new unit tests; the new
     hosted journey skips there). Contracts were regenerated: OpenAPI gains `/legal`.
   - 209 relative Markdown links resolve.
+- **CI follow-up: the journey stall is diagnosed.** On this PR's first head, WebKit hit
+  the starting/loading/cancellation stall again
+  ([run 39137944001](https://github.com/urveesh09/project-atlas/actions/runs/39137944001)).
+  The bounded stages added in M4.4 reported it precisely: `setInputFiles` had not
+  returned after 8 s, yet the gate already showed "Validating the selected artifact"
+  and the loader request had been routed. The page was correct. The test held that
+  request open, and the pick sometimes waited on it.
+  - The test now answers the loader request at once with a worker that never replies,
+    so the gate still stays in "Validating" until Cancel, and assertions are unchanged.
+  - The three browser-only journeys passed 5 runs out of 5 in each of WebKit, Firefox and
+    Chromium locally.
 - **Owner:**
   - the wording itself and the contact;
   - the status channel the service-levels page asks for;
