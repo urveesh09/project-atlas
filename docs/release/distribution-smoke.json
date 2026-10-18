@@ -1,37 +1,37 @@
 {
   "task": "P6 distribution candidate fresh-install smoke",
-  "recordedAt": "2026-10-11T06:27:20.294Z",
+  "recordedAt": "2026-10-18T15:36:00.333Z",
   "os": "Windows_NT 10.0.26200 x64",
-  "node": "v24.15.0",
-  "archiveSha256": "233f2f883c7ab04bec6cb596aa835a18a1d7105272d9524fedd4f471700477c5",
-  "archiveBytes": 8700660,
-  "sourceCommit": "277f59301b6b3b6ad0f166de38b644720d04f82c",
+  "node": "v24.22.0",
+  "archiveSha256": "359ae6f9e01d57ecfc5ac067997c16a38d32c02a5e4d0f4df43ff1911eeedeb7",
+  "archiveBytes": 10501952,
+  "sourceCommit": "88f2b7456115d1bda1f81b33523d2f9db8d43163",
   "workingTreeDirty": false,
   "stages": [
     {
       "stage": "relocated-extraction-and-integrity",
-      "files": 1488,
-      "documentationLinks": 10,
+      "files": 1586,
+      "documentationLinks": 14,
       "passed": true
     },
     {
       "stage": "doctor",
-      "elapsedMs": 703.0722999999998,
+      "elapsedMs": 810.7303999999999,
       "passed": true
     },
     {
       "stage": "analyze",
-      "elapsedMs": 6445.3898,
+      "elapsedMs": 6350.8014,
       "passed": true
     },
     {
       "stage": "verify",
-      "elapsedMs": 679.3346000000001,
+      "elapsedMs": 721.8642,
       "passed": true
     },
     {
       "stage": "inspect",
-      "elapsedMs": 576.3118000000013,
+      "elapsedMs": 625.0550000000003,
       "passed": true
     },
     {
