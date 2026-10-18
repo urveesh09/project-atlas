@@ -6,6 +6,53 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 
 ## [Unreleased]
 
+## [0.1.0-beta.2] - 2026-10-18
+
+### Added
+- Python analysis ([ADR-060](docs/adr/ADR-060-python-integration.md)):
+  - `.py` and `.pyi` files are parsed, resolved, measured and checked like TS/JS;
+  - Python projects become packages, with their declared PyPI dependencies;
+  - mixed TS/JS and Python repositories work, and npm and PyPI packages of the same name
+    stay distinct;
+  - virtual environments, Python caches and egg metadata are excluded;
+  - pallets/flask joins the pinned validation corpus.
+- Entry screens and sharing ([ADR-058](docs/adr/ADR-058-interface-polish.md)):
+  - the start screen and the hosted landing show a real render of the demo city;
+  - page titles name the repository;
+  - a description, a favicon, link-preview tags and no-JavaScript text;
+  - the demo adds a canonical link, a social card and structured data.
+- Python support, part 1 ([ADR-056](docs/adr/ADR-056-python-support-design-and-facts.md)):
+  - a Python adapter that extracts imports, declarations, code lines and complexity;
+  - checked against CPython's own `ast` on the full standard library, with 0
+    mismatches.
+
+  Used by analysis since ADR-060.
+- Python support, part 2 ([ADR-057](docs/adr/ADR-057-python-resolution.md)):
+  - projects and dependencies from every common Python manifest;
+  - import resolution with Python's own precedence.
+
+  Used by analysis since ADR-060.
+- 3D-print export ([ADR-055](docs/adr/ADR-055-3d-print-export.md)): coloured 3MF and STL of
+  the city shown.
+- Package graph view ([ADR-054](docs/adr/ADR-054-package-dependency-view.md)):
+  - layered package dependencies, with cycles named and edges that close them flagged;
+  - a complete table.
+- Annotations ([ADR-053](docs/adr/ADR-053-annotations-and-compact-menus.md)):
+  - colour and note on folders and packages;
+  - listed in the legend, kept locally, shared as `atlas.notes/1`.
+- Metric lenses and bands ([ADR-052](docs/adr/ADR-052-metric-lenses-bands-and-presets.md)):
+  - ten colour lenses, including code lines, functions, total complexity, fan-out and lines
+    changed;
+  - editable band starts with a distribution chart and an even split;
+  - seven built-in views.
+- Scope ([ADR-051](docs/adr/ADR-051-scope-focus-and-hide.md)): focus on a folder or package
+  and hide paths by pattern. Plots stay fixed, every count names what is hidden, and saved
+  views keep the scope.
+- Change colouring in Compare ([ADR-050](docs/adr/ADR-050-change-colouring-in-compare.md)):
+  - colour snapshot B by the signed change of code lines, complexity, fan-in, fan-out or
+    hotspot score since A;
+  - signed values in the cards and the file table.
+
 ### Changed
 - Hosted job records are deleted 30 days after the job ends, with their events,
   publication, artifact and upload bookkeeping. Taken-down repositories are kept so their
@@ -58,6 +105,32 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 - CI and the release workflow run the CPython parser oracle against a pinned Python
   3.14.8 instead of each runner's default.
 
+- Upgrade Vitest to 5.0.5, Playwright to 1.64.1 and axe's Playwright adapter to 4.14.0
+  while retaining the existing browser and accessibility gates (ADR-061).
+- Upgrade runtime contract validation to Zod 4.6.7; generated JSON Schema and OpenAPI
+  remain byte-identical (ADR-061).
+- Upgrade viewer runtime pins to React/React DOM 19.3.1 and React Three Fiber 9.8.2,
+  with its exact-tag distribution license reviewed and refreshed (ADR-061).
+- Contract versions ([ADR-060](docs/adr/ADR-060-python-integration.md)): analyzer
+  `0.1.0-dev.6`, graph schema `atlas.graph/1.1.0`, artifact `atlas.artifact/1.4.0`. Readers
+  still accept artifacts 1.0–1.3. TS/JS results are unchanged at path level; IDs change with
+  the analyzer version, as for every version change.
+- Summary lines read as sentences, with at most one middle dot; data rows keep their
+  separators ([ADR-059](docs/adr/ADR-059-interface-second-pass.md)).
+- Interface polish ([ADR-058](docs/adr/ADR-058-interface-polish.md)):
+  - self-hosted Geist and Geist Mono outside the city stage;
+  - one corner-radius rule;
+  - 12 px help text;
+  - one label, "Analyze your repository";
+  - no dashes in visible text, and "n/a" for unavailable numbers;
+  - rule explanations behind "Why this is flagged" in long finding lists.
+
+  The city renders byte-identically.
+- Refined controls ([ADR-049](docs/adr/ADR-049-refined-controls-and-icons.md)):
+  - one style for buttons, selects and fields in light and dark;
+  - switch toggles, menus with icons, and a drawn icon set for the stage controls;
+  - history dots no longer sit inside button boxes.
+
 ### Fixed
 - Devices without WebGL2 now open the map/table fallback without three.js context
   errors. Startup probes release their temporary graphics context; blocked graphics
@@ -89,72 +162,6 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   across import roots, and prevent discarded parents from supplying child modules.
   Analyzer `0.1.0-dev.8` deliberately refreshes analysis identities (ADR-066).
 
-### Maintenance
-- Refresh language-support guides, comparison and release/agent handoffs for TS/JS
-  and Python, the four-repository corpus and explicitly open Python acceptance work
-  (production plan M2.1).
-- Upgrade the Python WASM parser runtime to `web-tree-sitter` 0.27.1 with the same
-  hash-checked grammar. Analyzer `0.1.0-dev.7` records the new runtime and invalidates
-  old analysis identities; the artifact schema stays compatible (ADR-062).
-- Pin CI's PostgreSQL service to the reviewed multi-architecture digest already
-  used by the development stack. Document monthly workflow-image and exact Git
-  package checks, including Debian's security suite (production plan M1.4).
-
-### Security
-- Upgrade `smol-toml` to 1.9.1 to fix quadratic work on untrusted Python manifests
-  (GHSA-r4xh-jqrq-34v2). A regression exercises the complete 1 MiB admitted document
-  through project discovery, alongside boundary and prototype-like metadata checks.
-- Upgrade the supported Node.js runtime and both container bases to 24.22.0
-  ([ADR-061](docs/adr/ADR-061-dependency-currency-october-2026.md)). `atlas doctor`
-  warns on older 24.x releases without preventing diagnosis. Analysis semantics and
-  the pinned built-in module list remain unchanged.
-
-### Added
-- Python analysis ([ADR-060](docs/adr/ADR-060-python-integration.md)):
-  - `.py` and `.pyi` files are parsed, resolved, measured and checked like TS/JS;
-  - Python projects become packages, with their declared PyPI dependencies;
-  - mixed TS/JS and Python repositories work, and npm and PyPI packages of the same name
-    stay distinct;
-  - virtual environments, Python caches and egg metadata are excluded;
-  - pallets/flask joins the pinned validation corpus.
-- Entry screens and sharing ([ADR-058](docs/adr/ADR-058-interface-polish.md)):
-  - the start screen and the hosted landing show a real render of the demo city;
-  - page titles name the repository;
-  - a description, a favicon, link-preview tags and no-JavaScript text;
-  - the demo adds a canonical link, a social card and structured data.
-- Python support, part 1 ([ADR-056](docs/adr/ADR-056-python-support-design-and-facts.md)):
-  - a Python adapter that extracts imports, declarations, code lines and complexity;
-  - checked against CPython's own `ast` on the full standard library, with 0
-    mismatches.
-
-  Used by analysis since ADR-060.
-- Python support, part 2 ([ADR-057](docs/adr/ADR-057-python-resolution.md)):
-  - projects and dependencies from every common Python manifest;
-  - import resolution with Python's own precedence.
-
-  Used by analysis since ADR-060.
-- 3D-print export ([ADR-055](docs/adr/ADR-055-3d-print-export.md)): coloured 3MF and STL of
-  the city shown.
-- Package graph view ([ADR-054](docs/adr/ADR-054-package-dependency-view.md)):
-  - layered package dependencies, with cycles named and edges that close them flagged;
-  - a complete table.
-- Annotations ([ADR-053](docs/adr/ADR-053-annotations-and-compact-menus.md)):
-  - colour and note on folders and packages;
-  - listed in the legend, kept locally, shared as `atlas.notes/1`.
-- Metric lenses and bands ([ADR-052](docs/adr/ADR-052-metric-lenses-bands-and-presets.md)):
-  - ten colour lenses, including code lines, functions, total complexity, fan-out and lines
-    changed;
-  - editable band starts with a distribution chart and an even split;
-  - seven built-in views.
-- Scope ([ADR-051](docs/adr/ADR-051-scope-focus-and-hide.md)): focus on a folder or package
-  and hide paths by pattern. Plots stay fixed, every count names what is hidden, and saved
-  views keep the scope.
-- Change colouring in Compare ([ADR-050](docs/adr/ADR-050-change-colouring-in-compare.md)):
-  - colour snapshot B by the signed change of code lines, complexity, fan-in, fan-out or
-    hotspot score since A;
-  - signed values in the cards and the file table.
-
-### Fixed
 - The overview's History coverage showed the raw code for where the window ends, such
   as "days". It now says it in words, worded the same as the timeline and the CLI.
 - Failed and cancelled hosted jobs ticked every stage as done, including publishing; they
@@ -177,32 +184,25 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   restore it.
 - An open compare panel covered the city on screens wider than 1350 px.
 
-### Changed
-- Upgrade Vitest to 5.0.5, Playwright to 1.64.1 and axe's Playwright adapter to 4.14.0
-  while retaining the existing browser and accessibility gates (ADR-061).
-- Upgrade runtime contract validation to Zod 4.6.7; generated JSON Schema and OpenAPI
-  remain byte-identical (ADR-061).
-- Upgrade viewer runtime pins to React/React DOM 19.3.1 and React Three Fiber 9.8.2,
-  with its exact-tag distribution license reviewed and refreshed (ADR-061).
-- Contract versions ([ADR-060](docs/adr/ADR-060-python-integration.md)): analyzer
-  `0.1.0-dev.6`, graph schema `atlas.graph/1.1.0`, artifact `atlas.artifact/1.4.0`. Readers
-  still accept artifacts 1.0–1.3. TS/JS results are unchanged at path level; IDs change with
-  the analyzer version, as for every version change.
-- Summary lines read as sentences, with at most one middle dot; data rows keep their
-  separators ([ADR-059](docs/adr/ADR-059-interface-second-pass.md)).
-- Interface polish ([ADR-058](docs/adr/ADR-058-interface-polish.md)):
-  - self-hosted Geist and Geist Mono outside the city stage;
-  - one corner-radius rule;
-  - 12 px help text;
-  - one label, "Analyze your repository";
-  - no dashes in visible text, and "n/a" for unavailable numbers;
-  - rule explanations behind "Why this is flagged" in long finding lists.
+### Security
+- Upgrade `smol-toml` to 1.9.1 to fix quadratic work on untrusted Python manifests
+  (GHSA-r4xh-jqrq-34v2). A regression exercises the complete 1 MiB admitted document
+  through project discovery, alongside boundary and prototype-like metadata checks.
+- Upgrade the supported Node.js runtime and both container bases to 24.22.0
+  ([ADR-061](docs/adr/ADR-061-dependency-currency-october-2026.md)). `atlas doctor`
+  warns on older 24.x releases without preventing diagnosis. Analysis semantics and
+  the pinned built-in module list remain unchanged.
 
-  The city renders byte-identically.
-- Refined controls ([ADR-049](docs/adr/ADR-049-refined-controls-and-icons.md)):
-  - one style for buttons, selects and fields in light and dark;
-  - switch toggles, menus with icons, and a drawn icon set for the stage controls;
-  - history dots no longer sit inside button boxes.
+### Maintenance
+- Refresh language-support guides, comparison and release/agent handoffs for TS/JS
+  and Python, the four-repository corpus and explicitly open Python acceptance work
+  (production plan M2.1).
+- Upgrade the Python WASM parser runtime to `web-tree-sitter` 0.27.1 with the same
+  hash-checked grammar. Analyzer `0.1.0-dev.7` records the new runtime and invalidates
+  old analysis identities; the artifact schema stays compatible (ADR-062).
+- Pin CI's PostgreSQL service to the reviewed multi-architecture digest already
+  used by the development stack. Document monthly workflow-image and exact Git
+  package checks, including Debian's security suite (production plan M1.4).
 
 ## [0.1.0-beta.1] - 2026-10-14
 

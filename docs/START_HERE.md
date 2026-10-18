@@ -13,7 +13,7 @@ variables with `export NAME=value`.
 | Local CLI + browser city | Runs on your machine | Works now (section 2) |
 | Live demo (static viewer) | <https://urveesh09.github.io/project-atlas/> | **Public**: the viewer on a bundled, verified vuejs/core analysis (ADR-044) |
 | Hosted service (public GitHub repos) | Code in `apps/api`, `apps/worker`, `deploy/` | Runs **locally**; **not deployed to the internet** |
-| Portable CLI archive | GitHub Releases, from a version tag (`release.yml`) | Beta `0.1.0-beta.1`; the release is a draft until the owner publishes it |
+| Portable CLI archive | GitHub Releases, from a version tag (`release.yml`) | Beta `0.1.0-beta.2` prepared; the owner tags it, and the release is a draft until published. The `0.1.0-beta.1` draft was never published |
 | Release sign-off (gate G6) | [release audit](release/release-audit.md) | Open: needs the capacity, human and deployment checks in section 6 |
 
 The live demo is a static site: visitors explore one bundled analysis and cannot submit

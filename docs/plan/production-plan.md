@@ -42,7 +42,7 @@ ADR. It does not cover:
     city with history, findings and comparison.
   - The hosted service analyzes public GitHub repositories in offline sandboxes.
 - **Versions.**
-  - Packages: `0.1.0-beta.1`.
+  - Packages: `0.1.0-beta.2` (prepared 2026-10-18, not yet tagged).
   - Analyzer: `0.1.0-dev.8` (M2.6 namespace correction; ADR-066; runtime provenance ADR-062).
   - Graph: `atlas.graph/1.1.0`.
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
@@ -718,6 +718,14 @@ the others give their measured basis.
 ### M5. Release and acceptance
 
 #### M5.1 `0.1.0-beta.2`
+
+**Prepared, 2026-10-18.** Every workspace package is `0.1.0-beta.2`. The changelog's
+Unreleased entries became the dated `0.1.0-beta.2` section, with duplicate headings
+merged and no entry changed. The release notes summarize what changed since beta.1, and
+`check-release-version.mjs` accepts `v0.1.0-beta.2` and refuses `v0.1.0-beta.1`.
+- **Owner:** tag, review the release run, and publish.
+- The `v0.1.0-beta.1` draft release was never published; deleting it is the owner's call.
+- After publishing, set the versions to the next `-dev` version.
 
 When M1 is merged, prepare the release by following
 [release-process.md](../release/release-process.md):

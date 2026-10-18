@@ -1,6 +1,6 @@
 {
   "name": "@atlas/worker",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "private": true,
   "description": "Sandbox coordinator and artifact publication (Phase 5).",
   "license": "MIT",

@@ -1,6 +1,6 @@
 {
   "name": "@atlas/artifact",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "private": true,
   "description": "Canonical artifact serialization, content hashing and bounded import/export.",
   "license": "MIT",

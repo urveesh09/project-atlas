@@ -31,6 +31,21 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Production M5.1: `0.1.0-beta.2` prepared (2026-10-18)
+
+- **Versions:** all 16 workspace packages move from `0.1.0-beta.1` to `0.1.0-beta.2`.
+  Analyzer `0.1.0-dev.8` and artifact 1.4.0 are unchanged, so analysis identities and the
+  corpus baseline are unchanged.
+- **Changelog:** Unreleased became `[0.1.0-beta.2] - 2026-10-18`, ordered Added, Changed,
+  Fixed, Security, Maintenance (10/18/26/2/3 entries). Duplicate headings were merged by a
+  script that checks every entry line survives exactly once.
+- **Release notes:** a "since beta.1" summary, and corrected facts: three-OS CI, the
+  hosted Python journey and the Python corpus have landed.
+- **Guard:** `check-release-version.mjs` prints `0.1.0-beta.2` for `v0.1.0-beta.2` and
+  refuses `v0.1.0-beta.1`.
+- **Owner:** tag `v0.1.0-beta.2`, review every job of the release run, and publish. The
+  `v0.1.0-beta.1` draft was never published.
+
 ### Browser-journey failures on PRs #46 and #47 (2026-10-18)
 
 [ADR-079](adr/ADR-079-draw-call-guards-and-folder-picks.md). Each PR failed one WebKit

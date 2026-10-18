@@ -1,9 +1,33 @@
 # ATLAS V0.1 candidate notes
 
-Initial candidate date: 2026-10-11; notes updated 2026-10-16 for Python support and
-current compatibility. **Release sign-off pending**, as tracked in the
+Version `0.1.0-beta.2`, prepared 2026-10-18. The initial candidate was 2026-10-11, and
+`0.1.0-beta.1` was tagged on 2026-10-14. **Release sign-off pending**, as tracked in the
 [audit](release-audit.md). The portable archive is a review candidate; it is not published
-to npm and no production hosted URL is supplied.
+to npm and no production hosted URL is supplied. The owner tags and publishes
+([release process](release-process.md)).
+
+## Since 0.1.0-beta.1
+
+The full list is in the [changelog](../../CHANGELOG.md).
+- **Python** (`.py`, `.pyi`) and mixed TS/JS–Python repositories. They are checked
+  against CPython's own parser on its standard library, and the hosted Python journey
+  passes.
+- **Wider testing.** CI now runs on macOS as well as Windows and Linux, and every viewer
+  journey runs in Firefox and WebKit. That found and fixed:
+  - search ignoring Enter;
+  - Safari failing to open picked folders;
+  - a blocked-eval error.
+- **Accessibility and fallback.** Accessibility audit tooling was extended, with
+  screen-reader review scripts. Without 3D support the viewer now falls back to the 2D
+  map silently.
+- **Hosted production kit** (not a live deployment):
+  - a hardened TLS/API profile and dedicated worker units with expiring egress rules;
+  - Prometheus metrics with tested alerts;
+  - private backups and an isolated restore drill;
+  - scanned immutable images with verified provenance;
+  - provisional service levels and incident handling;
+  - privacy, terms and takedown pages carrying the owner's wording;
+  - job records deleted after 30 days, and a required status page.
 
 ## Available behavior
 
@@ -39,7 +63,7 @@ preserve analyzer identities, artifact contracts and performance thresholds.
 
 [Five cold repeats for each of six immutable real repositories](real-repositories.md)
 exercise independent roles/import examples and exact full-payload determinism. Windows
-and Linux repeat these checks in CI. The [portable CLI smoke](distribution-smoke.md)
+Linux and macOS repeat these checks in CI. The [portable CLI smoke](distribution-smoke.md)
 verifies every extracted file and runs the CLI/viewer from outside the checkout without
 dependency installation. The candidate includes third-party license notices.
 
@@ -63,9 +87,9 @@ Python uses the bundled, hash-checked WASM grammar; no Python interpreter is nee
 for analysis. Cython, notebooks and other unsupported languages stay opaque when
 included. Standard-library/declared-PyPI resolution is static, not proof of installed
 dependency contents; runtime `sys.path` mutations and nonliteral imports retain limits.
-The current corpus includes Flask's 12 authored checks. More Python corpus shapes,
-Python/mixed capacity and the complete hosted Python journey remain production M2
-work; the parser/container smoke does not close those gates.
+The corpus includes Flask, a uv workspace and a mixed application, with authored
+checks. The hosted Python journey passes. Python/mixed capacity measurements (M2.2) and
+Python 3.15 lazy-import syntax (M2.7) remain open.
 
 Development-host measurements do not certify the four-core/2 GiB analysis environment
 or integrated-GPU reference laptop. Existing viewer reports disclose cold-load and
