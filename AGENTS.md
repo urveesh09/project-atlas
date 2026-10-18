@@ -31,8 +31,8 @@ cannot remember later deletions. M4.5 service levels stack on it
 takedown pages (ADR-077): the owner supplies the wording and contact, and a production
 API refuses to start without them or with the shipped placeholders. ADR-078 deletes job
 records 30 days after they end, through a schema-owned function the worker may only
-execute, and requires a status page (`ATLAS_STATUS_URL`). None authorizes a live
-deployment or closes R6-06.
+execute, and requires a status page (`ATLAS_STATUS_URL`). M5.1 prepares `0.1.0-beta.2`
+for the owner to tag. None authorizes a live deployment or closes R6-06.
 Human R6-04 review and M3.4 intermittent layout diagnosis remain open. M2.2
 capacity and M2.7 lazy-import syntax remain open. M1 upgrades landed in PRs #20, #22,
 #23 and #24. Analyzer `0.1.0-dev.8` records corrected namespace lookup

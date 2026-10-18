@@ -1,6 +1,6 @@
 {
   "name": "@atlas/ingest",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "private": true,
   "description": "Safe committed-object readers: sanitized local Git adapter and bounded GitHub acquisition.",
   "license": "MIT",

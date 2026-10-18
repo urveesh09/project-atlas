@@ -1,6 +1,6 @@
 {
   "name": "@atlas/graph",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "private": true,
   "description": "Graph aggregation, adjacency, SCCs and bounded queries shared by CLI and viewer.",
   "license": "MIT",

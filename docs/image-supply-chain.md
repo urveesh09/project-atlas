@@ -56,7 +56,7 @@ container attestations must come from this repository's **release.yml**, for the
 tag and approved commit. Authenticate to GHCR first if the packages are not public.
 
 ```sh
-VERSION=0.1.0-beta.1                 # replace with the approved version
+VERSION=0.1.0-beta.2                 # replace with the approved version
 RELEASE_COMMIT='REPLACE_WITH_APPROVED_FULL_COMMIT_SHA'
 REPOSITORY=urveesh09/project-atlas
 SIGNER=$REPOSITORY/.github/workflows/release.yml
