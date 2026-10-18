@@ -14,7 +14,7 @@ auditing a menu only after closing it:
 | Entry and validation | Starting, static landing, validation loading, cancellation, malformed input, unsupported version, valid recovery, browser-only opened artifact |
 | Repository and selection | Overview, open search results, file overview/dependencies/findings, expanded finding disclosures, invalid deep link |
 | Source dialog | Verified read-only text, loading, unavailable response; keyboard Escape restores its opener |
-| City renderers | 3D, context-loss map, touch map with WebGL unavailable, semantic file table, package graph with dependency table |
+| City renderers | 3D, context-loss map, touch map with WebGL unavailable or throwing a security exception (ADR-071), semantic file table, package graph with dependency table |
 | Workspace | Expanded, evidence hidden, restored; search remains usable |
 | Menus and help | Saved views before/after import, Scope, Bands including invalid boundaries, Notes before/after import, Share, keyboard shortcuts, city help, history help |
 | Evidence and history | Reachable files, expanded overlay/external lists, path-pattern error, absent-file tombstone, rename history, original 6→12 comparison in table/3D and a separate manual-task 5→12 table comparison |
@@ -30,6 +30,12 @@ or combination of settings has been tested.
 The source panel is the application's nonmodal dialog. Menus are native disclosures;
 deletion is an inline confirmation group. Native folder pickers/download interfaces,
 screen-reader speech, zoom and visual focus require the separate human protocol.
+
+Primary-action enabled/disabled transitions also have an independent contrast check
+(ADR-071): the actual shared CSS is sampled at seven fixed fractions in each direction
+and both themes. All 28 computed foreground/background ratios per engine must meet
+4.5:1. The hosted audit still checks the real submission-error screen; no rule or
+animation is excluded to obtain a pass.
 
 ## Method and retained evidence
 

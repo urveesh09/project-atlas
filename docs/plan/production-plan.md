@@ -526,7 +526,7 @@ and owner merge remain pending; M2.2 capacity is tracked separately.
 Implementation and evidence: [ADR-070](../adr/ADR-070-accessibility-preparation.md),
 [automated coverage inventory](../release/accessibility-preparation.md), and the dated
 M3.3 entry in [implementation status](../implementation-status.md). This prepares the
-manual gate; it does not close it. M3.4/M3.5 remain separate work.
+manual gate; it does not close it. Landed in PR #36. M3.4/M3.5 remain separate work.
 
 #### M3.4 Intermittent sideways scroll in the narrow touch layout
 
@@ -548,6 +548,20 @@ manual gate; it does not close it. M3.4/M3.5 remain separate work.
   - Check for a WebGL2 context once, before creating the renderer.
   - Fall back without the errors, and release the probe context.
 - **Test.** A journey with WebGL disabled asserts no page errors as well as the fallback.
+- **Implementation, 2026-10-17:** [ADR-071](../adr/ADR-071-silent-webgl-fallback.md).
+  The touch journey checks null-returning and throwing disabled graphics APIs, no
+  console/page errors, exactly one attempt and no three.js canvas, plus the existing
+  table/inspector and overflow assertions. Six focused checks cover probe cleanup.
+  See the dated M3.5 status entry and its pull request for verification; M3.4 remains open.
+- **CI follow-up, 2026-10-18 (PR #37):** remove driver queries from renderer diagnostics
+  and wait for the preceding 3D mode switch to draw its comparison before testing the
+  next lens action. The original macOS callback timeout is retained in ADR-071; the
+  five-second assertion and comparison counts remain unchanged. Retest all engines
+  and the full suite before the follow-up commit; exact-head CI must pass before merge.
+- **Second CI finding, 2026-10-18:** the hosted error-state audit caught a primary
+  button's transitional text contrast. Switch its foreground/background as a pair;
+  keep border/shadow/press transitions. A dedicated browser regression samples both
+  themes/directions without suppressing animations or excluding an audit rule (ADR-071).
 
 ### M4. Hosted production kit
 

@@ -408,6 +408,81 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     if (!loaded.ok) throw new Error('invalid');
     expect(await page.title()).toBe(`${loaded.bundle.manifest.repo.displayName} as a city · ATLAS`);
   });
+  it('reads city diagnostics without querying the graphics driver', async () => {
+    const result = await page.evaluate(() => {
+      const city = window.__atlasCity!;
+      const canvas = document.querySelector<HTMLCanvasElement>('.city-canvas')!;
+      const gl = canvas.getContext('webgl2')!;
+      const info = gl.getExtension('WEBGL_debug_renderer_info');
+      const expectedRenderer = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : 'unknown';
+      const getExtension = gl.getExtension, getParameter = gl.getParameter;
+      const calls: string[] = [];
+      gl.getExtension = function (this: WebGL2RenderingContext, name: string) {
+        calls.push('getExtension');
+        return Reflect.apply(getExtension, this, [name]);
+      } as typeof getExtension;
+      gl.getParameter = function (name) {
+        calls.push('getParameter');
+        return getParameter.call(this, name);
+      };
+      try {
+        return { stats: city.stats(), expectedRenderer, calls };
+      } finally {
+        gl.getExtension = getExtension;
+        gl.getParameter = getParameter;
+      }
+    });
+    expect(result.calls).toEqual([]);
+    expect(result.stats.renderer).toBe(result.expectedRenderer);
+    expect(result.stats.buildings).toBeGreaterThan(0);
+  });
+  it('keeps primary action text readable throughout enabled and disabled colour changes', async () => {
+    const controls = await browser.newContext();
+    try {
+      const sample = await controls.newPage();
+      await sample.setContent('<button class="button primary" style="margin:40px">Analyze repository</button>');
+      // Exercise the actual shared CSS; pause state transitions at fixed fractions.
+      await sample.addStyleTag({ path: path.resolve('apps/web/src/styles/app.css') });
+      for (const theme of ['light', 'dark'] as const) {
+        await sample.emulateMedia({ colorScheme: theme });
+        const readings = await sample.evaluate(() => {
+          const button = document.querySelector('button')!;
+          const canvas = document.createElement('canvas');
+          canvas.width = canvas.height = 1;
+          const context = canvas.getContext('2d')!;
+          const luminance = (color: string) => {
+            context.fillStyle = color;
+            context.fillRect(0, 0, 1, 1);
+            const [r, g, b] = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map((v) => {
+              const c = v / 255;
+              return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+          };
+          const rows: { fromDisabled: boolean; fraction: number; ratio: number; color: string; background: string }[] = [];
+          for (const fromDisabled of [true, false]) {
+            button.disabled = fromDisabled;
+            for (const animation of button.getAnimations()) animation.finish();
+            void getComputedStyle(button).backgroundColor;
+            button.disabled = !fromDisabled;
+            const animations = button.getAnimations();
+            for (const animation of animations) animation.pause();
+            for (const fraction of [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]) {
+              for (const animation of animations) animation.currentTime = Number(animation.effect!.getTiming().duration) * fraction;
+              const style = getComputedStyle(button), color = style.color, background = style.backgroundColor;
+              const a = luminance(color), b = luminance(background);
+              rows.push({ fromDisabled, fraction, color, background, ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) });
+            }
+            for (const animation of animations) animation.finish();
+          }
+          return rows;
+        });
+        for (const reading of readings) expect(reading.ratio, JSON.stringify({ theme, ...reading })).toBeGreaterThanOrEqual(4.5);
+      }
+    } finally {
+      await controls.close();
+    }
+  });
   it('keeps the camera still on selection and across lenses', async () => {
     const before = await page.evaluate(() => window.__atlasCity!.cameraState());
     await choose('pricing.ts');
@@ -851,7 +926,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     expect(await page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
     expect(await page.getByLabel('Lens', { exact: true }).inputValue()).toBe('fan-in');
   });
-  it('works with touch and unavailable WebGL without losing the file inspector', async () => {
+  it.each(['unavailable', 'blocked'] as const)('works with touch and %s WebGL without losing the file inspector', async (availability) => {
     const touch = await browser.newContext({
       hasTouch: true,
       viewport: { width: 390, height: 844 },
@@ -859,16 +934,25 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     });
     try {
       const page = await touch.newPage();
-      await page.addInitScript(() => {
+      const errors: string[] = [];
+      page.on('pageerror', (error) => errors.push(String(error)));
+      page.on('console', (message) => message.type() === 'error' && errors.push(message.text()));
+      await page.addInitScript((availability) => {
+        const probe = window as unknown as { __atlasWebGLAttempts: number };
+        probe.__atlasWebGLAttempts = 0;
         const original = HTMLCanvasElement.prototype.getContext;
         HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...args: unknown[]) {
-          if (type.startsWith('webgl')) return null;
+          if (type.startsWith('webgl')) {
+            probe.__atlasWebGLAttempts++;
+            if (availability === 'blocked') throw new DOMException('Graphics are disabled', 'SecurityError');
+            return null;
+          }
           return Reflect.apply(original, this, [type, ...args]);
         } as typeof original;
-      });
+      }, availability);
       await page.goto(server.url);
       await page.waitForSelector('[data-city-renderer="map"]');
-      expect(await audit(page, 'touch-no-webgl-map')).toEqual([]);
+      expect(await audit(page, availability === 'blocked' ? 'touch-blocked-webgl-map' : 'touch-no-webgl-map')).toEqual([]);
       await page.getByRole('button', { name: 'Zoom in', exact: true }).tap();
       await page.getByRole('button', { name: 'Reset city', exact: true }).tap();
       const map = page.locator('[data-city-renderer="map"]');
@@ -896,6 +980,9 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
       await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).tap();
       await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
       await expectNoSidewaysScroll(page);
+      expect(await page.evaluate(() => (window as unknown as { __atlasWebGLAttempts: number }).__atlasWebGLAttempts)).toBe(1);
+      expect(await page.locator('canvas[data-engine]').count()).toBe(0);
+      expect(errors).toEqual([]);
     } finally {
       await touch.close();
     }
@@ -1067,7 +1154,12 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     expect(await page.locator('.city-table .change-cell').count()).toBeGreaterThan(0);
     expect(await audit(page, 'comparison-table')).toEqual([]);
     await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('3d');
-    await page.waitForFunction(() => window.__atlasCity !== undefined);
+    // A published handle is not a drawn city: first finish the preceding mode switch,
+    // with this comparison's paint, before timing the next lens-state assertion.
+    await page.waitForFunction((paint) => {
+      const stats = window.__atlasCity?.stats();
+      return stats !== undefined && stats.drawCalls > 0 && stats.paint === paint;
+    }, `${frames[5]!.snapshotId}>${frames[11]!.snapshotId}:fanIn`);
     // Picking a lens asks for lens colours.
     await page.getByLabel('Lens', { exact: true }).selectOption('complexity');
     expect(await colour.inputValue()).toBe('off');

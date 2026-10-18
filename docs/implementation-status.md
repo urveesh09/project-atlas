@@ -2,10 +2,13 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-17):** production-plan M3.3 accessibility preparation
-(ADR-070), following macOS CI (PR #34) and Firefox/WebKit journeys (PR #35). The
-numbered human screen-reader scripts are prepared; R6-04 remains open. M3.4 intermittent
-layout diagnosis and M3.5 silent WebGL fallback stay separate. M2.2 Python/mixed capacity
+**Current milestone (2026-10-18):** production-plan M3.5 silent WebGL fallback and
+its CI corrections for GPU-free diagnostics and primary-action contrast (ADR-071,
+PR #37), following accessibility
+preparation (PR #36), macOS CI (PR #34) and
+Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
+prepared; R6-04 remains open. M3.4 intermittent layout diagnosis remains open.
+M2.2 Python/mixed capacity
 and M2.7 lazy-import syntax remain open. The hosted Python journey, properties,
 coverage tooling, namespace correction and six-repository corpus have landed; dated
 evidence is recorded below. Analyzer `0.1.0-dev.8`, artifact 1.4.0 and package version
@@ -1486,6 +1489,111 @@ and a new CI job, `viewer journeys (firefox|webkit)`, runs on Ubuntu.
   lifecycle. All manual result cells remain pending. Incomplete contrast and symbol
   checks are retained for judgment, never counted as passes. **R6-04/G6 remain open.**
   M3.4, M3.5, M2.2 capacity and M2.7 lazy imports are separate unfinished tasks.
+
+### Production M3.5: silent WebGL fallback (2026-10-17)
+
+- **Scope:** [ADR-071](adr/ADR-071-silent-webgl-fallback.md). Probe WebGL2 once before
+  each renderer startup, release the temporary 1 × 1 context when its context-loss
+  extension is available, and use the existing map/table fallback when graphics are
+  unavailable or disabled. No geometry, analyzer, artifact version or metric changes.
+- **Failure evidence:** adding a console/page-error assertion to the actual 390 px
+  touch journey reproduces three.js's context-creation error despite a working map
+  and file inspector. An earlier isolated touch invocation omitted the shared cookie
+  setup and timed out; the authenticated deep-links group reproduces the actual defect.
+  Both logs are retained. The focused post-fix deep-links group passes three checks.
+- **Regression coverage:** the touch journey now checks null-returning and throwing
+  disabled graphics APIs, exactly one WebGL attempt, no three.js canvas and no console
+  errors or uncaught page exceptions. Keep its accessibility, touch navigation,
+  table/inspector and overflow assertions; no exclusions or deadlines change. Six
+  focused checks pass for successful probe release and absent/throwing APIs/extensions.
+- **Baseline:** the six-repository committed payload/check baseline guard passes.
+  M3.4's intermittent overflow has not been reproduced or explained and remains open;
+  no speculative CSS fix is claimed. R6-01…R6-07 and G6 remain open.
+- **Browser verification on Windows:** Firefox and WebKit each pass all **46 viewer
+  journeys**, including both disabled-WebGL cases and their 390 px layout checks.
+  Each records **49 audit checkpoints (48 named states)** with zero reported
+  violations. Incomplete `color-contrast` and `label-content-name-mismatch` checks
+  remain available for human review; no human or hardware outcome is inferred.
+- **Full verification:** `pnpm verify` passes **811 tests**, with **83 service-gated
+  skips** (69 passed files, four skipped), including all **46 Chromium journeys**.
+  Chromium also records **49 checkpoints (48 named states)** with zero reported
+  violations: **147 local checkpoints** across the three engines. The six focused
+  probe checks pass, and all **215 relative Markdown file links** in changed
+  documentation resolve. CI must independently pass on the pull request's exact head;
+  its hosted gates cover the services skipped by this local run.
+
+### Production M3.5 follow-up: diagnostics and mode-switch readiness (2026-10-18)
+
+- **First CI result:** [run 39057047530](https://github.com/urveesh09/project-atlas/actions/runs/39057047530)
+  on `01035cc` failed macOS verification (809 passed, two failed); all other checks
+  passed. Both disabled-WebGL cases passed. A comparison test's five-second polling
+  callback did not resolve after returning from table to 3D and choosing complexity.
+  Its later diagnostic report has the correct lens and null paint. The unclosed
+  comparison then caused the next test to time out. This run is not counted as
+  passing. Its full log and all six accessibility bundles are retained; macOS
+  reached only 47 of the expected 49 audit checkpoints.
+- **Correction:** [ADR-071](adr/ADR-071-silent-webgl-fallback.md). Cache the GPU identity
+  already read at startup so diagnostics do not query the graphics driver. A new
+  browser regression records `getExtension` and `getParameter` before the fix, and
+  independently compares the cached identity with the actual context afterwards.
+  Strengthen the existing table-to-3D wait to require a first draw with the exact
+  comparison paint before the next lens action. The subsequent five-second assertion,
+  comparison counts and every other deadline stay unchanged. The CI report does not
+  prove whether driver blocking or browser/host scheduling caused that callback stall.
+- **Focused verification:** the diagnostics regression and all history/comparison
+  journeys pass **11/11** locally. The initial typed wrapper for the new test exposed
+  a TypeScript overload error; correcting its signature/forwarding makes type checks
+  pass without changing the product behavior. Original failed logs are retained.
+- **Browser retest on Windows:** all **47 journeys** pass in Firefox and WebKit,
+  including the new driver-query regression, every comparison and both disabled-WebGL
+  cases. Each retains **49 accessibility checkpoints (48 named states)** with zero
+  reported violations. The new diagnostics test adds no audit state. Incomplete
+  checks still require human judgment. M3.4 and R6-01…R6-07/G6 remain open.
+- **Full retest:** `pnpm verify` passes **812 tests**, with **83 service-gated skips**
+  (69 passed files, four skipped), including all **47 Chromium viewer journeys**.
+  Chromium also records 49 checkpoints, making **147 local audit checkpoints** across
+  the three engines with zero reported violations. The six-repository committed
+  payload/check baseline guard passes; all **216 relative Markdown file links** in
+  the pull request's changed documentation resolve. The exact follow-up head must
+  pass CI independently; the PR records the final outcome and retains the initial
+  failure. No deadline, budget, rule or existing comparison assertion was relaxed.
+
+### Production M3.5 follow-up: primary-action transition contrast (2026-10-18)
+
+- **Second CI result:** [run 39091246140](https://github.com/urveesh09/project-atlas/actions/runs/39091246140)
+  on `efe5731` passes macOS verification, including the previous comparison failure.
+  Its hosted gate fails a serious `color-contrast` check (145 passed, one failed):
+  the Analyze repository button in the submission-error screen has 4.38:1 contrast
+  during its colour transition, against the unchanged 4.5:1 threshold. The original
+  log and hosted report are retained; this is not a passing run.
+- **Cause and correction:** both primary-action palettes are readable at rest. In
+  light mode, enabling inverts the text/background relationship, and animating both
+  colours crosses unreadable pairs. A new browser regression using the actual shared
+  stylesheet reproduces **1.705:1** at transition fraction 0.1. Primary foreground and
+  background now switch together; border, shadow and press-motion transitions remain.
+  [ADR-071](adr/ADR-071-silent-webgl-fallback.md) records the correction. No colour
+  palette, disabled behavior, audit rule or budget changes.
+- **Regression:** sample seven fixed fractions in each transition direction and each
+  theme, checking all **28 readings per engine** against 4.5:1. The focused Chromium
+  regression passes after the CSS correction. The real hosted journey is retested
+  separately; no animation is hidden or rule excluded from axe.
+- **Hosted retest:** all **7/7 journeys** pass against an isolated local PostgreSQL
+  database and process runners, including the actual submission-error audit. The
+  report contains all **17 checkpoints**, with zero reported violations. The owned
+  disposable database was removed afterwards. This verifies the UI correction;
+  container/S3 isolation remains independently gated by CI.
+- **Browser retest:** Firefox and WebKit each pass all **48 viewer journeys**,
+  including the transition regression's 28 contrast readings in each engine. Each
+  retains all 49 accessibility checkpoints, with zero reported violations. Existing
+  incomplete findings remain for human judgment.
+- **Full retest:** `pnpm verify` passes **813 tests**, with **83 service-gated skips**
+  (69 passed files, four skipped), including all **48 Chromium viewer journeys**.
+  All three engines check 28 contrast readings each. Chromium also records 49 audit
+  checkpoints: **164 local checkpoints** across the viewer and hosted runs, with
+  zero reported violations. The six-repository baseline guard and all **217 relative
+  Markdown file links** in the changed documentation pass. The PR records the final
+  exact-head CI result; both prior failures remain part of its evidence. M3.4 and
+  R6-01…R6-07/G6 remain open.
 
 ### Reproduce verification
 

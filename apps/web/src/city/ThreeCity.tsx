@@ -5,6 +5,7 @@ import type { CityHandle, CityPaint } from './types';
 import type { OverlayResult } from './overlay';
 import type { CityTheme } from './themes';
 import type {} from './probe';
+import { canCreateWebGL2 } from './webgl';
 
 export default function ThreeCity(props: {
   /** One renderer per layout: frames of the same artifact reuse it (camera kept). */
@@ -38,6 +39,7 @@ export default function ThreeCity(props: {
   useEffect(() => {
     let view: CityRenderer;
     try {
+      if (!canCreateWebGL2(props.lowQuality)) throw new Error('WebGL2 is unavailable');
       view = new CityRenderer(
         host.current!,
         latest.current.city,
