@@ -1,0 +1,35 @@
+[Unit]
+Description=ATLAS private PostgreSQL custom-format backup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=10002
+Group=10002
+Environment=ATLAS_BACKUP_DIR=/var/lib/atlas/backups
+Environment=ATLAS_PG_BIN=/usr/lib/postgresql/17/bin
+Environment=PGSERVICE=atlas_backup
+LoadCredential=pg_service.conf:/etc/atlas/backup/pg_service.conf
+LoadCredential=pgpass:/etc/atlas/backup/pgpass
+Environment=PGSERVICEFILE=%d/pg_service.conf
+Environment=PGPASSFILE=%d/pgpass
+ExecStart=/opt/atlas/node/bin/node /opt/atlas/production/backup.mjs --run
+TimeoutStartSec=35min
+StateDirectory=atlas/backups
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/atlas/backups
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

@@ -7,6 +7,11 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Changed
+- Private daily PostgreSQL backups, independent seven-day expiry cleanup and an
+  isolated restore drill now ship with the production reference kit. Restored live
+  analyses are quarantined and unfinished work is fenced; lifecycle denials and
+  storage isolation are checked against real TLS PostgreSQL
+  ([ADR-074](docs/adr/ADR-074-private-backups-and-restore-drill.md)).
 - The operator `/metrics` endpoint also answers in Prometheus text format when asked.
   The reference kit adds an optional Prometheus in the API's network namespace, the
   runbook's alerts with promtool unit tests, and an optional Grafana dashboard. The

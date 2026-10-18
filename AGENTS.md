@@ -20,11 +20,12 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
 implemented for committed TS/JS and Python (`.py`, `.pyi`), including mixed repositories.
 M3.3 accessibility preparation landed in PR #36, after macOS and cross-browser CI
 landed in PRs #34 and #35. M3.5 silent WebGL fallback, GPU-free diagnostics and
-primary-action contrast landed in PR #37 (ADR-071). The current task is M4.1,
-the reference hosted deployment kit (ADR-072): production API profile, hardened
-worker units, expiring egress sets and isolated transport/packet rehearsals. M4.2
-stacks on it: Prometheus text, alerts and an optional in-namespace Prometheus (ADR-073).
-Neither authorizes a live deployment or closes R6-06. M4.3–M4.6 remain separate tasks.
+primary-action contrast landed in PR #37 (ADR-071). M4.1 reference deployment kit
+landed via PR #39 (ADR-072); M4.2 monitoring landed in PR #40 (ADR-073).
+The current task is M4.3: private streaming backups and a quarantined scratch-only
+restore drill (ADR-074). Never point restored cleanup at live storage; older backups
+cannot remember later deletions. None authorizes a live deployment or closes R6-06.
+M4.4–M4.6 remain separate tasks.
 Human R6-04 review and M3.4 intermittent layout diagnosis remain open. M2.2
 capacity and M2.7 lazy-import syntax remain open. M1 upgrades landed in PRs #20, #22,
 #23 and #24. Analyzer `0.1.0-dev.8` records corrected namespace lookup
@@ -130,8 +131,8 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-073; ADR-067 is reserved by the separate
-  edge-budget work. Allocate ADR-074 next.
+  The current sequence is ADR-001…ADR-074; ADR-067 is reserved by the separate
+  edge-budget work. Allocate ADR-075 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

@@ -1,0 +1,3 @@
+# Provision a real password privately; root-owned mode 0600 at /etc/atlas/backup/pgpass.
+# Escape each colon or backslash in a field with a backslash. Never use a personal token.
+database.example.org:5432:atlas:atlas_backup:REPLACE_WITH_DATABASE_ROLE_PASSWORD

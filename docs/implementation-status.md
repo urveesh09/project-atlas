@@ -2,10 +2,10 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-18):** production-plan M4.1 reference hosted deployment
-kit (ADR-072): hardened API/TLS profile, worker units, expiring GitHub egress sets
-and isolated configuration/transport/packet rehearsals; M4.2 operator monitoring
-(ADR-073) stacks on it. M3.5 fallback, diagnostics
+**Current milestone (2026-10-18):** production-plan M4.3 private backups and an isolated,
+quarantined restore drill (ADR-074), following merged reference deployment PR #39
+(M4.1, ADR-072) and monitoring PR #40 (M4.2, ADR-073).
+M4.4 supply chain is next; live-site R6-06 remains open. M3.5 fallback, diagnostics
 and primary-action contrast landed in PR #37 (all 15 checks green on `d444c67`), following accessibility
 preparation (PR #36), macOS CI (PR #34) and
 Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
@@ -1698,3 +1698,29 @@ node apps/web/scripts/bench-history-viewer.mjs --artifact .atlas-tmp/medium-hist
 ```
 
 CI sets `ATLAS_REQUIRE_BROWSER_TESTS=1` so missing Chromium/viewer assets are failures rather than skipped journeys. Set `ATLAS_CAPTURE_VIEWER=1` for the browser E2E file to regenerate the three Phase 2 screenshots. PowerShell environment syntax is `$env:ATLAS_REQUIRE_BROWSER_TESTS = '1'`; the inline `VAR=1` examples above use POSIX shell syntax.
+
+### Production M4.3: private backups and quarantined restore drill (2026-10-18)
+
+- **Implementation:** [ADR-074](adr/ADR-074-private-backups-and-restore-drill.md),
+  [operator guide](production-backups.md), [physical evidence](benchmarks/production-backup-restore.md).
+  Private streaming custom dumps, matching SHA-256 manifests, verified database TLS,
+  a read-only backup role, a daily systemd timer and independent hourly seven-day
+  pruning. Scripts and private credential examples ship in the reference kit.
+- **Recovery safety:** the drill only creates a new guarded scratch DB and fresh local
+  storage. It preserves original lifecycle timestamps, quarantines active publications,
+  cancels/fences unfinished jobs, and invokes real sweep/reconciliation. Inherited live
+  storage configuration cannot be used. Post-backup deletion/cancellation and expiry
+  during downtime are explicit physical fixtures, not inferred from row counts.
+- **Local evidence:** 10/10 real TLS PostgreSQL drill steps; all seven publications denied
+  (one deleted, four revoked, two expired); owned/orphan probe bytes removed; live source
+  and storage marker untouched. Native restore failure and success both clean their DB
+  and credentials. All run-owned containers/networks/volumes removed. The earlier fixture
+  count failure is retained and explained in the ADR/report.
+- **Checks:** required-browser `pnpm verify`: 875 passed, 84 skipped on Windows;
+  service/OS-specific skips remain explicit. Six-repository baseline guard passes.
+  Existing production transport/monitoring/packet rehearsal passes 16/16 and validates
+  the new unit syntax. CI repeats the new physical gate and keeps only sanitized JSON.
+  Exact-head CI and owner merge are required; this local evidence is not that approval.
+- **Boundary:** no live installation, alert delivery, off-host backup target, promotion,
+  measured production RTO or later takedown-policy reconstruction is claimed. R6-06,
+  G6, M3.4, M2.2/M2.7 and M4.4–M4.6 stay open. All product versions are unchanged.

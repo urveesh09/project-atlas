@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly ATLAS backup expiry cleanup, including after failed backups
+
+[Timer]
+OnCalendar=hourly
+Persistent=yes
+Unit=atlas-backup-prune.service
+
+[Install]
+WantedBy=timers.target

@@ -161,11 +161,20 @@ Each worker slot needs about 4 CPUs, 2 GiB of sandbox memory, 1 GiB of scratch a
 
 ### Backups and restore
 
-- Back up PostgreSQL daily with `pg_dump -Fc`, kept for at most 7 days, to match publication lifetime.
+- Back up PostgreSQL daily with `pg_dump -Fc`; expire archives at a seven-day age cutoff.
+  The reference pruner runs hourly, with catch-up after downtime; this is not a
+  continuous erasure guarantee while the host is offline (ADR-074).
 - Do not back up the artifact bucket. It holds no source and is reproducible.
 - A restore preserves deletion, revocation and expiry rows (the rehearsal verifies this).
 - After a restore, run `atlas-ops sweep` and `atlas-ops reconcile-storage`. These purge anything the restored database no longer owns and end publications that expired in the meantime.
 - Never restore a database over a newer schema.
+
+The executable reference procedure, timers, credential provisioning, retention limits
+and isolated drill are in [Production backups](production-backups.md) (ADR-074).
+Restores quarantine active publications and cancel unfinished jobs: an older snapshot
+cannot remember deletions or cancellations made afterward. Never run a scratch
+restore's cleanup against the live bucket. Real promotion and post-backup takedown
+reconciliation require a separate operator procedure; R6-06 remains open.
 
 ## Metrics
 

@@ -1,0 +1,127 @@
+{
+  "task": "M4.3",
+  "started": "2026-10-18T10:05:09.573Z",
+  "sourceCommit": "45743e1882d4243720e572888e2645ce498f0b0a",
+  "dirty": true,
+  "images": {
+    "tools": "sha256:290b1d1878ec1e02f3b6a5001b1d22eacb750e9a17f865a6e51def0f1a7aa360",
+    "postgres": "postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24"
+  },
+  "sourceSha256": {
+    "deploy/production/backup.mjs": "027c07756648e3f50bda2626ebe4a8b63110b4662be4e0ba769309c67b53a8a7",
+    "deploy/production/restore-drill.mjs": "dce7cb056c7e09c76b6deadcd78a8b463a34d6b1e34edfcd633f11b3d0887f19",
+    "deploy/production/backup-tools.Dockerfile": "f9d844893dc51b5118c409c161607daaebafaac45147fce15f10bde76dc4cbb3",
+    "deploy/production/atlas-backup.service": "41b92981217c8e9960b023197624590e79829bb9a8e657ef65daf3cb5ced8889",
+    "deploy/production/atlas-backup.timer": "b2e27e368e9f5c8cfb1b30824db2d9d914e6e43d08b9c13dcfe90be7d5dded28",
+    "deploy/production/atlas-backup-prune.service": "9aca3edc167322874d104233f29ee28185aa2082cb4633ca487633ad161fa0f4",
+    "deploy/production/atlas-backup-prune.timer": "81d409417b4894b863ee0c935adde4eeabfb8ec91723a2fd2ec0f532a26bacff",
+    "deploy/production/backup-role.sql": "5edc16278989934708326849dbf123bf4644646a42224298848223209083d201",
+    "deploy/production/pg_service.conf.example": "fbf1b93d67281d167ab8767d6930b3063fcb3897cf5245b18fb564303b8c56c7",
+    "deploy/production/pgpass.example": "6876406c67956572586e80f72d140b6fcedc56bfe32dd77fdce9895ab11eba3c",
+    "scripts/fixtures/backup-rehearsal.mjs": "6474ea5569007874616515d685bed4677cfc8e507b743130f5fa8488219c606d",
+    "scripts/backup-rehearsal.mjs": "471cc0fcb7fcb6640f0fae54c1f33dd28b843d426e6d794292248e329c05f950"
+  },
+  "passed": true,
+  "cleaned": true,
+  "steps": [
+    {
+      "name": "verified TLS, current schema and authored lifecycle fixture",
+      "passed": true,
+      "ms": 1200,
+      "detail": {
+        "publications": 7,
+        "deleted": 1,
+        "revoked": 2,
+        "expiredAtSnapshot": 1,
+        "queuedJobs": 1
+      }
+    },
+    {
+      "name": "read-only backup role cannot modify data",
+      "passed": true,
+      "ms": 30
+    },
+    {
+      "name": "streamed custom archive, private permissions and SHA-256 manifest",
+      "passed": true,
+      "ms": 162,
+      "detail": {
+        "event": "atlas.backup.completed",
+        "archiveBytes": 55098,
+        "pruned": 0
+      }
+    },
+    {
+      "name": "bad credentials, TLS hostname and concurrent lock cannot publish a ready backup",
+      "passed": true,
+      "ms": 52
+    },
+    {
+      "name": "later deletion/cancellation and wall-clock expiry precede restore",
+      "passed": true,
+      "ms": 14888
+    },
+    {
+      "name": "restore, quarantine, real sweep/reconcile and lifecycle denial",
+      "passed": true,
+      "ms": 420,
+      "detail": {
+        "format": "atlas.restore-drill/1",
+        "archiveSha256": "648595c269c1b8dfce19cb7dcb3337beae6d3ae8e9a737338c86408064b93919",
+        "archiveBytes": 55098,
+        "started": "2026-10-18T10:05:28.380Z",
+        "passed": true,
+        "cleaned": true,
+        "checks": {
+          "schema": true,
+          "storage": {
+            "sweeps": 1,
+            "reconciliations": 2,
+            "ownedProbe": true,
+            "orphanRemoved": true
+          },
+          "lifecycle": {
+            "unchanged": true,
+            "deniedPublications": 7,
+            "codes": {
+              "ARTIFACT_DELETED": 1,
+              "ARTIFACT_REVOKED": 4,
+              "ARTIFACT_EXPIRED": 2
+            },
+            "nonterminalJobs": 0
+          }
+        },
+        "before": {
+          "publications": 7,
+          "deleted": 1,
+          "revoked": 2,
+          "expired": 2
+        },
+        "quarantined": 3,
+        "cancelledJobs": 1,
+        "finished": "2026-10-18T10:05:28.793Z"
+      }
+    },
+    {
+      "name": "source database and live storage unchanged; scratch databases removed",
+      "passed": true,
+      "ms": 5
+    },
+    {
+      "name": "corruption rejected before creating scratch database",
+      "passed": true,
+      "ms": 5
+    },
+    {
+      "name": "native restore failure removes its scratch database and credentials",
+      "passed": true,
+      "ms": 98
+    },
+    {
+      "name": "seven-day retention prunes pairs and partials, preserving operator files",
+      "passed": true,
+      "ms": 5
+    }
+  ],
+  "finished": "2026-10-18T10:05:31.070Z"
+}
