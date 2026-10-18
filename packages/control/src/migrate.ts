@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
+import { LIMITS } from '@atlas/schema';
 
 /**
  * Additive, checksummed migrations (ADR-029). Database clocks, leases and generations
@@ -115,9 +116,62 @@ CREATE TABLE upstream_budgets (
 );
 `;
 
+/**
+ * Job-record retention (ADR-078). The worker may run exactly this deletion and nothing
+ * else: it still has no DELETE on jobs, publications or admissions. The function runs
+ * with the schema owner's rights, a fixed search path and a fixed retention period. It
+ * forgets a job only when it ended that long ago, its publication is purged, its
+ * uploads are deleted from storage, and no other publication shares an artifact it
+ * stored. Repositories go with their last record, except taken-down ones, whose
+ * revocation must keep applying.
+ */
+export const MIGRATION_003 = `
+DO $do$ BEGIN EXECUTE format($sql$
+CREATE FUNCTION atlas_forget_ended_jobs(batch integer)
+RETURNS TABLE(forgotten_jobs integer, forgotten_publications integer, forgotten_objects integer, forgotten_uploads integer, forgotten_repositories integer)
+-- The owning schema first and pg_temp last, so no temporary table can stand in for a real one.
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = %I, pg_temp AS $fn$
+DECLARE
+  ids text[];
+  repos text[];
+BEGIN
+  IF batch IS NULL OR batch < 1 OR batch > 1000 THEN RAISE EXCEPTION 'batch must be 1-1000'; END IF;
+  SELECT coalesce(array_agg(f.id), '{}'), coalesce(array_agg(DISTINCT f.github_id) FILTER (WHERE f.github_id IS NOT NULL), '{}')
+    INTO ids, repos
+    FROM (SELECT j.id, j.github_id FROM jobs j
+      WHERE j.state IN ('READY','PARTIAL','FAILED','CANCELLED')
+        AND j.updated_at < clock_timestamp() - make_interval(days => ${LIMITS.jobRecordRetentionDays})
+        AND NOT EXISTS (SELECT 1 FROM publications p WHERE p.job_id = j.id AND p.purged_at IS NULL)
+        AND NOT EXISTS (SELECT 1 FROM uploads u WHERE u.job_id = j.id AND u.state <> 'purged')
+        AND NOT EXISTS (SELECT 1 FROM uploads u JOIN artifact_objects a ON a.upload_id = u.id
+          JOIN publications p ON p.content_key = a.content_key WHERE u.job_id = j.id AND p.job_id <> j.id)
+      ORDER BY j.updated_at, j.id LIMIT batch FOR UPDATE OF j SKIP LOCKED) f;
+  DELETE FROM admissions WHERE job_id = ANY(ids);
+  DELETE FROM job_checkpoints WHERE job_id = ANY(ids);
+  DELETE FROM publications WHERE job_id = ANY(ids);
+  GET DIAGNOSTICS forgotten_publications = ROW_COUNT;
+  DELETE FROM artifact_objects WHERE upload_id IN (SELECT id FROM uploads WHERE job_id = ANY(ids));
+  GET DIAGNOSTICS forgotten_objects = ROW_COUNT;
+  DELETE FROM uploads WHERE job_id = ANY(ids);
+  GET DIAGNOSTICS forgotten_uploads = ROW_COUNT;
+  DELETE FROM jobs WHERE id = ANY(ids);
+  GET DIAGNOSTICS forgotten_jobs = ROW_COUNT;
+  DELETE FROM repositories r WHERE r.github_id = ANY(repos) AND r.revoked_at IS NULL
+    AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.github_id = r.github_id)
+    AND NOT EXISTS (SELECT 1 FROM publications p WHERE p.github_id = r.github_id)
+    AND NOT EXISTS (SELECT 1 FROM artifact_objects a WHERE a.github_id = r.github_id);
+  GET DIAGNOSTICS forgotten_repositories = ROW_COUNT;
+  RETURN NEXT;
+END
+$fn$
+$sql$, current_schema()); END $do$;
+REVOKE ALL ON FUNCTION atlas_forget_ended_jobs(integer) FROM PUBLIC;
+`;
+
 export const MIGRATIONS: readonly { version: number; sql: string }[] = Object.freeze([
   { version: 1, sql: MIGRATION_001 },
   { version: 2, sql: MIGRATION_002 },
+  { version: 3, sql: MIGRATION_003 },
 ]);
 
 export const migrationDigest = (sql: string) => createHash('sha256').update(sql).digest('hex');

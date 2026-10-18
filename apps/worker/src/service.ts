@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises';
-import type { PublicationStore } from '@atlas/control';
+import { forgetEndedJobs, type PublicationStore } from '@atlas/control';
+import type { Pool } from 'pg';
 import type { Coordinator, Logger } from './coordinator.js';
 import type { JobQueue } from './queue.js';
 
@@ -13,6 +14,9 @@ export interface WorkerServiceOptions {
   reapMs?: number;
   purgeMs?: number;
   revalidateMs?: number;
+  /** Record retention (ADR-078); runs only with `pool`. */
+  retentionMs?: number;
+  pool?: Pool;
   /** Crash-recovery scratch sweep; directories older than one hour are removed. */
   scratchSweepMs?: number;
   log?: Logger;
@@ -20,7 +24,7 @@ export interface WorkerServiceOptions {
 
 /**
  * The worker process (plan §13.3, §15.4): claim loops for each slot plus periodic reaping,
- * purge/garbage collection and daily visibility revalidation. `stop` lets running jobs
+ * purge/garbage collection, daily visibility revalidation and hourly record retention. `stop` lets running jobs
  * finish their current attempt; an interrupted process is recovered by the reaper.
  */
 export class WorkerService {
@@ -53,6 +57,13 @@ export class WorkerService {
       const result = await this.options.publications.revalidate();
       if (result.checked > 0) this.log('visibility.revalidated', result);
     }));
+    const pool = this.options.pool;
+    if (pool) {
+      this.loops.push(this.every(this.options.retentionMs ?? 3_600_000, 'retention', async () => {
+        const forgotten = await forgetEndedJobs(pool);
+        if (forgotten.jobs + forgotten.repositories > 0) this.log('records.forgotten', { ...forgotten });
+      }));
+    }
   }
 
   async stop(): Promise<void> {

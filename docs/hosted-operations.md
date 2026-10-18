@@ -49,6 +49,7 @@ Every variable listed as a secret can be given as `NAME_FILE`, with an absolute 
 | `ATLAS_DEMO_ANALYSIS_ID` | ✓ | | Optional publication shown as the landing-page demo |
 | `ATLAS_PRIVACY_FILE`, `ATLAS_TERMS_FILE`, `ATLAS_TAKEDOWN_FILE` | ✓ | | Absolute paths to the owner's own UTF-8 plain text for `/privacy`, `/terms` and `/takedown`, each at most 64 KiB. Required outside development; the shipped placeholders are refused ([public-service pages](#public-service-pages)) |
 | `ATLAS_CONTACT` | ✓ | | The public contact: `mailto:name@domain` or an `https:` page. Required outside development |
+| `ATLAS_STATUS_URL` | ✓ | | The `https:` page where incidents are announced, linked as "Service status". Required outside development ([service levels](hosted-slo.md#telling-users)) |
 | `ATLAS_SANDBOX_IMAGE` | | ✓ | Immutable sandbox image ID (`sha256:…`) built from `deploy/sandbox.Dockerfile` |
 | `ATLAS_DOCKER_EXECUTABLE` | | ✓ | Trusted Docker CLI path, when it is not on `PATH` |
 | `ATLAS_WORK_ROOT` | | ✓ | Per-attempt scratch, on local disk |
@@ -74,9 +75,14 @@ The hosted landing links `/privacy`, `/terms`, `/takedown` and the contact
   - IP addresses are neither stored nor logged; a keyed daily hash is kept for 24 hours;
   - logs carry job IDs and a pseudonymous repository tag, never a name;
   - downloaded copies cannot be recalled.
-- **Job records are kept.** The database keeps each job's submitted repository URL, and
-  job records are not deleted automatically. A retention period for them is the owner's
-  decision; the privacy facts say so until one exists.
+- **Job records are deleted after 30 days** ([ADR-078](adr/ADR-078-record-retention-and-status.md)).
+  - The hourly retention sweep deletes a job, its events, admission, checkpoint and its
+    publication, artifact and upload rows, 30 days after the job ended. It does so only
+    once storage has been purged and no other publication reuses its artifact.
+  - It also deletes the repository row when nothing else refers to it. A taken-down
+    repository keeps its row, so its revocation keeps applying.
+  - Backups hold a deleted record for at most 7 days more.
+  - `atlas-ops forget` runs the same sweep on demand.
 - **Changing a text:** replace the file and recreate the API container. Like secrets, a
   bind-mounted file can keep its old inode.
 - **A development service** without the files shows a clearly marked placeholder instead.
@@ -161,7 +167,7 @@ Sandboxes enforce the following outside the analyzed code:
 
 - **One publication:** `atlas-ops purge-analysis <analysis_id>` revokes it, then purges any storage only it held.
 - **A repository that must disappear** (for example, because of legal or owner request): `atlas-ops revoke-repository <numeric_id>` revokes every publication and its content.
-- **Routine:** the worker purges every minute and revalidates visibility daily. `atlas-ops sweep` and `atlas-ops revalidate` run the same steps on demand.
+- **Routine:** the worker purges every minute, revalidates visibility daily, and deletes job records past the 30-day retention every hour. `atlas-ops sweep`, `atlas-ops revalidate` and `atlas-ops forget` run the same steps on demand.
 
 Downloaded copies cannot be recalled; the landing page states this.
 

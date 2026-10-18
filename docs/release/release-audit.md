@@ -75,10 +75,10 @@ tested rules. R6-06 must confirm them against 30 days of real traffic and add an
 external canary for the path in front of the API.
 M4.6 ([ADR-077](../adr/ADR-077-public-service-pages.md)) adds the privacy, terms and
 takedown pages and contact link. A production API refuses to start without the owner's
-texts or with the shipped placeholders. **Owner work before launch:**
-- the legal wording itself, and the contact;
-- a retention period for job records, which keep the submitted repository URL and are
-  never deleted automatically.
+texts or with the shipped placeholders. **Owner work before launch:** the legal wording
+itself, and the contact. Under the owner's delegation,
+[ADR-078](../adr/ADR-078-record-retention-and-status.md) deletes job records 30 days after
+they end and requires a status page, by default the project's GitHub `incident` issues.
 
 Production M2.3 adds full hosted Python evidence (2026-10-16, [ADR-064](../adr/ADR-064-hosted-python-evidence.md)):
 145 local PostgreSQL/S3/container/browser checks pass, including two authored Python

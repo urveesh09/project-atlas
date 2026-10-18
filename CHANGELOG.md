@@ -7,6 +7,13 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Changed
+- Hosted job records are deleted 30 days after the job ends, with their events,
+  publication, artifact and upload bookkeeping. Taken-down repositories are kept so their
+  takedown keeps applying.
+  - The worker runs this through a schema-owned function (migration 3) and still has no
+    `DELETE` on jobs.
+  - Every page links a required "Service status" page (`ATLAS_STATUS_URL`)
+    ([ADR-078](docs/adr/ADR-078-record-retention-and-status.md)).
 - The hosted service has privacy, terms and takedown pages and a contact link
   ([ADR-077](docs/adr/ADR-077-public-service-pages.md)).
   - The wording is the owner's plain text.

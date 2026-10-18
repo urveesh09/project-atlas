@@ -180,6 +180,7 @@ describe.runIf(!!url)('shared GitHub budget on real PostgreSQL', () => {
       await pool.query(`DELETE FROM sessions`);
       for (const role of [api, worker]) {
         await admin.query(`REVOKE ALL ON ALL TABLES IN SCHEMA ${schema} FROM "${role.name}"`);
+        await admin.query(`REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ${schema} FROM "${role.name}"`);
         await admin.query(`REVOKE ALL ON SCHEMA ${schema} FROM "${role.name}"`);
         await admin.query(`DROP ROLE "${role.name}"`);
       }

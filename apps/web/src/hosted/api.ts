@@ -66,7 +66,7 @@ export async function fetchLegalNotices(): Promise<LegalNotices> {
   } catch {
     // fall through
   }
-  return { configured: false, contact: null, documents: { privacy: null, terms: null, takedown: null } };
+  return { configured: false, contact: null, status: null, documents: { privacy: null, terms: null, takedown: null } };
 }
 
 export async function ensureSession(): Promise<void> {

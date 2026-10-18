@@ -52,7 +52,8 @@ ADR. It does not cover:
     preparation is ADR-070. M3.5 fallback/diagnostics/contrast is ADR-071 (merged
     PR #37); the M4.1 reference deployment is ADR-072 and M4.2 monitoring is ADR-073.
     M4.3 backups are ADR-074, M4.4 image supply chain ADR-075 and M4.5 service levels
-    ADR-076. M4.6 public-service pages are ADR-077. Allocate ADR-078 next.
+    ADR-076. M4.6 public-service pages are ADR-077, record retention and the status
+    channel ADR-078, browser-journey guards ADR-079. Allocate ADR-080 next.
 - **Evidence.**
   - The M3.5 baseline passes 813 tests with 83 conditional skips; the CPython oracle
     runs in this evidence. M4.1 adds operator-tooling regressions; exact current
@@ -697,8 +698,12 @@ the others give their measured basis.
 - The privacy and takedown pages add tested facts of what the code does.
 - A production API refuses to start without the texts and contact, or with the shipped
   `ATLAS-PLACEHOLDER` files.
-- **Owner:** supply the texts and contact, and decide a retention period for job
-  records. These hold the submitted repository URL and are never deleted automatically.
+- **Owner:** supply the texts and contact. The placeholders stay until then.
+- **Decided under the owner's delegation, 2026-10-18 ([ADR-078](../adr/ADR-078-record-retention-and-status.md)):**
+  - job records are deleted 30 days after the job ends, by a schema-owned function the
+    worker may only execute;
+  - incidents are announced on `ATLAS_STATUS_URL`, by default the project's GitHub issues
+    labelled `incident`.
 
 - Add privacy, terms and takedown pages to the hosted landing, plus a contact link.
 - The **owner** must supply the legal text and the contact address. The agent builds the

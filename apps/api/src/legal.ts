@@ -17,20 +17,22 @@ const FILE_VARIABLES: Readonly<Record<LegalDocument, string>> = {
 export const UNCONFIGURED_LEGAL_NOTICES: LegalNotices = Object.freeze({
   configured: false,
   contact: null,
+  status: null,
   documents: Object.freeze({ privacy: null, terms: null, takedown: null }),
 });
 
 /**
- * The operator's privacy, terms and takedown texts (plain UTF-8 files) and contact
- * (M4.6). The texts are the owner's; ATLAS never supplies legal wording. Outside
+ * The operator's privacy, terms and takedown texts (plain UTF-8 files), contact (M4.6)
+ * and status page (ADR-078). The texts are the owner's; ATLAS never supplies legal wording. Outside
  * development every item is required and the service refuses to start without it.
  * Errors name the variable, never the file's contents.
  */
 export function legalNoticesFromEnv(env: Env, development: boolean): LegalNotices {
   const documents = Object.fromEntries(LEGAL_DOCUMENTS.map((name) => [name, legalText(env, FILE_VARIABLES[name], development)])) as Record<LegalDocument, string | null>;
   const contact = contactFrom(env, development);
-  const configured = contact !== null && LEGAL_DOCUMENTS.every((name) => documents[name] !== null);
-  return LegalNoticesSchema.parse({ configured, contact, documents });
+  const status = statusFrom(env, development);
+  const configured = contact !== null && status !== null && LEGAL_DOCUMENTS.every((name) => documents[name] !== null);
+  return LegalNoticesSchema.parse({ configured, contact, status, documents });
 }
 
 function legalText(env: Env, variable: string, development: boolean): string | null {
@@ -75,4 +77,20 @@ function contactFrom(env: Env, development: boolean): string | null {
     // reported below
   }
   throw new ConfigError('ATLAS_CONTACT must be a mailto: address or an https: URL');
+}
+
+/** Where incidents are announced (hosted-slo.md): a plain `https:` page. */
+function statusFrom(env: Env, development: boolean): string | null {
+  const value = env['ATLAS_STATUS_URL']?.trim();
+  if (!value) {
+    if (development) return null;
+    throw new ConfigError('ATLAS_STATUS_URL is required outside development: the https: page where incidents are announced');
+  }
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'https:' && !url.username && !url.password && url.href === value && value.length <= 512) return value;
+  } catch {
+    // reported below
+  }
+  throw new ConfigError('ATLAS_STATUS_URL must be an https: URL');
 }

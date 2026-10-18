@@ -81,7 +81,9 @@ empty bounding set. Both image bases and the validation package versions are pin
    secrets do not remap host uid/gid; check readability as uid 10001. Only explicitly
    named files enter each container. Never pass secrets as command-line arguments.
 3. Put the owner's own `privacy.txt`, `terms.txt` and `takedown.txt` in `ATLAS_LEGAL_DIR`,
-   and set `ATLAS_CONTACT` to a `mailto:` address or an `https:` page.
+   set `ATLAS_CONTACT` to a `mailto:` address or an `https:` page, and set
+   `ATLAS_STATUS_URL` to the `https:` page where incidents are announced (by default
+   the project's GitHub issues labelled `incident`).
    - These are UTF-8 plain texts, not secrets: root-owned and readable by uid 10001.
    - [`legal.example/`](legal.example/) shows the shape only. Its placeholders carry
      `ATLAS-PLACEHOLDER`, and the API refuses to start with them.

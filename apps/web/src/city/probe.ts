@@ -17,6 +17,8 @@ export interface CityProbe {
     animated: boolean;
     lite: boolean;
     cameraMoving: boolean;
+    /** Ambient occlusion bake: draw calls are not steady until it is ready (or off). */
+    occlusion: string;
     shadowDrawCalls: number;
     zoom: number;
     renderer: string;

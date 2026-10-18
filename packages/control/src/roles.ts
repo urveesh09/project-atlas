@@ -35,6 +35,15 @@ export const ROLE_GRANTS: Readonly<Record<'api' | 'worker', Readonly<Record<stri
   },
 });
 
+/**
+ * Functions a role may execute. The worker's retention sweep runs a schema-owned function
+ * (ADR-078) instead of holding DELETE on jobs, publications or admissions.
+ */
+export const ROLE_FUNCTIONS: Readonly<Record<'api' | 'worker', readonly string[]>> = Object.freeze({
+  api: [],
+  worker: ['atlas_forget_ended_jobs(integer)'],
+});
+
 const IDENTIFIER = /^[a-z_][a-z0-9_]{0,62}$/;
 const quote = (identifier: string) => {
   if (!IDENTIFIER.test(identifier)) throw new Error('Invalid SQL identifier');
@@ -64,6 +73,8 @@ export async function provisionRoles(pool: Pool, input: { schema: string; api: {
       for (const [table, privileges] of Object.entries(ROLE_GRANTS[kind])) {
         await client.query(`GRANT ${privileges.join(', ')} ON ${schema}.${quote(table)} TO ${name}`);
       }
+      await client.query(`REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ${schema} FROM ${name}`);
+      for (const signature of ROLE_FUNCTIONS[kind]) await client.query(`GRANT EXECUTE ON FUNCTION ${schema}.${signature} TO ${name}`);
       await client.query(`ALTER ROLE ${name} SET search_path TO ${schema}`);
       await client.query(`ALTER ROLE ${name} SET statement_timeout TO '15s'`);
     }

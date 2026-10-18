@@ -31,6 +31,59 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Browser-journey failures on PRs #46 and #47 (2026-10-18)
+
+[ADR-079](adr/ADR-079-draw-call-guards-and-folder-picks.md). Each PR failed one WebKit
+viewer journey. Neither changes the viewer.
+
+- **#47, draw calls (run 39141253002): `expected 30 to be less than 30`.**
+  - WebKit (`Apple GPU`) and Firefox (`ANGLE (NVIDIA …), or similar`) hide their
+    renderer, so CI's CPU rendering gets the full animated scene. Measured with the real
+    test: WebKit 29/30/29, Firefox 28/27/27. Chromium's detected SwiftShader gets low
+    detail: 22/22/23.
+  - Two of three WebKit reads were 0, taken mid-bake, so the bound passed vacuously.
+  - **Fix:** read from a steady frame. Low detail stays under 30 in every engine; the
+    default scene is held to the master plan's budget of at most 150.
+- **#46, error recovery (run 39141392240): timed out at 30 s** before its first audit.
+  - **Fix:** folder picks wait for the page's response rather than Playwright's
+    acknowledgement, which WebKit once withheld after delivering the folder. Every
+    browser-only step is bounded and reports its state.
+  - The suite-level cause is still unidentified: 60 isolated WebKit picks never stalled.
+- **Found while verifying: `share-menu` audit failed 2 of 8 Chromium runs** (2.56:1
+  contrast, because the menu was mid-fade). `audit()` now waits for finite animations to
+  finish, bounded at 2 s.
+- **Local evidence after the fixes:** the 48-test journey file passed 5/5 in Chromium,
+  2/2 in WebKit and 2/2 in Firefox.
+
+### Record retention and the status channel (2026-10-18)
+
+- **Decided under the owner's delegation:** [ADR-078](adr/ADR-078-record-retention-and-status.md).
+- **Retention:**
+  - job records are deleted 30 days after the job ends (`LIMITS.jobRecordRetentionDays`),
+    with their events, admission, checkpoint, purged publication, artifact and upload rows,
+    and unreferenced repository rows;
+  - taken-down repositories are kept so revocation keeps applying;
+  - nothing is deleted before its storage is purged or while another publication reuses
+    its artifact.
+- **Privilege:** migration 3's `SECURITY DEFINER` function (fixed search path, fixed
+  period) is the only way to delete. The worker may execute it and still has no `DELETE`
+  on jobs. It runs hourly, and on demand as `atlas-ops forget`.
+- **Status channel:** `ATLAS_STATUS_URL` (`https:`) is required in production and linked as
+  "Service status". The default is the project's GitHub issues labelled `incident`.
+- **Legal texts** stay as placeholders until the owner supplies them.
+- **Local verification (Windows, Node 24.22.0, Docker 29.8.1):**
+  - **PostgreSQL** (pinned image, throwaway container): 5 retention tests pass. Removing
+    the storage-purged condition, the reuse condition or the takedown exception each fails
+    one test.
+  - **Existing PostgreSQL suites** (control, queue, hosted API): 52 tests pass. The two test
+    role cleanups now also revoke function privileges. Their `DROP ROLE` failed until then,
+    and that was the only failure.
+  - **Hosted browser journeys:** 8/8, including the "Service status" link.
+  - **Production rehearsal: 17/17.** The real migration job applied migration 3 and
+    granted the function to the worker role, and `/api/v1/legal` returns the status URL.
+  - **`pnpm verify`: 901 passed, 91 service-gated skips**, of which the 5 new retention
+    tests skip without PostgreSQL.
+
 ### Production M4.6: public-service pages (2026-10-18)
 
 - **Implementation:** [ADR-077](adr/ADR-077-public-service-pages.md) and

@@ -66,6 +66,7 @@ services:
       ATLAS_TERMS_FILE: /etc/atlas/legal/terms.txt
       ATLAS_TAKEDOWN_FILE: /etc/atlas/legal/takedown.txt
       ATLAS_CONTACT: "${ATLAS_CONTACT:?set the public contact, a mailto address or an https page}"
+      ATLAS_STATUS_URL: "${ATLAS_STATUS_URL:?set the https page where incidents are announced}"
     secrets: [api_database_url, quota_secret, api_storage_access_key, api_storage_secret]
     configs:
       - { source: legal_privacy, target: /etc/atlas/legal/privacy.txt }

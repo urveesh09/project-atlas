@@ -65,7 +65,7 @@ export async function startWorker(env: Env): Promise<void> {
   const publications = new PublicationStore(pool, store, resolver);
   const queue = new JobQueue(pool);
   const coordinator = new Coordinator({ pool, queue, store, publications, resolver, runners, workRoot, log });
-  const service = new WorkerService({ queue, coordinator, publications, slots: Number(env['ATLAS_WORKER_SLOTS'] ?? 1), log });
+  const service = new WorkerService({ queue, coordinator, publications, pool, slots: Number(env['ATLAS_WORKER_SLOTS'] ?? 1), log });
   service.start();
   log('worker.started', { isolation: runners.isolation, slots: Number(env['ATLAS_WORKER_SLOTS'] ?? 1), owner: queue.owner });
   const shutdown = async () => {

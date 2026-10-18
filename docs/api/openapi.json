@@ -570,6 +570,17 @@
               }
             ]
           },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "documents": {
             "type": "object",
             "properties": {
@@ -618,6 +629,7 @@
         "required": [
           "configured",
           "contact",
+          "status",
           "documents"
         ],
         "additionalProperties": false
