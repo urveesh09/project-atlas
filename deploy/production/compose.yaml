@@ -85,10 +85,11 @@ services:
     profiles: [monitoring]
     network_mode: service:api
     user: "65534:65534"
-    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.path=/prometheus, --storage.tsdb.retention.time=15d, --web.listen-address=127.0.0.1:9091]
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.path=/prometheus, --storage.tsdb.retention.time=35d, --web.listen-address=127.0.0.1:9091]
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./slo.yml:/etc/prometheus/slo.yml:ro
       - prometheus-data:/prometheus
     read_only: true
     cap_drop: [ALL]

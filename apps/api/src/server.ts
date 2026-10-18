@@ -2,7 +2,7 @@ import { open, realpath } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { isIP, type AddressInfo } from 'node:net';
 import nodePath from 'node:path';
-import { migrationsCurrent, operatorMetrics, operatorMetricsText, PROMETHEUS_TEXT_CONTENT_TYPE, type ObjectStore, type PublicationStore } from '@atlas/control';
+import { migrationsCurrent, operatorMetrics, operatorMetricsText, PROMETHEUS_TEXT_CONTENT_TYPE, publicationReadResult, type ObjectStore, type PublicationReads, type PublicationStore } from '@atlas/control';
 import { parseGithubRepositoryUrl } from '@atlas/ingest';
 import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, API_REQUEST_BODY_LIMIT, ARTIFACT_VERSION, CapabilitiesSchema, ErrorEnvelopeSchema, GRAPH_SCHEMA_VERSION, IdempotencyKeySchema, JobIdSchema, LAYOUT_VERSION, LIMITS, METRIC_DEFINITION_VERSION, RELEASE_PROFILE, SessionStatusSchema } from '@atlas/schema';
 import type { Pool } from 'pg';
@@ -132,6 +132,8 @@ export async function startApi(options: ApiOptions) {
   const streams = new Set<ServerResponse>();
   const streamsPerJob = new Map<string, number>();
   let closing = false;
+  // Counted by final status, so failures the catch block answers are included (ADR-076).
+  const publicationReads: PublicationReads = { ok: 0, ended: 0, rejected: 0, unavailable: 0 };
   const handler = async (req: IncomingMessage, res: ServerResponse) => {
     const requestId = opaqueId('req');
     res.setHeader('X-Request-Id', requestId);
@@ -164,6 +166,7 @@ export async function startApi(options: ApiOptions) {
 
       const analysis = /^\/api\/v1\/analyses\/(analysis_[0-9a-f]{64})(?:\/chunks\/([a-z0-9_]{1,80}))?$/.exec(path);
       if (analysis && req.method === 'GET') {
+        res.once('finish', () => { publicationReads[publicationReadResult(res.statusCode)]++; });
         if (!options.publications) throw new ServiceError('UPSTREAM_UNAVAILABLE', 503, 'Public publication is not enabled on this service.');
         if (!analysis[2]) return json(res, 200, await options.publications.manifest(analysis[1]!));
         const bytes = await options.publications.chunk(analysis[1]!, analysis[2]);
@@ -262,7 +265,7 @@ export async function startApi(options: ApiOptions) {
   server.maxConnections = 256;
   await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(options.port ?? 0, options.host ?? '127.0.0.1', resolve); });
   if (!origin) origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  return { origin, server, close: async () => { closing = true; for (const stream of streams) stream.end(); server.closeIdleConnections(); await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); } };
+  return { origin, server, publicationReads: publicationReads as Readonly<PublicationReads>, close: async () => { closing = true; for (const stream of streams) stream.end(); server.closeIdleConnections(); await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); } };
 }
 
 /**
@@ -287,18 +290,20 @@ export function prefersPrometheusText(accept: string | undefined): boolean {
  * Operator endpoint (plan §15.4) on its own loopback listener: aggregate metrics and
  * readiness for dashboards and runbooks. It is never exposed through the public origin.
  * `/metrics` answers JSON, or Prometheus text when the client prefers it. The address is
- * fixed: a scraper shares the API's network namespace instead (ADR-073).
+ * fixed: a scraper shares the API's network namespace instead (ADR-073). With the API's
+ * `publicationReads`, it also reports that process's read counters (ADR-076).
  */
-export async function startOperatorServer(options: { pool: Pool; port?: number }) {
+export async function startOperatorServer(options: { pool: Pool; port?: number; publicationReads?: Readonly<PublicationReads> }) {
   const server = createServer((req, res) => {
     void (async () => {
       try {
         if (req.method !== 'GET') return json(res, 405, { error: 'method' });
         if (req.url === '/metrics') {
           const metrics = await operatorMetrics(options.pool);
-          if (!prefersPrometheusText(req.headers.accept)) return json(res, 200, metrics);
+          const reads = options.publicationReads ? { ...options.publicationReads } : undefined;
+          if (!prefersPrometheusText(req.headers.accept)) return json(res, 200, reads ? { ...metrics, publicationReads: reads } : metrics);
           res.writeHead(200, { 'Content-Type': PROMETHEUS_TEXT_CONTENT_TYPE, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', Vary: 'Accept' });
-          return res.end(operatorMetricsText(metrics));
+          return res.end(operatorMetricsText(metrics, reads));
         }
         if (req.url === '/ready') return json(res, 200, { migrations: await migrationsCurrent(options.pool) });
         return json(res, 404, { error: 'not found' });

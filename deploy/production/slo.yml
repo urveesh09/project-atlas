@@ -1,0 +1,65 @@
+# Service-level indicators and objective alerts for docs/hosted-slo.md (M4.5, ADR-076).
+# Objectives: publication availability 99.5% over 30 days; job success 98% per day,
+# excluding expected outcomes; queue wait p95 at most 10 minutes per day.
+# Check: promtool check rules slo.yml && promtool test rules slo.test.yml
+groups:
+  - name: atlas-slo
+    rules:
+      # Publication availability counts reads the API answered. Ended publications
+      # (404/410) and rejected requests (other 4xx) are designed outcomes, not failures.
+      - record: atlas:publication_read_errors:ratio_rate5m
+        expr: sum(rate(atlas_publication_reads_total{result="unavailable"}[5m])) / sum(rate(atlas_publication_reads_total{result=~"ok|unavailable"}[5m]))
+      - record: atlas:publication_read_errors:ratio_rate30m
+        expr: sum(rate(atlas_publication_reads_total{result="unavailable"}[30m])) / sum(rate(atlas_publication_reads_total{result=~"ok|unavailable"}[30m]))
+      - record: atlas:publication_read_errors:ratio_rate1h
+        expr: sum(rate(atlas_publication_reads_total{result="unavailable"}[1h])) / sum(rate(atlas_publication_reads_total{result=~"ok|unavailable"}[1h]))
+      - record: atlas:publication_read_errors:ratio_rate6h
+        expr: sum(rate(atlas_publication_reads_total{result="unavailable"}[6h])) / sum(rate(atlas_publication_reads_total{result=~"ok|unavailable"}[6h]))
+      - record: atlas:publication_read_availability:ratio_30d
+        expr: 1 - sum(increase(atlas_publication_reads_total{result="unavailable"}[30d])) / sum(increase(atlas_publication_reads_total{result=~"ok|unavailable"}[30d]))
+
+      # Job success over the operator metrics' 24-hour window. Expected outcomes are
+      # excluded: input the service rightly refuses and the V0.1 resource limits.
+      - record: atlas:job_counted:count_24h
+        expr: >-
+          sum(atlas_outcomes_24h{state=~"READY|PARTIAL|FAILED"})
+          - (sum(atlas_failures_24h{code=~"INVALID_REPOSITORY_URL|REPOSITORY_NOT_PUBLIC|REPOSITORY_NOT_FOUND|REPOSITORY_MOVED|EMPTY_REPOSITORY|COMMIT_NOT_ACCESSIBLE|REPOSITORY_TOO_LARGE|ANALYSIS_RESOURCE_LIMIT"}) or vector(0))
+      - record: atlas:job_success:ratio_24h
+        expr: sum(atlas_outcomes_24h{state=~"READY|PARTIAL"}) / (atlas:job_counted:count_24h > 0)
+
+      # 99.5% leaves an error budget of 0.005. A 14.4x burn spends 2% of 30 days' budget
+      # in an hour; a 6x burn spends 5% in six hours. The short window ends the alert
+      # soon after recovery.
+      - alert: AtlasPublicationBudgetFastBurn
+        expr: atlas:publication_read_errors:ratio_rate1h > 14.4 * 0.005 and atlas:publication_read_errors:ratio_rate5m > 14.4 * 0.005
+        labels:
+          severity: page
+        annotations:
+          summary: "Publication reads are failing at {{ $value | humanizePercentage }}, spending the 30-day error budget 14x too fast"
+          runbook: docs/hosted-slo.md#publication-availability
+
+      - alert: AtlasPublicationBudgetSlowBurn
+        expr: atlas:publication_read_errors:ratio_rate6h > 6 * 0.005 and atlas:publication_read_errors:ratio_rate30m > 6 * 0.005
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Publication reads are failing at {{ $value | humanizePercentage }} over six hours"
+          runbook: docs/hosted-slo.md#publication-availability
+
+      - alert: AtlasJobSuccessBelowObjective
+        expr: atlas:job_success:ratio_24h < 0.98 and atlas:job_counted:count_24h >= 20
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of counted jobs succeeded in the last 24 hours (objective 98%)"
+          runbook: docs/hosted-slo.md#job-success
+
+      - alert: AtlasQueueWaitAboveObjective
+        expr: atlas_queue_wait_p95_24h_seconds > 600
+        for: 30m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Queue wait p95 over 24 hours is {{ $value | humanizeDuration }} (objective 10 minutes)"
+          runbook: docs/hosted-slo.md#queue-wait

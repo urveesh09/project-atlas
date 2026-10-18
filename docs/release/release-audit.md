@@ -69,6 +69,10 @@ package managers are removed after a real scan found vulnerable npm dependencies
 See [image verification](../image-supply-chain.md) and [dated evidence](../benchmarks/production-image-supply-chain.md).
 No live signing, release tag, public package or deployment is produced by this task;
 actual release and R6-06 acceptance remain owner/operator work.
+M4.5 ([ADR-076](../adr/ADR-076-service-levels.md)) defines provisional
+[service levels](../hosted-slo.md) and incident handling, measured from `/metrics` with
+tested rules. R6-06 must confirm them against 30 days of real traffic and add an
+external canary for the path in front of the API.
 
 Production M2.3 adds full hosted Python evidence (2026-10-16, [ADR-064](../adr/ADR-064-hosted-python-evidence.md)):
 145 local PostgreSQL/S3/container/browser checks pass, including two authored Python

@@ -7,6 +7,14 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Changed
+- Hosted service levels ([docs/hosted-slo.md](docs/hosted-slo.md),
+  [ADR-076](docs/adr/ADR-076-service-levels.md)) are now defined:
+  - provisional objectives for publication availability, job success and queue wait;
+  - severity levels, first-response steps and how users are told.
+
+  The operator metrics add the 24-hour queue-wait p95 and the API's publication read
+  counters. The reference Prometheus loads tested recording rules and objective alerts,
+  and keeps 35 days.
 - API and sandbox releases now scan the exact OCI archive before publishing, block
   fixable high/critical findings, preserve its pinned-generator SBOM/provenance and
   verify signed release identity. Unused package managers are removed from runtime

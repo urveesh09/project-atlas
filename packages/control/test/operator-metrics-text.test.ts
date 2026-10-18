@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { operatorMetricsText, type OperatorMetrics } from '@atlas/control';
+import { operatorMetricsText, publicationReadResult, type OperatorMetrics } from '@atlas/control';
 
 const busy: OperatorMetrics = {
-  queue: { queued: 3, active: 1, cancelRequested: 0, oldestQueuedSeconds: 42 },
+  queue: { queued: 3, active: 1, cancelRequested: 0, oldestQueuedSeconds: 42, waitSecondsP95_24h: 95 },
   leases: { live: 1, expired: 2 },
   outcomes24h: { READY: 5, FAILED: 1 },
   failures24h: { UPSTREAM_RATE_LIMITED: 1, ANALYSIS_RESOURCE_LIMIT: 2 },
@@ -28,6 +28,9 @@ atlas_queue_cancel_requested 0
 # HELP atlas_queue_oldest_queued_seconds Age of the oldest queued job; absent when none is queued.
 # TYPE atlas_queue_oldest_queued_seconds gauge
 atlas_queue_oldest_queued_seconds 42
+# HELP atlas_queue_wait_p95_24h_seconds p95 queue wait of jobs that reached a worker in the last 24 hours; absent when none did.
+# TYPE atlas_queue_wait_p95_24h_seconds gauge
+atlas_queue_wait_p95_24h_seconds 95
 # HELP atlas_leases_live Worker leases that are still valid.
 # TYPE atlas_leases_live gauge
 atlas_leases_live 1
@@ -93,7 +96,7 @@ atlas_upstream_remaining 57
   it('omits unknown fields instead of reporting them as zero', () => {
     const idle: OperatorMetrics = {
       ...busy,
-      queue: { ...busy.queue, oldestQueuedSeconds: null },
+      queue: { ...busy.queue, oldestQueuedSeconds: null, waitSecondsP95_24h: null },
       failures24h: {},
       stageMsP95_24h: {},
       networkBytesP95_24h: null,
@@ -101,13 +104,29 @@ atlas_upstream_remaining 57
       upstream: { blockedSeconds: null, remaining: null },
     };
     const text = operatorMetricsText(idle);
-    for (const name of ['atlas_queue_oldest_queued_seconds', 'atlas_failures_24h', 'atlas_stage_p95_24h_seconds', 'atlas_network_p95_24h_bytes',
+    for (const name of ['atlas_queue_oldest_queued_seconds', 'atlas_queue_wait_p95_24h_seconds', 'atlas_publication_reads_total', 'atlas_failures_24h', 'atlas_stage_p95_24h_seconds', 'atlas_network_p95_24h_bytes',
       'atlas_artifact_p95_24h_bytes', 'atlas_upstream_blocked_seconds', 'atlas_upstream_remaining']) {
       expect(text).not.toContain(name);
     }
     // Terminal states are always present, so a dashboard shows 0 rather than no data.
     expect(text).toContain('atlas_outcomes_24h{state="READY"} 5');
     expect(text).toContain('atlas_outcomes_24h{state="PARTIAL"} 0');
+  });
+
+  it('writes publication reads as a counter with every result, when the API supplies them', () => {
+    expect(operatorMetricsText(busy, { ok: 40, ended: 2, rejected: 0, unavailable: 1 })).toContain(`
+# HELP atlas_publication_reads_total Publication manifest and chunk reads this API process answered since it started, by result.
+# TYPE atlas_publication_reads_total counter
+atlas_publication_reads_total{result="ended"} 2
+atlas_publication_reads_total{result="ok"} 40
+atlas_publication_reads_total{result="rejected"} 0
+atlas_publication_reads_total{result="unavailable"} 1
+`);
+  });
+
+  it('classifies publication read statuses for availability', () => {
+    expect([200, 304, 404, 410, 400, 403, 429, 500, 503].map(publicationReadResult))
+      .toEqual(['ok', 'ok', 'ended', 'ended', 'rejected', 'rejected', 'rejected', 'unavailable', 'unavailable']);
   });
 
   it('escapes label values', () => {

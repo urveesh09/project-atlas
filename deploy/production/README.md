@@ -117,9 +117,11 @@ Recreate affected API/migration containers after secret rotation for the same re
 
 The operator listener binds only the API container's `127.0.0.1:9090`. The optional
 `prometheus` service (pinned Prometheus 3.15.0) runs in the API's network namespace
-(`network_mode: service:api`) to scrape it, and evaluates [`alerts.yml`](alerts.yml).
+(`network_mode: service:api`) to scrape it. It evaluates [`alerts.yml`](alerts.yml) and
+the service-level rules in [`slo.yml`](slo.yml).
 It publishes nothing, joins no network of its own, runs as `nobody` with a read-only
-root and no capabilities, and keeps 15 days of samples in the `prometheus-data` volume.
+root and no capabilities, and keeps 35 days of samples in the `prometheus-data` volume.
+That covers the 30-day availability objective in [service levels](../../docs/hosted-slo.md).
 Its UI listens on that namespace's loopback, port 9091.
 
 1. Copy `prometheus.yml` into the operator-owned configuration. Add your Alertmanager
@@ -139,9 +141,10 @@ Its UI listens on that namespace's loopback, port 9091.
    It asks for the Prometheus data source that receives these metrics.
 
 The metrics, the five alerts and their runbooks are in
-[operations → Metrics](../../docs/hosted-operations.md#metrics). Check changed rules with
-`promtool check rules alerts.yml` and `promtool test rules alerts.test.yml` in the
-same pinned image.
+[operations → Metrics](../../docs/hosted-operations.md#metrics). The objectives, their four
+alerts and incident handling are in [service levels](../../docs/hosted-slo.md). Check changed
+rules with `promtool check rules alerts.yml slo.yml` and
+`promtool test rules alerts.test.yml slo.test.yml` in the same pinned image.
 
 ## Worker host and firewall
 

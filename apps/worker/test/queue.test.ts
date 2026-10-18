@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AdmissionStore, migrate } from '@atlas/api';
+import { operatorCancel, operatorMetrics } from '@atlas/control';
 import { JobQueue, LeaseLostError, type Lease } from '../src/queue.js';
 import { acquireEngineOwnership } from '../src/engine-ownership.js';
 
@@ -89,6 +90,22 @@ describe.runIf(!!url)('PostgreSQL worker fencing and recovery', () => {
     expect(published).toBe(false);
     await expire(next); expect(await queue.reap()).toBe(1); expect(await queue.claim()).toBeNull();
     expect((await pool.query('SELECT state FROM jobs')).rows[0].state).toBe('FAILED');
+  });
+  it('measures queue wait to the first claim, which a retry keeps, and ignores unclaimed jobs', async () => {
+    expect((await operatorMetrics(pool)).queue.waitSecondsP95_24h).toBeNull();
+    const { jobId } = await enqueue();
+    await pool.query("UPDATE jobs SET created_at=clock_timestamp()-interval '90 seconds' WHERE id=$1", [jobId]);
+    const lease = (await queue.claim())!;
+    expect(lease.jobId).toBe(jobId);
+    // A job still queued after 20 minutes is the oldest queued job, not yet a measured wait.
+    const waiting = await enqueue();
+    await pool.query("UPDATE jobs SET created_at=clock_timestamp()-interval '20 minutes' WHERE id=$1", [waiting.jobId]);
+    expect((await operatorMetrics(pool)).queue).toMatchObject({ queued: 1, waitSecondsP95_24h: 90 });
+    expect(await operatorCancel(pool, waiting.jobId)).toBe('CANCELLED');
+    // A crashed attempt's retry keeps its first deadline, so its wait stays measured to the first claim.
+    await expire(lease); expect(await queue.reap()).toBe(1);
+    expect((await queue.claim())!.attempt).toBe(2);
+    expect((await operatorMetrics(pool)).queue.waitSecondsP95_24h).toBe(90);
   });
   it('cancellation prevents a live worker from committing or advancing stages', async () => {
     const job = await enqueue(), lease = (await queue.claim())!;

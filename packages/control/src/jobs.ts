@@ -1,6 +1,13 @@
 import type { Pool } from 'pg';
 
 /**
+ * A job's whole budget, counted from its first claim. The claim sets `deadline` once to
+ * claim time plus this, so `deadline - JOB_DEADLINE_SECONDS` is when the job left the
+ * queue; operator metrics derive queue wait from it (ADR-076).
+ */
+export const JOB_DEADLINE_SECONDS = 300;
+
+/**
  * Operator cancellation (runbook "malicious or resource-heavy input"): the same state
  * transition a capability holder triggers, without a capability. Queued jobs end at once;
  * running jobs move to CANCEL_REQUESTED and their coordinator removes the sandboxes before

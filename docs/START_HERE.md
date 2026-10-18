@@ -162,6 +162,7 @@ R6-01 and R6-02, then R6-05, R6-06 and R6-07.
 | Hosted setup, configuration, runbooks | [hosted development](hosted-development.md), [hosted operations](hosted-operations.md) |
 | Private backups and isolated restore drill | [production backups](production-backups.md) |
 | Verify images, SBOMs, vulnerability scans and signed release origin | [image supply chain](image-supply-chain.md) |
+| Service-level objectives, severity levels and incident response | [service levels](hosted-slo.md) |
 | Contracts | [CLI](contracts/cli.md), [identity](contracts/identity.md), [metrics](contracts/metrics.md), [capabilities and limits](contracts/capabilities.md), [OpenAPI](api/openapi.json) |
 | Measurements | [benchmarks](benchmarks/) |
 | Real-repository results | [real repositories](release/real-repositories.md) |

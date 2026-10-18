@@ -101,6 +101,27 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "down", "color": "red" }, "1": { "text": "up", "color": "green" } } }] }, "overrides": [] },
       "targets": [{ "refId": "A", "expr": "up{job=\"atlas-operator\"}" }]
+    },
+    {
+      "id": 13, "type": "stat", "title": "Service levels", "description": "Objectives in docs/hosted-slo.md: publication availability 99.5% over 30 days, job success 98% per day.", "gridPos": { "h": 8, "w": 8, "x": 0, "y": 40 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2, "noValue": "no counted traffic" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "atlas:publication_read_availability:ratio_30d", "legendFormat": "publication availability, 30 days" },
+        { "refId": "B", "expr": "atlas:job_success:ratio_24h", "legendFormat": "job success, 24 hours" }
+      ]
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "Publication reads", "description": "Ended (404/410) and rejected reads are designed outcomes; only unavailable reads spend the error budget.", "gridPos": { "h": 8, "w": 10, "x": 8, "y": 40 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "sum by (result) (rate(atlas_publication_reads_total[5m]))", "legendFormat": "{{result}}" }]
+    },
+    {
+      "id": 15, "type": "stat", "title": "Queue wait p95, 24 hours", "description": "Objective: at most 10 minutes.", "gridPos": { "h": 8, "w": 6, "x": 18, "y": 40 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "s", "noValue": "no claimed jobs", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 600 }] } }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "atlas_queue_wait_p95_24h_seconds" }]
     }
   ]
 }
