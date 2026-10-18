@@ -188,3 +188,34 @@ Alert on:
 - an oldest queued job over 10 minutes;
 - `storage.purgingUploads > 0` for 1 hour;
 - `upstream.blockedSeconds > 0` for 15 minutes.
+
+### Prometheus
+
+The same endpoint answers in the Prometheus text format (0.0.4) when the request prefers
+`text/plain`, as Prometheus's own scrape request does. Without that, including curl's
+default, it answers JSON as before ([ADR-073](adr/ADR-073-operator-monitoring.md)).
+
+Each field is a gauge. A null field, such as the oldest queued job when none is queued,
+is left out rather than reported as 0.
+
+| JSON field | Prometheus gauge |
+|---|---|
+| `queue` | `atlas_queue_queued`, `atlas_queue_active`, `atlas_queue_cancel_requested`, `atlas_queue_oldest_queued_seconds` |
+| `leases` | `atlas_leases_live`, `atlas_leases_expired` |
+| `outcomes24h` | `atlas_outcomes_24h{state}`: all four terminal states, 0 when none |
+| `failures24h` | `atlas_failures_24h{code}` |
+| `stageMsP95_24h` | `atlas_stage_p95_24h_seconds{stage}`, in seconds |
+| `networkBytesP95_24h`, `artifactBytesP95_24h` | `atlas_network_p95_24h_bytes`, `atlas_artifact_p95_24h_bytes` |
+| `publications` | `atlas_publications_live`, `atlas_publications_expired`, `atlas_publications_deleted`, `atlas_publications_revoked`, `atlas_publications_awaiting_purge` |
+| `storage` | `atlas_storage_live_objects`, `atlas_storage_live_bytes`, `atlas_storage_pending_uploads`, `atlas_storage_purging_uploads` |
+| `upstream` | `atlas_upstream_blocked_seconds`, `atlas_upstream_remaining` |
+
+The operator listener only ever binds `127.0.0.1`, so a scraper must share the API's
+network namespace. The reference kit does this with an optional Prometheus service
+(Compose profile `monitoring`, see the [deployment guide](../deploy/production/README.md#monitoring)).
+
+[`alerts.yml`](../deploy/production/alerts.yml) implements the four alerts above, each linked
+to its runbook. It adds a fifth, `AtlasOperatorMetricsDown`: if scrapes fail for 5 minutes,
+for example because the database is down and the listener answers 503, the other four
+cannot fire. [`grafana-dashboard.json`](../deploy/production/grafana-dashboard.json) is an
+optional dashboard with every gauge.

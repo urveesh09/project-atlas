@@ -1,0 +1,24 @@
+# Prometheus for the API host (M4.2, ADR-073), started with Compose profile `monitoring`.
+# The operator listener is loopback-only, so this Prometheus runs in the API container's
+# network namespace and scrapes 127.0.0.1:9090. Its own UI listens on that namespace's
+# loopback too; nothing is published.
+# Check: promtool check config prometheus.yml (with alerts.yml beside it)
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files: [/etc/prometheus/alerts.yml]
+
+scrape_configs:
+  - job_name: atlas-operator
+    static_configs:
+      - targets: ['127.0.0.1:9090']
+
+# Send alerts and long-term history to your own monitoring in an operator-owned copy of
+# this file, for example:
+# alerting:
+#   alertmanagers:
+#     - scheme: https
+#       static_configs: [{ targets: ['alertmanager.example.org'] }]
+# remote_write:
+#   - url: https://metrics.example.org/api/v1/write

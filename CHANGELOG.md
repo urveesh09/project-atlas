@@ -7,6 +7,11 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Changed
+- The operator `/metrics` endpoint also answers in Prometheus text format when asked.
+  The reference kit adds an optional Prometheus in the API's network namespace, the
+  runbook's alerts with promtool unit tests, and an optional Grafana dashboard. The
+  operator listener can no longer bind anything but loopback
+  ([ADR-073](docs/adr/ADR-073-operator-monitoring.md)).
 - Add the M4.1 reference hosted deployment kit: hardened TLS/API profile, worker
   service units, expiring atomic GitHub egress sets, configuration preflight and
   production transport/packet rehearsals. Public deployment acceptance remains open.

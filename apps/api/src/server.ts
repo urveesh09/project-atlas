@@ -2,7 +2,7 @@ import { open, realpath } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { isIP, type AddressInfo } from 'node:net';
 import nodePath from 'node:path';
-import { migrationsCurrent, operatorMetrics, type ObjectStore, type PublicationStore } from '@atlas/control';
+import { migrationsCurrent, operatorMetrics, operatorMetricsText, PROMETHEUS_TEXT_CONTENT_TYPE, type ObjectStore, type PublicationStore } from '@atlas/control';
 import { parseGithubRepositoryUrl } from '@atlas/ingest';
 import { AnalysisAcceptedSchema, AnalysisSubmissionSchema, API_REQUEST_BODY_LIMIT, ARTIFACT_VERSION, CapabilitiesSchema, ErrorEnvelopeSchema, GRAPH_SCHEMA_VERSION, IdempotencyKeySchema, JobIdSchema, LAYOUT_VERSION, LIMITS, METRIC_DEFINITION_VERSION, RELEASE_PROFILE, SessionStatusSchema } from '@atlas/schema';
 import type { Pool } from 'pg';
@@ -266,15 +266,40 @@ export async function startApi(options: ApiOptions) {
 }
 
 /**
+ * Whether a `/metrics` request prefers Prometheus text to JSON (M4.2, ADR-073). Prometheus
+ * offers `text/plain` above its `*` fallback; curl's and browsers' defaults keep JSON.
+ */
+export function prefersPrometheusText(accept: string | undefined): boolean {
+  let text = 0;
+  let json = 0;
+  for (const part of (accept ?? '').split(',')) {
+    const [range = '', ...params] = part.split(';').map((item) => item.trim().toLowerCase());
+    const weight = params.find((param) => param.startsWith('q='));
+    const q = weight === undefined ? 1 : Number(weight.slice(2));
+    if (!Number.isFinite(q)) continue;
+    if (range === 'text/plain') text = Math.max(text, q);
+    else if (range === 'application/json' || range === 'application/*' || range === '*/*') json = Math.max(json, q);
+  }
+  return text > json;
+}
+
+/**
  * Operator endpoint (plan §15.4) on its own loopback listener: aggregate metrics and
  * readiness for dashboards and runbooks. It is never exposed through the public origin.
+ * `/metrics` answers JSON, or Prometheus text when the client prefers it. The address is
+ * fixed: a scraper shares the API's network namespace instead (ADR-073).
  */
-export async function startOperatorServer(options: { pool: Pool; port?: number; host?: string }) {
+export async function startOperatorServer(options: { pool: Pool; port?: number }) {
   const server = createServer((req, res) => {
     void (async () => {
       try {
         if (req.method !== 'GET') return json(res, 405, { error: 'method' });
-        if (req.url === '/metrics') return json(res, 200, await operatorMetrics(options.pool));
+        if (req.url === '/metrics') {
+          const metrics = await operatorMetrics(options.pool);
+          if (!prefersPrometheusText(req.headers.accept)) return json(res, 200, metrics);
+          res.writeHead(200, { 'Content-Type': PROMETHEUS_TEXT_CONTENT_TYPE, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', Vary: 'Accept' });
+          return res.end(operatorMetricsText(metrics));
+        }
         if (req.url === '/ready') return json(res, 200, { migrations: await migrationsCurrent(options.pool) });
         return json(res, 404, { error: 'not found' });
       } catch {
@@ -282,6 +307,7 @@ export async function startOperatorServer(options: { pool: Pool; port?: number; 
       }
     })();
   });
-  await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(options.port ?? 0, options.host ?? '127.0.0.1', resolve); });
-  return { port: (server.address() as AddressInfo).port, close: () => new Promise<void>((resolve) => server.close(() => resolve())) };
+  await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(options.port ?? 0, '127.0.0.1', resolve); });
+  const { address, port } = server.address() as AddressInfo;
+  return { address, port, close: () => new Promise<void>((resolve) => server.close(() => resolve())) };
 }

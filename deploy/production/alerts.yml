@@ -1,0 +1,50 @@
+# Prometheus alerting rules for the ATLAS operator metrics (M4.2, ADR-073). The first four
+# are the alerts docs/hosted-operations.md names; each links its runbook. The fifth makes a
+# failed scrape visible, because every other alert is silent without data.
+# Check: promtool check rules alerts.yml && promtool test rules alerts.test.yml
+groups:
+  - name: atlas
+    rules:
+      - alert: AtlasExpiredLeases
+        expr: atlas_leases_expired > 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "{{ $value }} worker lease(s) expired and not yet reaped"
+          runbook: docs/hosted-operations.md#stalled-job-or-the-reaper
+
+      - alert: AtlasQueueStalled
+        expr: atlas_queue_oldest_queued_seconds > 600
+        labels:
+          severity: page
+        annotations:
+          summary: "The oldest queued job has waited {{ $value | humanizeDuration }}"
+          runbook: docs/hosted-operations.md#stalled-job-or-the-reaper
+
+      - alert: AtlasStoragePurgeStuck
+        expr: atlas_storage_purging_uploads > 0
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: "{{ $value }} upload(s) have been purging for over an hour"
+          runbook: docs/hosted-operations.md#storage-reconciliation
+
+      - alert: AtlasUpstreamBlocked
+        expr: atlas_upstream_blocked_seconds > 0
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "GitHub API back-off has lasted over 15 minutes"
+          runbook: docs/hosted-operations.md#upstream-github-outage-or-throttling
+
+      - alert: AtlasOperatorMetricsDown
+        expr: up{job="atlas-operator"} == 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "The operator metrics listener has not answered for 5 minutes; the other alerts cannot fire"
+          runbook: docs/hosted-operations.md#metrics
