@@ -13,6 +13,9 @@ import { compareAscii, type Availability, type GraphNode, type GraphSnapshot, ty
  */
 export function computeMetrics(snapshot: GraphSnapshot, facts: Map<string, FileFacts>, cycles: readonly StaticCycle[]): NodeMetrics[] {
   const index = new GraphIndex(snapshot);
+  // Dropped relationships can affect degrees and SCC membership beyond their
+  // endpoints. Observed counts remain useful, but never claim complete coverage.
+  const edgesComplete = !snapshot.coverage.limitsHit.includes('EDGE_LIMIT');
   const sccOf = new Map<string, string>();
   for (const cycle of cycles) for (const member of cycle.members) sccOf.set(member, cycle.sccId);
   const fileMetrics = new Map<string, NodeMetrics>();
@@ -39,7 +42,7 @@ export function computeMetrics(snapshot: GraphSnapshot, facts: Map<string, FileF
       linesAdded: null,
       linesDeleted: null,
       hotspotScore: null,
-      availability: { syntax, dependencies: parsed ? 'complete' : 'partial', history: 'unavailable' },
+      availability: { syntax, dependencies: parsed && edgesComplete ? 'complete' : 'partial', history: 'unavailable' },
     });
   }
 

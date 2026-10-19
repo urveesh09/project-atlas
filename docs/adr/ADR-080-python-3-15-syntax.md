@@ -75,9 +75,11 @@ try blocks; no `*`) are raised when compiling, after parsing succeeds.
    still dependencies, and the CPython oracle compares against `ast` too.
 6. **The CPython oracle moves to 3.15.0** in CI and the release workflow, as M2.7 planned
    once 3.15 passes.
-7. **Unmerged edge-budget work.** Uncommitted work on `fix/combined-edge-capacity`
-   (ADR-067) proposes `0.1.0-dev.9` too. Whichever lands second takes the next version
-   number and regenerates the baseline; neither reuses an identifier with different output.
+7. **One version for both changes.** The edge-budget fix
+   ([ADR-067](ADR-067-shared-dependency-edge-budget.md)) also proposed `0.1.0-dev.9`, and
+   was left uncommitted on 2026-10-17. It lands in the same pull request, so
+   `0.1.0-dev.9` means the 3.15 grammar plus the shared edge budget. Below the cap the
+   budget changes nothing.
 
 ## Verification
 

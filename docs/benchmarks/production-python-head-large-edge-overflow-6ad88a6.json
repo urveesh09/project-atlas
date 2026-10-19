@@ -1,0 +1,52 @@
+{
+  "task": "Capacity failure before any completed analysis",
+  "language": "python",
+  "mode": "head",
+  "recordedAt": "2026-10-19T06:26:39.735Z",
+  "environment": {
+    "os": "Linux 6.18.33.2-microsoft-standard-WSL2 x64",
+    "node": "v24.22.0",
+    "git": "2.47.3",
+    "containerLimits": {
+      "memoryBytes": 2147483648,
+      "cpuMax": "400000 100000"
+    },
+    "runtimeImage": "sha256:f9c5d760dcacac4d47feb660d4369471138a27d204b79e8aecac019472976dfc",
+    "sourceCommit": "6ad88a60de8eaca4ff4a4abce7e1d2ea2ec1decc",
+    "benchmarkSourceCommit": "6ad88a60de8eaca4ff4a4abce7e1d2ea2ec1decc",
+    "benchmarkWorkingTreeDirty": "false"
+  },
+  "requestedRuns": 20,
+  "runs": 0,
+  "warmupMs": null,
+  "rawSampleMs": [],
+  "failedRun": {
+    "runIndex": 0,
+    "code": 1,
+    "signal": null
+  },
+  "fixture": null,
+  "artifact": null,
+  "analyzer": null,
+  "parsedLanguages": null,
+  "parserMemory": null,
+  "resourceUsage": {
+    "peakBytes": 667320320,
+    "events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0
+    }
+  },
+  "timePass": false,
+  "sizePass": false,
+  "completenessPass": false,
+  "sampleCountPass": false,
+  "parserMemoryPass": false,
+  "languagePass": false,
+  "resourcePass": false,
+  "pass": false
+}

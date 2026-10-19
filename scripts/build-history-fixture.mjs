@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGitFixture } from '../packages/test-fixtures/dist/index.js';
 import { buildMediumHistoryCommits } from './lib/medium-history.mjs';
-import { capacityLanguage } from './lib/capacity-language.mjs';
+import { PYTHON_CAPACITY_POLICY, capacityLanguage } from './lib/capacity-language.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const i = process.argv.indexOf('--files');
 const files = i < 0 ? 9740 : Number(process.argv[i + 1]);
@@ -20,6 +20,6 @@ const fixture = createGitFixture(commits, { parent });
 // Generated synthetic data can be read by the production sandbox UID via a
 // read-only bind mount on Linux. Other fixtures or repositories are untouched.
 chmodSync(fixture.dir, 0o755);
-const metadata = { directory: fixture.dir, selectedCommit: fixture.commits.at(-1), files, commits: commits.length, language, mode: head ? 'head' : 'history' };
+const metadata = { directory: fixture.dir, selectedCommit: fixture.commits.at(-1), files, commits: commits.length, language, mode: head ? 'head' : 'history', policy: language === 'typescript' ? null : PYTHON_CAPACITY_POLICY };
 writeFileSync(path.join(fixture.dir, 'atlas-capacity-fixture.json'), `${JSON.stringify(metadata, null, 2)}\n`);
 console.log(JSON.stringify(metadata));

@@ -16,7 +16,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { capacityLanguage } from './lib/capacity-language.mjs';
+import { PYTHON_CAPACITY_POLICY, capacityLanguage } from './lib/capacity-language.mjs';
 import { observeParserMemory } from './lib/parser-memory.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -82,7 +82,7 @@ const factsOf = (result) => {
   return {
     status: result.status,
     complete: result.status === 'complete' && (headOnly ? m.frames.length === 1 : h.status === 'complete' && h.framesCompleted === 12),
-    fixture: { headFiles: m.coverage.head.includedFiles, importStatements: m.coverage.head.observedImports, commits: h.commitsTraversed, frames: h.framesCompleted, boundary: h.boundary, renames: result.summary.history.renames, lineages: result.summary.history.lineages, historyStatus: h.status },
+    fixture: { headFiles: m.coverage.head.includedFiles, importStatements: m.coverage.head.observedImports, headEdges: result.draft.graphs.at(-1).edges.length, headLimitsHit: result.draft.graphs.at(-1).coverage.limitsHit, commits: h.commitsTraversed, frames: h.framesCompleted, boundary: h.boundary, renames: result.summary.history.renames, lineages: result.summary.history.lineages, historyStatus: h.status },
     analyzer: m.analyzer,
     selectedCommit: m.selectedCommit.oid,
     layoutId: result.draft.layout.layoutId,
@@ -224,6 +224,7 @@ const report = {
   task: `${headOnly ? 'HEAD' : 'Historical'} analysis capacity — ${tier}, ${headOnly ? 1 : 12} frames`,
   language,
   mode: headOnly ? 'head' : 'history',
+  fixturePolicy: language === 'typescript' ? null : PYTHON_CAPACITY_POLICY,
   recordedAt: new Date().toISOString(),
   environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length, memoryGiB: +(os.totalmem() / 2 ** 30).toFixed(1), node: process.version, nodeFlags: process.execArgv.join(' '), git: version, parserWorkers: 2, processPerRun: isolateRuns, containerLimits: resourceLimits, runtimeImage: process.env.ATLAS_CAPACITY_IMAGE ?? null, sourceCommit: process.env.ATLAS_CAPACITY_SOURCE_COMMIT ?? null, benchmarkSourceCommit: process.env.ATLAS_CAPACITY_BENCHMARK_COMMIT ?? null, benchmarkWorkingTreeDirty: process.env.ATLAS_CAPACITY_BENCHMARK_DIRTY ?? null },
   fixture: lastFacts.fixture,
@@ -272,6 +273,7 @@ writeFileSync(
     '',
     `- HEAD: ${report.fixture.headFiles.toLocaleString('en-US')} files, ${report.fixture.importStatements.toLocaleString('en-US')} import statements`,
     `- Parsed languages: ${JSON.stringify(report.parsedLanguages)}; language validation: ${report.languagePass ? 'pass' : 'fail'}`,
+    `- HEAD dependency edges: ${report.fixture.headEdges.toLocaleString('en-US')} (limits hit: ${report.fixture.headLimitsHit.length === 0 ? 'none' : report.fixture.headLimitsHit.join(', ')})${report.fixturePolicy ? `; Python fixture policy ${report.fixturePolicy} (ADR-067)` : ''}`,
     headOnly ? '- History disabled; one selected frame.' : `- History: ${report.fixture.commits} mainline commits over 58.5 days (${report.fixture.boundary} boundary), ${report.fixture.frames} analyzed frames, ${report.fixture.renames} renames, ${report.fixture.lineages.toLocaleString('en-US')} lineages; status ${report.fixture.historyStatus}`,
     '',
     '## Result',
