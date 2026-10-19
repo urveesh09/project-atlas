@@ -22,7 +22,7 @@ describe('Python grammar and parse status (ADR-056)', () => {
   it('records the installed runtime accurately in artifact and cache provenance', () => {
     const installed = JSON.parse(readFileSync(new URL('./package.json', import.meta.resolve('web-tree-sitter')), 'utf8')) as { version: string };
     expect(PYTHON_GRAMMAR.runtime).toBe(`web-tree-sitter@${installed.version}`);
-    expect(PYTHON_PARSER_VERSION).toBe(`tree-sitter-python@0.25.0+wts@${installed.version}`);
+    expect(PYTHON_PARSER_VERSION).toBe(`tree-sitter-python@0.25.0+atlas.1+wts@${installed.version}`);
   });
 
   it.each([0, 1023, 4095, 8191])('preserves UTF-16 ranges around astral text after %i padding characters', (padding) => {
@@ -61,6 +61,55 @@ describe('Python grammar and parse status (ADR-056)', () => {
     );
     expect(f.parseStatus).toBe('parsed');
     expect(f.parseErrors).toEqual([]);
+  });
+
+  it('parses Python 3.15 syntax: lazy imports, unpacking in comprehensions, unary plus patterns (ADR-080)', () => {
+    const f = facts(
+      [
+        'lazy import json',
+        'lazy from pathlib import Path',
+        'lazy = True',
+        'lazy(lazy.attr)',
+        'def g(lists, dicts, agen):',
+        '    a = [*L for L in lists if L]',
+        '    b = {*s for s in lists}',
+        '    c = {**d for d in dicts}',
+        '    e = sum(*L for L in lists)',
+        '    f = (*x async for x in agen())',
+        '    match a:',
+        '        case +1 | -2: return {+1: b}',
+        '        case +1 - 2j: return c',
+        '',
+      ].join('\n'),
+    );
+    expect(f.parseStatus).toBe('parsed');
+    expect(f.parseErrors).toEqual([]);
+    expect(imports(f)).toEqual([
+      ['imports-value', 'json', null, false],
+      ['imports-value', 'pathlib', null, false],
+    ]);
+    // Five comprehension loops, one comprehension `if`, two cases: as for the same comprehensions without unpacking.
+    expect(f.callables.map((c) => [c.name, c.complexity, c.contributions.loop, c.contributions.if, c.contributions.case])).toEqual([['g', 9, 5, 1, 2]]);
+    expect(f.declarations.map((d) => d.name)).toEqual(['lazy', 'g']);
+  });
+
+  it('rejects a lazy __future__ import, as CPython 3.15 does, and nothing else about lazy imports', () => {
+    const f = facts('import os\nlazy from __future__ import annotations\n');
+    expect(f.parseStatus).toBe('failed');
+    expect(f.failureReason).toBe('SYNTAX_ERROR');
+    expect(f.parseErrors).toEqual([{ code: 1, range: { startOffset: 10, endOffset: 49, startLine: 2, startColumn: 1, endLine: 2, endColumn: 40 } }]);
+    expect(f.imports).toEqual([]);
+    // Scope and wildcard rules are compile-time checks in CPython; the parser accepts them,
+    // and every one is still a dependency.
+    const scoped = facts(['lazy from os import *', 'def f():', '    lazy import a', 'class C:', '    lazy import b', 'try:', '    lazy import c', 'except ImportError:', '    pass', ''].join('\n'));
+    expect(scoped.parseStatus).toBe('parsed');
+    expect(imports(scoped)).toEqual([
+      ['imports-value', 'os', null, false],
+      ['imports-value', 'a', null, false],
+      ['imports-value', 'b', null, false],
+      ['imports-value', 'c', null, true],
+    ]);
+    expect(scoped.imports[0]!.wildcard).toBe(true);
   });
 
   it('reports a syntax error as a failed parse with ranges, and claims nothing else', () => {
@@ -146,6 +195,46 @@ describe('Python imports', () => {
     expect(f.imports[5]!.wildcard).toBe(true);
     expect(f.imports[3]!.names!.map((n) => n.name)).toEqual(['sibling']);
     expect(f.imports.every((i) => i.specifier === null || i.specifier !== '__future__')).toBe(true);
+  });
+
+  it('records lazy imports like the imports they wrap: kinds, names, re-exports, guards (ADR-080)', () => {
+    const f = facts(
+      [
+        'from typing import TYPE_CHECKING',
+        'lazy import os.path as osp, sys',
+        'lazy from ..pkg.mod import (a, b as c)',
+        'lazy from . import sibling',
+        'if TYPE_CHECKING:',
+        '    lazy from heavy import Thing',
+        'lazy import importlib',
+        'm = importlib.import_module("plugins.alpha")',
+        '',
+      ].join('\n'),
+    );
+    expect(imports(f)).toEqual([
+      ['imports-value', 'typing', null, false],
+      ['imports-value', 'os.path', null, false],
+      ['imports-value', 'sys', null, false],
+      ['imports-value', '..pkg.mod', null, false],
+      ['imports-value', '.', null, false],
+      ['imports-type', 'heavy', null, false],
+      ['imports-value', 'importlib', null, false],
+      ['imports-dynamic-literal', 'plugins.alpha', null, false],
+    ]);
+    expect(f.imports[3]!.names!.map((n) => [n.name, n.alias])).toEqual([['a', null], ['b', 'c']]);
+    const init = facts('lazy from .a import x as x\nlazy import b as b\n', 'pkg/__init__.py');
+    expect(init.imports.map((i) => [i.specifier, i.kind])).toEqual([['.a', 'reexports-value'], ['b', 'reexports-value']]);
+  });
+
+  it('finds a dynamic import that is the only element of an unpacked list (ADR-080 grammar)', () => {
+    // tree-sitter-python 0.25.0 parsed `[*a.b(...)]` as `(*a).b(...)`; the 3.15 patch parses
+    // it as `*(a.b(...))`, as it already did with more than one element.
+    const f = facts('import importlib\nmods = [*importlib.import_module("plugins").ALL]\nmore = [*__import__("json").x, 1]\n');
+    expect(imports(f)).toEqual([
+      ['imports-value', 'importlib', null, false],
+      ['imports-dynamic-literal', 'plugins', null, false],
+      ['imports-dynamic-literal', 'json', null, false],
+    ]);
   });
 
   it('ignores calls that only look like dynamic imports when nothing binds them', () => {

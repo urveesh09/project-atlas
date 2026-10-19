@@ -69,7 +69,10 @@ export function extractPythonFacts(path: string, text: string): PythonFacts {
     const root = tree.rootNode;
     if (root.hasError) return failedPythonFacts(text, 'SYNTAX_ERROR', parseErrorsOf(root));
     const context = moduleContext(root);
-    const imports = extractImports(root, path, context);
+    const invalid: ParseError[] = [];
+    const imports = extractImports(root, path, context, invalid);
+    // The grammar accepts `lazy from __future__`; CPython's parser does not (ADR-080).
+    if (invalid.length > 0) return failedPythonFacts(text, 'SYNTAX_ERROR', invalid);
     const { declarations, omitted } = extractDeclarations(root, context);
     const { callables, omitted: callablesOmitted, summary } = collectCallables(root);
     return {
@@ -277,7 +280,7 @@ function guardsImports(tryStatement: Node): boolean {
   return false;
 }
 
-function extractImports(root: Node, path: string, context: ModuleContext): PyRawImport[] {
+function extractImports(root: Node, path: string, context: ModuleContext, invalid: ParseError[]): PyRawImport[] {
   const stub = isPythonStubPath(path);
   const base = repoBasename(path);
   const packageInit = base === '__init__.py' || base === '__init__.pyi';
@@ -292,6 +295,17 @@ function extractImports(root: Node, path: string, context: ModuleContext): PyRaw
       case 'future_import_statement':
         // A compiler directive, not a module dependency (ADR-056).
         continue;
+      case 'lazy_import_statement': {
+        // PEP 810: a lazy import is still a dependency, recorded like the import it wraps
+        // (ADR-080). CPython's parser rejects only a lazy __future__ import; the scope rules
+        // (no functions, classes or try blocks) are compile-time checks, as in `ast.parse`.
+        const inner = named(node)[0];
+        if (inner?.type === 'import_from_statement' && field(inner, 'module_name')?.text === '__future__') {
+          invalid.push({ code: 1, range: rangeOf(node) });
+          continue;
+        }
+        break;
+      }
       case 'import_statement': {
         for (const item of fields(node, 'name')) {
           const dotted = item.type === 'aliased_import' ? field(item, 'name') : item;

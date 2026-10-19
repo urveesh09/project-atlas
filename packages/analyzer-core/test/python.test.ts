@@ -126,7 +126,7 @@ describe('Python in the analyzer pipeline (ADR-060)', () => {
     expect(result.draft.graphs).toHaveLength(2);
     expect(packed.manifest.schemaVersion).toBe('atlas.graph/1.1.0');
     expect(packed.manifest.artifactVersion).toBe('atlas.artifact/1.4.0');
-    expect(packed.manifest.analyzer.parserVersion).toMatch(/^typescript@\S+ tree-sitter-python@0\.25\.0\+wts@0\.27\.1$/);
+    expect(packed.manifest.analyzer.parserVersion).toMatch(/^typescript@\S+ tree-sitter-python@0\.25\.0\+atlas\.1\+wts@0\.27\.1$/);
   });
 
   it('classifies Python files by role and language, and excludes environments and generated code', () => {
