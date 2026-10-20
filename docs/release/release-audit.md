@@ -90,7 +90,7 @@ M2.2 records all eight Python/mixed capacity rows on the development host (2026-
 
 | ID | Owner needed | Required evidence / acceptance | Gate impact |
 |---|---|---|---|
-| R6-01 | Performance reviewer/operator | Recorded four-core/2 GiB job host + SSD; 20-run medium/large HEAD and 12-frame history incl. exact dense/union fixtures; Python/mixed capacity from M2.2; unchanged 15/60/90/240 s targets; sizes/omissions/peaks/leaks. M2.2's Python/mixed rows pass on the development host (ADR-081); the reference machine is still required | P6.2 open |
+| R6-01 | Performance reviewer/operator | Recorded four-core/2 GiB job host + SSD; 20-run medium/large HEAD and 12-frame history incl. exact dense/union fixtures; Python/mixed capacity from M2.2; unchanged 15/60/90/240 s targets; sizes/omissions/peaks/leaks. M2.2's Python/mixed rows pass on the development host (ADR-081). The exact fixtures now exist (`build-history-fixture.mjs --shape exact\|dense`, [ADR-082](../adr/ADR-082-exact-capacity-fixtures.md)); their 20-run development-host rows are pending, and the reference machine is still required | P6.2 open |
 | R6-02 | Device reviewer | Recorded integrated-GPU/8 GiB/1920×1080/DPR≤1.5 Chromium and Firefox; 20 interaction samples, camera/search/first-use/network/draw/combined heap and long-task profiles | P6.2 open; prior cold-load costs require investigation |
 | R6-03 | Product reviewer + five developers | Complete [manual task protocol](manual-review.md), retain initial/follow-up failures and ≥4/5 successes each; coverage interpretation | P6.3 open |
 | R6-04 | Accessibility reviewers | [Numbered NVDA/Firefox/Chrome and VoiceOver/Safari scripts](manual-review.md#screen-reader-rehearsal-scripts-m33), no-canvas equivalents, focus/zoom/motion/announcement/recovery evidence; inspect retained incomplete axe checks | P6.3 open; M3.3 prepares the review, no human results claimed |
@@ -146,7 +146,9 @@ all remaining work as human or infrastructure acceptance.
 
 ## Release identity and approval record
 
-Current package version: `0.1.0-beta.2`; analyzer: `0.1.0-dev.9` (Python 3.15 grammar,
+Current package version: `0.1.0-beta.2`; analyzer: `0.1.0-dev.10` (export fitting,
+[ADR-083](../adr/ADR-083-fit-the-export.md), with history memory held by
+[ADR-084](../adr/ADR-084-history-memory.md); Python 3.15 grammar,
 [ADR-080](../adr/ADR-080-python-3-15-syntax.md), after the namespace precedence correction,
 [ADR-066](../adr/ADR-066-python-namespace-precedence.md)); artifact:
 `atlas.artifact/1.4.0`; layout: 1.1. Distribution manifests record exact source HEAD,

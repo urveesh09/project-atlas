@@ -43,7 +43,7 @@ ADR. It does not cover:
   - The hosted service analyzes public GitHub repositories in offline sandboxes.
 - **Versions.**
   - Packages: `0.1.0-beta.2` (prepared 2026-10-18, not yet tagged).
-  - Analyzer: `0.1.0-dev.9` (M2.7 Python 3.15 grammar, ADR-080; shared edge budget ADR-067; namespace correction ADR-066; runtime provenance ADR-062).
+  - Analyzer: `0.1.0-dev.10` (M5.2 export fitting, ADR-083; M2.7 Python 3.15 grammar, ADR-080; shared edge budget ADR-067; namespace correction ADR-066; runtime provenance ADR-062).
   - Graph: `atlas.graph/1.1.0`.
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
   - M1/M2 dependency decisions extend ADR-061. M2 task PRs reserve ADR-063–065;
@@ -54,7 +54,8 @@ ADR. It does not cover:
     M4.3 backups are ADR-074, M4.4 image supply chain ADR-075 and M4.5 service levels
     ADR-076. M4.6 public-service pages are ADR-077, record retention and the status
     channel ADR-078, browser-journey guards ADR-079, Python 3.15 syntax ADR-080 and
-    Python capacity ADR-081. Allocate ADR-082 next.
+    Python capacity ADR-081. M5.2's exact capacity fixtures are ADR-082, export fitting
+    ADR-083 and history memory ADR-084. Allocate ADR-085 next.
 - **Evidence.**
   - The M3.5 baseline passes 813 tests with 83 conditional skips; the CPython oracle
     runs in this evidence. M4.1 adds operator-tooling regressions; exact current

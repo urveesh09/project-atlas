@@ -16,10 +16,18 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 - Python and mixed capacity results ([ADR-081](docs/adr/ADR-081-python-capacity.md)): all
   eight medium/large HEAD and 12-frame history rows pass the unchanged budgets in
   4 CPUs and 2 GiB.
+- The plan's exact capacity fixtures ([ADR-082](docs/adr/ADR-082-exact-capacity-fixtures.md)):
+  `build-history-fixture.mjs --shape exact|dense` builds 10,000-file frames with exactly
+  100,000 edges and a 20,000-lineage history, and a dense HEAD past every dependency
+  ceiling; the benchmarks require the constructed counts in every sample.
 
 ### Changed
-- Analyzer `0.1.0-dev.9`: the parser identity records the patched grammar, so analysis
-  IDs change. Graph content of the pinned corpus is otherwise unchanged.
+- Analyzer `0.1.0-dev.10` (from dev.8): the parser identity records the patched grammar
+  (dev.9), and export fitting changes results over the limits (dev.10), so analysis IDs
+  change. Graph content of the pinned corpus is otherwise unchanged.
+- A dense selected commit whose evidence exceeds the 128 MiB decoded chunk ceiling keeps
+  fewer evidence rows (`EVIDENCE_LIMIT`) and gets a partial city instead of failing
+  ([ADR-083](docs/adr/ADR-083-fit-the-export.md), superseding ADR-024's rejection).
 - The Python capacity fixture keeps every authored import and imports `typing` only
   where a `TYPE_CHECKING` guard uses it (policy `atlas.capacity.python/2`).
 
@@ -27,6 +35,15 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 - Package and source dependency edges share the 100,000-edge budget, so a repository
   near the limit gives a partial result instead of failing export
   ([ADR-067](docs/adr/ADR-067-shared-dependency-edge-budget.md)).
+- History that does not fit the artifact limits is reduced in one pass: frames are
+  encoded as they complete and older frames that cannot fit are not analyzed, and time is
+  reserved for the export, so the plan's large temporal fixture no longer runs past the
+  300 s deadline (888 s before) ([ADR-083](docs/adr/ADR-083-fit-the-export.md)).
+- An oversized artifact chunk is reported as a size limit, not an internal schema error.
+- Large history holds less memory while frames are analyzed: snapshots release their
+  inventory and parse facts, the caches keep two frames instead of the whole window, and
+  older kept frames wait for assembly as their proven encoded chunks. The artifact is
+  unchanged ([ADR-084](docs/adr/ADR-084-history-memory.md)).
 
 ## [0.1.0-beta.2] - 2026-10-18
 

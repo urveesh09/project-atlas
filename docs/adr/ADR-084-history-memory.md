@@ -95,4 +95,7 @@ parent heap and 512 MiB parser-child heap limits.
   - the blob cache releases bytes two frames old, reads them again from Git, and counts them
     once against the budget;
   - the ADR-083 export-fit tests and the Harbor cross-platform digest golden pass unchanged.
-- Container measurements: in ADR-082.
+- **In the 4-CPU/2-GiB container** (one diagnostic run each, image from `d4837fd`): the
+  exact large history peaks at 1,769,410,560 bytes (82.4%), down from 2,072,801,280
+  (96.5%), in 150.57 s against 144.63 s, with no memory events; details in
+  [ADR-082](ADR-082-exact-capacity-fixtures.md). The 20-run rows are pending.

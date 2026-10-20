@@ -77,4 +77,16 @@ is only known after analysis. A reviewer could not run R6-01 as written.
 - **A one-sample dense HEAD check at 13 imports per module**, outside the container,
   reproduced every constructed count: 100,000 edges, 28,154 omitted and 128,154
   observations.
-- Container measurements: below.
+- **Container diagnostics, 2026-10-20** (one warm-up run each in the 4-CPU/2-GiB/no-swap
+  offline container, `--diagnostic-once`; they report time and memory, not the
+  constructed counts, and are not acceptance samples):
+
+  | Fixture | Image source | Time | Frames | Job peak | Memory events |
+  |---|---|---:|---:|---:|---|
+  | Exact history | dev.9 (`16d1147`) | 888.46 s | 6 | 1,970,372,608 B | none |
+  | Exact history | dev.10 (`bf6f282`, ADR-083) | 144.63 s | 6 | 2,072,801,280 B (96.5%) | none |
+  | Exact history | dev.10 (`d4837fd`, ADR-084) | 150.57 s | 6 | 1,769,410,560 B (82.4%) | none |
+  | Dense HEAD | dev.10 (`d4837fd`) | 44.18 s | 1 (partial) | 1,598,824,448 B (74.4%) | none |
+
+- **The 20-run rows** (exact HEAD, exact history, dense HEAD), which check the constructed
+  counts in every sample, are pending; they run from a clean checkout of the merged commit.
