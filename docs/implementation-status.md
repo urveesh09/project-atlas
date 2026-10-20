@@ -73,6 +73,19 @@ owner merge are required.
     payload exactly as committed, with dev.10's version as the only difference from dev.9.
 - **CI correction:** `bf6f282` was pushed before the test typecheck ran, and `verify`
   failed on all three platforms (`exact-capacity.test.ts`, TS18048). Fixed in `d8a6e16`.
+- **After merge, `main` CI failed on Windows `verify` (2026-10-20, run 39452686006):**
+  - `exact-capacity.test.ts` "matches the analyzer exactly at a reduced scale" took 138 s
+    against its 120 s timeout. It had taken 67 s on the pull request's Windows run and 9 s
+    on Ubuntu.
+  - **Cause:** building its 40-commit fixture launched about 160 Git processes, which are
+    slow on Windows runners (26 s of the test's 32 s locally).
+  - **Fix:** `importGitFixture` writes the same commits through one `git fast-import`
+    stream. Its tests require identical commit IDs to `createGitFixture` in SHA-1 and
+    SHA-256 repositories. All five capacity fixtures also come out identical: exact
+    history, exact HEAD, dense HEAD, near-limit TypeScript and Python history. The exact
+    history builds in 1.2 s instead of 98 s, and `build-history-fixture.mjs` uses it too.
+  - No other Windows test was near its limit; the slowest, the CPython oracle at 103 s,
+    has 240 s and 600 s limits.
 - **Open:**
   - the three 20-run exact rows, run from the merged commit;
   - R6 reviewer packets and the candidate freeze;

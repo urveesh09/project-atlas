@@ -99,6 +99,51 @@ export function createGitFixture(commits: readonly FixtureCommit[], options: { o
   };
 }
 
+/**
+ * The same repository as `createGitFixture` from one `git fast-import` stream: identical
+ * commits, trees and IDs (tested), but objects and the `main` ref only, with no checkout.
+ * One Git process instead of several per commit, so large histories build in seconds on
+ * every platform (Windows process creation made the per-commit path take minutes).
+ * Branches and tags are not supported; messages must already be in the form
+ * `git commit -m` stores, and dates must carry an explicit offset (`Z` or `±HH:MM`).
+ */
+export function importGitFixture(commits: readonly FixtureCommit[], options: { objectFormat?: 'sha1' | 'sha256'; parent?: string } = {}): GitFixture {
+  const dir = mkdtempSync(path.join(options.parent ?? tmpdir(), 'atlas-fixture-'));
+  runGit(dir, ['init', '-q', '-b', 'main', ...(options.objectFormat === 'sha256' ? ['--object-format=sha256'] : [])]);
+  const quote = (p: string) => `"${p.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`;
+  const data = (bytes: Buffer) => [Buffer.from(`data ${bytes.length}\n`), bytes, Buffer.from('\n')];
+  const identity = (date: string) => {
+    const zone = /(Z|[+-]\d{2}:\d{2})$/.exec(date)?.[1];
+    const seconds = Date.parse(date) / 1000;
+    if (zone === undefined || !Number.isInteger(seconds)) throw new Error(`Fixture date needs whole seconds and an explicit offset: ${date}`);
+    return `ATLAS Fixture <fixture@atlas.invalid> ${seconds} ${zone === 'Z' ? '+0000' : zone.replace(':', '')}`;
+  };
+  const stream: Buffer[] = [];
+  commits.forEach((commit, i) => {
+    if (commit.branch || commit.tag) throw new Error('importGitFixture does not create branches or tags; use createGitFixture');
+    // `git commit -m` stores the message with surrounding blank lines and trailing spaces removed.
+    const message = commit.message.split('\n').map((line) => line.trimEnd()).join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
+    if (message !== commit.message || message === '') throw new Error('Fixture messages must be non-empty and already in committed form');
+    stream.push(Buffer.from(`commit refs/heads/main\nmark :${i + 1}\nauthor ${identity(commit.date)}\ncommitter ${identity(commit.date)}\n`), ...data(Buffer.from(`${message}\n`)));
+    if (i > 0) stream.push(Buffer.from(`from :${i}\n`));
+    for (const [from, to] of commit.renames ?? []) stream.push(Buffer.from(`R ${quote(from)} ${quote(to)}\n`));
+    for (const [file, content] of Object.entries(commit.files ?? {})) {
+      if (content === null) stream.push(Buffer.from(`D ${quote(file)}\n`));
+      else stream.push(Buffer.from(`M 100644 inline ${quote(file)}\n`), ...data(typeof content === 'string' ? Buffer.from(content, 'utf8') : Buffer.from(content)));
+    }
+    stream.push(Buffer.from('\n'));
+  });
+  runGit(dir, ['fast-import', '--quiet', '--done'], { input: Buffer.concat([...stream, Buffer.from('done\n')]), timeoutMs: 600_000 });
+  const oids = commits.length === 0 ? [] : runGit(dir, ['rev-list', '--reverse', '--first-parent', 'main']).trim().split('\n');
+  if (oids.length !== commits.length) throw new Error('fast-import did not create every fixture commit');
+  return {
+    dir,
+    commits: oids,
+    git: (args, input) => runGit(dir, args, input === undefined ? {} : { input }),
+    dispose: () => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }),
+  };
+}
+
 export interface RawTreeEntry {
   mode: '100644' | '100755' | '120000' | '160000';
   /** Raw path bytes (may be invalid UTF-8) or a string. */

@@ -6,7 +6,7 @@ import { analyzeCommit } from '@atlas/analyzer-core';
 import { gitVersion, openLocalRepository, resolveLocalCommit } from '@atlas/ingest';
 import { LIMITS, localRepositoryId } from '@atlas/schema';
 import { selectFrameIndices } from '@atlas/history';
-import { createGitFixture } from '@atlas/test-fixtures';
+import { importGitFixture } from '@atlas/test-fixtures';
 
 type Commit = { date: string; files: Record<string, string | null>; renames?: [string, string][] };
 const { buildExactCapacityCommits, frameCommitIndices } = await import(pathToFileURL(path.resolve('scripts/lib/exact-capacity.mjs')).href);
@@ -84,7 +84,8 @@ describe('exact capacity fixture (ADR-082)', () => {
   it('matches the analyzer exactly at a reduced scale', async () => {
     const options = { files: 600, edges: 3000, union: 1200, stable: 300 };
     const { commits, expected } = buildExactCapacityCommits(options);
-    const fixture = createGitFixture(commits);
+    // One fast-import, not ~160 Git processes: the per-commit path took 138 s on a Windows runner.
+    const fixture = importGitFixture(commits);
     const { repo, git } = await openLocalRepository(fixture.dir);
     try {
       const result = await analyzeCommit({

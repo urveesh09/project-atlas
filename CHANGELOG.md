@@ -40,6 +40,11 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   reserved for the export, so the plan's large temporal fixture no longer runs past the
   300 s deadline (888 s before) ([ADR-083](docs/adr/ADR-083-fit-the-export.md)).
 - An oversized artifact chunk is reported as a size limit, not an internal schema error.
+- The exact capacity test timed out on a Windows runner after its merge (138 s against
+  120 s): building its 40-commit Git fixture launched about 160 Git processes. Test and
+  capacity fixtures now come from one `git fast-import` stream (`importGitFixture`), which
+  builds the same commits, tested ID for ID; the 40-commit exact history builds in 1.2 s
+  instead of 98 s.
 - Large history holds less memory while frames are analyzed: snapshots release their
   inventory and parse facts, the caches keep two frames instead of the whole window, and
   older kept frames wait for assembly as their proven encoded chunks. The artifact is
