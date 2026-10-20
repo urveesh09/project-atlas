@@ -121,10 +121,11 @@ jobs:
       - run: git --version
       # The CPython oracle compares the Python parser with this exact interpreter on every
       # OS. Runners' default Pythons differ (3.12 on Ubuntu and Windows, 3.15 on macOS) (ADR-068).
+      # 3.15 since the grammar parses its syntax (ADR-080).
       - id: python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: 3.14.8
+          python-version: 3.15.0
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @atlas/web exec playwright install --with-deps chromium
       - run: pnpm verify

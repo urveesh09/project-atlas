@@ -23,6 +23,7 @@ const head = process.argv.includes('--head');
 const language = option('language', 'typescript');
 if (!['typescript', 'python', 'mixed'].includes(language)) throw new Error('Invalid capacity language');
 const runs = Number(option('runs', '20'));
+const { PYTHON_CAPACITY_POLICY } = await import('./lib/capacity-language.mjs');
 const out = option('out', files > 3000 ? 'phase6-large-history-container' : 'phase6-medium-history-container');
 if (!Number.isInteger(files) || files < 1 || files > (head ? 9850 : 9740) || !Number.isInteger(runs) || runs < 1 || runs > 100 || !/^[a-z0-9-]+$/.test(out)) throw new Error('Invalid fixture size, sample count or report name');
 const fixtureArg = option('fixture');
@@ -33,6 +34,8 @@ try { fixtureMetadata = JSON.parse(await readFile(path.join(fixture, 'atlas-capa
 catch (error) { if (error.code !== 'ENOENT' || language !== 'typescript' || head) throw error; }
 if (fixtureMetadata && (fixtureMetadata.language !== language || fixtureMetadata.mode !== (head ? 'head' : 'history') || fixtureMetadata.files !== files))
   throw new Error('Prepared fixture does not match the requested language, mode and size');
+if (language !== 'typescript' && fixtureMetadata?.policy !== PYTHON_CAPACITY_POLICY)
+  throw new Error(`Prepared ${language} fixture was not generated with ${PYTHON_CAPACITY_POLICY}; regenerate it (ADR-067)`);
 const parent = await realpath(path.join(root, '.atlas-tmp', 'capacity-fixtures'));
 if (!fixture.startsWith(parent + path.sep)) throw new Error('Use a prepared fixture generated under .atlas-tmp/capacity-fixtures');
 const inspect = JSON.parse(execFileSync('docker', ['image', 'inspect', image], { encoding: 'utf8', windowsHide: true, timeout: 15_000 }))[0];

@@ -10,11 +10,12 @@ and primary-action contrast landed in PR #37 (all 15 checks green on `d444c67`),
 preparation (PR #36), macOS CI (PR #34) and
 Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
 prepared; R6-04 remains open. M3.4 intermittent layout diagnosis remains open.
-M2.2 Python/mixed capacity
-and M2.7 lazy-import syntax remain open. The hosted Python journey, properties,
+M2.7 Python 3.15 syntax (ADR-080) and M2.2 Python/mixed capacity (ADR-081, with the
+shared edge budget of ADR-067) are implemented in one pull request; exact-head CI and
+owner merge are pending. The hosted Python journey, properties,
 coverage tooling, namespace correction and six-repository corpus have landed; dated
-evidence is recorded below. Analyzer `0.1.0-dev.8`, artifact 1.4.0 and package version
-`0.1.0-beta.1` are unchanged. Unsupported languages remain opaque when included.
+evidence is recorded below. Analyzer `0.1.0-dev.9` (from dev.8), artifact 1.4.0 and
+package version `0.1.0-beta.2`, tagged 2026-10-19. Unsupported languages remain opaque when included.
 The [public demo](https://urveesh09.github.io/project-atlas/) is a static viewer on a
 bundled vuejs/core analysis. Changes require an owner-merged PR and all CI checks;
 the owner must add the macOS and browser jobs to required checks as documented in
@@ -30,6 +31,64 @@ Unchanged since 2026-10-11:
 - Runtime instrumentation remains deferred.
 
 Agents: read [AGENTS.md](../AGENTS.md).
+
+### Production M2.7 and M2.2: Python 3.15 syntax and Python capacity (2026-10-20)
+
+One pull request, analyzer `0.1.0-dev.8` → `0.1.0-dev.9`. Exact-head CI and owner merge
+are required.
+- **M2.7, Python 3.15 syntax ([ADR-080](adr/ADR-080-python-3-15-syntax.md)).**
+  - No tree-sitter-python release has the syntax. The grammar is upstream 0.25.0 plus a
+    recorded patch for lazy imports (as upstream PR #336), unpacking in comprehensions
+    and unary plus in literal patterns.
+  - `scripts/build-python-grammar.mjs` rebuilds the vendored WASM byte for byte, offline,
+    from a pinned commit, CLI archive hash and emscripten image digest.
+  - Lazy imports are ordinary import facts. `lazy from __future__` is a `SYNTAX_ERROR`, as
+    in CPython's parser.
+  - CPython 3.15.0 oracle on its full source standard library: 2,044 files parsed by
+    both, 0 mismatches, 3 parsed only by CPython (0.15%, down from 59). The three are
+    older grammar gaps that CI's 3.14.8 oracle also reports. CI and the release workflow
+    move the oracle to 3.15.0.
+  - The six pinned repositories change only in the analyzer version.
+- **Shared edge budget ([ADR-067](adr/ADR-067-shared-dependency-edge-budget.md)).** Written
+  on 2026-10-17 and left uncommitted; it lands here after the first dev.9 capacity
+  attempt failed the same way. Package and source edges now share the 100,000-edge
+  budget, with exact omission counts and partial dependency metrics. The capacity
+  fixture keeps all ten authored imports per module (policy `atlas.capacity.python/2`).
+  The [failure report](benchmarks/production-python-head-large-edge-overflow-6ad88a6.md)
+  is kept.
+- **M2.2, capacity ([ADR-081](adr/ADR-081-python-capacity.md)).** All eight rows pass, 20
+  fresh-process runs each in 4 CPUs/2 GiB/no swap, from clean commit `8fc45c0` and one
+  labelled image:
+
+  | Row | p95 | Budget | Job peak | Artifact |
+  |---|---:|---:|---:|---:|
+  | [Python HEAD medium](benchmarks/production-python-head-medium-dev9.md) | 5.96 s | 15 s | 475.43 MiB | 1.65 MiB |
+  | [Mixed HEAD medium](benchmarks/production-mixed-head-medium-dev9.md) | 5.74 s | 15 s | 579.19 MiB | 1.71 MiB |
+  | [Python HEAD large](benchmarks/production-python-head-large-dev9.md) | 18.09 s | 60 s | 663.71 MiB | 5.43 MiB |
+  | [Mixed HEAD large](benchmarks/production-mixed-head-large-dev9.md) | 17.43 s | 60 s | 828.06 MiB | 5.59 MiB |
+  | [Python history medium](benchmarks/production-python-history-medium-dev9.md) | 54.28 s | 90 s | 1,374.95 MiB | 4.73 MiB |
+  | [Mixed history medium](benchmarks/production-mixed-history-medium-dev9.md) | 46.21 s | 90 s | 1,210.24 MiB | 4.92 MiB |
+  | [Python history large](benchmarks/production-python-history-large-dev9.md) | 197.35 s | 240 s | 1,800.01 MiB | 10.60 MiB |
+  | [Mixed history large](benchmarks/production-mixed-history-large-dev9.md) | 196.86 s | 240 s | 1,892.41 MiB | 11.00 MiB |
+
+  - No row hit a limit or recorded a cgroup memory event.
+  - Headroom is small in two places: mixed large history uses 92% of the 2 GiB, and
+    mixed medium history packs 4.92 of 5 MiB.
+  - One mixed large-history sample took 257.55 s; the gate is p95, which passes.
+  - Python medium history was measured twice. The first attempt was stopped in its 18th
+    sample when the host ran low on memory and its container was removed; it left no
+    report. The published row is the rerun on the same commit and image.
+- **Checks on 2026-10-20, Windows, Node 24.22.0:**
+  - `pnpm verify` with required browser tests: 908 passed, 91 skipped (service-gated).
+  - The CPython 3.15.0 oracle ran in it: 2,052 files, 2,044 parsed by both, 0
+    mismatches.
+  - The six pinned repositories, 5 offline repeats each, on the final source:
+    `check-repository-baseline` finds every payload and authored check exactly as
+    committed with dev.9. Below the cap the edge budget changes nothing. Only timings
+    in the corpus report change.
+  - 302 relative links in the changed documents resolve.
+- **Open:** R6-01's reference machine and gate G6. The superseded dev.7 rows (ADR-063)
+  are kept as history.
 
 ### Production M5.1: `0.1.0-beta.2` prepared (2026-10-18)
 

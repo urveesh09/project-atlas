@@ -6,6 +6,28 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 
 ## [Unreleased]
 
+### Added
+- Python 3.15 syntax ([ADR-080](docs/adr/ADR-080-python-3-15-syntax.md)):
+  - lazy imports (`lazy import x`, `lazy from x import y`) are found as ordinary imports;
+  - unpacking in comprehensions and unary plus in `match` literal patterns parse;
+  - the grammar is rebuilt from upstream source plus a recorded patch by
+    `scripts/build-python-grammar.mjs`, byte for byte;
+  - the CPython parser oracle runs on 3.15.0.
+- Python and mixed capacity results ([ADR-081](docs/adr/ADR-081-python-capacity.md)): all
+  eight medium/large HEAD and 12-frame history rows pass the unchanged budgets in
+  4 CPUs and 2 GiB.
+
+### Changed
+- Analyzer `0.1.0-dev.9`: the parser identity records the patched grammar, so analysis
+  IDs change. Graph content of the pinned corpus is otherwise unchanged.
+- The Python capacity fixture keeps every authored import and imports `typing` only
+  where a `TYPE_CHECKING` guard uses it (policy `atlas.capacity.python/2`).
+
+### Fixed
+- Package and source dependency edges share the 100,000-edge budget, so a repository
+  near the limit gives a partial result instead of failing export
+  ([ADR-067](docs/adr/ADR-067-shared-dependency-edge-budget.md)).
+
 ## [0.1.0-beta.2] - 2026-10-18
 
 ### Added

@@ -43,7 +43,7 @@ ADR. It does not cover:
   - The hosted service analyzes public GitHub repositories in offline sandboxes.
 - **Versions.**
   - Packages: `0.1.0-beta.2` (prepared 2026-10-18, not yet tagged).
-  - Analyzer: `0.1.0-dev.8` (M2.6 namespace correction; ADR-066; runtime provenance ADR-062).
+  - Analyzer: `0.1.0-dev.9` (M2.7 Python 3.15 grammar, ADR-080; shared edge budget ADR-067; namespace correction ADR-066; runtime provenance ADR-062).
   - Graph: `atlas.graph/1.1.0`.
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
   - M1/M2 dependency decisions extend ADR-061. M2 task PRs reserve ADR-063–065;
@@ -53,7 +53,8 @@ ADR. It does not cover:
     PR #37); the M4.1 reference deployment is ADR-072 and M4.2 monitoring is ADR-073.
     M4.3 backups are ADR-074, M4.4 image supply chain ADR-075 and M4.5 service levels
     ADR-076. M4.6 public-service pages are ADR-077, record retention and the status
-    channel ADR-078, browser-journey guards ADR-079. Allocate ADR-080 next.
+    channel ADR-078, browser-journey guards ADR-079, Python 3.15 syntax ADR-080 and
+    Python capacity ADR-081. Allocate ADR-082 next.
 - **Evidence.**
   - The M3.5 baseline passes 813 tests with 83 conditional skips; the CPython oracle
     runs in this evidence. M4.1 adds operator-tooling regressions; exact current
@@ -322,6 +323,21 @@ historical correction checklist, not the current support description:
 
 #### M2.2 Python capacity benchmark (high for hosted launch)
 
+**Implemented, 2026-10-20 ([ADR-081](../adr/ADR-081-python-capacity.md)); exact-head CI
+and owner merge required.**
+- **All eight rows pass** on analyzer dev.9, from one clean commit and image, 20 runs
+  each in 4 CPUs and 2 GiB with no swap:
+  - medium and large HEAD, Python and mixed: p95 5.74–18.09 s against 15 and 60 s;
+  - medium history: p95 54.28 s (Python) and 46.21 s (mixed) against 90 s;
+  - large history: p95 197.35 s (Python) and 196.86 s (mixed) against 240 s.
+- **The first attempt found a defect.** Large Python HEAD exceeded the 100,000-edge
+  bound when package and source edges were merged. [ADR-067](../adr/ADR-067-shared-dependency-edge-budget.md)
+  applies one budget to both and keeps every authored fixture import (policy
+  `atlas.capacity.python/2`); the failure report is kept.
+- **Small headroom, recorded:** mixed large history peaks at 1,892 MiB of 2,048, and mixed
+  medium history packs 4.92 of 5 MiB.
+- Development-host evidence only: R6-01's reference machine and G6 stay open.
+
 - **Why.**
   - Every capacity result predates Python: medium HEAD 6.81 s p95, large HEAD 20.59 s,
     large history 202.37 s in 4 CPUs and 2 GiB.
@@ -451,6 +467,19 @@ and owner merge remain pending; M2.2 capacity is tracked separately.
   bytes" rule.
 
 #### M2.7 Python 3.15 syntax (found by M3.1)
+
+**Implemented, 2026-10-19 ([ADR-080](../adr/ADR-080-python-3-15-syntax.md)); exact-head CI
+and owner merge required.**
+- **No upstream release has the syntax,** so the grammar is upstream 0.25.0 plus a recorded
+  patch. It covers lazy imports as in upstream PR #336, PEP 798 and unary-plus patterns.
+- **Built reproducibly.** `scripts/build-python-grammar.mjs` uses a pinned commit, CLI hash
+  and emscripten digest, runs offline, and rebuilds the vendored file byte for byte.
+- **Lazy imports are ordinary import facts.** `lazy from __future__` is a failed parse, as
+  in CPython.
+- **CPython 3.15.0 oracle:** 2,044 files parsed by both, 0 mismatches. 3 files parse only in
+  CPython (0.15%); they are older grammar gaps that CI's 3.14.8 oracle also reports. CI and
+  the release workflow now use 3.15.0.
+- **Analyzer `0.1.0-dev.9`.** In the corpus, only the version identity changes.
 
 - **Why.** CPython 3.15 (released 2026-10) adds lazy imports (PEP 810: `lazy import x`,
   `lazy from x import y`), and its own standard library uses them. The vendored grammar

@@ -7,14 +7,15 @@ import { Language, Parser } from 'web-tree-sitter';
 const PYTHON_RUNTIME_VERSION = '0.27.1';
 
 /**
- * The Python grammar (ADR-056): tree-sitter-python 0.25.0, prebuilt to WebAssembly and
+ * The Python grammar (ADR-056): tree-sitter-python 0.25.0 with the Python 3.15 syntax
+ * patch (ADR-080), built reproducibly to WebAssembly by scripts/build-python-grammar.mjs and
  * vendored with its hash, run by web-tree-sitter. Nothing here touches analyzed files: the
  * caller hands over text, and syntax trees never leave this package.
  */
 export const PYTHON_GRAMMAR = {
   name: 'tree-sitter-python',
-  version: '0.25.0',
-  sha256: '16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47',
+  version: '0.25.0+atlas.1',
+  sha256: '40f01ba5e3ef4e4ff3d697d00ac290270ca64843b29a7126ba87ad3747aed3bb',
   runtime: `web-tree-sitter@${PYTHON_RUNTIME_VERSION}`,
 } as const;
 

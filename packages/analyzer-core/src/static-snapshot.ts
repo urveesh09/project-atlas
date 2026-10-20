@@ -9,6 +9,7 @@ import type { Inventory } from './inventory.js';
 import { computeMetrics } from './metrics.js';
 import type { ParserPool } from './parse-pool.js';
 import { evaluateRules } from './rules.js';
+import { boundSnapshotEdges } from './edge-budget.js';
 
 /**
  * Static analysis of one snapshot (Phase 2): parse → resolve → aggregate → cycles →
@@ -44,6 +45,7 @@ export async function analyzeStaticSnapshot(input: {
   for (const node of hierarchy.nodes) if (node.kind === 'external-package') declaredExternals.set(node.ecosystem === 'pypi' ? `pypi:${node.packageName}` : node.packageName, node);
   const { observations, perimeterNodes } = buildObservations({ snapshotId: snap, facts: parsed.facts, resolver: hierarchy.resolver, pythonResolver: hierarchy.pythonResolver, fileNodeIds: hierarchy.fileNodeIds, declaredExternals });
   const aggregation = aggregateEdges(snap, observations);
+  const boundedEdges = boundSnapshotEdges(hierarchy.edges, aggregation);
 
   // File nodes gain their parse status and declarations.
   const nodes: GraphNode[] = hierarchy.nodes.map((node) => {
@@ -87,9 +89,10 @@ export async function analyzeStaticSnapshot(input: {
   if (inventory.omitted.length > 0) limits.push({ limit: 'FILE_LIMIT', count: inventory.omitted.length, stage: 'inventory' });
   const budgetOpaque = inventory.files.filter((f) => f.opaqueReason === 'SOURCE_BUDGET').length;
   if (budgetOpaque > 0) limits.push({ limit: 'SOURCE_BUDGET', count: budgetOpaque, stage: 'inventory' });
-  if (aggregation.edgesOmitted > 0) {
-    limits.push({ limit: 'EDGE_LIMIT', count: aggregation.edgesOmitted, stage: 'dependencies' });
-    reason('EDGE_LIMIT', aggregation.edgesOmitted);
+  if (boundedEdges.edgesOmitted > 0) {
+    limits.push({ limit: 'EDGE_LIMIT', count: boundedEdges.edgesOmitted, stage: 'dependencies' });
+    reason('EDGE_LIMIT', boundedEdges.edgesOmitted);
+    reason('EDGE_RELATIONSHIPS_OMITTED', boundedEdges.relationshipsOmitted);
   }
   if (aggregation.observationsOmitted > 0) {
     limits.push({ limit: 'EVIDENCE_LIMIT', count: aggregation.observationsOmitted, stage: 'dependencies' });
@@ -102,7 +105,7 @@ export async function analyzeStaticSnapshot(input: {
     repoId: input.repoId,
     commitOid: input.commitOid,
     nodes,
-    edges: [...hierarchy.edges, ...aggregation.edges].sort((a, b) => compareAscii(a.id, b.id)),
+    edges: boundedEdges.edges,
     importObservations: aggregation.observations,
     diagnostics: [],
     metrics: [],

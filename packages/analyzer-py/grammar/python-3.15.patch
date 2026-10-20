@@ -1,0 +1,340 @@
+diff --git a/grammar.js b/grammar.js
+index 2bbe35c..d1693d4 100644
+--- a/grammar.js
++++ b/grammar.js
+@@ -133,6 +133,7 @@ module.exports = grammar({
+     _simple_statement: $ => choice(
+       $.future_import_statement,
+       $.import_statement,
++      $.lazy_import_statement,
+       $.import_from_statement,
+       $.print_statement,
+       $.assert_statement,
+@@ -193,6 +194,14 @@ module.exports = grammar({
+       optional(','),
+     ),
+ 
++    lazy_import_statement: $ => seq(
++      'lazy',
++      choice(
++        $.import_statement,
++        $.import_from_statement,
++      ),
++    ),
++
+     aliased_import: $ => seq(
+       field('name', $.dotted_name),
+       'as',
+@@ -558,7 +567,7 @@ module.exports = grammar({
+       $.true,
+       $.false,
+       $.none,
+-      seq(optional('-'), choice($.integer, $.float)),
++      seq(optional(choice('-', '+')), choice($.integer, $.float)),
+       $.complex_pattern,
+       $.dotted_name,
+       '_',
+@@ -616,7 +625,7 @@ module.exports = grammar({
+     ),
+ 
+     complex_pattern: $ => prec(1, seq(
+-      optional('-'),
++      optional(choice('-', '+')),
+       choice($.integer, $.float),
+       choice('+', '-'),
+       choice($.integer, $.float),
+@@ -994,28 +1003,28 @@ module.exports = grammar({
+ 
+     list_comprehension: $ => seq(
+       '[',
+-      field('body', $.expression),
++      field('body', choice($.expression, $.list_splat)),
+       $._comprehension_clauses,
+       ']',
+     ),
+ 
+     dictionary_comprehension: $ => seq(
+       '{',
+-      field('body', $.pair),
++      field('body', choice($.pair, $.dictionary_splat)),
+       $._comprehension_clauses,
+       '}',
+     ),
+ 
+     set_comprehension: $ => seq(
+       '{',
+-      field('body', $.expression),
++      field('body', choice($.expression, $.list_splat)),
+       $._comprehension_clauses,
+       '}',
+     ),
+ 
+     generator_expression: $ => seq(
+       '(',
+-      field('body', $.expression),
++      field('body', choice($.expression, $.list_splat)),
+       $._comprehension_clauses,
+       ')',
+     ),
+@@ -1175,7 +1184,7 @@ module.exports = grammar({
+         $.identifier,
+       )),
+       alias(
+-        choice('type', 'match'),
++        choice('type', 'match', 'lazy'),
+         $.identifier,
+       ),
+     ),
+diff --git a/test/corpus/expressions.txt b/test/corpus/expressions.txt
+index 7257d3f..890d72c 100644
+--- a/test/corpus/expressions.txt
++++ b/test/corpus/expressions.txt
+@@ -1228,3 +1228,61 @@ y: type[int] = int
+             (type
+               (identifier)))))
+       (identifier))))
++
++================================================================================
++Unpacking in comprehensions (PEP 798)
++================================================================================
++
++[*("prefix", x) for x in xs]
++{*s for s in sets}
++(*a async for a in agen())
++{**d for d in dicts}
++sum(*L for L in lists)
++
++--------------------------------------------------------------------------------
++
++(module
++  (expression_statement
++    (list_comprehension
++      (list_splat
++        (tuple
++          (string
++            (string_start)
++            (string_content)
++            (string_end))
++          (identifier)))
++      (for_in_clause
++        (identifier)
++        (identifier))))
++  (expression_statement
++    (set_comprehension
++      (list_splat
++        (identifier))
++      (for_in_clause
++        (identifier)
++        (identifier))))
++  (expression_statement
++    (generator_expression
++      (list_splat
++        (identifier))
++      (for_in_clause
++        (identifier)
++        (call
++          (identifier)
++          (argument_list)))))
++  (expression_statement
++    (dictionary_comprehension
++      (dictionary_splat
++        (identifier))
++      (for_in_clause
++        (identifier)
++        (identifier))))
++  (expression_statement
++    (call
++      (identifier)
++      (generator_expression
++        (list_splat
++          (identifier))
++        (for_in_clause
++          (identifier)
++          (identifier))))))
+diff --git a/test/corpus/literals.txt b/test/corpus/literals.txt
+index 4ff69e0..9bb872a 100644
+--- a/test/corpus/literals.txt
++++ b/test/corpus/literals.txt
+@@ -807,24 +807,24 @@ Lists
+         (identifier))))
+   (expression_statement
+     (list
+-      (attribute
+-        (list_splat
+-          (identifier))
+-        (identifier))))
++      (list_splat
++        (attribute
++          (identifier)
++          (identifier)))))
+   (expression_statement
+     (list
+-      (attribute
+-        (subscript
+-          (list_splat
++      (list_splat
++        (attribute
++          (subscript
++            (identifier)
+             (identifier))
+-          (identifier))
+-        (identifier))))
++          (identifier)))))
+   (expression_statement
+     (list
+-      (call
+-        (list_splat
+-          (identifier))
+-        (argument_list)))))
++      (list_splat
++        (call
++          (identifier)
++          (argument_list))))))
+ 
+ ================================================================================
+ List comprehensions
+diff --git a/test/corpus/pattern_matching.txt b/test/corpus/pattern_matching.txt
+index 2913048..993f36d 100644
+--- a/test/corpus/pattern_matching.txt
++++ b/test/corpus/pattern_matching.txt
+@@ -1570,3 +1570,71 @@ match x:
+             (identifier)))
+         (block
+           (pass_statement))))))
++
++================================================================================
++Unary plus in literal patterns (gh-145239)
++================================================================================
++
++match x:
++    case +1 | -2:
++        pass
++    case [+2.5, Foo(y=+1)]:
++        pass
++    case {+1: v}:
++        pass
++    case +1 + 2j:
++        pass
++    case +1 - 2j:
++        pass
++
++--------------------------------------------------------------------------------
++
++(module
++  (match_statement
++    (identifier)
++    (block
++      (case_clause
++        (case_pattern
++          (union_pattern
++            (integer)
++            (integer)))
++        (block
++          (pass_statement)))
++      (case_clause
++        (case_pattern
++          (list_pattern
++            (case_pattern
++              (float))
++            (case_pattern
++              (class_pattern
++                (dotted_name
++                  (identifier))
++                (case_pattern
++                  (keyword_pattern
++                    (identifier)
++                    (integer)))))))
++        (block
++          (pass_statement)))
++      (case_clause
++        (case_pattern
++          (dict_pattern
++            (integer)
++            (case_pattern
++              (dotted_name
++                (identifier)))))
++        (block
++          (pass_statement)))
++      (case_clause
++        (case_pattern
++          (complex_pattern
++            (integer)
++            (integer)))
++        (block
++          (pass_statement)))
++      (case_clause
++        (case_pattern
++          (complex_pattern
++            (integer)
++            (integer)))
++        (block
++          (pass_statement))))))
+diff --git a/test/corpus/statements.txt b/test/corpus/statements.txt
+index 3f8c29f..5ee8a27 100644
+--- a/test/corpus/statements.txt
++++ b/test/corpus/statements.txt
+@@ -1626,3 +1626,64 @@ def more_generic[T, *Ts, **P]():
+                               (identifier)))))))))))))
+       (return_statement
+         (identifier)))))
++
++================================================================================
++Lazy import statements (PEP 810)
++================================================================================
++
++lazy import json
++lazy import numpy as np
++lazy from pathlib import Path
++lazy from os.path import join, exists
++lazy from . import sibling
++lazy = True
++x = lazy
++lazy(x)
++
++--------------------------------------------------------------------------------
++
++(module
++  (lazy_import_statement
++    (import_statement
++      (dotted_name
++        (identifier))))
++  (lazy_import_statement
++    (import_statement
++      (aliased_import
++        (dotted_name
++          (identifier))
++        (identifier))))
++  (lazy_import_statement
++    (import_from_statement
++      (dotted_name
++        (identifier))
++      (dotted_name
++        (identifier))))
++  (lazy_import_statement
++    (import_from_statement
++      (dotted_name
++        (identifier)
++        (identifier))
++      (dotted_name
++        (identifier))
++      (dotted_name
++        (identifier))))
++  (lazy_import_statement
++    (import_from_statement
++      (relative_import
++        (import_prefix))
++      (dotted_name
++        (identifier))))
++  (expression_statement
++    (assignment
++      (identifier)
++      (true)))
++  (expression_statement
++    (assignment
++      (identifier)
++      (identifier)))
++  (expression_statement
++    (call
++      (identifier)
++      (argument_list
++        (identifier)))))

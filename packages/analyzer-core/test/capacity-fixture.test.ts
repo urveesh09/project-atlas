@@ -20,25 +20,42 @@ it('preserves the original TypeScript fixture byte-for-byte across its evolution
   expect(createHash('sha256').update(JSON.stringify(fixture)).digest('hex')).toBe('e6929af5c2ae8c1d184ed005e080c2394c520ddcb6ea9ad400433052b99efd78');
 });
 
-it.each(['python', 'mixed'])('preserves every original dependency and adds the real typing import in %s', (language) => {
+it.each(['python', 'mixed'])('preserves every original dependency, importing typing only where a guard uses it, in %s', (language) => {
   const options = { files: 1000, commits: 6, packages: 10 };
   const baseline = buildMediumHistoryCommits(options).commits as Commit[];
   const commits = buildMediumHistoryCommits({ ...options, language }).commits as Commit[];
   expect(commits.map((c) => Object.keys(c.files).length)).toEqual(baseline.map((c) => Object.keys(c.files).length));
   const sources = Object.entries(commits[0]!.files).filter(([file]) => /\/f\d+\.(?:ts|py)$/.test(file));
   expect(sources).toHaveLength(1000);
-  expect(sources.filter(([file]) => file.endsWith('.py'))).toHaveLength(language === 'python' ? 1000 : 500);
-  for (const [file, text] of sources.filter(([file]) => file.endsWith('.py')).slice(0, 25)) {
+  const python = sources.filter(([file]) => file.endsWith('.py'));
+  expect(python).toHaveLength(language === 'python' ? 1000 : 500);
+  // Policy atlas.capacity.python/2 (ADR-067): all ten authored statements survive in every
+  // module. Type-only imports are runtime class imports, except in one module in four,
+  // which guards them and so imports typing too.
+  // Function numbers repeat in every package: key modules by package and function.
+  const moduleKey = (file: string) => /^packages\/(p\d+)\/.*\/(f\d+)\.(?:ts|py)$/.exec(file)?.slice(1).join('/') ?? file;
+  const typeOnlyIn = new Map(Object.entries(baseline[0]!.files).map(([file, text]) => [moduleKey(file), (text ?? '').split('\n').filter((l) => l.startsWith('import type ')).length]));
+  let typingImports = 0;
+  let guardedImports = 0;
+  for (const [file, text] of python) {
     const facts = extractPythonFacts(file, text!);
     expect(facts.parseStatus).toBe('parsed');
-    expect(facts.imports).toHaveLength(11);
-    expect(facts.imports[0]).toMatchObject({ specifier: 'typing', kind: 'imports-value' });
-    // No original import may be dropped merely to keep an observation count identical.
-    // All ten authored source statements survive after the one explicit typing import.
-    expect(facts.imports.slice(1)).toHaveLength(10);
+    const fn = /\/(f\d+)\.py$/.exec(file)![1]!;
+    const typeOnly = typeOnlyIn.get(moduleKey(file))!;
+    const guarded = Number(fn.slice(1)) % 4 === 0 && typeOnly > 0;
+    const authored = facts.imports.filter((i) => i.specifier !== 'typing');
+    expect(authored).toHaveLength(10);
+    expect(facts.imports).toHaveLength(guarded ? 11 : 10);
+    expect(authored.filter((i) => i.kind === 'imports-type')).toHaveLength(guarded ? typeOnly : 0);
+    if (guarded) typingImports++;
+    guardedImports += authored.filter((i) => i.kind === 'imports-type').length;
     expect(facts.callables).toHaveLength(1);
-    expect(facts.codeLines).toBeGreaterThan(12);
+    expect(facts.codeLines).toBeGreaterThan(9);
   }
+  // At most one extra statement per module, in no more than a quarter of them.
+  expect(typingImports).toBeGreaterThan(0);
+  expect(typingImports).toBeLessThanOrEqual(Math.ceil(python.length / 4));
+  expect(guardedImports).toBeGreaterThan(0);
   for (const c of commits) for (const [from, to] of c.renames ?? []) {
     expect(from.endsWith('.py')).toBe(to.endsWith('.py'));
     expect(from).not.toBe(to);
