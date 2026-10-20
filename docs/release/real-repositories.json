@@ -1,7 +1,7 @@
 {
   "task": "P6.1 pinned public repository validation",
-  "recordedAt": "2026-10-20T12:14:38.339Z",
-  "analyzerVersion": "0.1.0-dev.9",
+  "recordedAt": "2026-10-20T14:06:14.975Z",
+  "analyzerVersion": "0.1.0-dev.10",
   "runs": 5,
   "environment": {
     "os": "Windows_NT 10.0.26200 x64",
@@ -67,7 +67,7 @@
       "analysisStatus": "complete",
       "coverage": {
         "tool": "atlas",
-        "analyzerVersion": "0.1.0-dev.9",
+        "analyzerVersion": "0.1.0-dev.10",
         "repository": "sindresorhus/is-plain-obj",
         "commit": "666df7c10035f7e26f27ec214fe5ae3173435f34",
         "status": "complete",
@@ -209,47 +209,47 @@
       "reasons": {},
       "examples": {},
       "parseFailures": [],
-      "digest": "2a313e48727c131ae467438d867c725f61b6be9c6a8db7fa414c65675f597400",
+      "digest": "9c466d5bf65b6659a65ff1ce3efc7c0720ba9577deea13499134a134ed57f6cd",
       "chunks": [
         {
-          "path": "graphs/snap_b630c1b70f6ccb3fb51f453b81f5d61952639466ff15dcead698923ce2a8fffb.json.gz",
-          "sha256": "a2a371e6b5cbbabb9039fa139b83f83ae68880643f240f634749ea487b3fa89f",
-          "uncompressedBytes": 18267,
-          "compressedBytes": 3702,
+          "path": "graphs/snap_b33b4e3830cf9d887ef83bd672e82781a6002a51c00c5834ab0b148b91169b32.json.gz",
+          "sha256": "e34352730586f427a9f17db079d9baac2da95b0c2ccf2a8b964506e42470357e",
+          "uncompressedBytes": 18263,
+          "compressedBytes": 3715,
           "mediaType": "application/json",
           "encoding": "atlas.graph.indexed/1",
-          "encodedSha256": "c336b7e08729669d1018bdf803640df0f7d5020db84f7bbcc18532a416b361a1",
+          "encodedSha256": "1333762e7ed1c26582899f07bbfde75bc2b6a58a6437626002507b49f722b7dd",
           "decodedBytes": 27284
         },
         {
           "path": "history/history.json.gz",
-          "sha256": "eecf167f894e875ac355d6f634d1587dda493ad66cdbbde41db57f8adfec45de",
+          "sha256": "b0fcd8500c4bbb7db906153d1a07983d67ac2ea4bdb6918a7d9c85f553c3e9d4",
           "uncompressedBytes": 5415,
-          "compressedBytes": 1663,
+          "compressedBytes": 1664,
           "mediaType": "application/json",
           "encoding": "atlas.history.compact/1",
-          "encodedSha256": "03b8ee7d6474d69190271d22a9d2b0bdf43a981450eb16804a0fbce5e1f04cce",
+          "encodedSha256": "b97fa73abcef5ef4a8d92ed10303c7eb7761b2d69ee376726f3084c64d64cff2",
           "decodedBytes": 7912
         },
         {
           "path": "layout/layout.json.gz",
-          "sha256": "de393e8d70624f6047f973be63a44fcabf69d00a6ddd5f8c13bfaa159ea30859",
+          "sha256": "57abb1dfc21cb2878a85d829e9dbf28a85696a30f2cffcb533ee3d8666ea8553",
           "uncompressedBytes": 5658,
-          "compressedBytes": 1620,
+          "compressedBytes": 1617,
           "mediaType": "application/json",
           "encoding": "atlas.layout.compact/1",
-          "encodedSha256": "4425d74573f777ada4468f468c8d8728addf3de2a26cd284a275ad4d9ef92274",
+          "encodedSha256": "777d894d9b342f5cb6436229f0fe3329f7a8d17c53d78306f291cf6f1898205a",
           "decodedBytes": 9485
         }
       ],
       "milliseconds": [
-        1117.4769000000001,
-        1019.8827000000001,
-        1028.2484,
-        1018.8054999999999,
-        1012.9431000000004
+        1149.9963000000002,
+        1063.2924,
+        1048.7871,
+        1046.1817000000005,
+        1032.6515
       ],
-      "compressedBytes": 6985,
+      "compressedBytes": 6996,
       "exportVerified": true,
       "deterministic": true
     },
@@ -308,7 +308,7 @@
       "analysisStatus": "complete",
       "coverage": {
         "tool": "atlas",
-        "analyzerVersion": "0.1.0-dev.9",
+        "analyzerVersion": "0.1.0-dev.10",
         "repository": "vuejs/core",
         "commit": "4ab865a848a1da3d10fb674f857e5fff13094644",
         "status": "complete",
@@ -535,11 +535,11 @@
           "cacheHits": 0
         },
         "findings": {
-          "ATLAS_COMPLEX_CALLABLE": 54,
+          "ATLAS_STATIC_CYCLE": 6,
           "ATLAS_LARGE_SOURCE_FILE": 22,
+          "ATLAS_COMPLEX_CALLABLE": 54,
           "ATLAS_LOCAL_IMPORT_UNRESOLVED": 34,
           "ATLAS_HIGH_FAN_IN": 15,
-          "ATLAS_STATIC_CYCLE": 6,
           "ATLAS_RESOLUTION_CONTEXT_INCOMPLETE": 1
         },
         "cycles": 6,
@@ -575,19 +575,19 @@
       "examples": {
         "unresolved:LOCAL_TARGET_MISSING": [
           {
-            "source": "packages-private/sfc-playground/src/download/download.ts",
-            "specifier": "./template/package.json?raw",
-            "kind": "imports-value"
-          },
-          {
-            "source": "packages-private/sfc-playground/src/download/download.ts",
-            "specifier": "./template/README.md?raw",
-            "kind": "imports-value"
-          },
-          {
-            "source": "packages/runtime-dom/index.js",
-            "specifier": "./dist/runtime-dom.cjs.js",
+            "source": "packages/runtime-core/index.js",
+            "specifier": "./dist/runtime-core.cjs.prod.js",
             "kind": "requires-literal"
+          },
+          {
+            "source": "packages/reactivity/index.js",
+            "specifier": "./dist/reactivity.cjs.js",
+            "kind": "requires-literal"
+          },
+          {
+            "source": "packages/reactivity/__benchmarks__/reactiveArray.bench.ts",
+            "specifier": "../dist/reactivity.esm-browser.prod",
+            "kind": "imports-value"
           }
         ],
         "unsupported:NONLITERAL_DYNAMIC_IMPORT": [
@@ -606,157 +606,157 @@
         ]
       },
       "parseFailures": [],
-      "digest": "e240895f03b6b7d3e750c3f9d16cacd7b1aa6f46da02a72af66ef38859b37c57",
+      "digest": "8e2d567011c92c7ef17ef4af98d6c68f550dfa706dd62a057fb2dd61b131f25b",
       "chunks": [
         {
-          "path": "graphs/snap_2c99887657a9e96258331fa5cfcf52471b45b3729cfab99f8314864831e3a970.json.gz",
-          "sha256": "f96d1599b2f37e00fd8cdea0b7af1ba42ea56ea11fd6f28ba12b4f2380246ed4",
-          "uncompressedBytes": 93437,
-          "compressedBytes": 15162,
+          "path": "graphs/snap_69681233b7a84aa68492567aa337a52b8fbf5e94e136d97cab236da1a6d65bab.json.gz",
+          "sha256": "86dac19cb51d97bc483580e31699106a559da8aa5ed17ce7e14fdceabe8e1bab",
+          "uncompressedBytes": 94607,
+          "compressedBytes": 15372,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "a54293a7a08a86375bc3efa0a2b82d3890f2081abc25360982d4fc88fd649f46",
-          "decodedBytes": 3706656
+          "encodedSha256": "290f50e856e487341506f3b36577268429b61d4a1a0cb0f7ad3f8b3bcb16e981",
+          "decodedBytes": 3706670
         },
         {
-          "path": "graphs/snap_14c97cf520f60266e3d363bf3959422a6d897e97e50a6ea9c5035c5f41cd4a9d.json.gz",
-          "sha256": "59fdeaf3591fcdc01af64f2afa9673e65f9e8461c00feb44f2cf286461919268",
-          "uncompressedBytes": 120056,
-          "compressedBytes": 19864,
+          "path": "graphs/snap_cdba01640a44ba4225dc91ffa25dbfe6ffaa6732832c3836511dd049731981f1.json.gz",
+          "sha256": "d36ba61aa519b3cf8f1f221927d8297e460048d78a6fdef03b668ab0f55861a5",
+          "uncompressedBytes": 120654,
+          "compressedBytes": 19811,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "e80f8fd515fa41e9d08235410b849073d66ea026671afaef489498fbe2340c0a",
-          "decodedBytes": 3706697
+          "encodedSha256": "d47b1017b91c585dc68cdac61c5fe9ead3d71c1e351e0606d1837493891dcfd9",
+          "decodedBytes": 3706602
         },
         {
-          "path": "graphs/snap_17f09be3e698eca05486f8603f27844160bd0879d841aaf9b7bba4b465a82927.json.gz",
-          "sha256": "ac15d77be77ddbf5bb634f9f80fe3046eccf1acd32bc84f83914cceef2d542c2",
-          "uncompressedBytes": 470883,
-          "compressedBytes": 70855,
+          "path": "graphs/snap_8361837a797b91be1d6a6de3f63cc10a336af89da2a14925598b1ee41b3c0966.json.gz",
+          "sha256": "363bf6f0c5e46a27cb53f1508ae5f22d6cdb4893348ce63e90b82871e64df4b5",
+          "uncompressedBytes": 469710,
+          "compressedBytes": 70615,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "c5a0d0e993f6e92b9334ebff9e77e3be507232ccec95f218258622cf104e5bad",
-          "decodedBytes": 3708988
+          "encodedSha256": "7f6e0798d92ecc0daae9fd0e731313b9925814c8d3bffa2461e034a5b357eecc",
+          "decodedBytes": 3708647
         },
         {
-          "path": "graphs/snap_0afb4a17a31c4aedc8a57c060b241045edc276be0cbad2650a661ab5b558ea89.json.gz",
-          "sha256": "6c9fc05038e983636a411baf177b9d2f9bdfe4b168737c639632dbebaa5b186a",
-          "uncompressedBytes": 208715,
-          "compressedBytes": 32451,
+          "path": "graphs/snap_94655090c340d40a07986dbb141461da8e889807a3b933c7365bd4e5da61215d.json.gz",
+          "sha256": "74bbf65bc32b06570dc385f9367d5c49287fedbf6235040b8c62bfecaf9b66f2",
+          "uncompressedBytes": 207592,
+          "compressedBytes": 32214,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "2882def728f0d0b4de47e5f9b54a1bdcfd2e26cd1f7a8e3bfbe95755fb36cde9",
-          "decodedBytes": 3715967
+          "encodedSha256": "26eab896319b0208b01ad7f125a18440021ad0e83945c3b78cea682e1325fe6f",
+          "decodedBytes": 3715970
         },
         {
-          "path": "graphs/snap_9ab58f88bf94d3c7168f2177983d39666f8a3c5dfe96e057afc14b1d83bf63f3.json.gz",
-          "sha256": "0cb239df8235571b3b1f57110b99f3780767ac7901356e78832a2f01ac679bea",
-          "uncompressedBytes": 172186,
-          "compressedBytes": 27627,
+          "path": "graphs/snap_f81077b03623d494021c978bc603fd809d990b86f2aed057a816c05d3b3b0929.json.gz",
+          "sha256": "7b1a134574c21182e4e8d5e0a098633be8d674198cbf77fc5036d1db8b1022f0",
+          "uncompressedBytes": 173104,
+          "compressedBytes": 27893,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "d684d9c19537965ab8e556cf8126ca483d649ea9df81ef0d3ef14564db38b281",
-          "decodedBytes": 3716034
+          "encodedSha256": "2f045c6bced90d7692cf8cd90dea1e7b57f77ff9310c108be277d22d40d2ea93",
+          "decodedBytes": 3716345
         },
         {
-          "path": "graphs/snap_6f088451e5e74f48515695f3f68dc9c52a06bcc7af30fd259234961018a6ca5e.json.gz",
-          "sha256": "74cd91618ae94f79cf46f51d2b6b4fbff57d71856b0abb8498f0faa409953371",
-          "uncompressedBytes": 297431,
-          "compressedBytes": 46571,
+          "path": "graphs/snap_5301a9277c626bf3c3f6e36297f5c9d03331821984e87ee79092cf7cb0fb236f.json.gz",
+          "sha256": "5fb508cdaa45274699ab1ab70d7a5e127656280d8542295622d7ef0017cf8956",
+          "uncompressedBytes": 298530,
+          "compressedBytes": 46720,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "18c9cf91603772a843257a2c24a991753951789ddfe7d9dd7e6a327126e889d3",
-          "decodedBytes": 3717526
+          "encodedSha256": "e7f626fa91b00b02d7de8df222dbfe0e001619fbeb740961711dab93172bb3a3",
+          "decodedBytes": 3717651
         },
         {
-          "path": "graphs/snap_a37945ea37627266b6d4c5971761a05b3f680a7c82ed88d393167537e4ec4e84.json.gz",
-          "sha256": "722d68db56203ec50933efeb8eaf8019702c896a7d5064dbd9d5952501d71ab2",
-          "uncompressedBytes": 141401,
-          "compressedBytes": 23527,
+          "path": "graphs/snap_3194aa9305dc9453676f262f40500203774f9a231071dc324e41f879041be80d.json.gz",
+          "sha256": "6e3f6995f8f34286ca7310283792a1b488171b58d49a2c49a44c58126dc5459c",
+          "uncompressedBytes": 143977,
+          "compressedBytes": 23694,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "252a6cb985df2e3fb6701b7afec1a895f4d22b4f620f714b8afcb69dce224e95",
-          "decodedBytes": 3726821
+          "encodedSha256": "a0a5803ecdced635a43ab8528127d393b058fb2f5e1376789dd47c881f9cf173",
+          "decodedBytes": 3727203
         },
         {
-          "path": "graphs/snap_43574955abb43001d7945046e34f384fde9af26d7272452a14df51c2dde47020.json.gz",
-          "sha256": "4e6bd04db62bbcf5561469a9bf1d67dbc73ebca875ab8e5cd483f79063724eba",
-          "uncompressedBytes": 114780,
-          "compressedBytes": 19187,
+          "path": "graphs/snap_c1ed2d7e66ad2d820e33a6d5c3b41dd5cbf608eb8c2b0cd9bf4dbaa17f65a5bf.json.gz",
+          "sha256": "3de458f627b1bc645a6f89c5eefe414565dbe1d4769f7c85962c98d912ad7777",
+          "uncompressedBytes": 114972,
+          "compressedBytes": 19145,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "0f983f462ba9a71ee0d91a25315cbbc82843a2219438da3f0ea9ae99f24225a3",
-          "decodedBytes": 3733753
+          "encodedSha256": "5f7aba9e468f57b5ac7bc29fc172672529453ef04c04ff6537a62265bcb625eb",
+          "decodedBytes": 3733309
         },
         {
-          "path": "graphs/snap_92ed8c1593a72acd70138871e55353c95c9691ce232ea54cf574cf3aa7811f5d.json.gz",
-          "sha256": "095ba27ac3173b1ff898acbb6ba42335cc566b74d73cd4e078cbd6c2a12320e2",
-          "uncompressedBytes": 181925,
-          "compressedBytes": 29650,
+          "path": "graphs/snap_01fabbbd1b38b290fac084ea88cfed10ebc57af148609b828f945f8cddaa22bc.json.gz",
+          "sha256": "1cf29e7f0443261f75b82a69fb21b9914cf00b15bdb4313f4fc5b2bee4a55f6c",
+          "uncompressedBytes": 181266,
+          "compressedBytes": 29699,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "9a04a9218c6c4915bfc25a93e4489560b7248b945449b656e2d1e18b20267890",
-          "decodedBytes": 3736111
+          "encodedSha256": "e1b31fa920b5146933c7aaa823f451902c8dcd22143055ae288e60b55d80644c",
+          "decodedBytes": 3735825
         },
         {
-          "path": "graphs/snap_676e9e43014fc5ecd3f8dd1c87778b3456ba2e2e35d120ca6fee4592695bdd14.json.gz",
-          "sha256": "307539a23898d8d927ad114838cfd45df50ca9cf317df77b59b8544a1142ad86",
-          "uncompressedBytes": 99616,
-          "compressedBytes": 16725,
+          "path": "graphs/snap_567dfa5ff16d2415f348cd22fa41833cf933f33c5175ed296f0b34283967b45d.json.gz",
+          "sha256": "3acf0ba8deabbacc68dc1c9f57da646bf64eb2c320e3b8527d8ed63a71a6b3bb",
+          "uncompressedBytes": 100275,
+          "compressedBytes": 16851,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "eded05caf198b5fb68949556543cb3ed44790a286ae75c010198f1b5518e8108",
-          "decodedBytes": 3737021
+          "encodedSha256": "b97d117f0b3262a9ffe150bdc15251f4631fdd3353ea1b1f11aa483770425a44",
+          "decodedBytes": 3736641
         },
         {
-          "path": "graphs/snap_7f90fe3cabac86fad8369b22d493827fb888a64da12de5722477241a9f546b64.json.gz",
-          "sha256": "67c9e9ea7c93cf2eff8ddcfffa9b9c4f995b299fe5a32afcaa85be58ec8c74fa",
-          "uncompressedBytes": 124107,
-          "compressedBytes": 21132,
+          "path": "graphs/snap_c9459a9cf9041c411b9b33c6b3779cd5cf8172021630e570e3f5a8297c2f945c.json.gz",
+          "sha256": "9e49753b59b37e99340dbd9fa5469d1732a112981d9e522b194ab537a5c29882",
+          "uncompressedBytes": 123221,
+          "compressedBytes": 20965,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "56bc0f730ff8cba627f99ba7e6a5eda1a495db74f7d5f8b4db0f8e86ff69c1b4",
-          "decodedBytes": 3736914
+          "encodedSha256": "453ae32789149ead7372cd52aa7fb955c8104e0acb84ba5bd148a0f3cf437c3b",
+          "decodedBytes": 3736910
         },
         {
-          "path": "graphs/snap_3d23b47cdcd90c741ba751086ceda05c5cea85dd32be6930b9bbf52d5d37784b.json.gz",
-          "sha256": "a6e03816c2d9f57d208df6d8f6726cf75dcff26a5b6927b579cb0c8bff09bd92",
-          "uncompressedBytes": 2193094,
-          "compressedBytes": 270136,
+          "path": "graphs/snap_bbb03ef6ce75ad574806d7545d159aab6d5be889807d94686d5d2b0ca7ccd53f.json.gz",
+          "sha256": "f7fe217410da544d1a7e3959f4ca0fbbc71f020a3c1c139a03c384f8a2eba01b",
+          "uncompressedBytes": 2193087,
+          "compressedBytes": 270448,
           "mediaType": "application/json",
           "encoding": "atlas.graph.indexed/1",
-          "encodedSha256": "1108553561ea5ba0fa659ef42727dce3825bcb55d9e44260007eb35af74f089b",
-          "decodedBytes": 3734306
+          "encodedSha256": "bae6f1bcd890e393272b788c907fb220cba003225605409ad74471ad7e0ad2a0",
+          "decodedBytes": 3733875
         },
         {
           "path": "history/history.json.gz",
-          "sha256": "47ab2d529445082d4627e2322a9aa5f860247903d2fceff3d0db3ee72d5ae64e",
+          "sha256": "7799ca6905fac223c2dc888dd49109121ad814856760004dc7165cb93cbdbea7",
           "uncompressedBytes": 453513,
-          "compressedBytes": 74443,
+          "compressedBytes": 74441,
           "mediaType": "application/json",
           "encoding": "atlas.history.compact/1",
-          "encodedSha256": "6701e57f0423bb83a9ccb15eca447ad95a48d7a5ad10969021c4035f32b8b690",
+          "encodedSha256": "eef189a084a89354eee657362528fbbfb35a517d394a1395097cd9deadfdc8aa",
           "decodedBytes": 2263768
         },
         {
           "path": "layout/layout.json.gz",
-          "sha256": "8cdc4efe0c5dd8c82dd215b4a716e001c6347fb87d4ad27a6c25f825a7463909",
-          "uncompressedBytes": 490319,
-          "compressedBytes": 118702,
+          "sha256": "8650fb7d215208c1e688b4e9b58f89b5273b9cf33833f79c41de63b1959aa100",
+          "uncompressedBytes": 490300,
+          "compressedBytes": 118761,
           "mediaType": "application/json",
           "encoding": "atlas.layout.compact/1",
-          "encodedSha256": "fc64cc0405c375534c6f4055ab347eaf1d279bfa2858867172759018ea5309d2",
+          "encodedSha256": "4a638bfcab90989bba155f5acf4c9228f65c2a132daf4189f20d5d636f7892d1",
           "decodedBytes": 2830636
         }
       ],
       "milliseconds": [
-        9290.502499999999,
-        8907.0314,
-        8979.266499999998,
-        8651.708899999998,
-        8843.557400000005
+        9217.509900000001,
+        9049.4124,
+        8766.0068,
+        8765.148000000001,
+        8794.6714
       ],
-      "compressedBytes": 786032,
+      "compressedBytes": 786629,
       "exportVerified": true,
       "deterministic": true
     },
@@ -823,7 +823,7 @@
       "analysisStatus": "partial",
       "coverage": {
         "tool": "atlas",
-        "analyzerVersion": "0.1.0-dev.9",
+        "analyzerVersion": "0.1.0-dev.10",
         "repository": "vitejs/vite",
         "commit": "3b72997d42e7dd2b31898d0e68461e3025e836b6",
         "status": "partial",
@@ -2897,10 +2897,10 @@
         "findings": {
           "ATLAS_RESOLUTION_CONTEXT_INCOMPLETE": 185,
           "ATLAS_LARGE_SOURCE_FILE": 24,
-          "ATLAS_HIGH_FAN_IN": 11,
           "ATLAS_LOCAL_IMPORT_UNRESOLVED": 55,
           "ATLAS_STATIC_CYCLE": 28,
           "ATLAS_COMPLEX_CALLABLE": 27,
+          "ATLAS_HIGH_FAN_IN": 11,
           "ATLAS_CHANGE_CONCENTRATION": 2,
           "ATLAS_PARSE_ERROR": 2
         },
@@ -2930,71 +2930,134 @@
         "sourceTextIncluded": false
       },
       "reasons": {
-        "unresolved:GENERATED_TARGET_MISSING": 198,
-        "unsupported:NONLITERAL_DYNAMIC_IMPORT": 57,
-        "unresolved:LOCAL_TARGET_MISSING": 55,
-        "excluded-target:TARGET_EXCLUDED": 3,
         "unsupported:IMPORT_META_GLOB_UNSUPPORTED": 50,
+        "unsupported:NONLITERAL_DYNAMIC_IMPORT": 57,
+        "unresolved:GENERATED_TARGET_MISSING": 198,
+        "unresolved:LOCAL_TARGET_MISSING": 55,
+        "unresolved:ALIAS_UNSUPPORTED": 1,
+        "unresolved:PACKAGE_EXPORT_UNSUPPORTED": 6,
         "unsupported:URL_IMPORT_UNSUPPORTED": 14,
+        "excluded-target:TARGET_EXCLUDED": 3,
         "unsupported:REQUIRE_RESOLVE_UNSUPPORTED": 2,
         "unresolved:AMBIGUOUS_WORKSPACE_PACKAGE": 3,
-        "unresolved:PACKAGE_EXPORT_UNSUPPORTED": 6,
-        "unresolved:ALIAS_UNSUPPORTED": 1,
         "unsupported:NONLITERAL_REQUIRE": 1
       },
       "examples": {
-        "unresolved:GENERATED_TARGET_MISSING": [
+        "unsupported:IMPORT_META_GLOB_UNSUPPORTED": [
           {
-            "source": "playground/lib/vite.config.js",
-            "specifier": "vite",
-            "kind": "imports-value"
+            "source": "packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/index.ts",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
           },
           {
-            "source": "packages/create-vite/template-solid/vite.config.js",
-            "specifier": "vite",
-            "kind": "imports-value"
+            "source": "playground/glob-import/root/escape/{curlies}/glob.js",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
           },
           {
-            "source": "playground/hmr/vite.config.ts",
-            "specifier": "vite",
-            "kind": "imports-type"
+            "source": "packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/index.ts",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
           }
         ],
         "unsupported:NONLITERAL_DYNAMIC_IMPORT": [
           {
-            "source": "playground/ssr-pug/__tests__/serve.ts",
-            "specifier": null,
-            "kind": "imports-dynamic-literal"
-          },
-          {
-            "source": "packages/vite/src/node/__tests__/resolve.spec.ts",
-            "specifier": null,
-            "kind": "imports-dynamic-literal"
-          },
-          {
             "source": "playground/dynamic-import/nested/index.js",
             "specifier": null,
             "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "playground/ssr-alias/__tests__/ssr-alias.spec.ts",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "packages/vite/src/node/__tests__/environment.spec.ts",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          }
+        ],
+        "unresolved:GENERATED_TARGET_MISSING": [
+          {
+            "source": "playground/ssr-html/test-network-imports.js",
+            "specifier": "vite",
+            "kind": "imports-value"
+          },
+          {
+            "source": "playground/vitestSetup.ts",
+            "specifier": "vite",
+            "kind": "imports-type"
+          },
+          {
+            "source": "packages/vite/src/node/server/index.ts",
+            "specifier": "vite/module-runner",
+            "kind": "imports-type"
           }
         ],
         "unresolved:LOCAL_TARGET_MISSING": [
           {
-            "source": "packages/vite/src/node/__tests__/plugins/fixtures/worker-url/entry.js",
-            "specifier": "./worker?worker&url",
+            "source": "playground/css/postcss-caching/blue-app/main.js",
+            "specifier": "./imported.css?inline",
             "kind": "imports-value"
           },
           {
-            "source": "playground/ssr-wasm/server.js",
-            "specifier": "./dist/app.js",
+            "source": "playground/css/main.js",
+            "specifier": "./url-imported.css?url",
+            "kind": "imports-value"
+          },
+          {
+            "source": "playground/hmr-full-bundle-mode/main.js",
+            "specifier": "./worker-query.js?worker",
+            "kind": "imports-value"
+          }
+        ],
+        "unresolved:ALIAS_UNSUPPORTED": [
+          {
+            "source": "playground/resolve-tsconfig-paths/__tests__/resolve.spec.ts",
+            "specifier": "~utils",
+            "kind": "imports-value"
+          }
+        ],
+        "unresolved:PACKAGE_EXPORT_UNSUPPORTED": [
+          {
+            "source": "playground/css/main.js",
+            "specifier": "#alias-module",
+            "kind": "imports-value"
+          },
+          {
+            "source": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/invalid-package/test.js",
+            "specifier": "test-dep-invalid-exports",
             "kind": "imports-dynamic-literal"
           },
           {
-            "source": "playground/worker/worker/main-url.js",
-            "specifier": "../simple-worker?worker&url",
+            "source": "playground/ssr-deps/src/app.js",
+            "specifier": "@vitejs/test-pkg-exports/virtual",
+            "kind": "imports-value"
+          }
+        ],
+        "unsupported:URL_IMPORT_UNSUPPORTED": [
+          {
+            "source": "playground/hmr/hmr.ts",
+            "specifier": "virtual:file-dep",
+            "kind": "imports-value"
+          },
+          {
+            "source": "docs/.vitepress/theme/index.ts",
+            "specifier": "virtual:group-icons.css",
+            "kind": "imports-value"
+          },
+          {
+            "source": "playground/ssr-html/src/network-imports.js",
+            "specifier": "http://localhost:9602/slash@3.0.0.js",
             "kind": "imports-value"
           }
         ],
         "excluded-target:TARGET_EXCLUDED": [
+          {
+            "source": "playground/ssr-wasm/src/direct-light.js",
+            "specifier": "./light-with-imports.wasm",
+            "kind": "imports-value"
+          },
           {
             "source": "playground/ssr-wasm/src/direct-light.js",
             "specifier": "./imports.js",
@@ -3003,45 +3066,6 @@
           {
             "source": "playground/ssr-wasm/src/direct-add.js",
             "specifier": "./add.wasm",
-            "kind": "imports-value"
-          },
-          {
-            "source": "playground/ssr-wasm/src/direct-light.js",
-            "specifier": "./light-with-imports.wasm",
-            "kind": "imports-value"
-          }
-        ],
-        "unsupported:IMPORT_META_GLOB_UNSUPPORTED": [
-          {
-            "source": "packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/index.ts",
-            "specifier": null,
-            "kind": "imports-dynamic-literal"
-          },
-          {
-            "source": "playground/glob-import/root/escape/(parenthesis)/glob.js",
-            "specifier": null,
-            "kind": "imports-dynamic-literal"
-          },
-          {
-            "source": "packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/index.ts",
-            "specifier": null,
-            "kind": "imports-dynamic-literal"
-          }
-        ],
-        "unsupported:URL_IMPORT_UNSUPPORTED": [
-          {
-            "source": "playground/dynamic-import/nested/index.js",
-            "specifier": "https://localhost",
-            "kind": "imports-dynamic-literal"
-          },
-          {
-            "source": "playground/hmr/hmr.ts",
-            "specifier": "virtual:file-dep",
-            "kind": "imports-value"
-          },
-          {
-            "source": "playground/ssr-html/src/app.js",
-            "specifier": "virtual:file",
             "kind": "imports-value"
           }
         ],
@@ -3059,43 +3083,19 @@
         ],
         "unresolved:AMBIGUOUS_WORKSPACE_PACKAGE": [
           {
-            "source": "playground/ssr-deps/src/app.js",
-            "specifier": "@vitejs/test-nested-exclude",
-            "kind": "imports-value"
-          },
-          {
             "source": "playground/optimize-deps/nested-exclude/index.js",
             "specifier": "@vitejs/test-nested-include",
             "kind": "reexports-value"
           },
           {
+            "source": "playground/ssr-deps/src/app.js",
+            "specifier": "@vitejs/test-nested-exclude",
+            "kind": "imports-value"
+          },
+          {
             "source": "playground/ssr-deps/nested-exclude/index.js",
             "specifier": "@vitejs/test-nested-include",
             "kind": "reexports-value"
-          }
-        ],
-        "unresolved:PACKAGE_EXPORT_UNSUPPORTED": [
-          {
-            "source": "playground/backend-integration/frontend/entrypoints/main.ts",
-            "specifier": "vite/modulepreload-polyfill",
-            "kind": "imports-value"
-          },
-          {
-            "source": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/invalid-package/test.js",
-            "specifier": "test-dep-invalid-exports",
-            "kind": "imports-dynamic-literal"
-          },
-          {
-            "source": "playground/ssr-deps/src/app.js",
-            "specifier": "@vitejs/test-pkg-exports/virtual",
-            "kind": "imports-value"
-          }
-        ],
-        "unresolved:ALIAS_UNSUPPORTED": [
-          {
-            "source": "playground/resolve-tsconfig-paths/__tests__/resolve.spec.ts",
-            "specifier": "~utils",
-            "kind": "imports-value"
           }
         ],
         "unsupported:NONLITERAL_REQUIRE": [
@@ -3110,157 +3110,157 @@
         "packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.js",
         "packages/vite/src/node/ssr/__tests__/fixtures/errors/syntax-error.ts"
       ],
-      "digest": "9a9af3a86499066846aefa5a6816dab356540c48a528f487532b6035b428effb",
+      "digest": "df440c3e674826ebeb66ee264693683297b27de319e26740d49bebb8c2494d9e",
       "chunks": [
         {
-          "path": "graphs/snap_fe651a9b3522edb25be3d652cf43a882cd8376cec5e3997bb7dffaad7790e48f.json.gz",
-          "sha256": "d1de4b9771ab2c972889a20fe9b91c0ac900b6d69bcf8f8105d5ddfbdbe35360",
-          "uncompressedBytes": 242325,
-          "compressedBytes": 37846,
+          "path": "graphs/snap_da1ee144dc550e46205719805ea6269275ebece03e916b34535eb2b44f4ca214.json.gz",
+          "sha256": "6584173b0d23faaf809028ea9739e0dbdbde9dc49e6701eba7107da687be9ec7",
+          "uncompressedBytes": 241656,
+          "compressedBytes": 37995,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "452e28de62ddee2226a016de85bcf78236ab0a5806b5703bad5cb8863855d9f0",
-          "decodedBytes": 7794934
+          "encodedSha256": "5c739936e4652781c15331ccd372abca54d214f0208b55326f46eb6834287ee8",
+          "decodedBytes": 7794669
         },
         {
-          "path": "graphs/snap_c7d49e6db669581e84e07a793cffb2cd22c60012c08b5b7a000597008d777e39.json.gz",
-          "sha256": "08e8dc1e3ecd475514e9b5088a9daca880313c674ef04f8e9ed7c48f24bc9312",
-          "uncompressedBytes": 342452,
-          "compressedBytes": 50815,
+          "path": "graphs/snap_a02367763e66bb0b3f29dafdbed74f852c53be35f609d01be1d5cc2fbd723413.json.gz",
+          "sha256": "548cf300abb753fc50d8e0c274f7f2a1d13d0c4ddf539d8808a8596ad9a28600",
+          "uncompressedBytes": 343199,
+          "compressedBytes": 50928,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "8ed2ffc78ec679b50a5bfedec4bbd49879a6b2858443fda772cf768e064108c8",
-          "decodedBytes": 7813192
+          "encodedSha256": "52a3c3c7b4039d95c1a079a237a93951a6f2dc9925e184919414b20789d6c8aa",
+          "decodedBytes": 7813111
         },
         {
-          "path": "graphs/snap_0f1fc9002876190e9ca87973df0d47aaf1adb52989e5fcb39a3811c54274d96b.json.gz",
-          "sha256": "efa6f8fd7eac181dc74f6d4c9ae540e7e7fc9927c7a3c2f6ee4fa61bff3fd8af",
-          "uncompressedBytes": 1546618,
-          "compressedBytes": 200375,
+          "path": "graphs/snap_82f4812eea5cee59d15c07a1b355a5c12bdaac9c4627324d8405e65367b28e20.json.gz",
+          "sha256": "11de04021e4e54dc3da4630e168aa20320f50087b873be43d5a2a56ad9ad9657",
+          "uncompressedBytes": 1546603,
+          "compressedBytes": 201018,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "076880f1ee5b915458181a4b08565f4c7a2e30fde3c8e429544f3d1c304e6c86",
-          "decodedBytes": 7839074
+          "encodedSha256": "29cfcac27f47ed8ce321f33ba05641e47074600cd2920cea9e2e10c37ef39711",
+          "decodedBytes": 7839125
         },
         {
-          "path": "graphs/snap_4c663578e6af8f992686665e86fe5076d97663cf01513cab4ccb3f90d69c4152.json.gz",
-          "sha256": "692269fc64fd3ae4b3256a9c7dcde5424719d00e5245e50ff43469da1e12534a",
-          "uncompressedBytes": 196605,
-          "compressedBytes": 31495,
+          "path": "graphs/snap_a1167e71a897d9ec355ccf02e2aadc2cebafa2fe2e7b58b910e2a112fb0ce435.json.gz",
+          "sha256": "ef759a2678464f5047fe95f2cfa4d44939015bf2d6cba3e963e1dbf4e782931f",
+          "uncompressedBytes": 199867,
+          "compressedBytes": 31950,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "794ba36414efd1d7364da130e5e5b3a7f8fb70092048607ac7a92f83abb9cee0",
-          "decodedBytes": 7844409
+          "encodedSha256": "259f5e72d4d46185dcf755ffdd3d0427beee3c885a697662de3e23e1add90086",
+          "decodedBytes": 7844415
         },
         {
-          "path": "graphs/snap_584bad5c351f8b05c0bf7c6a6a5f1cbc8c2d8ab513bb25c2b1caa26e99a8b8b5.json.gz",
-          "sha256": "dd305c215724a1de3126266e86d229bd2d4b1abb3b59767443449ad96c249ed8",
-          "uncompressedBytes": 275584,
-          "compressedBytes": 44938,
+          "path": "graphs/snap_882210b0f3e8a5c4808c7b430a2bb6f4b8b091d5ace7309fe9f09902cd290cb2.json.gz",
+          "sha256": "d2b8c1a0ec8b232f82bc02d0d4f07dcfc91d17fe918bd7fef4342afdd1995aa6",
+          "uncompressedBytes": 274504,
+          "compressedBytes": 44283,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "bd318bf7725556044afbea93358b3ec970df26220fdafaa819cfc0b4fedececd",
-          "decodedBytes": 7838232
+          "encodedSha256": "0bb0e1f56e156dc2bad9692a606064fd768dbb16e5de8d9847910be2947cbdce",
+          "decodedBytes": 7838199
         },
         {
-          "path": "graphs/snap_6173427a664acaea4c2e64d85cb9fda47f87eac6df5cc19f833c2248d8a28fe1.json.gz",
-          "sha256": "d1021386897c61a7eadb66dd8e62c057394d0c4c0773f49d7f17d77191c4597b",
-          "uncompressedBytes": 742304,
-          "compressedBytes": 110375,
+          "path": "graphs/snap_58d9dde822fcec06e1f0e31c571a9ce68289af5a4906924db324e15cbc4cb4aa.json.gz",
+          "sha256": "fa29df12e56927d38f805cbe9a0cbd489f6b0533817c0b5fe0422c0a7739d7e9",
+          "uncompressedBytes": 741699,
+          "compressedBytes": 110309,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "6ed00ab2ddd4c148df50fb753d79aca2a4547094edb58d59ebfc9b59104b978b",
-          "decodedBytes": 7894944
+          "encodedSha256": "e7295238ca1e6f873e68b4560296b0015f67116a1e46469c21a0224f9389a7b5",
+          "decodedBytes": 7894710
         },
         {
-          "path": "graphs/snap_5a27389d95ee1ce58a08af7d4e93c8c078f1f10476be01186eefd060bdfa7ccf.json.gz",
-          "sha256": "86a349992853f11e80da7fdc950a06f1f9febc71ca879795ef4fe174318179e1",
-          "uncompressedBytes": 225857,
-          "compressedBytes": 36417,
+          "path": "graphs/snap_f5f94b44b03f46e7411e0486fd16f8037dbff067bf08dad6a0dd3b48bb254009.json.gz",
+          "sha256": "96cf6655b2146faa37d7432e7bf537ec5e6c65b63ae49866607e463ea4b120ba",
+          "uncompressedBytes": 226960,
+          "compressedBytes": 36321,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "697f80da725212e2ff8add7595360bf71458e002a5f094ae76f6dc8fcff4050b",
-          "decodedBytes": 7900160
+          "encodedSha256": "b61844706fa5456734fc274d556c04170e0eaf05d926afb66fe4b52283695559",
+          "decodedBytes": 7900126
         },
         {
-          "path": "graphs/snap_cffacf8bb066c816157966923c67c05fd6fda3befdb7b47d91508528909da6d8.json.gz",
-          "sha256": "6003528c0d7ab45a29328383bccd9a83a1daf592565e81c519de7c255994d8ab",
-          "uncompressedBytes": 270382,
-          "compressedBytes": 42635,
+          "path": "graphs/snap_769c28c295418d787699690f157a65cd06115782d39b7e8171806f5bd4b3b6d3.json.gz",
+          "sha256": "8292727bffa51f7cd1ba00b2c90c3b142d387b4f08180f550f9d1ef04354ff1e",
+          "uncompressedBytes": 269657,
+          "compressedBytes": 42454,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "a15020ade6fa1b4ae4a986d0fbd762957b42d5faf5c761ea2faf34eb85802101",
-          "decodedBytes": 7901619
+          "encodedSha256": "e02237f94061a0e9c43b0c112756f206300a45d7f788be8c30303a86e64c0ece",
+          "decodedBytes": 7901478
         },
         {
-          "path": "graphs/snap_c5cade5e7155810cb783e8e3c51e28b7de4f003ca942e3545f93f7cb1c3ba0d8.json.gz",
-          "sha256": "dc89654f29c97438339092505259aec5e7800cecae41665673ae6a14047140ab",
-          "uncompressedBytes": 516246,
-          "compressedBytes": 78335,
+          "path": "graphs/snap_12b5c40ec2ba431aa20c3ac18714369df8996ecdb48056a91a612a16caec2d03.json.gz",
+          "sha256": "59b0b71d5786324ec4867ca450cb9091be91249116314ef56f3f975c13f13dab",
+          "uncompressedBytes": 515843,
+          "compressedBytes": 77687,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "fa6dc7cb8f7bd323007515ea8d353183628e4c110711d66aaac6638ea945955c",
-          "decodedBytes": 7919433
+          "encodedSha256": "84674cf69a5707e73a68a080a150de50c8f84289bf1ee08568dc21401e10d383",
+          "decodedBytes": 7919722
         },
         {
-          "path": "graphs/snap_a758d1d7cafd2bd2522e2f587c45452e6b5eddf3d498af0078a8c8aab2af2bfc.json.gz",
-          "sha256": "1518c2015cc30ed16e39a47a9f7d60bcb379c67f5c5cc4aae3e298d4da9b7e75",
-          "uncompressedBytes": 299720,
-          "compressedBytes": 47749,
+          "path": "graphs/snap_661851fd63ff56f5a6b5faf9dffe180bb8dc3a4659fdd1a83b985cb74b2f3f5a.json.gz",
+          "sha256": "462c85feb115854e29f595e0de23f0c217c64049838181a04fc863b2dbec549a",
+          "uncompressedBytes": 300400,
+          "compressedBytes": 47953,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "09d02e3160298722581c1cfa2e91cb6b4f44da21040135d2948f5fd47da71358",
-          "decodedBytes": 7935373
+          "encodedSha256": "6eb8d2d4a2754ed70ad154e38396617be9a70ff2b866bacab1042cecd44e22cc",
+          "decodedBytes": 7935485
         },
         {
-          "path": "graphs/snap_b83d25abfee421b5fd796ed1d65c98c42631614b0ef35fb865cf2702859b1105.json.gz",
-          "sha256": "37a81ec534d2006c0f7799119fdcf03a045bfbff9a1653972c5ecbbbdc68d016",
-          "uncompressedBytes": 309078,
-          "compressedBytes": 48022,
+          "path": "graphs/snap_bd7532c91c603d52d2dec5828d89889753d0e2918eabf69aefbd1d9ecc5c56a4.json.gz",
+          "sha256": "a0abb09f6f829c678d50f9aedc9abd3a13b7bf17d123315d9f4adc9f6c1412c1",
+          "uncompressedBytes": 306264,
+          "compressedBytes": 47602,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "5447c5eee7db87e32f0154bbeb45dac82b161333b4431e48383d32435fa5979b",
-          "decodedBytes": 7952837
+          "encodedSha256": "e002c23b632708067a57b6bd122c937abaedf0c60cb3bb2cd067bba4e9092c74",
+          "decodedBytes": 7952588
         },
         {
-          "path": "graphs/snap_8df41d18f92998239faa23e4a1c086d9a6c872e2fec1e0aaaa05f3576e7d29c8.json.gz",
-          "sha256": "f2fb51fdf9ba5ce98587bb8c0e0954674929df47881b2616d78e158260d08c91",
-          "uncompressedBytes": 5156684,
-          "compressedBytes": 697404,
+          "path": "graphs/snap_dd350cd2f2f9d80be0236c431f2714d0b7a111502054ca04f389f9ed8546740b.json.gz",
+          "sha256": "44920f74e7eda2675d70d79dab2db29934b2977be4b3c2a1f08a15cf8bd25f0b",
+          "uncompressedBytes": 5157054,
+          "compressedBytes": 695500,
           "mediaType": "application/json",
           "encoding": "atlas.graph.indexed/1",
-          "encodedSha256": "e4fe4d27defc9b29aa4edb2dac86a70f006f9a96ef500bb97031461155fd9c86",
-          "decodedBytes": 8003849
+          "encodedSha256": "2593a8a96cfd8d28251e225dca42792df40ed51263a12d9305c38dfa0fe55d84",
+          "decodedBytes": 8003867
         },
         {
           "path": "history/history.json.gz",
-          "sha256": "58677c4f7975a3326352cd9cd00b35e622fcaf41cad6d1ccc19dfd61160d4ba1",
+          "sha256": "7de3b47ba96bcb34c3b3997b2b7e9803ddd1cf3a619833848b5a6beb05aff74a",
           "uncompressedBytes": 1614854,
-          "compressedBytes": 268574,
+          "compressedBytes": 268573,
           "mediaType": "application/json",
           "encoding": "atlas.history.compact/1",
-          "encodedSha256": "644c7eb7521a9cd6ba367cc0dcf5cfe8a63816b8bc338fcb971ac5b6a1b6a313",
+          "encodedSha256": "5420760aecce2c8a4fa418fd2ee725f5f8c3a340dc8017d2cc207779d262d0ad",
           "decodedBytes": 8893592
         },
         {
           "path": "layout/layout.json.gz",
-          "sha256": "cb20e314ecf4337d899552fc398d4bf1e75c912564160b643b7b30200b35edb5",
-          "uncompressedBytes": 3149144,
-          "compressedBytes": 1176537,
+          "sha256": "058ee03dce93f39aa46148576ef118395de1b6e2f276310a1fa14df0213a5b39",
+          "uncompressedBytes": 3149271,
+          "compressedBytes": 1176461,
           "mediaType": "application/json",
           "encoding": "atlas.layout.compact/1",
-          "encodedSha256": "f0a65a8d247d29573dc9e30f2fc694577307a9de43b4d23c2e03d68e0c14e99c",
+          "encodedSha256": "fb4bb417ec023b72b8a66e10ef6c46cdf7177869018572d3bb9cf0d9f0c46058",
           "decodedBytes": 12430894
         }
       ],
       "milliseconds": [
-        19089.3372,
-        18795.0901,
-        18757.248099999997,
-        18758.674300000013,
-        18869.679399999994
+        19193.872699999993,
+        18972.83290000001,
+        19083.0916,
+        18797.9825,
+        19010.094699999987
       ],
-      "compressedBytes": 2871517,
+      "compressedBytes": 2869034,
       "exportVerified": true,
       "deterministic": true
     },
@@ -3381,7 +3381,7 @@
       "analysisStatus": "complete",
       "coverage": {
         "tool": "atlas",
-        "analyzerVersion": "0.1.0-dev.9",
+        "analyzerVersion": "0.1.0-dev.10",
         "repository": "pallets/flask",
         "commit": "d086db856be187255b8ec61ef409357393020f32",
         "status": "complete",
@@ -3519,10 +3519,10 @@
           "cacheHits": 0
         },
         "findings": {
+          "ATLAS_STATIC_CYCLE": 4,
           "ATLAS_LARGE_SOURCE_FILE": 2,
           "ATLAS_COMPLEX_CALLABLE": 1,
-          "ATLAS_HIGH_FAN_IN": 1,
-          "ATLAS_STATIC_CYCLE": 4
+          "ATLAS_HIGH_FAN_IN": 1
         },
         "cycles": 4,
         "history": {
@@ -3567,157 +3567,157 @@
         ]
       },
       "parseFailures": [],
-      "digest": "4549339296172f59c8b47b58f48d0b08cca49fc96d8dc6b14450fc60c309e0b3",
+      "digest": "ca94324a8f09ac581550232b364ebacb7d3cd771917a1e17826dcf864333767e",
       "chunks": [
         {
-          "path": "graphs/snap_64af690bb1bccca8adc3a07a52ee7b1489cd2f2d2a6b112c27e94b6077310f47.json.gz",
-          "sha256": "6651c9c9ac9bb89ed61f02d4c28cd7d009cc7caabcafe3ea9690ec928d85d669",
-          "uncompressedBytes": 38466,
-          "compressedBytes": 6683,
+          "path": "graphs/snap_cdc0c09ed6d45d43287430c11e167e9add330db270bfdf16102fcef2ab37531a.json.gz",
+          "sha256": "021d148089df29aefc8d9eaf706e036c5c2eaf8fc0fc84894262f8efd8d55a39",
+          "uncompressedBytes": 37769,
+          "compressedBytes": 6612,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "526a6aab1acf8c4e519c768420ebe9ade83bef94459ed38097d5cc147b96699d",
-          "decodedBytes": 973841
+          "encodedSha256": "9b2dba0bffc8725bb115cd13fdc23266ac36071c9343e0be8355783d83a9881a",
+          "decodedBytes": 973828
         },
         {
-          "path": "graphs/snap_c4db601b8f2b360a697679a35d55e480c0ff83c885c263501e62459381e2ac33.json.gz",
-          "sha256": "ec77c1a04d12ee98582c007180c610b1ca1b9e69f88887bf9d26c3541ed56003",
-          "uncompressedBytes": 29370,
-          "compressedBytes": 5524,
+          "path": "graphs/snap_579ba3fd2e1b7db33958355f5305a634edf5a3f1f0ca41acc00d7c0436ac0da1.json.gz",
+          "sha256": "6dc7756745ad49e358839b9103631ef9cd50f9ead863baf6b8c56a436f8f531b",
+          "uncompressedBytes": 29292,
+          "compressedBytes": 5503,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "dfa5f6579dd6163d04e9b5af1b5a1d22f96d9fcb779254fd70ddd5a5d2bc99b7",
-          "decodedBytes": 972580
+          "encodedSha256": "ebec29ebbd3753cca123fee79b126f8f0f0f20c3657527392fc92b79df362a0a",
+          "decodedBytes": 972249
         },
         {
-          "path": "graphs/snap_fda00e8d5674521e56368badda1fe8f313c69869d1e36636bf3bb90f605ae87b.json.gz",
-          "sha256": "04886e7eaa0accb2b51f7d905e041774d8de7a13a836ffce5ce7ca62289cdbd2",
-          "uncompressedBytes": 126427,
-          "compressedBytes": 17808,
+          "path": "graphs/snap_de2877856b03bfd1c777a4a809a2ef101502da8fffc02c3132d4b92e76b4ba3c.json.gz",
+          "sha256": "3189753112a47b722217120d04cf3afe0f96aaded04a5040566e7249b2799da7",
+          "uncompressedBytes": 126375,
+          "compressedBytes": 17855,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "f4e05503e79bc473ea7684332c93ef808eae03e823f7bc4489010e6a14ab0322",
-          "decodedBytes": 972466
+          "encodedSha256": "e56033a9046d933b10e34ec8b500a1947a3bf24ce737f7e8956ca8d3eac97f98",
+          "decodedBytes": 972359
         },
         {
-          "path": "graphs/snap_9df3deeb29b012874cc1cf4eb8fff129690b7380ceee64b112fdccf3aa9fe647.json.gz",
-          "sha256": "4da675f5aa593beca6959a6d3e2d0782ddd61f2d491e7510cda7ce7da1d4602e",
-          "uncompressedBytes": 23441,
-          "compressedBytes": 4391,
+          "path": "graphs/snap_147122e20f2a5e423f045665607194c0e2689b6d4986ed81eb6c8bfbc3b3b7ca.json.gz",
+          "sha256": "4d4eb431407760fa291dbb6cc0037e83827f9f2d615a05e07e3d197a343986b8",
+          "uncompressedBytes": 23500,
+          "compressedBytes": 4414,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "604878b9c4228c8e6891edb569cb26e57b8d2e284f413d646b9de18d7eba28e6",
-          "decodedBytes": 973335
+          "encodedSha256": "973d8521ea923cd752f9be2adc94a04aec7d6a818cdc960daf82dacea8795e20",
+          "decodedBytes": 973311
         },
         {
-          "path": "graphs/snap_b04b96eb9e54fc9a872878b808c73dadd869db8698c2e6a9376f89b2c935e623.json.gz",
-          "sha256": "fb2b1668ade5105c63093a83240fe25689c353b2d2aea213f112c0f192e3b3d5",
-          "uncompressedBytes": 52684,
-          "compressedBytes": 8809,
+          "path": "graphs/snap_50c7950da43d1b92f688500fa06391b902730d51538cccad3129fb7c56e4d00b.json.gz",
+          "sha256": "5f6f058c925985c00f38b8c9e9064342dea773b6529355c6bb76b47a4d59f0b0",
+          "uncompressedBytes": 51904,
+          "compressedBytes": 8770,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "361e02e48f687434c01f78c8acc01cd908afb9dc9b6fc42bc113fa104552a3d3",
-          "decodedBytes": 973013
+          "encodedSha256": "c25d239d0287c2d809c36168f219b81dda649f2b58124f26a3537bbb152e7c2a",
+          "decodedBytes": 973113
         },
         {
-          "path": "graphs/snap_b93341e336d79120ca96295c15ee37ce1a8920e3cd80e470bf08691fc80f9da8.json.gz",
-          "sha256": "8d90a154b45aa9560683217b8ce8605a154828c3850b4d8c3497d3934ecb61b1",
-          "uncompressedBytes": 123643,
-          "compressedBytes": 17406,
+          "path": "graphs/snap_7e406a572f5fa0877c456b31f6ed6feca1e5933de27bd9f57d8428cf9abf7a8f.json.gz",
+          "sha256": "2d9c6bab02761678129cc216ced5d9a95c7d78395669f3782b33cb666b71a913",
+          "uncompressedBytes": 120539,
+          "compressedBytes": 17052,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "b7147e5e8b1fb56aab74fdfb00436796541d334a0a0c8050005b6e925b049b0e",
-          "decodedBytes": 973902
+          "encodedSha256": "479db17fa5ac25698c6e8c827ac05a7c951380d8350192b7c7d3b4154fac8e50",
+          "decodedBytes": 974122
         },
         {
-          "path": "graphs/snap_34e0b153edb498eee9d48d201c3e27d18b7fa9be08be50b4cdf442acfb9d1ae7.json.gz",
-          "sha256": "580477c8857e8b60dd09fa2105b7be821f438dee979c4384333eaa34c0f85600",
-          "uncompressedBytes": 28402,
-          "compressedBytes": 5283,
+          "path": "graphs/snap_2f7fe7d2582f1f6db5aa00ba8ab6d125cc83863997e90b49ac5ad00068471d5c.json.gz",
+          "sha256": "b0c004aacd03bd65de1cbeedb54e60674c7b440aa4636126837d611293f9e43e",
+          "uncompressedBytes": 27175,
+          "compressedBytes": 5206,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "905f40fc10a313ab21afbfca1c912b561f9eacf65d03dd0ba9bcdbe298e139b2",
-          "decodedBytes": 974126
+          "encodedSha256": "be7cbc48556ac06171af1ac22185ca8013f7fff64a7bd132453a430e85677611",
+          "decodedBytes": 974004
         },
         {
-          "path": "graphs/snap_783ccaf5327484037cc1c7d928753d847c12a90373f8ae5fa4c6495c5e934d8f.json.gz",
-          "sha256": "ca03a65b8ca7b599a7240c2df82872c7edd2fd984f2b3aafd65c114127b2346d",
-          "uncompressedBytes": 24287,
-          "compressedBytes": 4693,
+          "path": "graphs/snap_35ec3f046e54a3c49778f87c25f51ebf6d143b1f7d2da76afdfe7f986c1209ed.json.gz",
+          "sha256": "84e586e88e9c38fbd2903e06592ad9f124f3a4c6890b7cb24ebc91b65fd491f8",
+          "uncompressedBytes": 22875,
+          "compressedBytes": 4480,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "5eb62f6f54d61fe7c10f7078edbfca768c6966a3cbffe9f470b5cc120bf31b7b",
-          "decodedBytes": 974000
+          "encodedSha256": "02c1cd372444852a2488c8ab8aac1d6c4739b116993c48cbce116183338d7a2f",
+          "decodedBytes": 974123
         },
         {
-          "path": "graphs/snap_124a1e0a6434ce8248ca9d043cdfd28e120e83ca2360b0595467f19c9377c867.json.gz",
-          "sha256": "3995f16fb85b7f920819e479f14217fc37ca2521d7c04a90396eee1e7f99db69",
-          "uncompressedBytes": 120980,
-          "compressedBytes": 17102,
+          "path": "graphs/snap_5172fe95eea656e782f1c9c9f4ced00d908f6e52a58c921c05c02074916171b4.json.gz",
+          "sha256": "a109d8af948f5895995ce745b65de415a68d6be7a1547a326352c8bef9485f48",
+          "uncompressedBytes": 120015,
+          "compressedBytes": 16869,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "fc658f722c71fe730907a7cb966e312404967eaa19b91bdbcf05c52c3beac1cd",
-          "decodedBytes": 974124
+          "encodedSha256": "b3ff8ca9dddc0836d0b17f5b2f27a540c4ef81401ff43864fc195229101ba031",
+          "decodedBytes": 974216
         },
         {
-          "path": "graphs/snap_2670ef05941191d8887d4203f62cc1418b393fad3d435b9ac03df28bc0f2938c.json.gz",
-          "sha256": "e715ca9f5fb95d8bd2aabd7f2300674c6c59f7fbe95d7e1b09ee0ec87e0398ef",
-          "uncompressedBytes": 22362,
-          "compressedBytes": 4331,
+          "path": "graphs/snap_c2e08395e61ce6d50d8c78546512c073a596279ea331edbdf1171410f8c14093.json.gz",
+          "sha256": "dd99a03642619765e1f1fa30b5bcd1ec921838aa29a30732ce3dff617121175d",
+          "uncompressedBytes": 21957,
+          "compressedBytes": 4242,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "61776cff4c7dba305164e1b3d9779fc0b8ca1fc3c3779e3dd50e4ef1260b44e9",
+          "encodedSha256": "f80445d7b2382a5a48cfa8727b259158411055fea687ae304bbb98b475befe4f",
+          "decodedBytes": 974332
+        },
+        {
+          "path": "graphs/snap_1b0e91c6e25f94b488e96ba2e9692f302de5b4df336f54a33cb4aa90b4fee93a.json.gz",
+          "sha256": "1cb97a79ee3a7f5f326a2538f3d3fbd01da309fd7f020935f982369728e4d144",
+          "uncompressedBytes": 61077,
+          "compressedBytes": 8659,
+          "mediaType": "application/json",
+          "encoding": "atlas.graph.delta/1",
+          "encodedSha256": "717454470b81b0e9249d74020846acd450b6fe2ef8290c832d1255ebf804d8d7",
           "decodedBytes": 974097
         },
         {
-          "path": "graphs/snap_d206349ea73dd96383e8201b05a9cb119c5ea61084cedd6dd2e77482dd95ec08.json.gz",
-          "sha256": "b0c5482b00a937c306c2dc513bb48135224bf44bff57d60c6c42a9e94ffeadbf",
-          "uncompressedBytes": 60239,
-          "compressedBytes": 8578,
-          "mediaType": "application/json",
-          "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "f4534e67914c22dd4c0174cb4b9167fdfd2fc720db59c4efd83bfc9f26f17e12",
-          "decodedBytes": 974107
-        },
-        {
-          "path": "graphs/snap_fde16dc445e2e86d02943dff73842b86a65f10eeefc1ae23f3157bce2a518f1d.json.gz",
-          "sha256": "b41161be7298d90356691a7be09a2657078f3b57a92b876c573f68860bd48485",
-          "uncompressedBytes": 598701,
-          "compressedBytes": 71148,
+          "path": "graphs/snap_6d2b7e2ec5d1c38eb68b1bee99cdfb51fed57f16cc333e7e9170d8ea03256f63.json.gz",
+          "sha256": "bfadd187cbdb8df415b0dcfe78959f97f1fd58b62291c58292a882e8203c9da8",
+          "uncompressedBytes": 598648,
+          "compressedBytes": 71068,
           "mediaType": "application/json",
           "encoding": "atlas.graph.indexed/1",
-          "encodedSha256": "b1d5e222e453d01c50cdb3bbe42d19d4d3cc99c6a58d1ccc0dc1ba59069a3f91",
-          "decodedBytes": 974625
+          "encodedSha256": "30c33c52a47aaa9f6d862bca3a52fedb0b318c866b871b90b40b298baceea5f4",
+          "decodedBytes": 974660
         },
         {
           "path": "history/history.json.gz",
-          "sha256": "1e982abecc864e1b2be4759876b814c1af00a63ac0883a2027eadb0eca07850f",
+          "sha256": "4e37844ec48cc0f2fd7d4d007d0f00a1249fb6e8f7a739289cb983837de8a820",
           "uncompressedBytes": 101671,
-          "compressedBytes": 17121,
+          "compressedBytes": 17133,
           "mediaType": "application/json",
           "encoding": "atlas.history.compact/1",
-          "encodedSha256": "16f96f0de9791b23e044259a088f0941e892c5f03e78d18e4171fc5eca9b0160",
+          "encodedSha256": "a00f3f2e52946b56f299b80349602d024f9ee6352c199e1221d5247c9d75a0f2",
           "decodedBytes": 659786
         },
         {
           "path": "layout/layout.json.gz",
-          "sha256": "dc183f49015e9eea1ee07addc6e97fe4128053a4911a2f5f1a947699c5cf9c2c",
-          "uncompressedBytes": 209670,
-          "compressedBytes": 46594,
+          "sha256": "bb80ada98be42089424f609001dc7de3d2547c6db40f6e0e0e96dc8067c7136a",
+          "uncompressedBytes": 209636,
+          "compressedBytes": 46614,
           "mediaType": "application/json",
           "encoding": "atlas.layout.compact/1",
-          "encodedSha256": "f08fb8d77da6f8dbc79dcbc64e4dc937532c96d1d21ef42c5e8a6c00eab0e6f7",
+          "encodedSha256": "3d1e98df94e2c6ccdef1bb5805496643940a997a9e446622ff10d2ac720501e9",
           "decodedBytes": 994312
         }
       ],
       "milliseconds": [
-        3734.6658999999927,
-        3643.092499999999,
-        3655.1628999999957,
-        3614.5402000000176,
-        3651.6955999999773
+        3779.7655999999843,
+        3726.4223999999813,
+        3739.659799999994,
+        3739.146599999978,
+        3689.020600000018
       ],
-      "compressedBytes": 235471,
+      "compressedBytes": 234477,
       "exportVerified": true,
       "deterministic": true
     },
@@ -3812,7 +3812,7 @@
       "analysisStatus": "complete",
       "coverage": {
         "tool": "atlas",
-        "analyzerVersion": "0.1.0-dev.9",
+        "analyzerVersion": "0.1.0-dev.10",
         "repository": "pydantic/pydantic-ai",
         "commit": "a5a471e1cd8571c6b691bbb07fcf60f83432d772",
         "status": "complete",
@@ -3963,12 +3963,12 @@
           "cacheHits": 0
         },
         "findings": {
-          "ATLAS_CHANGE_CONCENTRATION": 7,
-          "ATLAS_COMPLEX_CALLABLE": 6,
           "ATLAS_LARGE_SOURCE_FILE": 7,
+          "ATLAS_COMPLEX_CALLABLE": 6,
           "ATLAS_HIGH_FAN_IN": 6,
-          "ATLAS_STATIC_CYCLE": 2,
-          "ATLAS_RESOLUTION_CONTEXT_INCOMPLETE": 1
+          "ATLAS_CHANGE_CONCENTRATION": 7,
+          "ATLAS_RESOLUTION_CONTEXT_INCOMPLETE": 1,
+          "ATLAS_STATIC_CYCLE": 2
         },
         "cycles": 2,
         "history": {
@@ -4003,17 +4003,17 @@
       "examples": {
         "unsupported:NONLITERAL_DYNAMIC_IMPORT": [
           {
-            "source": "tests/test_settings.py",
+            "source": "tests/models/test_model.py",
+            "specifier": null,
+            "kind": "imports-dynamic-literal"
+          },
+          {
+            "source": "tests/import_examples.py",
             "specifier": null,
             "kind": "imports-dynamic-literal"
           },
           {
             "source": "mcp-run-python/src/prepare_env.py",
-            "specifier": null,
-            "kind": "imports-dynamic-literal"
-          },
-          {
-            "source": "tests/models/test_model.py",
             "specifier": null,
             "kind": "imports-dynamic-literal"
           }
@@ -4034,157 +4034,157 @@
         ]
       },
       "parseFailures": [],
-      "digest": "b4db2bda422164d952299dda619fb8ac3df688083a26692fb343574a2932c36a",
+      "digest": "12e219dcbcfe0aa2cae1cd25617848f6faafbbeba68955e7252e5a28b4bc7a8f",
       "chunks": [
         {
-          "path": "graphs/snap_d1d4f3a28141f852a43bdbcec2574090ca821e3a74460dbba212df50b6547e16.json.gz",
-          "sha256": "97119c631000c34c7f3a5942bcbe2502fc85f89aa0a675e17520dd5268de8d22",
-          "uncompressedBytes": 106971,
-          "compressedBytes": 17551,
+          "path": "graphs/snap_49e818fda79235a557356c77d4cf82f8ae8cd64f3c5e46d541c137858279c005.json.gz",
+          "sha256": "e6b392e03fc1b25b988cf221239b24bf3738c3d552b9099f6e39c55b6813b3d9",
+          "uncompressedBytes": 107395,
+          "compressedBytes": 17459,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "fe00e9a2a6ff255755484fcad369f56cdfb6a3de074f58f0f2d1e0826f5c66af",
-          "decodedBytes": 1283001
+          "encodedSha256": "2241c07d11927e1bddb88019c85b730c50104310486c9392a9985e52d03a67df",
+          "decodedBytes": 1282875
         },
         {
-          "path": "graphs/snap_ac316d3e294a4c2d1a7d127f85a0c3d8394c68def03258e51078ec24b491c5c7.json.gz",
-          "sha256": "7b7c42f8fcb8d0907b4bf7104db3e32c0ad705e0f3117141b34da4561d7d8add",
-          "uncompressedBytes": 213467,
-          "compressedBytes": 29987,
+          "path": "graphs/snap_8d16ece6fd799d7741274d6bf74e69c7438ac1d426003052c0551d75ff0e4e72.json.gz",
+          "sha256": "deffcbdf0df7e1acf8d80545c8ef6bee31d118c546b74bbd7574257fa0a11001",
+          "uncompressedBytes": 213386,
+          "compressedBytes": 30042,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "eddd28c431786f40e6281d44a919cf45277db7b51f9d5b06c6550ed77b559366",
-          "decodedBytes": 1313956
+          "encodedSha256": "f05cbf66f0737a3bdfa8c0d17429ac2d06e769aaf47abf8f19b49d148c1b5265",
+          "decodedBytes": 1313815
         },
         {
-          "path": "graphs/snap_7f27f63a2e41b9f0e6300bc6de0f5bed3765cc1e0daa1b950321db8ae02058f3.json.gz",
-          "sha256": "61eea94e3082234dd5480056d073338ac691a016744f4da258867009c1b711b9",
-          "uncompressedBytes": 527994,
-          "compressedBytes": 62518,
+          "path": "graphs/snap_3c189e2b9e4f64d898ba7a131bb3f2afc4b87f1b4546481f4a6d638312ffc781.json.gz",
+          "sha256": "736a672fdc876405a1c05df7061530e501d0890498c9115652521d9a70e5ff44",
+          "uncompressedBytes": 528076,
+          "compressedBytes": 62645,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "57a992bb9666bbbae715832ebb03609cabff3e5333256725ebb723dbba0366bd",
-          "decodedBytes": 1348877
+          "encodedSha256": "ec3e39f81b10add3c3cec4155d43f7f0e49d64e14a182f938f14614c70a849a8",
+          "decodedBytes": 1348879
         },
         {
-          "path": "graphs/snap_85651b3443659495a2e14bbf219bc0934722191c3d8a42f23d21e3d8d28b9e13.json.gz",
-          "sha256": "4e6af56c3917e116e6f07006a1c968c224687cf3b3ce66341168ee63c9a41eb1",
-          "uncompressedBytes": 178489,
-          "compressedBytes": 25753,
+          "path": "graphs/snap_d22af392c77b4c4b789a9d9f57f7a6b5f2e72e8479f074dc7b63699bc0eeb809.json.gz",
+          "sha256": "077f53c8698ad4dcce47d5f05bf6d6b2271d0769789446cd4b7ba2da698276b7",
+          "uncompressedBytes": 178063,
+          "compressedBytes": 25690,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "e732bdb990c9c79cc412b168c255c24df464c7574007787e00a1da32a65dc44d",
-          "decodedBytes": 1447623
+          "encodedSha256": "e1e306111953b484ab3fae974a1037887bfad337bc2945284f1dcb1ec7dab079",
+          "decodedBytes": 1447605
         },
         {
-          "path": "graphs/snap_55d1847eff3634b792c9e01a2c245c666ac3380d2a89b55c3a40acbcb602234b.json.gz",
-          "sha256": "d25c2c3fed617c07962a90d8cbb8c251463e3102181526365d895f1b61f4cb97",
-          "uncompressedBytes": 233730,
-          "compressedBytes": 33346,
+          "path": "graphs/snap_9dc57d6bb7e872f59c729bb61843b7f552a4bd75b742f498d9e8e3da1edf489c.json.gz",
+          "sha256": "dfc33ccba6eb9540ceced5a021d8e35bee73c7b0d7144c2cdde318bdad63ea8e",
+          "uncompressedBytes": 233130,
+          "compressedBytes": 33319,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "eabc66850cd832f0d786e475ef5047fbdcd4f37806b49e189762701b52a55da3",
-          "decodedBytes": 1457732
+          "encodedSha256": "c9923902797b2732813a1c1215e757f14d2a6587c5feb8b4fd93a4c27b525124",
+          "decodedBytes": 1457938
         },
         {
-          "path": "graphs/snap_d8469c1ce0e0ab742b07661305e3ab0d8a55cd41e66ba5f7f68cd1f1c4b36ea2.json.gz",
-          "sha256": "5e7303bc2646e8c94f6da2d28a393642434a31fa3f377ae678e186e178b80ad0",
-          "uncompressedBytes": 547482,
-          "compressedBytes": 67682,
+          "path": "graphs/snap_417034fb4b16c71f3b5dff8e7b4ec7ea33ed96605abfdb8a7a5bf4ca01cf77b9.json.gz",
+          "sha256": "1124a5cbef5c487cc66620d1bfa3afc82e26489e462ae26c312ffa3cec2ed464",
+          "uncompressedBytes": 547496,
+          "compressedBytes": 67692,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "6223173c36baacf2534fa4c52bb713bcabb77cf8cbb2891cf65d77a365ee53a0",
-          "decodedBytes": 1657618
+          "encodedSha256": "e9a017975b54286d5f813ed80994bca4bacbe27a82310e6ed8dff19c3120564f",
+          "decodedBytes": 1657646
         },
         {
-          "path": "graphs/snap_4f9c9b01efe49fbc9aa394214965577ae570ca8f7b1da05a7dabfda0fa1e5486.json.gz",
-          "sha256": "4e06097d46faa0cdb65320ccac8b57599ac3e774c1743306b2d2ce401aa7838b",
-          "uncompressedBytes": 252623,
-          "compressedBytes": 36377,
+          "path": "graphs/snap_362728c6a83d93828852cc7897fca660d668e5d50f29201f502bc800bc2c8f90.json.gz",
+          "sha256": "b4126a8871d65400563953a48f0a09d52cb6fbdf685854435fc31f60ed4c8de9",
+          "uncompressedBytes": 252692,
+          "compressedBytes": 36229,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "aaed57c6dee17674fa3b202b0f335ff74c4fae09373d09d5631749ba9d8864d0",
+          "encodedSha256": "5042d5c029568303a10cb40463158cbb771195bf5deed5ef233e8a7061cd4f99",
           "decodedBytes": 1718439
         },
         {
-          "path": "graphs/snap_f53df37e1968dba6aec512531438a065fec13b2459184c983b069a63f561f553.json.gz",
-          "sha256": "342c1e04fa463cc0314ccc90d4cfc54c752f8640f9b454dd3af9d4898bf79180",
-          "uncompressedBytes": 208555,
-          "compressedBytes": 32713,
+          "path": "graphs/snap_d4fe8590929444870c8097d3e2ab02a19c3dac86bc419ca618501ae4b273e742.json.gz",
+          "sha256": "50ad24ba23dad002276381ef509043bbcf38bc7ceab83e3e437ac5d7da198637",
+          "uncompressedBytes": 207563,
+          "compressedBytes": 32643,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "cb408c2c379c85d427730aefd8ba768f7c4906240aa883347a9f1bba4e188a23",
-          "decodedBytes": 1936084
+          "encodedSha256": "939164e93f3052af0eef98b398c8dfb9bbfd7c94c775c948259aef6f4c9c18ae",
+          "decodedBytes": 1936014
         },
         {
-          "path": "graphs/snap_d69db6858cc6226063ff2fe75abaa1d424de66f85e4fec0170198faa3f7d3c23.json.gz",
-          "sha256": "22d05a78533bf59a3fd6854202393993ca953313b0b74aadd59d9a6c67aae3a4",
-          "uncompressedBytes": 483934,
-          "compressedBytes": 60748,
+          "path": "graphs/snap_e301c16a64d482a5cf79e22e699d1afa6a6e33fc2984f185e69c26ff1232d3e9.json.gz",
+          "sha256": "5d87d64dca86ade7411e0a97f9090632747915fea6055a2773957036cda833e9",
+          "uncompressedBytes": 484677,
+          "compressedBytes": 60926,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "b1956dca2c6e0724bcc36d1c85f1d65656ec354171f26f0308b43910f3e5f2ae",
-          "decodedBytes": 1944563
+          "encodedSha256": "4aed9f10a1ced3801b7ca31889a111872e45837263b72b45290de7183f4d786c",
+          "decodedBytes": 1944515
         },
         {
-          "path": "graphs/snap_93affabd8ad8e3ae1493370fe03beca7a58da11e47d12b8cb7c7d6b9111af33b.json.gz",
-          "sha256": "8249bad19a47a98fac6a9d390c3b6d7747612a5ede62122b427eadb0b4cf5412",
-          "uncompressedBytes": 204225,
-          "compressedBytes": 30090,
+          "path": "graphs/snap_2a024ec1b2d57abf9adf464946611935ad8e22e9eb04552e057fc8323ca125a8.json.gz",
+          "sha256": "3e1f23529c7fcc2971629cc1ff47ad95a5b790422a56ba87cf779e84107d801c",
+          "uncompressedBytes": 205307,
+          "compressedBytes": 30233,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "98cb384ccda0d512f4a9309643f3a3d9625d477a8983d76684284e008b38aee3",
-          "decodedBytes": 1945635
+          "encodedSha256": "17b08e3c1d652a067846d5b69174a21acd672ffb8baef61c3a5576cf069c0fd5",
+          "decodedBytes": 1945852
         },
         {
-          "path": "graphs/snap_d0da9378deb5453ceecd0fcb94eb3b1eb79b82afe49d1358e1d80dea96546723.json.gz",
-          "sha256": "336fc26086f857a7ffa35f3f752c8ceb0fb235a55215f20f8d6d82aa4b172111",
-          "uncompressedBytes": 256719,
-          "compressedBytes": 34669,
+          "path": "graphs/snap_9a552dd00033f61c510b30de6ef8bf0c2d80e88d05c06ea1b77a8ceea157a977.json.gz",
+          "sha256": "99e78db9b96b4ad14a2d9400d19dda4f4fe2ff0c91335657c17006f8e7593ad0",
+          "uncompressedBytes": 255341,
+          "compressedBytes": 34743,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "ce765a5bf72b7fdf579027a2a008f955ade45c8a7f18c2e566fde05af3f97a23",
-          "decodedBytes": 2323373
+          "encodedSha256": "7af0c0426bbd969ed72762c785f375a21a0acdc398f2aed2137f94306c101c50",
+          "decodedBytes": 2323316
         },
         {
-          "path": "graphs/snap_782184cbaa629cf4c8d342734436ab669bce31b1120a3c03ee6c5805c679634e.json.gz",
-          "sha256": "5e3c7a1f79499d18bd2e6f3c4187e27e59a2f994c3bece32fa17c9553b6a9d96",
-          "uncompressedBytes": 1382687,
-          "compressedBytes": 154997,
+          "path": "graphs/snap_fe39d3cd8e7062bb425869006127cb79abe1825e57961a9035e2383627c8ceda.json.gz",
+          "sha256": "9d1859fdf538aa86b71ff1335a0d23b1319836ae7e35fd0827aabede5eeb8648",
+          "uncompressedBytes": 1383192,
+          "compressedBytes": 155087,
           "mediaType": "application/json",
           "encoding": "atlas.graph.indexed/1",
-          "encodedSha256": "3cb640c58db1c37121d0b136f0add8a5263fa777f9c5e3db5eb53603bce4c605",
-          "decodedBytes": 2372445
+          "encodedSha256": "936317fdf8077d094df8aaf9e10a3c0ab7f59eed3b4e233e7d7cb00bcfa1628a",
+          "decodedBytes": 2372471
         },
         {
           "path": "history/history.json.gz",
-          "sha256": "c48cf246280905368a44958ae916cc4371f481b11e26f64a185f0c221faa4cde",
+          "sha256": "d6830f50e504a26f8775d272d8a0ac7767af005653fa75cd76ebebb9def18818",
           "uncompressedBytes": 688199,
-          "compressedBytes": 120415,
+          "compressedBytes": 120403,
           "mediaType": "application/json",
           "encoding": "atlas.history.compact/1",
-          "encodedSha256": "25fa29afcfa3eb6ee2962a2dfccd161243e522e742c4af8250bff05b464a5115",
+          "encodedSha256": "3952ca32f009f2e26f5414b8b4318d65e2b50d1444614ea79e6c65023dd2b5ab",
           "decodedBytes": 1312673
         },
         {
           "path": "layout/layout.json.gz",
-          "sha256": "37fe5d816142eeb25b7d76473c037851d9bfd160e5a92937eb900d4043441c1b",
-          "uncompressedBytes": 242665,
-          "compressedBytes": 56991,
+          "sha256": "ac8ee21de92ed49a4be7394e347056831ddfbd89039e8bbd60a3df92cf7ff472",
+          "uncompressedBytes": 242743,
+          "compressedBytes": 57025,
           "mediaType": "application/json",
           "encoding": "atlas.layout.compact/1",
-          "encodedSha256": "60df3edcca1dac6b18aa6ee59ab1598bd0512989a9c8b6f56871f08b095ee083",
+          "encodedSha256": "6bb6e11feffee8cb9a3519ed4b7d227620eab91f7780dfcf2546242d06ca7949",
           "decodedBytes": 1090200
         }
       ],
       "milliseconds": [
-        7407.86480000001,
-        7444.488700000016,
-        7308.709700000007,
-        7364.91339999999,
-        7367.348100000003
+        7448.150200000004,
+        7463.391499999998,
+        7428.911600000021,
+        7438.368300000002,
+        7491.189899999998
       ],
-      "compressedBytes": 763837,
+      "compressedBytes": 764136,
       "exportVerified": true,
       "deterministic": true
     },
@@ -4279,7 +4279,7 @@
       "analysisStatus": "complete",
       "coverage": {
         "tool": "atlas",
-        "analyzerVersion": "0.1.0-dev.9",
+        "analyzerVersion": "0.1.0-dev.10",
         "repository": "fastapi/full-stack-fastapi-template",
         "commit": "b1125d8839482cb7bbae603ddc6d0081bf87532e",
         "status": "complete",
@@ -4427,8 +4427,8 @@
         },
         "findings": {
           "ATLAS_LOCAL_IMPORT_UNRESOLVED": 31,
-          "ATLAS_HIGH_FAN_IN": 1,
-          "ATLAS_LARGE_SOURCE_FILE": 1
+          "ATLAS_LARGE_SOURCE_FILE": 1,
+          "ATLAS_HIGH_FAN_IN": 1
         },
         "cycles": 0,
         "history": {
@@ -4462,17 +4462,17 @@
       "examples": {
         "unresolved:LOCAL_TARGET_MISSING": [
           {
-            "source": "frontend/src/hooks/useAuth.ts",
+            "source": "frontend/src/components/Admin/EditUser.tsx",
             "specifier": "@/client",
             "kind": "imports-type"
           },
           {
-            "source": "frontend/src/routes/_layout/items.tsx",
+            "source": "frontend/src/components/Admin/DeleteUser.tsx",
             "specifier": "@/client",
             "kind": "imports-value"
           },
           {
-            "source": "frontend/src/components/Items/AddItem.tsx",
+            "source": "frontend/src/components/Items/columns.tsx",
             "specifier": "@/client",
             "kind": "imports-type"
           }
@@ -4480,173 +4480,173 @@
         "excluded-target:TARGET_EXCLUDED": [
           {
             "source": "frontend/tests/utils/privateApi.ts",
-            "specifier": "../../src/client",
-            "kind": "imports-value"
-          },
-          {
-            "source": "frontend/src/main.tsx",
-            "specifier": "./routeTree.gen",
+            "specifier": "../../src/client/client.gen",
             "kind": "imports-value"
           },
           {
             "source": "frontend/src/main.tsx",
             "specifier": "./client/client.gen",
             "kind": "imports-value"
+          },
+          {
+            "source": "frontend/tests/utils/privateApi.ts",
+            "specifier": "../../src/client",
+            "kind": "imports-value"
           }
         ]
       },
       "parseFailures": [],
-      "digest": "53efae2a5227cbd30fce0b0b06066038784845b5215c1660832cee3d2c734ea2",
+      "digest": "778606bf5c3554a31b13aa11d84bdb115e3bf3e085a728208fca124b3acfd12e",
       "chunks": [
         {
-          "path": "graphs/snap_a855f72d30bbea3463c654c84ed397af57b1e7e0828eaed2376e3d9bb1a38aa5.json.gz",
-          "sha256": "b8d281bbc2030d4ec98b9fbe8cd2bc779f02e926a5d164a4c339617bc1db7964",
-          "uncompressedBytes": 40782,
-          "compressedBytes": 7692,
+          "path": "graphs/snap_de3ea1ced64b9fab1aaec8bcca6dffe77276b15a6586c874ef8046ed7c12591e.json.gz",
+          "sha256": "3f3687e85461edf4ed3a9ddd16a0864558ecee1917cc59fe93268d54b9b37e96",
+          "uncompressedBytes": 40378,
+          "compressedBytes": 7657,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "ab6128f3afe5c82ffd10dfce7846d424de4a0e72e83d2b89bca6b20511c3d046",
+          "encodedSha256": "376f5a4486c1b5322deb71520c54faa8616b21e92339ced18291f1a65b2c27aa",
           "decodedBytes": 1022179
         },
         {
-          "path": "graphs/snap_d3a0624f5b9273a7fad5bdf30875d20bad3e08def6d5c2e93d4f5aa0bf021313.json.gz",
-          "sha256": "a9a7f132ff387d892d85d89c0eecd510725d54163addb8fbc1d77f870fd180ca",
-          "uncompressedBytes": 59719,
-          "compressedBytes": 10458,
+          "path": "graphs/snap_4cb2678aac9c5ba1547d279cd0c53fb2c13a7405f2995e800e99254beb481bc9.json.gz",
+          "sha256": "8f2b00bdc572081e448012d3deba96388c4bcebc85bd316745bf1da6f424828a",
+          "uncompressedBytes": 59718,
+          "compressedBytes": 10471,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "264e32d775b181e223df12e981a272bdfa09b4024f62f1da3fbdd1ba9eadf40e",
+          "encodedSha256": "53656f2280bcb5e6824dca795f898b313b04721d9a5f3846490ede1a3460c9cf",
           "decodedBytes": 1021461
         },
         {
-          "path": "graphs/snap_65709906f2b6e19cb9d7becd4bd7051f3061dae950f4e69fd7d08ff2351860e1.json.gz",
-          "sha256": "100dafea8efa9c9f42a314254067ee099016447908a83f4b10f80bfccaaebb44",
-          "uncompressedBytes": 108171,
-          "compressedBytes": 16668,
+          "path": "graphs/snap_a60fb43e86aa42f5d40cf47dc23a26ffb095f5835fb65003c19e0d0a8f97ad05.json.gz",
+          "sha256": "7c8a69f22072e009e0645a5ca62f2165a33f32ca86320876c63798774ac19df5",
+          "uncompressedBytes": 107989,
+          "compressedBytes": 16630,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "19f90ba03d6a77951a948dc7e85eed9e177ed4db662a835f2228ce44f3f29f18",
+          "encodedSha256": "ae3e0abfa96f59cd123b7596ad1eda2cd51995fb599f7cc15f9334b6d80b4059",
           "decodedBytes": 999697
         },
         {
-          "path": "graphs/snap_49450638ed68c87712f6f385566babd27308fea4d7289d03da38c98b2a638516.json.gz",
-          "sha256": "92cc979cfb95341f2394de6ca1caa590e8d72bb1f04030f72456dbbeed3852a4",
-          "uncompressedBytes": 27889,
-          "compressedBytes": 5562,
+          "path": "graphs/snap_c27fca3fd84e3075adfb270cdb4b8cb28db6555d97add02c9ca00a45e8f9c25a.json.gz",
+          "sha256": "98e4fa4a65e460217f74f3886e52617c682b97c066686a4963a7ec7064994073",
+          "uncompressedBytes": 27601,
+          "compressedBytes": 5545,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "b918cc97df3b7ed4f717ce4e56d93ab7c078298f9bb13f99662daa7cd72444fc",
+          "encodedSha256": "451ef02d76a273582aa51dbbb37859d8b18cf8f2e4bccfcaf6b0f8208016a388",
           "decodedBytes": 1000903
         },
         {
-          "path": "graphs/snap_098370150e940e4c5696990a0d595e2ddcd66118d5f23a809c074ad2a037041a.json.gz",
-          "sha256": "bf46062301a7c9ee659c8151701dd587a1724657c22ac65188419a41c6808970",
-          "uncompressedBytes": 22351,
-          "compressedBytes": 4710,
+          "path": "graphs/snap_08cfc41043d455bfda057e25a6fcf01c21da74323e62d6310826d3fd7b43e40d.json.gz",
+          "sha256": "79c5e935b8d1c9798359f5c0ea2807a0811a256ef32114ebaed90b053a972f00",
+          "uncompressedBytes": 23754,
+          "compressedBytes": 4919,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "5fbcdcc1a6f5f1357af0b301f649d075e9c10d9213950286693a297af2c08f1f",
+          "encodedSha256": "220bf6ae6a0a7a5fbf0d51f899da869a33b58c712d4f6e6d7ab07e1ba6a585b4",
           "decodedBytes": 1034060
         },
         {
-          "path": "graphs/snap_9e90397526b9fa5181b0d5e23c83002163c24150e77eb56c9d14249384fe3f24.json.gz",
-          "sha256": "44e3d53468a838326ee6109d03b8bdd0db862c538d23af317380cd1e520dc3b4",
-          "uncompressedBytes": 107035,
-          "compressedBytes": 16738,
+          "path": "graphs/snap_e292e70d0fc33dd245ef706d36415d5b199780ca34c40c338b1f71e25c836863.json.gz",
+          "sha256": "3aed720e03efc9ba086e57075a6bdb5cb958ff1053c0d31764a8e5b691d9b712",
+          "uncompressedBytes": 107472,
+          "compressedBytes": 16771,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "b4b4541e74f059e21d4d00e27c3e702aeb17f6f119759f71c97398b01b1d550a",
+          "encodedSha256": "ea497792694d25c0bf50be6f5354adee8f08fe358fbb614a8d53340c81c3ae3d",
           "decodedBytes": 1032823
         },
         {
-          "path": "graphs/snap_2530da705bbbf88bce6d12b745842824e77743615db75ddc1fd972731c3793f0.json.gz",
-          "sha256": "2d00dba00f5d2adb7c1b5a646a453a078606888390287355b3d0c02505e1aade",
-          "uncompressedBytes": 23401,
-          "compressedBytes": 4931,
+          "path": "graphs/snap_ab1dd51b555725d589378a2328df939c69725e557a1c28908865925dcd411872.json.gz",
+          "sha256": "dbe784d1d83aa40f7d17beec2fc262427304099d84773f919113a88c84186c13",
+          "uncompressedBytes": 24657,
+          "compressedBytes": 5082,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "1f171cd48f5b55424caab2642875fb3ac4ff9739f2c25f542ded96b186956a41",
+          "encodedSha256": "22dbd935bfb605bb369427850e854af0a9fc336e3d7e57db058994475b183ecc",
           "decodedBytes": 1038716
         },
         {
-          "path": "graphs/snap_070a308de59f1c5c66d2a4a6d33d454cb0e202895922ea319de5d71e9f58dbc7.json.gz",
-          "sha256": "02b860ae284ded37eea1a1c9f017097fb2cf854440bcfc410ba21d9804af5a00",
-          "uncompressedBytes": 49447,
-          "compressedBytes": 8446,
+          "path": "graphs/snap_66667068383ed3066ced92840d41acd0391fe092a6b1c1e1539b194e03e26cb2.json.gz",
+          "sha256": "a64c179cf78e6f60488451cd1f8a59d94829ef3c63972a4ff8b6a16e55aa1081",
+          "uncompressedBytes": 48309,
+          "compressedBytes": 8273,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "937d27408f253045389dd3e0d22b058a62978830dcd08298cfe26cb66351c0c9",
+          "encodedSha256": "d8e7dc777fd2504d34a30261d81f787e1928fdd244270f6ccaabfdbcb78bba74",
           "decodedBytes": 1037371
         },
         {
-          "path": "graphs/snap_2c9f6469cf30dba17d20d6b26f72642da9eaca375fe3c55b6a20d72743d3d137.json.gz",
-          "sha256": "ffb7966b7da8d8dc58e2b29d531a1e2aa0fea7456bff736c1536e0114e00336a",
-          "uncompressedBytes": 50173,
-          "compressedBytes": 8621,
+          "path": "graphs/snap_16fdfc7a2cc5a60326179afabb9c5d386b9992f572f576a5b93ccd9386f2d612.json.gz",
+          "sha256": "5456a658fde43281c34a2ed18bfefd7fa78d409bcbd0498d97741257f93c74d4",
+          "uncompressedBytes": 50705,
+          "compressedBytes": 8643,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "8e27136aa051d982980a2eb4219210b043d2ec2b35a34860df1ae25aebfe5cd9",
+          "encodedSha256": "55b4ec2ebd44785ba3cf44e8cbe8586090a38cf4ee1f60762bfd588e21b211b1",
           "decodedBytes": 1022186
         },
         {
-          "path": "graphs/snap_1d727748b6b38ebeb86c1e21d4e832bc368df2b3bd2a6c9829be0579acd17cc7.json.gz",
-          "sha256": "83575f301dd7e7417fe0445677644f9d614bb8c1c887179eb60e4869b14359e1",
-          "uncompressedBytes": 10763,
-          "compressedBytes": 2772,
+          "path": "graphs/snap_db9e7668784bddc8289cc97e26f30deb5bcd7603527ab0f055ddc1ac7a8cc120.json.gz",
+          "sha256": "9905f1dca35fd13dbc11838e525dc99641139da645ab1f922bc32cd4f5630a6f",
+          "uncompressedBytes": 9199,
+          "compressedBytes": 2581,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "4f903f39fbbb0eb9a6c2c5df8c52c17799ccabc2e1844d3e8c7263b7df95519c",
+          "encodedSha256": "3d362ea861f4283d7a2d255533826e215ea0ba17763109774506934574e79e7f",
           "decodedBytes": 1022192
         },
         {
-          "path": "graphs/snap_e842a8d39f60bea383b29962ccfe10bbae32561ff7b6e3e49e7b276a105b3464.json.gz",
-          "sha256": "fab8814fd99eff8af30c62e0d2e21588d322a004116fc74e89b8ec21a000962e",
-          "uncompressedBytes": 37620,
-          "compressedBytes": 6610,
+          "path": "graphs/snap_02a29e8bc5df6353a1002e140f38353df4a66fbb61b3c8c77dbb3fbc04f8a4ce.json.gz",
+          "sha256": "d68b82aa550b82fb752456651dbda5085ddd3b3ea85609ce788b49dcf5b630cc",
+          "uncompressedBytes": 37797,
+          "compressedBytes": 6651,
           "mediaType": "application/json",
           "encoding": "atlas.graph.delta/1",
-          "encodedSha256": "eb331fb437e8b154f90fbbe604807829a35c54e2161b291618c84f2fc4c9d33f",
+          "encodedSha256": "e823d314619cf4275358d73fba0c428efebdd223e231ca39c34c06dcddb0a9a3",
           "decodedBytes": 1022195
         },
         {
-          "path": "graphs/snap_da1b3c35136c3dafe12177335569618c655df92f1d90a74ff68ca740c04ca918.json.gz",
-          "sha256": "30656f1c67215d15e8a38712955c1a209ac371a3664f7a37c43eeafddac88bad",
-          "uncompressedBytes": 607254,
-          "compressedBytes": 70789,
+          "path": "graphs/snap_0a26e872e221b200aab7cd71071a6b9b552269a288109d2f7a03241c52a2d346.json.gz",
+          "sha256": "b3140949d6f56d0ed46e35109f49f9acd784e58dc1a51dcd901d1de9dc2b29d9",
+          "uncompressedBytes": 606984,
+          "compressedBytes": 70570,
           "mediaType": "application/json",
           "encoding": "atlas.graph.indexed/1",
-          "encodedSha256": "c677ec9ccbdaf4e117ca7eeaa50772aeecccd7f51d5f8b53a60845fe0ea0a380",
+          "encodedSha256": "3a35337d35e62fdcbde2f77c532b9a2cb24f632f228b10c95bbf7a1351d812b4",
           "decodedBytes": 1023443
         },
         {
           "path": "history/history.json.gz",
-          "sha256": "12de20fa5b0fd1f50b600c9b60153af8f9410598f58a928e4feaa056f9932395",
+          "sha256": "b1c9476b10209f1bf89579002cba67893bdfe3fb951d1c2b048c1509c2ed7cb2",
           "uncompressedBytes": 281592,
-          "compressedBytes": 50701,
+          "compressedBytes": 50704,
           "mediaType": "application/json",
           "encoding": "atlas.history.compact/1",
-          "encodedSha256": "d0294b6da2756001a5f86bc67622e7f4f1ff16fe46aebd3c0fe51054754bf791",
+          "encodedSha256": "a8cce3e937e9c13852a525312fa3f6f2329f9fe7757f24b2680129d6f1a8bb46",
           "decodedBytes": 836819
         },
         {
           "path": "layout/layout.json.gz",
-          "sha256": "4f5bd87506ca236e696e80b3c9023eda7ee5e06c821ef9e9857c5fd0ea9da201",
-          "uncompressedBytes": 216685,
-          "compressedBytes": 48853,
+          "sha256": "6799bf5a4940a1768fcf3de209fdfa78ef849130002104cbb063bbeefd9c8181",
+          "uncompressedBytes": 216739,
+          "compressedBytes": 48884,
           "mediaType": "application/json",
           "encoding": "atlas.layout.compact/1",
-          "encodedSha256": "c639f911f1fecdcdd05271628b9bb2e6a8641370af69d7d187eaed4cee2ad1c0",
+          "encodedSha256": "5b430bfe2bd25992a53272744ff81788d5cadcd41f6d3c90515521cc625c9585",
           "decodedBytes": 980129
         }
       ],
       "milliseconds": [
-        3954.4439999999886,
-        3890.7369999999937,
-        3873.4792000000016,
-        3913.9663,
-        3872.782600000006
+        4000.0771999999997,
+        3993.402700000006,
+        4030.8473999999987,
+        3984.639599999995,
+        3978.595399999991
       ],
-      "compressedBytes": 263551,
+      "compressedBytes": 263381,
       "exportVerified": true,
       "deterministic": true
     }
