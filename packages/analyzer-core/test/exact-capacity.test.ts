@@ -71,7 +71,7 @@ describe('exact capacity fixture (ADR-082)', () => {
     expect(lineages.size).toBe(LIMITS.historicalUnionLineages);
     expect(expected).toMatchObject({ files: 10_000, edgesPerFrame: 100_000, union: 20_000, frames: 12 });
     // Nothing imports a renamed or retired module, so no edge is lost to churn.
-    const imported = new Set([...frames.at(-1)!.values()].flatMap((t) => importLines(t).map((l) => l.split(' from ')[1])));
+    const imported = new Set([...frames.at(-1)!.values()].flatMap((t) => importLines(t).map((l) => l.split(' from ')[1]!)));
     for (const commit of commits as Commit[]) for (const [from] of commit.renames ?? []) expect([...imported].some((s) => s.includes(`/${path.posix.basename(from, '.ts')}'`))).toBe(false);
   });
 
