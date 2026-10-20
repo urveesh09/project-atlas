@@ -168,7 +168,7 @@ if (isolateRuns) {
     record(runIndex, sample.elapsedMs, sample.facts);
   }
 } else {
-  const { analyzeCommit, ParserPool, MemoryFactCache } = await imp('packages/analyzer-core/dist/index.js');
+  const { analyzeCommit, ParserPool } = await imp('packages/analyzer-core/dist/index.js');
   const memory = observeParserMemory(ParserPool);
   const { gzipDeterministic, writeArtifactDirectory } = await imp('packages/artifact/dist/node-entry.js');
   const { localRepositoryId } = await imp('packages/schema/dist/index.js');
@@ -203,7 +203,7 @@ if (isolateRuns) {
         ...(headOnly ? { options: { history: { enabled: false } } } : {}),
         repository: { repoId: localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f'), displayName: 'bench', sourceKind: 'local-git', remote: null, objectFormat: repo.objectFormat },
         ...(pool ? { pool } : {}),
-        factCache: new MemoryFactCache(),
+        // No fact cache: like the worker, each run is cold with the analysis' own cache (ADR-084).
         transport: gzipDeterministic,
         onProgress: (event) => {
           if (event.stage === 'layout' || event.stage === 'assemble')

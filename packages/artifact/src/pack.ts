@@ -131,8 +131,9 @@ export interface EncodedChunk {
   bytes: Uint8Array;
 }
 
-function jsonChunk(path: string, value: unknown, compress: Compressor): EncodedChunk {
+function jsonChunk(path: string, value: unknown, compress: Compressor, wire?: (canonical: Uint8Array) => void): EncodedChunk {
   const { bytes, sha256 } = encodeCanonical(value);
+  wire?.(bytes);
   const gz = compress(bytes);
   return { ref: { path, sha256, uncompressedBytes: bytes.length, compressedBytes: gz.length, mediaType: 'application/json' }, bytes: gz };
 }
@@ -149,8 +150,12 @@ export class FrameChunkCache {
   readonly naturals = new GraphNaturalsCache();
   private readonly entries = new WeakMap<GraphSnapshot, Map<GraphSnapshot | null, { encoding: GraphEncoding; chunk: EncodedChunk }>>();
 
-  /** `base` is null for an indexed or plain frame, else the newer frame it is a delta of. */
-  encode(graph: GraphSnapshot, base: GraphSnapshot | null, objectFormat: 'sha1' | 'sha256', compress: Compressor, encoding: GraphEncoding): EncodedChunk {
+  /**
+   * `base` is null for an indexed or plain frame, else the newer frame it is a delta of.
+   * `onWire`, when encoding (not on a cache hit), receives the chunk's canonical bytes before
+   * compression, so a caller can release the graph and decode it again later (ADR-084).
+   */
+  encode(graph: GraphSnapshot, base: GraphSnapshot | null, objectFormat: 'sha1' | 'sha256', compress: Compressor, encoding: GraphEncoding, onWire?: (canonical: Uint8Array) => void): EncodedChunk {
     const cached = this.entries.get(graph)?.get(base);
     if (cached && cached.encoding === encoding) return { ref: { ...cached.chunk.ref }, bytes: cached.chunk.bytes };
     const delta = encoding === 'delta' && base !== null;
@@ -172,7 +177,7 @@ export class FrameChunkCache {
       if (canonical === null)
         throw new ArtifactPackError([{ code: 'CHUNK_ENCODING', path: `graphs/${graph.snapshotId}`, message: 'Frame delta did not reproduce its graph' }]);
     }
-    const chunk = jsonChunk(`graphs/${graph.snapshotId}.json.gz`, wire, compress);
+    const chunk = jsonChunk(`graphs/${graph.snapshotId}.json.gz`, wire, compress, onWire);
     if (encoding !== 'plain') {
       chunk.ref.encoding = delta ? DELTA_GRAPH_ENCODING : INDEXED_GRAPH_ENCODING;
       chunk.ref.encodedSha256 = chunk.ref.sha256;
@@ -183,6 +188,19 @@ export class FrameChunkCache {
     if (!byBase) this.entries.set(graph, (byBase = new Map()));
     byBase.set(base, { encoding, chunk });
     return { ref: { ...chunk.ref }, bytes: chunk.bytes };
+  }
+
+  /**
+   * Record `graph` as the graph of a chunk this cache encoded for an equal graph that the
+   * caller has since released (ADR-084): the caller decoded `graph` from that chunk's wire
+   * against `base` and checked its canonical digest, so packing it reuses the chunk.
+   */
+  adopt(graph: GraphSnapshot, base: GraphSnapshot | null, encoding: GraphEncoding, chunk: EncodedChunk): void {
+    if (chunk.ref.path !== `graphs/${graph.snapshotId}.json.gz`)
+      throw new ArtifactPackError([{ code: 'CHUNK_ENCODING', path: chunk.ref.path, message: 'Adopted graph does not belong to the chunk' }]);
+    let byBase = this.entries.get(graph);
+    if (!byBase) this.entries.set(graph, (byBase = new Map()));
+    byBase.set(base, { encoding, chunk: { ref: { ...chunk.ref }, bytes: chunk.bytes } });
   }
 }
 

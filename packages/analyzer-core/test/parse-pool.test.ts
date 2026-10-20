@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
-import { DirectoryFactCache, MemoryFactCache, ParserPool, factCacheKey, isCacheable } from '@atlas/analyzer-core';
+import { DirectoryFactCache, FrameFactCache, MemoryFactCache, ParserPool, factCacheKey, isCacheable } from '@atlas/analyzer-core';
 import { extractFileFacts, failedFacts } from '@atlas/analyzer-ts';
 import { sha256Hex } from '@atlas/schema';
 
@@ -121,5 +121,22 @@ describe('fact cache', () => {
     await cache.set('x', extractFileFacts('a.ts', text));
     await cache.get('x');
     expect(cache.stats).toMatchObject({ hits: 1, misses: 1 });
+  });
+
+  it('keeps the facts of the last two frames and releases older ones (ADR-084)', async () => {
+    const cache = new FrameFactCache();
+    const facts = extractFileFacts('a.ts', text);
+    await cache.set('old', facts);
+    await cache.set('kept', facts);
+    cache.advance();
+    // The next frame uses only `kept`, which carries it forward.
+    expect(await cache.get('kept')).toBe(facts);
+    cache.advance();
+    expect(await cache.get('kept')).toBe(facts);
+    expect(await cache.get('old')).toBeNull();
+    expect(cache.stats).toMatchObject({ hits: 2, misses: 1 });
+    // Environment failures are never cached.
+    await cache.set('timeout', { ...facts, parseStatus: 'failed', failureReason: 'PARSE_TIMEOUT' });
+    expect(await cache.get('timeout')).toBeNull();
   });
 });

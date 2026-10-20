@@ -1,7 +1,7 @@
 import ts from 'typescript';
 import { isWithinRepoPath, repoDirname, type Confidence, type EdgeKind, type ObservationStatus } from '@atlas/schema';
 import { NODE_BUILTINS } from './builtins.js';
-import { discoverProjects, type ProjectContext, type ProjectSet } from './config.js';
+import { discoverProjects, type ProjectContext, type ProjectSet, type ResolverKind } from './config.js';
 import { isSupportedSourcePath, type RawImport } from './extract.js';
 import { createVirtualHost, type VirtualHost } from './host.js';
 import { originalPathOf } from './internal.js';
@@ -42,6 +42,18 @@ const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.d.ts', '.js', '.jsx'
 const CONVENTIONAL_ENTRIES = ['src/index.ts', 'src/index.tsx', 'src/index.mts', 'src/index.js', 'src/index.jsx', 'src/index.mjs', 'index.ts', 'index.tsx', 'index.js', 'index.mjs'];
 const EXPORT_CONDITIONS = new Set(['types', 'import', 'module', 'require', 'node', 'default']);
 
+/**
+ * One string per resolver mode: every resolution carries one, and a frame holds 100,000 of
+ * them, so a fresh template string each time cost about 3 MB per frame (ADR-084).
+ */
+const RESOLVER_MODES: Record<ResolverKind, { cjs: string; esm: string }> = {
+  classic: { cjs: 'classic/cjs', esm: 'classic/esm' },
+  node10: { cjs: 'node10/cjs', esm: 'node10/esm' },
+  node16: { cjs: 'node16/cjs', esm: 'node16/esm' },
+  nodenext: { cjs: 'nodenext/cjs', esm: 'nodenext/esm' },
+  bundler: { cjs: 'bundler/cjs', esm: 'bundler/esm' },
+};
+
 export class SnapshotResolver {
   readonly workspace: WorkspaceMap;
   readonly projects: ProjectSet;
@@ -67,7 +79,7 @@ export class SnapshotResolver {
 
     const virtualSource = toVirtual(sourcePath);
     const mode = this.resolutionMode(virtualSource, imp, context);
-    const resolverMode = `${context.resolverKind}/${mode === ts.ModuleKind.CommonJS ? 'cjs' : 'esm'}`;
+    const resolverMode = RESOLVER_MODES[context.resolverKind][mode === ts.ModuleKind.CommonJS ? 'cjs' : 'esm'];
     const outcome = (partial: Omit<Resolution, 'contextId' | 'resolverMode'>): Resolution => ({ ...partial, contextId: context.id, resolverMode });
 
     // 1. Compiler/config-aware resolution over the virtual snapshot.

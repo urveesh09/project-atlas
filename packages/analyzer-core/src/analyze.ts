@@ -1,4 +1,5 @@
-import { ArtifactPackError, FrameChunkCache, chunkLimitIssues, deltaBaseIndex, exportLimits, packArtifact, type Compressor, type ExportLimits, type ManifestDraft, type PackedArtifact } from '@atlas/artifact';
+import { deflateRawSync, inflateRawSync } from 'node:zlib';
+import { ArtifactPackError, FrameChunkCache, chunkLimitIssues, deltaBaseIndex, exportLimits, packArtifact, type Compressor, type EncodedChunk, type ExportLimits, type ManifestDraft, type PackedArtifact } from '@atlas/artifact';
 import { initPythonParser } from '@atlas/analyzer-py';
 import { PARSER_VERSIONS as PARSER_VERSION } from './facts.js';
 import type { HotspotBaseline } from '@atlas/graph';
@@ -11,12 +12,15 @@ import {
   LIMITS,
   METRIC_DEFINITION_VERSION,
   canonicalJson,
+  canonicalJsonDigest,
   compareAscii,
   compareUtf8,
+  decodeDeltaGraph,
   emptySnapshotCoverage,
   lineageId as deriveLineageId,
   makeId,
   randomId,
+  sha256Hex,
   snapshotId,
   utf8ByteLength,
   type AnalysisCoverage,
@@ -33,14 +37,14 @@ import {
 import { BlobCache } from './blob-cache.js';
 import { builtinExclusionPatterns } from './classify.js';
 import { AnalysisError } from './errors.js';
-import { MemoryFactCache, type FactCache } from './fact-cache.js';
+import { FrameFactCache, type FactCache } from './fact-cache.js';
 import { buildHierarchy } from './hierarchy.js';
 import { applyHistoryMetrics, applyHotspotsAndHistoryFindings, hotspotBaseline } from './history-metrics.js';
 import { historyFailureBoundary, planHistory, toWindowCommit, type HistoryPlan } from './history-plan.js';
 import { buildInventory, isPathInScope, scopeRules, type Inventory } from './inventory.js';
 import { ANALYZER_VERSION, normalizeOptions, optionsDigest, parseRepositoryConfig, type AnalysisOptions, type NormalizedOptions, type RepositoryConfig } from './options.js';
 import { ParserPool } from './parse-pool.js';
-import { analyzeStaticSnapshot, type StaticSnapshot } from './static-snapshot.js';
+import { analyzeStaticSnapshot } from './static-snapshot.js';
 import { buildUnionLayout } from './union-layout.js';
 
 /**
@@ -144,10 +148,17 @@ export interface AnalysisSummary {
   sourceTextIncluded: false;
 }
 
+/**
+ * What later stages need from one analyzed snapshot: its graph and the summary's inputs.
+ * The inventory (with every file's decoded text) and parse facts are not kept: history holds
+ * up to twelve snapshots at once, within the 2 GiB job.
+ */
 interface SnapshotOutcome {
   graph: GraphSnapshot;
-  inventory: Inventory;
-  analysis: StaticSnapshot;
+  roles: Record<string, number>;
+  excludedRoots: Inventory['excludedRoots'];
+  cacheHits: number;
+  cycles: number;
   status: 'complete' | 'partial';
 }
 
@@ -225,9 +236,15 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
   };
 
   const pool = input.pool ?? new ParserPool();
-  const factCache = input.factCache ?? new MemoryFactCache();
+  const factCache = input.factCache ?? new FrameFactCache();
   const blobs = new BlobCache(LIMITS.historyDistinctSourceBytes);
   const context = { git, repoId, displayName: input.repository.displayName, digest, options, repositoryConfig, pool, factCache, blobs };
+  // Frames are analyzed newest first and share blobs with the one before: the caches keep
+  // two frames' worth, not the whole window's (ADR-084). A caller's own fact cache is kept whole.
+  const advanceCaches = () => {
+    blobs.advance();
+    if (factCache instanceof FrameFactCache) factCache.advance();
+  };
   const outcomes = new Map<string, SnapshotOutcome>();
   const unavailable = new Map<string, string>();
 
@@ -240,6 +257,7 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
   const finalGraph = (oid: string): GraphSnapshot => {
     let graph = finals.get(oid);
     if (graph) return graph;
+    if (held.has(oid)) return restore(oid);
     graph = outcomes.get(oid)!.graph;
     if (churn) {
       // 5. History metrics, the fixed HEAD hotspot baseline and history findings.
@@ -260,27 +278,63 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
   const kept: string[] = [];
   const union = new Set<string>();
   let streamed = { stored: 0, compressed: 0 };
+  // A kept historical frame that no later frame is encoded against is held only as its
+  // delta wire, deflated privately, and decoded again for assembly, after the parser children
+  // have exited (ADR-084). Its chunk is reused, so the artifact is unchanged.
+  const wires = new Map<string, { base: string; chunk: EncodedChunk; wire: Uint8Array }>();
+  const held = new Map<string, { base: string; chunk: EncodedChunk; wire: Uint8Array }>();
   const exportFits = (oid: string): { fits: boolean; decodedBytes: number } => {
     if (!packing) return { fits: true, decodedBytes: 0 };
     const graph = finalGraph(oid);
     const distance = kept.length;
-    const base = distance === 0 ? null : finalGraph(kept[distance - deltaBaseIndex(0, distance + 1)]!);
-    const chunk = packing.cache.encode(graph, base, input.repository.objectFormat, packing.compress, 'delta');
+    const baseOid = distance === 0 ? null : kept[distance - deltaBaseIndex(0, distance + 1)]!;
+    const base = baseOid === null ? null : finalGraph(baseOid);
+    const encoded: { wire?: Uint8Array } = {};
+    const encodeStarted = performance.now();
+    const chunk = packing.cache.encode(graph, base, input.repository.objectFormat, packing.compress, 'delta', baseOid === null ? undefined : (bytes) => (encoded.wire = deflateRawSync(bytes, { level: 1 })));
     if (base !== null && base !== finalGraph(kept[0]!)) packing.cache.naturals.forget(base);
     const next = { stored: streamed.stored + chunk.ref.uncompressedBytes, compressed: streamed.compressed + chunk.ref.compressedBytes };
     const fits = chunkLimitIssues([chunk.ref], packing.limits.decodedChunkBytes).length === 0 && next.stored <= packing.limits.storedBytes && next.compressed <= packing.limits.compressedBytes;
     if (fits) streamed = next;
+    if (fits && baseOid !== null && encoded.wire) {
+      wires.set(oid, { base: baseOid, chunk, wire: encoded.wire });
+      // Restoring decodes and proves the frame again, a subset of what encoding it did.
+      restoreReserveMs += performance.now() - encodeStarted;
+    }
     return { fits, decodedBytes: chunk.ref.decodedBytes ?? chunk.ref.uncompressedBytes };
   };
   const keep = (oid: string) => {
     kept.push(oid);
     for (const n of finalGraph(oid).nodes) if (n.kind === 'file' && n.lineageId) union.add(n.lineageId);
+    // The next frame is encoded against the selected frame or this one, never the one before.
+    const previous = kept.length > 2 ? kept.at(-2)! : null;
+    const record = previous === null ? undefined : wires.get(previous);
+    if (previous !== null && record) {
+      held.set(previous, record);
+      finals.delete(previous);
+    }
+  };
+  /** Decode a held frame against its (restored) base, prove it, and adopt it for packing. */
+  const restore = (oid: string): GraphSnapshot => {
+    const record = held.get(oid)!;
+    const base = finalGraph(record.base);
+    const bytes = inflateRawSync(record.wire);
+    if (sha256Hex(bytes) !== record.chunk.ref.encodedSha256) throw new AnalysisError('INTERNAL_ERROR', 'A held frame did not restore its encoded bytes');
+    const graph = decodeDeltaGraph(JSON.parse(bytes.toString('utf8')), base, packing!.cache.naturals);
+    if (canonicalJsonDigest(graph).sha256 !== record.chunk.ref.sha256) throw new AnalysisError('INTERNAL_ERROR', 'A held frame did not restore its graph');
+    if (base !== finalGraph(kept[0]!)) packing!.cache.naturals.forget(base);
+    packing!.cache.adopt(graph, base, 'delta', record.chunk);
+    held.delete(oid);
+    wires.delete(oid);
+    finals.set(oid, graph);
+    return graph;
   };
   // Time to assemble and pack the kept frames, scaled from the selected frame's measured
   // export, so frame expansion stops while that still fits within the deadline.
   let headExportMs = 0;
   let frameStepMs = 0;
-  const exportReserveMs = () => headExportMs * (EXPORT_RESERVE_BASE + EXPORT_RESERVE_PER_FRAME * (kept.length + 1));
+  let restoreReserveMs = 0;
+  const exportReserveMs = () => headExportMs * (EXPORT_RESERVE_BASE + EXPORT_RESERVE_PER_FRAME * (kept.length + 1)) + restoreReserveMs;
 
   try {
     // 2. The selected commit: the checkpoint every later failure falls back to.
@@ -303,6 +357,7 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
         outcomes.set(commitOid, head);
       }
       headExportMs = performance.now() - exportStarted;
+      advanceCaches();
     } catch (error) {
       if (deadline.aborted && !input.signal?.aborted)
         throw new AnalysisError('ANALYSIS_RESOURCE_LIMIT', 'The selected commit could not be analyzed within the deadline', { limit: 'DEADLINE' });
@@ -341,12 +396,13 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
             for (const n of outcome.graph.nodes) if (n.kind === 'file' && n.lineageId && !union.has(n.lineageId)) added++;
             if (union.size + added > LIMITS.historicalUnionLineages) stop = 'LINEAGE_LIMIT';
             else if (!exportFits(frame.commitOid).fits) stop = 'ARTIFACT_SIZE';
+            // A kept frame lives on as its final graph; its raw outcome is not needed again.
             if (stop === null) keep(frame.commitOid);
             else {
               unavailable.set(frame.commitOid, stop);
-              outcomes.delete(frame.commitOid);
               finals.delete(frame.commitOid);
             }
+            outcomes.delete(frame.commitOid);
           }
         } catch (error) {
           if (input.signal?.aborted) throw new AnalysisError('CANCELLED', 'Analysis cancelled');
@@ -356,6 +412,7 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
           if (reason === 'HISTORY_DEADLINE' || reason === 'HISTORY_SOURCE_BUDGET') stop = reason;
         }
         frameStepMs = performance.now() - stepStarted;
+        advanceCaches();
       }
       progress({ stage: 'frames', done: pending.length, total: pending.length });
     }
@@ -364,12 +421,10 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
   }
 
   // 4. Kept frames in chain order.
-  let frames = plan
-    ? plan.frames.filter((f) => kept.includes(f.commitOid)).map((f) => ({ ...f, outcome: outcomes.get(f.commitOid)! }))
-    : [{ commitOid, chainIndex: 0, outcome: outcomes.get(commitOid)! }];
+  let frames = plan ? plan.frames.filter((f) => kept.includes(f.commitOid)) : [{ commitOid, chainIndex: 0 }];
 
   // 5-8. Metrics, layout, history and manifest for a frame set; re-run if frames are dropped.
-  const assembleFrom = (frames: { commitOid: string; chainIndex: number; outcome: SnapshotOutcome }[]): AnalysisResult => {
+  const assembleFrom = (frames: { commitOid: string; chainIndex: number }[]): AnalysisResult => {
     const graphs = frames.map((f) => finalGraph(f.commitOid));
 
     progress({ stage: 'layout' });
@@ -553,7 +608,9 @@ async function analyzeSnapshot(
   const coverage = analysis.graph.coverage;
   // Parse failures and caps both mean the result is useful but partial (plan §14.1).
   const status: 'complete' | 'partial' = coverage.limitsHit.length > 0 || coverage.parseFailedFiles > 0 ? 'partial' : 'complete';
-  return { graph: analysis.graph, inventory, analysis, status };
+  const roles: Record<string, number> = {};
+  for (const file of inventory.files) roles[file.role] = (roles[file.role] ?? 0) + 1;
+  return { graph: analysis.graph, roles, excludedRoots: inventory.excludedRoots, cacheHits: analysis.cacheHits, cycles: analysis.cycles, status };
 }
 
 function frameFailureReason(error: unknown): string {
@@ -772,9 +829,6 @@ function summarize(input: {
   unavailable: Map<string, string>;
 }): AnalysisSummary {
   const { head, headGraph: graph, history, historyCoverage: hc } = input;
-  const inventory = head.inventory;
-  const roles: Record<string, number> = {};
-  for (const file of inventory.files) roles[file.role] = (roles[file.role] ?? 0) + 1;
   const packages = graph.nodes.filter((n) => n.kind === 'package');
   const packageIds = new Set(packages.map((p) => p.id));
   const filesPerPackage = new Map<string, number>();
@@ -798,14 +852,14 @@ function summarize(input: {
     status: input.status,
     scope: 'committed-tree',
     files: { discovered: c.discoveredFiles, included: c.includedFiles, supported: c.supportedFiles, opaque: c.opaqueFiles, excluded: c.excludedFiles, omitted: c.omittedFiles },
-    roles,
+    roles: head.roles,
     packages: packages
       .map((p) => (p.kind === 'package' ? { name: p.packageName, path: p.path, files: filesPerPackage.get(p.id) ?? 0, workspace: p.workspace } : null))
       .filter((p): p is NonNullable<typeof p> => p !== null)
       .sort((a, b) => compareUtf8(a.path, b.path)),
     externalPackages: graph.nodes.filter((n) => n.kind === 'external-package').length,
     exclusions: c.reasons.map((r) => ({ reason: r.code, count: r.count })),
-    excludedRoots: [...inventory.excludedRoots]
+    excludedRoots: [...head.excludedRoots]
       .map(([path, r]) => ({ path, reason: r.reason, files: r.count }))
       .sort((a, b) => b.files - a.files || compareUtf8(a.path, b.path))
       .slice(0, 50),
@@ -821,9 +875,9 @@ function summarize(input: {
       unsupported: c.unsupported,
       excludedTargets: c.excludedTargets,
     },
-    parse: { parsed: c.parsedFiles, failed: c.parseFailedFiles, cacheHits: head.analysis.cacheHits },
+    parse: { parsed: c.parsedFiles, failed: c.parseFailedFiles, cacheHits: head.cacheHits },
     findings: graph.diagnostics.reduce<Record<string, number>>((acc, d) => ((acc[d.ruleId] = (acc[d.ruleId] ?? 0) + 1), acc), {}),
-    cycles: head.analysis.cycles,
+    cycles: head.cycles,
     history: {
       status: hc.status,
       boundary: hc.boundary,
