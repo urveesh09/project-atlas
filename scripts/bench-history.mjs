@@ -17,6 +17,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { PYTHON_CAPACITY_POLICY, capacityLanguage } from './lib/capacity-language.mjs';
+import { EXACT_CAPACITY_POLICY, EXACT_CAPACITY_SHAPES } from './lib/exact-capacity.mjs';
 import { observeParserMemory } from './lib/parser-memory.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -34,7 +35,10 @@ const language = capacityLanguage(languageAt < 0 ? 'typescript' : process.argv[l
 const out = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : 'phase4-history';
 if (!/^[a-z0-9-]+$/.test(out ?? '')) throw new Error('Report name must be lowercase letters, digits and hyphens');
 if (!Number.isInteger(RUNS) || RUNS < 1 || RUNS > 100) throw new Error('Runs must be 1..100');
-const tier = FILES > 3000 ? 'large' : 'medium';
+const shapeAt = process.argv.indexOf('--shape');
+const shape = shapeAt < 0 ? null : process.argv[shapeAt + 1];
+if (shape !== null && (!EXACT_CAPACITY_SHAPES.includes(shape) || language !== 'typescript')) throw new Error('--shape is exact or dense, TypeScript only');
+const tier = shape || FILES > 3000 ? 'large' : 'medium';
 const diagnosticOnly = process.argv.includes('--diagnostic-once');
 
 const pathArg = (name) => {
@@ -44,6 +48,14 @@ const pathArg = (name) => {
   return path.resolve(process.argv[i + 1]);
 };
 const fixturePath = pathArg('fixture');
+// Exact fixtures (ADR-082) record the counts every sample must reproduce.
+let expected = null;
+if (shape) {
+  if (!fixturePath) throw new Error('--shape requires a prepared --fixture');
+  const metadata = JSON.parse(readFileSync(path.join(fixturePath, 'atlas-capacity-fixture.json'), 'utf8'));
+  if (metadata.shape !== shape || metadata.policy !== EXACT_CAPACITY_POLICY || metadata.mode !== (headOnly ? 'head' : 'history')) throw new Error(`Prepared fixture is not the ${shape} ${headOnly ? 'HEAD' : 'history'} fixture of ${EXACT_CAPACITY_POLICY}`);
+  expected = metadata.expected;
+}
 const runtimeRoot = pathArg('runtime-root');
 const runtimeRequire = runtimeRoot ? createRequire(path.join(runtimeRoot, 'package.json')) : null;
 const imp = (p) => import(pathToFileURL(runtimeRequire
@@ -65,6 +77,7 @@ const resourceUsage = () => resourceLimits ? {
   })),
 } : null;
 const { openLocalRepository, resolveLocalCommit, gitVersion } = await imp('packages/ingest/dist/index.js');
+const { LIMITS } = await imp('packages/schema/dist/index.js');
 const version = await gitVersion();
 
 // --isolate-runs: like a production analysis sandbox, every run (warm-up included) is a
@@ -81,7 +94,13 @@ const factsOf = (result) => {
   const chunk = (prefix) => m.chunks.filter((c) => c.path.startsWith(prefix)).reduce((a, c) => a + c.compressedBytes, 0);
   return {
     status: result.status,
-    complete: result.status === 'complete' && (headOnly ? m.frames.length === 1 : h.status === 'complete' && h.framesCompleted === 12),
+    // A dense fixture is complete when it reaches its expected limited result. The exact
+    // history keeps the newest frames that fit the artifact, so it may drop older frames
+    // for ARTIFACT_SIZE only (ADR-082); every other history must complete all 12 frames.
+    complete: shape === 'dense' ? result.status === 'partial' && m.frames.length === 1
+      : shape === 'exact' && !headOnly ? m.frames.length >= 1 && h.framesCompleted === m.frames.length && result.summary.history.frames.unavailable.every((u) => u.reason === 'ARTIFACT_SIZE')
+      : result.status === 'complete' && (headOnly ? m.frames.length === 1 : h.status === 'complete' && h.framesCompleted === 12),
+    expectation: expected && expectationOf(result),
     fixture: { headFiles: m.coverage.head.includedFiles, importStatements: m.coverage.head.observedImports, headEdges: result.draft.graphs.at(-1).edges.length, headLimitsHit: result.draft.graphs.at(-1).coverage.limitsHit, commits: h.commitsTraversed, frames: h.framesCompleted, boundary: h.boundary, renames: result.summary.history.renames, lineages: result.summary.history.lineages, historyStatus: h.status },
     analyzer: m.analyzer,
     selectedCommit: m.selectedCommit.oid,
@@ -98,6 +117,22 @@ const factsOf = (result) => {
   };
 };
 
+/** Every count an exact fixture constructs, compared with what the analyzer reported. */
+function expectationOf(result) {
+  const graphs = result.draft.graphs;
+  const head = graphs.at(-1);
+  const limitCount = (code) => head.coverage.reasons.find((r) => r.code === code)?.count ?? 0;
+  // Dense: every edge and observation counted, edges at the ceiling, and evidence rows past
+  // the row or decoded ceilings omitted (ADR-083). Exact: every kept frame as constructed.
+  const observed = expected.shape === 'dense'
+    ? { files: head.nodes.filter((n) => n.kind === 'file').length, edges: head.edges.length, limitsHit: head.coverage.limitsHit, edgesOmitted: limitCount('EDGE_LIMIT'), observations: head.coverage.observedImports, evidenceOmitted: limitCount('EVIDENCE_LIMIT') }
+    : { files: graphs.map((g) => g.nodes.filter((n) => n.kind === 'file').length), edges: graphs.map((g) => g.edges.length), limitsHit: graphs.flatMap((g) => g.coverage.limitsHit), lineages: result.summary.history.lineages, renames: headOnly ? 0 : result.summary.history.renames };
+  const want = expected.shape === 'dense'
+    ? { files: expected.files, edges: LIMITS.sourceDependencyEdgesPerSnapshot, limitsHit: ['EDGE_LIMIT', 'EVIDENCE_LIMIT'], edgesOmitted: expected.edgeCandidates - LIMITS.sourceDependencyEdgesPerSnapshot, observations: expected.edgeCandidates, evidenceOmitted: head.coverage.observedImports - head.importObservations.length }
+    : { files: Array(graphs.length).fill(expected.files), edges: Array(graphs.length).fill(expected.edgesPerFrame), limitsHit: [], lineages: expected.union, renames: expected.renames };
+  return { observed, expected: want, pass: JSON.stringify(observed) === JSON.stringify(want) };
+}
+
 const timings = [];
 const completeness = [];
 let lastFacts;
@@ -106,7 +141,7 @@ const record = (runIndex, elapsed, facts) => {
   if (runIndex === 0) warmupMs = elapsed;
   else {
     timings.push(elapsed);
-    completeness.push({ complete: facts.complete, status: facts.status, frames: facts.fixture.frames, historyStatus: facts.fixture.historyStatus, parserMemory: facts.parserMemory });
+    completeness.push({ complete: facts.complete, status: facts.status, frames: facts.fixture.frames, historyStatus: facts.fixture.historyStatus, parserMemory: facts.parserMemory, ...(facts.expectation ? { expectationPass: facts.expectation.pass } : {}) });
   }
   lastFacts = facts;
   console.error(`  run ${runIndex}${runIndex === 0 ? ' (warm-up)' : ''}: ${(elapsed / 1000).toFixed(2)} s`);
@@ -133,7 +168,7 @@ if (isolateRuns) {
     record(runIndex, sample.elapsedMs, sample.facts);
   }
 } else {
-  const { analyzeCommit, ParserPool, MemoryFactCache } = await imp('packages/analyzer-core/dist/index.js');
+  const { analyzeCommit, ParserPool } = await imp('packages/analyzer-core/dist/index.js');
   const memory = observeParserMemory(ParserPool);
   const { gzipDeterministic, writeArtifactDirectory } = await imp('packages/artifact/dist/node-entry.js');
   const { localRepositoryId } = await imp('packages/schema/dist/index.js');
@@ -168,7 +203,7 @@ if (isolateRuns) {
         ...(headOnly ? { options: { history: { enabled: false } } } : {}),
         repository: { repoId: localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f'), displayName: 'bench', sourceKind: 'local-git', remote: null, objectFormat: repo.objectFormat },
         ...(pool ? { pool } : {}),
-        factCache: new MemoryFactCache(),
+        // No fact cache: like the worker, each run is cold with the analysis' own cache (ADR-084).
         transport: gzipDeterministic,
         onProgress: (event) => {
           if (event.stage === 'layout' || event.stage === 'assemble')
@@ -224,7 +259,9 @@ const report = {
   task: `${headOnly ? 'HEAD' : 'Historical'} analysis capacity — ${tier}, ${headOnly ? 1 : 12} frames`,
   language,
   mode: headOnly ? 'head' : 'history',
-  fixturePolicy: language === 'typescript' ? null : PYTHON_CAPACITY_POLICY,
+  fixturePolicy: shape ? EXACT_CAPACITY_POLICY : language === 'typescript' ? null : PYTHON_CAPACITY_POLICY,
+  shape,
+  expectation: lastFacts.expectation ?? null,
   recordedAt: new Date().toISOString(),
   environment: { os: `${os.type()} ${os.release()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length, memoryGiB: +(os.totalmem() / 2 ** 30).toFixed(1), node: process.version, nodeFlags: process.execArgv.join(' '), git: version, parserWorkers: 2, processPerRun: isolateRuns, containerLimits: resourceLimits, runtimeImage: process.env.ATLAS_CAPACITY_IMAGE ?? null, sourceCommit: process.env.ATLAS_CAPACITY_SOURCE_COMMIT ?? null, benchmarkSourceCommit: process.env.ATLAS_CAPACITY_BENCHMARK_COMMIT ?? null, benchmarkWorkingTreeDirty: process.env.ATLAS_CAPACITY_BENCHMARK_DIRTY ?? null },
   fixture: lastFacts.fixture,
@@ -248,12 +285,13 @@ report.timePass = report.secondsP95 <= report.budgetSecondsP95;
 report.sizePass = report.artifact.compressedBytes <= report.artifact.budgetBytes;
 report.completenessPass = failedRun === null && completeness.every((sample) => sample.complete);
 report.sampleCountPass = timings.length >= 20;
+report.expectationPass = shape ? completeness.every((sample) => sample.expectationPass === true) : null;
 report.parserMemoryPass = completeness.every((sample) => sample.parserMemory?.available && sample.parserMemory.children.length >= 1);
 const languages = report.parsedLanguages;
 report.languagePass = language === 'python' ? languages.python > 0 && languages.typescript + languages.javascript === 0
   : language === 'mixed' ? languages.python > 0 && languages.typescript + languages.javascript > 0 : languages.python === 0;
 report.resourcePass = report.resourceUsage ? (report.resourceUsage.peakBytes <= resourceLimits.memoryBytes && report.resourceUsage.events.oom === 0 && report.resourceUsage.events.oom_kill === 0) : null;
-report.pass = report.timePass && report.sizePass && report.completenessPass && (report.resourcePass ?? true) && report.sampleCountPass && report.languagePass && (!isolateRuns || report.parserMemoryPass);
+report.pass = report.timePass && report.sizePass && report.completenessPass && (report.expectationPass ?? true) && (report.resourcePass ?? true) && report.sampleCountPass && report.languagePass && (!isolateRuns || report.parserMemoryPass);
 const outDir = pathArg('report-dir') ?? path.join(root, 'docs/benchmarks');
 mkdirSync(outDir, { recursive: true });
 writeFileSync(path.join(outDir, `${out}.json`), `${JSON.stringify(report, null, 2)}\n`);
@@ -271,9 +309,10 @@ writeFileSync(
     '',
     `## Fixture (synthetic "${tier}", ${language}, ${report.mode}, deterministic)`,
     '',
+    ...(shape ? [`- Exact fixture \`${shape}\` (${EXACT_CAPACITY_POLICY}, ADR-082); every sample must reproduce its constructed counts: ${report.expectationPass ? 'pass' : 'fail'}`, `  - expected ${JSON.stringify(report.expectation.expected)}`, `  - observed ${JSON.stringify(report.expectation.observed)}`] : []),
     `- HEAD: ${report.fixture.headFiles.toLocaleString('en-US')} files, ${report.fixture.importStatements.toLocaleString('en-US')} import statements`,
     `- Parsed languages: ${JSON.stringify(report.parsedLanguages)}; language validation: ${report.languagePass ? 'pass' : 'fail'}`,
-    `- HEAD dependency edges: ${report.fixture.headEdges.toLocaleString('en-US')} (limits hit: ${report.fixture.headLimitsHit.length === 0 ? 'none' : report.fixture.headLimitsHit.join(', ')})${report.fixturePolicy ? `; Python fixture policy ${report.fixturePolicy} (ADR-067)` : ''}`,
+    `- HEAD dependency edges: ${report.fixture.headEdges.toLocaleString('en-US')} (limits hit: ${report.fixture.headLimitsHit.length === 0 ? 'none' : report.fixture.headLimitsHit.join(', ')})${report.fixturePolicy && !shape ? `; Python fixture policy ${report.fixturePolicy} (ADR-067)` : ''}`,
     headOnly ? '- History disabled; one selected frame.' : `- History: ${report.fixture.commits} mainline commits over 58.5 days (${report.fixture.boundary} boundary), ${report.fixture.frames} analyzed frames, ${report.fixture.renames} renames, ${report.fixture.lineages.toLocaleString('en-US')} lineages; status ${report.fixture.historyStatus}`,
     '',
     '## Result',
@@ -291,7 +330,7 @@ writeFileSync(
     `| — history / layout | ${mib(report.artifact.historyBytes)} / ${mib(report.artifact.layoutBytes)} | |`,
     '',
     ...(report.failedRun ? [`Run ${report.failedRun.runIndex} did not complete (exit ${report.failedRun.code}, signal ${report.failedRun.signal}); no later runs were attempted.`, ''] : []),
-    `**${report.pass ? 'Pass' : 'Fail'}.** Time: ${report.timePass ? 'pass' : 'fail'}; size: ${report.sizePass ? 'pass' : 'fail'}; all measured runs complete with ${headOnly ? 1 : 12} frames: ${report.completenessPass ? 'pass' : 'fail'}; twenty-sample minimum: ${report.sampleCountPass ? 'pass' : 'fail'}; parser-memory capture: ${report.parserMemoryPass ? 'pass' : 'unmeasured'}; resource gate: ${report.resourceUsage ? `${report.resourcePass ? 'pass' : 'fail'} (events ${JSON.stringify(report.resourceUsage.events)})` : 'unmeasured; no whole-job/reference-resource pass is claimed'}. Format ${report.artifact.version}; frame-delta transport per ADR-026.`,
+    `**${report.pass ? 'Pass' : 'Fail'}.** Time: ${report.timePass ? 'pass' : 'fail'}; size: ${report.sizePass ? 'pass' : 'fail'}; all measured runs ${shape === 'dense' ? 'reach the expected limited result with 1 frame' : shape === 'exact' && !headOnly ? `keep the newest frames that fit (${report.fixture.frames} of 12; others ARTIFACT_SIZE only)` : `complete with ${headOnly ? 1 : 12} frames`}: ${report.completenessPass ? 'pass' : 'fail'};${shape ? ` constructed counts: ${report.expectationPass ? 'pass' : 'fail'};` : ''} twenty-sample minimum: ${report.sampleCountPass ? 'pass' : 'fail'}; parser-memory capture: ${report.parserMemoryPass ? 'pass' : 'unmeasured'}; resource gate: ${report.resourceUsage ? `${report.resourcePass ? 'pass' : 'fail'} (events ${JSON.stringify(report.resourceUsage.events)})` : 'unmeasured; no whole-job/reference-resource pass is claimed'}. Format ${report.artifact.version}; frame-delta transport per ADR-026.`,
     '',
   ].join('\n'),
 );

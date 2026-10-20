@@ -1,6 +1,6 @@
 import type { SyntaxFacts as FileFacts } from './facts.js';
 import { aggregateEdges, findStaticCycles } from '@atlas/graph';
-import { compareAscii, type GraphNode, type GraphSnapshot, type SnapshotCoverage } from '@atlas/schema';
+import { LIMITS, compareAscii, type GraphNode, type GraphSnapshot, type SnapshotCoverage } from '@atlas/schema';
 import { buildObservations, parseSupportedFiles } from './dependencies.js';
 import { AnalysisError } from './errors.js';
 import type { FactCache } from './fact-cache.js';
@@ -32,6 +32,8 @@ export async function analyzeStaticSnapshot(input: {
   coverage: SnapshotCoverage;
   pool: ParserPool;
   cache: FactCache;
+  /** Retain at most this many evidence rows (below the ceiling), lowest IDs first. */
+  evidenceRows?: number;
   signal?: AbortSignal;
   onProgress?: (stage: 'parse' | 'dependencies' | 'findings', done?: number, total?: number) => void;
 }): Promise<StaticSnapshot> {
@@ -44,7 +46,10 @@ export async function analyzeStaticSnapshot(input: {
   const declaredExternals = new Map<string, GraphNode>();
   for (const node of hierarchy.nodes) if (node.kind === 'external-package') declaredExternals.set(node.ecosystem === 'pypi' ? `pypi:${node.packageName}` : node.packageName, node);
   const { observations, perimeterNodes } = buildObservations({ snapshotId: snap, facts: parsed.facts, resolver: hierarchy.resolver, pythonResolver: hierarchy.pythonResolver, fileNodeIds: hierarchy.fileNodeIds, declaredExternals });
-  const aggregation = aggregateEdges(snap, observations);
+  const aggregation = aggregateEdges(snap, observations, {
+    edges: LIMITS.sourceDependencyEdgesPerSnapshot,
+    evidenceRows: Math.min(LIMITS.dependencyEvidenceRowsPerSnapshot, input.evidenceRows ?? Infinity),
+  });
   const boundedEdges = boundSnapshotEdges(hierarchy.edges, aggregation);
 
   // File nodes gain their parse status and declarations.

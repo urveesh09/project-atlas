@@ -54,6 +54,38 @@ export class MemoryFactCache implements FactCache {
   }
 }
 
+/**
+ * One analysis' own fact cache (ADR-084). Frames are analyzed newest first, and a frame
+ * shares its blobs with the frame analyzed just before it; a blob that frame did not have
+ * returns only if a file goes back to earlier content. So, at each `advance()`, entries
+ * that neither the frame just finished nor the one before it used are released, instead of
+ * holding the facts of every blob in the window. A released entry that is needed again is
+ * parsed again, with the same facts.
+ */
+export class FrameFactCache implements FactCache {
+  private previous = new Map<string, FileFacts>();
+  private current = new Map<string, FileFacts>();
+  readonly stats = { hits: 0, misses: 0, rejected: 0 };
+  async get(key: string) {
+    let hit = this.current.get(key) ?? null;
+    if (!hit) {
+      hit = this.previous.get(key) ?? null;
+      if (hit) this.current.set(key, hit);
+    }
+    if (hit) this.stats.hits++;
+    else this.stats.misses++;
+    return hit;
+  }
+  async set(key: string, facts: FileFacts) {
+    if (isCacheable(facts)) this.current.set(key, facts);
+  }
+  /** A frame is finished: keep what it used, release what only older generations used. */
+  advance(): void {
+    this.previous = this.current;
+    this.current = new Map();
+  }
+}
+
 interface StoredEntry {
   format: 'atlas.fact-cache/1';
   key: string;

@@ -36,10 +36,12 @@ for the owner to tag. None authorizes a live deployment or closes R6-06.
 Human R6-04 review and M3.4 intermittent layout diagnosis remain open. M2.7 parses
 Python 3.15 syntax with a reproducibly built, patched grammar (ADR-080;
 `scripts/build-python-grammar.mjs`), and M2.2 records the Python/mixed capacity matrix
-(ADR-081). M1 upgrades landed in PRs #20, #22,
-#23 and #24. Analyzer `0.1.0-dev.9` records the 3.15 grammar and applies one dependency
-edge budget to package and source edges (ADR-067), after the namespace correction
-(ADR-066); parser runtime provenance remains ADR-062 and the artifact schema stays 1.4.0. Cython, notebooks and further languages
+(ADR-081); both landed in PR #48. M5.2 builds the plan's exact capacity fixtures
+(ADR-082) and fits the export to its limits in one pass, degrading dense graphs instead of
+failing (ADR-083), and holds large history within the 2 GiB job (ADR-084). M1 upgrades landed in PRs #20, #22,
+#23 and #24. Analyzer `0.1.0-dev.10` fits the export (ADR-083) on top of the 3.15 grammar
+(ADR-080), one dependency edge budget for package and source edges (ADR-067) and the
+namespace correction (ADR-066); parser runtime provenance remains ADR-062 and the artifact schema stays 1.4.0. Cython, notebooks and further languages
 remain opaque buildings. The hosted Python journey (ADR-064)
 and the uv workspace and mixed corpus (ADR-065) have landed. The master plan has no Phase 7.
 Gate G6 stays open on the exact capacity-fixture matrix, human, reference-hardware and
@@ -140,7 +142,7 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-081. Allocate ADR-082 next.
+  The current sequence is ADR-001…ADR-084. Allocate ADR-085 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

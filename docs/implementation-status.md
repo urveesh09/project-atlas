@@ -2,7 +2,9 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-18):** production-plan M4.6 public-service pages
+**Current milestone (2026-10-20):** production-plan M5.2, the G6 release candidate:
+exact capacity fixtures, export fitting and history memory (ADR-082–084) are implemented;
+the 20-run exact rows, reviewer packets and candidate freeze remain. Before it: M4.6 public-service pages
 (ADR-077), the last M4 task. M4.4 image supply chain (PR #43) and M4.5 service levels
 (PR #44) landed, after M4.3 backups (PR #41), deployment (PR #39) and monitoring
 (PR #40); live-site R6-06 remains open. M3.5 fallback, diagnostics
@@ -11,10 +13,9 @@ preparation (PR #36), macOS CI (PR #34) and
 Firefox/WebKit journeys (PR #35). The numbered human screen-reader scripts are
 prepared; R6-04 remains open. M3.4 intermittent layout diagnosis remains open.
 M2.7 Python 3.15 syntax (ADR-080) and M2.2 Python/mixed capacity (ADR-081, with the
-shared edge budget of ADR-067) are implemented in one pull request; exact-head CI and
-owner merge are pending. The hosted Python journey, properties,
+shared edge budget of ADR-067) landed in PR #48. The hosted Python journey, properties,
 coverage tooling, namespace correction and six-repository corpus have landed; dated
-evidence is recorded below. Analyzer `0.1.0-dev.9` (from dev.8), artifact 1.4.0 and
+evidence is recorded below. Analyzer `0.1.0-dev.10` (from dev.9), artifact 1.4.0 and
 package version `0.1.0-beta.2`, tagged 2026-10-19. Unsupported languages remain opaque when included.
 The [public demo](https://urveesh09.github.io/project-atlas/) is a static viewer on a
 bundled vuejs/core analysis. Changes require an owner-merged PR and all CI checks;
@@ -31,6 +32,51 @@ Unchanged since 2026-10-11:
 - Runtime instrumentation remains deferred.
 
 Agents: read [AGENTS.md](../AGENTS.md).
+
+### Production M5.2, part 1: exact capacity fixtures, export fitting and history memory (2026-10-20)
+
+One pull request after PR #48, analyzer `0.1.0-dev.9` → `0.1.0-dev.10`. Exact-head CI and
+owner merge are required.
+- **Exact fixtures ([ADR-082](adr/ADR-082-exact-capacity-fixtures.md)).**
+  `build-history-fixture.mjs --shape exact|dense` builds the plan's large tier:
+  - exact HEAD and a 12-frame history with exactly 10,000 files and 100,000 edges in every
+    frame and 20,000 lineages in all;
+  - a dense HEAD with 295,740 import observations, past every dependency ceiling.
+
+  The benchmarks require the constructed counts in every sample.
+- **Defects the fixtures found, fixed ([ADR-083](adr/ADR-083-fit-the-export.md)):**
+  - **Slow frame reduction:** the exact history took 888 s in the container (deadline
+    300 s, budget 240 s). Frames are now encoded as they complete, older frames that
+    cannot fit are not analyzed, and time is reserved for export: 144.63 s.
+  - **Dense graphs failed outright:** the dense HEAD failed with an unclassified `SCHEMA`
+    error. It now keeps fewer evidence rows (`EVIDENCE_LIMIT`, partial), superseding
+    ADR-024's rejection.
+- **Memory ([ADR-084](adr/ADR-084-history-memory.md)).** The fixed exact history peaked at
+  96.5% of the job's 2 GiB. The fix:
+  - snapshots release their inventory and parse facts;
+  - the caches keep two frames instead of the whole window;
+  - older kept frames wait for assembly as their proven encoded chunks.
+
+  Container peak: 82.4%. The artifact is byte-identical.
+- **Container diagnostics** (one run each, not acceptance samples), exact large history:
+
+  | Image | Time | Job peak |
+  |---|---:|---:|
+  | dev.9 `16d1147` | 888.46 s | 1,970,372,608 B |
+  | dev.10 `bf6f282` | 144.63 s | 2,072,801,280 B |
+  | dev.10 `d4837fd` | 150.57 s | 1,769,410,560 B |
+
+  Dense HEAD on `d4837fd`: 44.18 s, partial, 1,598,824,448 B. No memory events in any run.
+- **Checks on 2026-10-20, Windows, Node 24.22.0:**
+  - `pnpm verify` with required browser tests: 921 passed, 91 skipped (service-gated).
+  - The six pinned repositories, 5 offline repeats: `check-repository-baseline` finds every
+    payload exactly as committed, with dev.10's version as the only difference from dev.9.
+- **CI correction:** `bf6f282` was pushed before the test typecheck ran, and `verify`
+  failed on all three platforms (`exact-capacity.test.ts`, TS18048). Fixed in `d8a6e16`.
+- **Open:**
+  - the three 20-run exact rows, run from the merged commit;
+  - R6 reviewer packets and the candidate freeze;
+  - R6-01's reference machine and gate G6.
 
 ### Production M2.7 and M2.2: Python 3.15 syntax and Python capacity (2026-10-20)
 

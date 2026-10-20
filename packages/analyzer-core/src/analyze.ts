@@ -1,6 +1,8 @@
-import { ArtifactPackError, packArtifact, type Compressor, type ManifestDraft, type PackedArtifact } from '@atlas/artifact';
+import { deflateRawSync, inflateRawSync } from 'node:zlib';
+import { ArtifactPackError, FrameChunkCache, chunkLimitIssues, deltaBaseIndex, exportLimits, packArtifact, type Compressor, type EncodedChunk, type ExportLimits, type ManifestDraft, type PackedArtifact } from '@atlas/artifact';
 import { initPythonParser } from '@atlas/analyzer-py';
 import { PARSER_VERSIONS as PARSER_VERSION } from './facts.js';
+import type { HotspotBaseline } from '@atlas/graph';
 import { churnByFrame, coChangePairs } from '@atlas/history';
 import { DIFF_POLICY, isIngestError, listTree, readCommit, readObjects, type CommitObject, type SafeGit } from '@atlas/ingest';
 import {
@@ -9,13 +11,18 @@ import {
   LAYOUT_VERSION,
   LIMITS,
   METRIC_DEFINITION_VERSION,
+  canonicalJson,
+  canonicalJsonDigest,
   compareAscii,
   compareUtf8,
+  decodeDeltaGraph,
   emptySnapshotCoverage,
   lineageId as deriveLineageId,
   makeId,
   randomId,
+  sha256Hex,
   snapshotId,
+  utf8ByteLength,
   type AnalysisCoverage,
   type FileLineage,
   type FrameSelection,
@@ -30,14 +37,14 @@ import {
 import { BlobCache } from './blob-cache.js';
 import { builtinExclusionPatterns } from './classify.js';
 import { AnalysisError } from './errors.js';
-import { MemoryFactCache, type FactCache } from './fact-cache.js';
+import { FrameFactCache, type FactCache } from './fact-cache.js';
 import { buildHierarchy } from './hierarchy.js';
 import { applyHistoryMetrics, applyHotspotsAndHistoryFindings, hotspotBaseline } from './history-metrics.js';
 import { historyFailureBoundary, planHistory, toWindowCommit, type HistoryPlan } from './history-plan.js';
 import { buildInventory, isPathInScope, scopeRules, type Inventory } from './inventory.js';
 import { ANALYZER_VERSION, normalizeOptions, optionsDigest, parseRepositoryConfig, type AnalysisOptions, type NormalizedOptions, type RepositoryConfig } from './options.js';
 import { ParserPool } from './parse-pool.js';
-import { analyzeStaticSnapshot, type StaticSnapshot } from './static-snapshot.js';
+import { analyzeStaticSnapshot } from './static-snapshot.js';
 import { buildUnionLayout } from './union-layout.js';
 
 /**
@@ -77,10 +84,14 @@ export interface AnalyzeCommitInput {
   deadlineMs?: number;
   /**
    * Pack with this compressor and fit the export limits (plan §4.2: 20 MiB compressed,
-   * decoded cap per ADR-024) by deterministically dropping the oldest historical frames;
-   * the selected commit alone exceeding them fails with `ARTIFACT_SIZE`.
+   * decoded cap per ADR-024; ADR-083). Frames are encoded as they complete, newest first;
+   * the oldest historical frames that do not fit are dropped (`ARTIFACT_SIZE`) and older
+   * ones are not analyzed. A selected graph whose evidence rows exceed the decoded cap keeps
+   * fewer rows (`EVIDENCE_LIMIT`); one that still cannot fit fails with `ARTIFACT_SIZE`.
    */
   transport?: Compressor;
+  /** Lower the export limits (tests, operators); they can never be raised. */
+  exportLimits?: Partial<ExportLimits>;
   /**
    * History was requested but its objects were deliberately not acquired (the hosted
    * HEAD checkpoint, plan §8.3). The result records history as unavailable at a resource
@@ -137,10 +148,17 @@ export interface AnalysisSummary {
   sourceTextIncluded: false;
 }
 
+/**
+ * What later stages need from one analyzed snapshot: its graph and the summary's inputs.
+ * The inventory (with every file's decoded text) and parse facts are not kept: history holds
+ * up to twelve snapshots at once, within the 2 GiB job.
+ */
 interface SnapshotOutcome {
   graph: GraphSnapshot;
-  inventory: Inventory;
-  analysis: StaticSnapshot;
+  roles: Record<string, number>;
+  excludedRoots: Inventory['excludedRoots'];
+  cacheHits: number;
+  cycles: number;
   status: 'complete' | 'partial';
 }
 
@@ -218,25 +236,136 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
   };
 
   const pool = input.pool ?? new ParserPool();
-  const factCache = input.factCache ?? new MemoryFactCache();
+  const factCache = input.factCache ?? new FrameFactCache();
   const blobs = new BlobCache(LIMITS.historyDistinctSourceBytes);
   const context = { git, repoId, displayName: input.repository.displayName, digest, options, repositoryConfig, pool, factCache, blobs };
+  // Frames are analyzed newest first and share blobs with the one before: the caches keep
+  // two frames' worth, not the whole window's (ADR-084). A caller's own fact cache is kept whole.
+  const advanceCaches = () => {
+    blobs.advance();
+    if (factCache instanceof FrameFactCache) factCache.advance();
+  };
   const outcomes = new Map<string, SnapshotOutcome>();
   const unavailable = new Map<string, string>();
+
+  // A frame's final graph depends only on its own analysis, the window's commits and the
+  // selected commit's hotspot baseline, never on which other frames are kept (ADR-083). It
+  // is derived once, so dropping older frames reuses the same objects and encoded chunks.
+  const churn = plan ? churnByFrame(plan.lineage.commits, new Set(plan.frames.map((f) => f.commitOid))) : null;
+  const finals = new Map<string, GraphSnapshot>();
+  let baseline: HotspotBaseline | null = null;
+  const finalGraph = (oid: string): GraphSnapshot => {
+    let graph = finals.get(oid);
+    if (graph) return graph;
+    if (held.has(oid)) return restore(oid);
+    graph = outcomes.get(oid)!.graph;
+    if (churn) {
+      // 5. History metrics, the fixed HEAD hotspot baseline and history findings.
+      graph = applyHistoryMetrics(graph, churn.get(oid)!);
+      baseline ??= hotspotBaseline(oid === commitOid ? graph : applyHistoryMetrics(outcomes.get(commitOid)!.graph, churn.get(commitOid)!));
+      const applied = applyHotspotsAndHistoryFindings(graph, baseline, churn.get(oid)!.commitsInScope);
+      graph = applied.omittedDiagnostics > 0 ? withDiagnosticLimit(applied.graph, applied.omittedDiagnostics) : applied.graph;
+    }
+    graph = withRecoveryWarnings(graph, book.recovered.get(oid) ?? []);
+    finals.set(oid, graph);
+    return graph;
+  };
+
+  // Export as frames complete, newest first (ADR-083). `kept` holds the frames whose chunks
+  // fit so far. Their running size leaves out history and layout, known only at the end, so
+  // a frame that does not fit here never fits, and older frames are not analyzed.
+  const packing = input.transport ? { compress: input.transport, cache: new FrameChunkCache(), limits: exportLimits(input.exportLimits) } : null;
+  const kept: string[] = [];
+  const union = new Set<string>();
+  let streamed = { stored: 0, compressed: 0 };
+  // A kept historical frame that no later frame is encoded against is held only as its
+  // delta wire, deflated privately, and decoded again for assembly, after the parser children
+  // have exited (ADR-084). Its chunk is reused, so the artifact is unchanged.
+  const wires = new Map<string, { base: string; chunk: EncodedChunk; wire: Uint8Array }>();
+  const held = new Map<string, { base: string; chunk: EncodedChunk; wire: Uint8Array }>();
+  const exportFits = (oid: string): { fits: boolean; decodedBytes: number } => {
+    if (!packing) return { fits: true, decodedBytes: 0 };
+    const graph = finalGraph(oid);
+    const distance = kept.length;
+    const baseOid = distance === 0 ? null : kept[distance - deltaBaseIndex(0, distance + 1)]!;
+    const base = baseOid === null ? null : finalGraph(baseOid);
+    const encoded: { wire?: Uint8Array } = {};
+    const encodeStarted = performance.now();
+    const chunk = packing.cache.encode(graph, base, input.repository.objectFormat, packing.compress, 'delta', baseOid === null ? undefined : (bytes) => (encoded.wire = deflateRawSync(bytes, { level: 1 })));
+    if (base !== null && base !== finalGraph(kept[0]!)) packing.cache.naturals.forget(base);
+    const next = { stored: streamed.stored + chunk.ref.uncompressedBytes, compressed: streamed.compressed + chunk.ref.compressedBytes };
+    const fits = chunkLimitIssues([chunk.ref], packing.limits.decodedChunkBytes).length === 0 && next.stored <= packing.limits.storedBytes && next.compressed <= packing.limits.compressedBytes;
+    if (fits) streamed = next;
+    if (fits && baseOid !== null && encoded.wire) {
+      wires.set(oid, { base: baseOid, chunk, wire: encoded.wire });
+      // Restoring decodes and proves the frame again, a subset of what encoding it did.
+      restoreReserveMs += performance.now() - encodeStarted;
+    }
+    return { fits, decodedBytes: chunk.ref.decodedBytes ?? chunk.ref.uncompressedBytes };
+  };
+  const keep = (oid: string) => {
+    kept.push(oid);
+    for (const n of finalGraph(oid).nodes) if (n.kind === 'file' && n.lineageId) union.add(n.lineageId);
+    // The next frame is encoded against the selected frame or this one, never the one before.
+    const previous = kept.length > 2 ? kept.at(-2)! : null;
+    const record = previous === null ? undefined : wires.get(previous);
+    if (previous !== null && record) {
+      held.set(previous, record);
+      finals.delete(previous);
+    }
+  };
+  /** Decode a held frame against its (restored) base, prove it, and adopt it for packing. */
+  const restore = (oid: string): GraphSnapshot => {
+    const record = held.get(oid)!;
+    const base = finalGraph(record.base);
+    const bytes = inflateRawSync(record.wire);
+    if (sha256Hex(bytes) !== record.chunk.ref.encodedSha256) throw new AnalysisError('INTERNAL_ERROR', 'A held frame did not restore its encoded bytes');
+    const graph = decodeDeltaGraph(JSON.parse(bytes.toString('utf8')), base, packing!.cache.naturals);
+    if (canonicalJsonDigest(graph).sha256 !== record.chunk.ref.sha256) throw new AnalysisError('INTERNAL_ERROR', 'A held frame did not restore its graph');
+    if (base !== finalGraph(kept[0]!)) packing!.cache.naturals.forget(base);
+    packing!.cache.adopt(graph, base, 'delta', record.chunk);
+    held.delete(oid);
+    wires.delete(oid);
+    finals.set(oid, graph);
+    return graph;
+  };
+  // Time to assemble and pack the kept frames, scaled from the selected frame's measured
+  // export, so frame expansion stops while that still fits within the deadline.
+  let headExportMs = 0;
+  let frameStepMs = 0;
+  let restoreReserveMs = 0;
+  const exportReserveMs = () => headExportMs * (EXPORT_RESERVE_BASE + EXPORT_RESERVE_PER_FRAME * (kept.length + 1)) + restoreReserveMs;
+
   try {
     // 2. The selected commit: the checkpoint every later failure falls back to.
     const deadline = AbortSignal.timeout(Math.max(1, Math.ceil(remaining())));
+    const headSignal = input.signal ? AbortSignal.any([input.signal, deadline]) : deadline;
     let head: SnapshotOutcome;
     try {
-      head = await analyzeSnapshot(context, headCommit, lineageFor(commitOid), input.signal ? AbortSignal.any([input.signal, deadline]) : deadline, progress);
+      head = await analyzeSnapshot(context, headCommit, lineageFor(commitOid), headSignal, progress);
+      outcomes.set(commitOid, head);
+      const exportStarted = performance.now();
+      // The selected graph must export. One whose evidence rows push it past the decoded
+      // ceiling keeps fewer rows, lowest IDs first (EVIDENCE_LIMIT), re-derived from cached facts.
+      for (let fit = exportFits(commitOid); !fit.fits; fit = exportFits(commitOid)) {
+        const rows = evidenceRowsToFit(finalGraph(commitOid), fit.decodedBytes, packing!.limits.decodedChunkBytes);
+        if (rows === null) throw new AnalysisError('ANALYSIS_RESOURCE_LIMIT', 'The selected commit alone exceeds the artifact export limits', { limit: 'ARTIFACT_SIZE' });
+        book.recovered.delete(commitOid);
+        finals.delete(commitOid);
+        baseline = null;
+        head = await analyzeSnapshot({ ...context, evidenceRows: rows }, headCommit, lineageFor(commitOid), headSignal, () => undefined);
+        outcomes.set(commitOid, head);
+      }
+      headExportMs = performance.now() - exportStarted;
+      advanceCaches();
     } catch (error) {
       if (deadline.aborted && !input.signal?.aborted)
         throw new AnalysisError('ANALYSIS_RESOURCE_LIMIT', 'The selected commit could not be analyzed within the deadline', { limit: 'DEADLINE' });
       throw error;
     }
-    outcomes.set(commitOid, head);
+    keep(commitOid);
 
-    // 3. Historical frames, newest to oldest, until a budget or the deadline stops them.
+    // 3. Historical frames, newest to oldest, until a budget, a cap or the deadline stops them.
     if (plan) {
       blobs.enforce = true;
       const pending = plan.frames.filter((f) => f.commitOid !== commitOid).reverse();
@@ -245,12 +374,13 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
       for (const frame of pending) {
         progress({ stage: 'frames', done, total: pending.length });
         done++;
-        if (stop === null && remaining() <= 0) stop = 'HISTORY_DEADLINE';
+        if (stop === null && remaining() <= (packing ? exportReserveMs() + frameStepMs : 0)) stop = 'HISTORY_DEADLINE';
         if (stop !== null) {
           unavailable.set(frame.commitOid, stop);
           continue;
         }
-        const frameDeadline = AbortSignal.timeout(Math.max(1, Math.ceil(remaining())));
+        const stepStarted = performance.now();
+        const frameDeadline = AbortSignal.timeout(Math.max(1, Math.ceil(remaining() - (packing ? exportReserveMs() : 0))));
         const signal = input.signal ? AbortSignal.any([input.signal, frameDeadline]) : frameDeadline;
         try {
           const commit = await readCommit(git, frame.commitOid, signal);
@@ -258,7 +388,22 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
           // Historical capacity omissions are unavailable frames, not a shortened
           // city masquerading as the requested snapshot (plan §7.2 and P4.3).
           if (outcome.graph.coverage.limitsHit.length > 0) unavailable.set(frame.commitOid, 'FRAME_RESOURCE_LIMIT');
-          else outcomes.set(frame.commitOid, outcome);
+          else {
+            outcomes.set(frame.commitOid, outcome);
+            // Frames join newest first, so the lineage union only grows: the first frame
+            // past the cap ends expansion, exactly as dropping the oldest frames would.
+            let added = 0;
+            for (const n of outcome.graph.nodes) if (n.kind === 'file' && n.lineageId && !union.has(n.lineageId)) added++;
+            if (union.size + added > LIMITS.historicalUnionLineages) stop = 'LINEAGE_LIMIT';
+            else if (!exportFits(frame.commitOid).fits) stop = 'ARTIFACT_SIZE';
+            // A kept frame lives on as its final graph; its raw outcome is not needed again.
+            if (stop === null) keep(frame.commitOid);
+            else {
+              unavailable.set(frame.commitOid, stop);
+              finals.delete(frame.commitOid);
+            }
+            outcomes.delete(frame.commitOid);
+          }
         } catch (error) {
           if (input.signal?.aborted) throw new AnalysisError('CANCELLED', 'Analysis cancelled');
           const reason = frameDeadline.aborted ? 'HISTORY_DEADLINE' : frameFailureReason(error);
@@ -266,6 +411,8 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
           // Budgets and the deadline stop all further (older) frame expansion.
           if (reason === 'HISTORY_DEADLINE' || reason === 'HISTORY_SOURCE_BUDGET') stop = reason;
         }
+        frameStepMs = performance.now() - stepStarted;
+        advanceCaches();
       }
       progress({ stage: 'frames', done: pending.length, total: pending.length });
     }
@@ -273,31 +420,12 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
     if (!input.pool) await pool.close();
   }
 
-  // 4. Completed frames in chain order; reduce the oldest frames to the lineage cap.
-  let frames = plan
-    ? plan.frames.filter((f) => outcomes.has(f.commitOid)).map((f) => ({ ...f, outcome: outcomes.get(f.commitOid)! }))
-    : [{ commitOid, chainIndex: 0, outcome: outcomes.get(commitOid)! }];
-  for (;;) {
-    const union = new Set<string>();
-    for (const f of frames) for (const n of f.outcome.graph.nodes) if (n.kind === 'file' && n.lineageId) union.add(n.lineageId);
-    if (union.size <= LIMITS.historicalUnionLineages || frames.length === 1) break;
-    unavailable.set(frames[0]!.commitOid, 'LINEAGE_LIMIT');
-    frames = frames.slice(1);
-  }
+  // 4. Kept frames in chain order.
+  let frames = plan ? plan.frames.filter((f) => kept.includes(f.commitOid)) : [{ commitOid, chainIndex: 0 }];
 
   // 5-8. Metrics, layout, history and manifest for a frame set; re-run if frames are dropped.
-  const assembleFrom = (frames: { commitOid: string; chainIndex: number; outcome: SnapshotOutcome }[]): AnalysisResult => {
-    // 5. History metrics, the fixed HEAD hotspot baseline and history findings.
-    const churn = plan ? churnByFrame(plan.lineage.commits, new Set(frames.map((f) => f.commitOid))) : null;
-    let graphs = frames.map((f) => (churn ? applyHistoryMetrics(f.outcome.graph, churn.get(f.commitOid)!) : f.outcome.graph));
-    if (churn) {
-      const baseline = hotspotBaseline(graphs.at(-1)!);
-      graphs = graphs.map((graph, i) => {
-        const applied = applyHotspotsAndHistoryFindings(graph, baseline, churn.get(frames[i]!.commitOid)!.commitsInScope);
-        return applied.omittedDiagnostics > 0 ? withDiagnosticLimit(applied.graph, applied.omittedDiagnostics) : applied.graph;
-      });
-    }
-    graphs = graphs.map((graph, i) => withRecoveryWarnings(graph, book.recovered.get(frames[i]!.commitOid) ?? []));
+  const assembleFrom = (frames: { commitOid: string; chainIndex: number }[]): AnalysisResult => {
+    const graphs = frames.map((f) => finalGraph(f.commitOid));
 
     progress({ stage: 'layout' });
     const layout = buildUnionLayout(repoId, graphs);
@@ -375,13 +503,16 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
   };
 
   let result = assembleFrom(frames);
-  if (input.transport) {
+  if (packing) {
     for (;;) {
       try {
-        return { ...result, packed: packArtifact(result.draft, input.transport) };
+        return { ...result, packed: packArtifact(result.draft, packing.compress, { frames: packing.cache, limits: packing.limits }) };
       } catch (error) {
-        if (!(error instanceof ArtifactPackError) || !error.issues.some((i) => i.code === 'LIMIT')) throw error;
+        if (!(error instanceof ArtifactPackError) || (error.fit === undefined && !error.issues.some((i) => i.code === 'LIMIT'))) throw error;
         if (frames.length === 1) throw new AnalysisError('ANALYSIS_RESOURCE_LIMIT', 'The selected commit alone exceeds the artifact export limits', { limit: 'ARTIFACT_SIZE' });
+        // History and layout did not fit beside every kept frame: drop the oldest, one at a
+        // time as before. Kept frames reuse their encoded chunks, so only history and layout
+        // are encoded again (ADR-083).
         unavailable.set(frames[0]!.commitOid, 'ARTIFACT_SIZE');
         frames = frames.slice(1);
         result = assembleFrom(frames);
@@ -389,6 +520,38 @@ export async function analyzeCommit(input: AnalyzeCommitInput): Promise<Analysis
     }
   }
   return result;
+}
+
+/**
+ * Export reserve, in multiples of the selected frame's measured export time: assembling and
+ * packing the kept frames, whose chunks are already encoded, costs a fixed part (history,
+ * layout, manifest and artifact validation) plus frame validation per kept frame (ADR-083).
+ */
+const EXPORT_RESERVE_BASE = 2;
+const EXPORT_RESERVE_PER_FRAME = 0.25;
+
+/**
+ * How many evidence rows (lowest IDs first) a graph can keep for its chunk to decode within
+ * `ceiling` bytes, given the chunk's current `decodedBytes`; null when even none suffice.
+ * A dropped row leaves the observation list, the evidence list of a kept edge that cites
+ * it, and any finding that cites it. Its row and the quoted reference estimate the bytes it
+ * saves; a margin of 1% of the excess plus 1 KiB covers separators and evidence counts
+ * that gain a digit, so one re-derivation normally fits, and the caller re-checks (ADR-083).
+ */
+function evidenceRowsToFit(graph: GraphSnapshot, decodedBytes: number, ceiling: number): number | null {
+  const rows = graph.importObservations;
+  if (decodedBytes <= ceiling) return null;
+  const over = decodedBytes - ceiling;
+  const excess = over + Math.ceil(over / 100) + 1024;
+  const cited = new Set<string>();
+  for (const edge of graph.edges) for (const id of edge.evidenceIds) cited.add(id);
+  let saved = 0;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i]!;
+    saved += utf8ByteLength(canonicalJson(row)) + 1 + (cited.has(row.id) ? row.id.length + 2 : 0);
+    if (saved >= excess) return i;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -405,6 +568,8 @@ interface SnapshotContext {
   pool: ParserPool;
   factCache: FactCache;
   blobs: BlobCache;
+  /** Fewer evidence rows than the ceiling, for a selected graph that must fit (ADR-083). */
+  evidenceRows?: number;
 }
 
 async function analyzeSnapshot(
@@ -436,13 +601,16 @@ async function analyzeSnapshot(
     coverage: structuralCoverage,
     pool: ctx.pool,
     cache: ctx.factCache,
+    ...(ctx.evidenceRows !== undefined ? { evidenceRows: ctx.evidenceRows } : {}),
     signal,
     onProgress: (stage, done, total) => progress({ stage, ...(done !== undefined ? { done } : {}), ...(total !== undefined ? { total } : {}) }),
   });
   const coverage = analysis.graph.coverage;
   // Parse failures and caps both mean the result is useful but partial (plan §14.1).
   const status: 'complete' | 'partial' = coverage.limitsHit.length > 0 || coverage.parseFailedFiles > 0 ? 'partial' : 'complete';
-  return { graph: analysis.graph, inventory, analysis, status };
+  const roles: Record<string, number> = {};
+  for (const file of inventory.files) roles[file.role] = (roles[file.role] ?? 0) + 1;
+  return { graph: analysis.graph, roles, excludedRoots: inventory.excludedRoots, cacheHits: analysis.cacheHits, cycles: analysis.cycles, status };
 }
 
 function frameFailureReason(error: unknown): string {
@@ -661,9 +829,6 @@ function summarize(input: {
   unavailable: Map<string, string>;
 }): AnalysisSummary {
   const { head, headGraph: graph, history, historyCoverage: hc } = input;
-  const inventory = head.inventory;
-  const roles: Record<string, number> = {};
-  for (const file of inventory.files) roles[file.role] = (roles[file.role] ?? 0) + 1;
   const packages = graph.nodes.filter((n) => n.kind === 'package');
   const packageIds = new Set(packages.map((p) => p.id));
   const filesPerPackage = new Map<string, number>();
@@ -687,14 +852,14 @@ function summarize(input: {
     status: input.status,
     scope: 'committed-tree',
     files: { discovered: c.discoveredFiles, included: c.includedFiles, supported: c.supportedFiles, opaque: c.opaqueFiles, excluded: c.excludedFiles, omitted: c.omittedFiles },
-    roles,
+    roles: head.roles,
     packages: packages
       .map((p) => (p.kind === 'package' ? { name: p.packageName, path: p.path, files: filesPerPackage.get(p.id) ?? 0, workspace: p.workspace } : null))
       .filter((p): p is NonNullable<typeof p> => p !== null)
       .sort((a, b) => compareUtf8(a.path, b.path)),
     externalPackages: graph.nodes.filter((n) => n.kind === 'external-package').length,
     exclusions: c.reasons.map((r) => ({ reason: r.code, count: r.count })),
-    excludedRoots: [...inventory.excludedRoots]
+    excludedRoots: [...head.excludedRoots]
       .map(([path, r]) => ({ path, reason: r.reason, files: r.count }))
       .sort((a, b) => b.files - a.files || compareUtf8(a.path, b.path))
       .slice(0, 50),
@@ -710,9 +875,9 @@ function summarize(input: {
       unsupported: c.unsupported,
       excludedTargets: c.excludedTargets,
     },
-    parse: { parsed: c.parsedFiles, failed: c.parseFailedFiles, cacheHits: head.analysis.cacheHits },
+    parse: { parsed: c.parsedFiles, failed: c.parseFailedFiles, cacheHits: head.cacheHits },
     findings: graph.diagnostics.reduce<Record<string, number>>((acc, d) => ((acc[d.ruleId] = (acc[d.ruleId] ?? 0) + 1), acc), {}),
-    cycles: head.analysis.cycles,
+    cycles: head.cycles,
     history: {
       status: hc.status,
       boundary: hc.boundary,

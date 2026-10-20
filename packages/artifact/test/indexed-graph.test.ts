@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chunkLimitIssues,
   encodeCanonical,
   gunzipNode,
   gunzipWithStreams,
@@ -151,6 +152,20 @@ describe('indexed graph transport (ADR-018)', () => {
     for (const r of refs(packed)) r.decodedBytes = LIMITS.artifactUncompressedBytes + 1;
     const result = await loadArtifact(source(packed), gunzipWithStreams);
     expect(result.ok).toBe(false);
+  });
+
+  it('reports a chunk above the per-chunk cap to the packer as a limit, stored or decoded (ADR-082)', () => {
+    // Analysis drops history or fails with ARTIFACT_SIZE only for LIMIT issues; the
+    // manifest schema alone would report an oversized decoded graph as SCHEMA.
+    const at = LIMITS.artifactUncompressedBytes;
+    expect(chunkLimitIssues([
+      { path: 'graphs/a.json.gz', uncompressedBytes: at, decodedBytes: at },
+      { path: 'graphs/b.json.gz', uncompressedBytes: 1, decodedBytes: at + 1 },
+      { path: 'history/history.json.gz', uncompressedBytes: at + 1 },
+    ])).toEqual([
+      { code: 'LIMIT', path: 'graphs/b.json.gz', message: 'Chunk exceeds the uncompressed size limit' },
+      { code: 'LIMIT', path: 'history/history.json.gz', message: 'Chunk exceeds the uncompressed size limit' },
+    ]);
   });
 
   it('rejects a tampered canonical ID instead of silently deriving a replacement', () => {
