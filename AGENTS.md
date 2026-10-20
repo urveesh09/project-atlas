@@ -33,13 +33,15 @@ API refuses to start without them or with the shipped placeholders. ADR-078 dele
 records 30 days after they end, through a schema-owned function the worker may only
 execute, and requires a status page (`ATLAS_STATUS_URL`). M5.1 prepares `0.1.0-beta.2`
 for the owner to tag. None authorizes a live deployment or closes R6-06.
-Human R6-04 review and M3.4 intermittent layout diagnosis remain open. M2.2
-capacity and M2.7 lazy-import syntax remain open. M1 upgrades landed in PRs #20, #22,
-#23 and #24. Analyzer `0.1.0-dev.8` records corrected namespace lookup
+Human R6-04 review and M3.4 intermittent layout diagnosis remain open. M2.7 parses
+Python 3.15 syntax with a reproducibly built, patched grammar (ADR-080;
+`scripts/build-python-grammar.mjs`), and M2.2 records the Python/mixed capacity matrix
+(ADR-081). M1 upgrades landed in PRs #20, #22,
+#23 and #24. Analyzer `0.1.0-dev.9` records the 3.15 grammar and applies one dependency
+edge budget to package and source edges (ADR-067), after the namespace correction
 (ADR-066); parser runtime provenance remains ADR-062 and the artifact schema stays 1.4.0. Cython, notebooks and further languages
 remain opaque buildings. The hosted Python journey (ADR-064)
-and the uv workspace and mixed corpus (ADR-065) have landed. Python capacity (M2.2)
-still needs its full measurement matrix. The master plan has no Phase 7.
+and the uv workspace and mixed corpus (ADR-065) have landed. The master plan has no Phase 7.
 Gate G6 stays open on the exact capacity-fixture matrix, human, reference-hardware and
 deployment acceptance (R6-01…R6-07).
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime
@@ -124,7 +126,7 @@ Work on a branch, push it and open a pull request; it merges once the checks pas
   ADR-069);
 - hosted gates, live GitHub and the render spike.
 
-`verify` names CPython 3.14.8 for the parser oracle (`ATLAS_ORACLE_PYTHON`). All jobs
+`verify` names CPython 3.15.0 for the parser oracle (`ATLAS_ORACLE_PYTHON`). All jobs
 must be green before a change counts as verified.
 
 ## 5. Recording work
@@ -138,8 +140,7 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-079; ADR-067 is reserved by the separate
-  edge-budget work. Allocate ADR-080 next.
+  The current sequence is ADR-001…ADR-081. Allocate ADR-082 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

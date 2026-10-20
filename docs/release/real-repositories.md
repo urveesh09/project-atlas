@@ -1,6 +1,6 @@
 # P6.1: pinned real-repository validation
 
-Recorded 2026-10-19T06:08:54.916Z; analyzer 0.1.0-dev.9, 5 cold repeats per repository.
+Recorded 2026-10-20T12:14:38.339Z; analyzer 0.1.0-dev.9, 5 cold repeats per repository.
 
 Unfiltered depth-201 acquisition capped at 256 MiB; offline SafeGit reads; cold parser facts per repeat; canonical and compressed chunk hashes include every frame. Envelope IDs/time excluded. Authored examples check facts, repeat hashes check determinism only. Timings are corpus observations, not the synthetic capacity gate.
 
