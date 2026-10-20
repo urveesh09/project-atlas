@@ -3,7 +3,7 @@
 import { mkdirSync, chmodSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createGitFixture } from '../packages/test-fixtures/dist/index.js';
+import { importGitFixture } from '../packages/test-fixtures/dist/index.js';
 import { buildMediumHistoryCommits } from './lib/medium-history.mjs';
 import { PYTHON_CAPACITY_POLICY, capacityLanguage } from './lib/capacity-language.mjs';
 import { EXACT_CAPACITY_SHAPES, buildExactCapacityCommits } from './lib/exact-capacity.mjs';
@@ -28,7 +28,8 @@ if (m > -1 && shape !== 'dense') throw new Error('--imports applies to --shape d
 const { commits, expected } = shape
   ? buildExactCapacityCommits({ shape, head, ...(m > -1 ? { imports: Number(process.argv[m + 1]) } : {}) })
   : buildMediumHistoryCommits({ files, commits: head ? 1 : 40, packages: 10, language });
-const fixture = createGitFixture(commits, { parent });
+// The same commits as createGitFixture (tested), from one fast-import stream: seconds, not minutes.
+const fixture = importGitFixture(commits, { parent });
 // Generated synthetic data can be read by the production sandbox UID via a
 // read-only bind mount on Linux. Other fixtures or repositories are untouched.
 chmodSync(fixture.dir, 0o755);
