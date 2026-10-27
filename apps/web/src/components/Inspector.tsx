@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { HOTSPOT_WEIGHTS, POLICIES, STRUCTURE_ATTENTION_WEIGHTS, hotspotFactors } from '@atlas/graph';
 import { LIMITS, RULE_CATALOG, describeReason, formatDiagnosticMessage, type Diagnostic, type GraphNode, type ImportObservation, type NodeMetrics, type RuleId } from '@atlas/schema';
 import { useViewer } from '../app/context';
-import { ROLE_LABEL, formatNumber, shortOid } from '../app/model';
+import { ROLE_LABEL, formatNumber, formatOrdinal, shortOid } from '../app/model';
 import { TABS, type InspectorTab } from '../app/state';
 import { AvailabilityNote, Chip, Paged, Section, SeverityBadge } from './ui';
 import { HistoryTab } from './HistoryPanel';
@@ -649,7 +649,7 @@ export function FindingCard({ diagnostic: d, focusId, compact = false }: { diagn
   );
 }
 
-const pct = (p: number) => `${Math.round(p * 100)}th percentile`;
+const pct = (p: number) => `${formatOrdinal(Math.round(p * 100))} percentile`;
 
 /**
  * Hotspot explainability (plan §10.3): raw values, percentiles against the fixed HEAD
