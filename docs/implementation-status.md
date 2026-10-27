@@ -2,9 +2,10 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-20):** production-plan M5.2, the G6 release candidate:
-exact capacity fixtures, export fitting and history memory (ADR-082–084) are implemented;
-the 20-run exact rows, reviewer packets and candidate freeze remain. Before it: M4.6 public-service pages
+**Current milestone (2026-10-27):** production-plan M5.2, the G6 release candidate:
+exact capacity fixtures, export fitting and history memory (ADR-082–084) landed in
+PRs #49 and #50; the 20-run exact rows, reviewer packets and candidate freeze remain.
+Everything open is listed in the [backlog](backlog.md). Before it: M4.6 public-service pages
 (ADR-077), the last M4 task. M4.4 image supply chain (PR #43) and M4.5 service levels
 (PR #44) landed, after M4.3 backups (PR #41), deployment (PR #39) and monitoring
 (PR #40); live-site R6-06 remains open. M3.5 fallback, diagnostics
@@ -33,10 +34,69 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Open-issue fixes: advisories, ordinals, tracking (2026-10-27)
+
+One pull request after PR #50. No analyzer, artifact or schema version changes.
+- **Dependency advisories.** Scorecard's Vulnerabilities check (score 6) reported
+  GHSA-333x-w4r6-6crp, GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr and GHSA-xhq7-xmqj-769h
+  in `fast-uri` 3.1.8, two moderate and two low. All four are fixed in 3.1.9; only the
+  lockfile changes. `fast-uri` arrives only through `ajv`, a test-only dependency of
+  `contracts.test.ts`, so no shipped package, image or viewer contained it.
+  `pnpm audit`: no known vulnerabilities.
+- **"31th percentile".** The inspector's hotspot table appended "th" to every
+  percentile. `formatOrdinal` uses English ordinal rules; its test covers every value
+  from 0 to 100. Harbor's files show no percentile ending in 1, 2 or 3 (checked file by
+  file), so a browser journey could not tell the fix apart, and none was added.
+- **M3.4, not reproduced.** The failed run's log records only `false`. A probe sampled
+  the page width on every frame for 2.5 s after load and after each tap:
+  - 21 recorded 390 px touch sessions in Windows Chromium;
+  - every file in the table, the journey's gestures, 6× CPU throttling and the earlier
+    journeys' storage;
+  - no frame was wider than the viewport, and the full journey file passed.
+
+  CI's headless Chromium hides scrollbars, which rules out a classic scrollbar's width.
+  M3.4 stays open; no CSS changed.
+- **WebKit folder-pick stall (ADR-079).** All four Firefox/WebKit journey failures since
+  2026-10-18 predate ADR-079's fix. The 12 CI runs after it passed both journey jobs on
+  the first attempt. The cause is still unidentified, so the mitigation stays.
+- **Tracking drift.**
+  - 17 merged ADRs said "proposed" or "owner merge pending"; their status lines now name
+    the pull request and date that merged them.
+  - The production plan gains a milestone table, and its 2026-10-16 findings say how each
+    was resolved.
+  - M2.2, M2.7 and M5.1, START_HERE and AGENTS.md no longer describe merged work as
+    pending.
+  - [docs/backlog.md](backlog.md) lists every open item, who can close it and the next
+    step.
+- **Checks on 2026-10-27, Windows, Node 24.22.0:** `pnpm verify` with required browser
+  tests and the CPython 3.15.0 oracle: 926 passed, 91 skipped (service-gated).
+- **Demo site deployed, and a defect it showed fixed.**
+  - The site had last been deployed on 2026-10-12. `demo site` run 40439311432 deployed
+    `main` (`feb5bef`, analyzer dev.10) on 2026-10-27; build and deploy passed.
+  - **Checked live in Chromium:** the city renders in 3D at 1280 and 390 px, a file opens
+    in the inspector, and there is no sideways scroll.
+  - **Defect:** the page first asked for `/api/session` and `/api/v1/capabilities`, the
+    `atlas serve` and hosted-service probes. On Pages both are 404s outside the site
+    folder, logged as two console errors, and the city waited for both.
+  - **Fix:** a demo build opens its bundled artifact directly, since neither server ever
+    serves it. Other builds are unchanged.
+  - **New gate before publishing:** `scripts/check-demo-site.mjs` serves the built site
+    from a sub-folder, as Pages does. It fails unless the city loads, a file opens, every
+    request stays inside the folder and succeeds, and the page logs no errors.
+    - On the build of `feb5bef` it fails with exactly those two requests. With the fix it
+      passes, also with CI's SwiftShader flags.
+    - The workflow deploys only from `main` or a release; from other branches it stops
+      after the check.
+  - **Found and not changed:** the `github-pages` environment allows only `main`. A
+    published release runs from its tag and would be refused, so the owner should allow
+    tags `v*` (backlog).
+  - A live service (R6-06) is still not deployed.
+
 ### Production M5.2, part 1: exact capacity fixtures, export fitting and history memory (2026-10-20)
 
-One pull request after PR #48, analyzer `0.1.0-dev.9` → `0.1.0-dev.10`. Exact-head CI and
-owner merge are required.
+Analyzer `0.1.0-dev.9` → `0.1.0-dev.10`. Landed in [PR #49](https://github.com/urveesh09/project-atlas/pull/49), merged 2026-10-20,
+and the Windows CI fix below in [PR #50](https://github.com/urveesh09/project-atlas/pull/50), merged the same day; `main` CI passed on
+`feb5bef`.
 - **Exact fixtures ([ADR-082](adr/ADR-082-exact-capacity-fixtures.md)).**
   `build-history-fixture.mjs --shape exact|dense` builds the plan's large tier:
   - exact HEAD and a 12-frame history with exactly 10,000 files and 100,000 edges in every
@@ -93,8 +153,7 @@ owner merge are required.
 
 ### Production M2.7 and M2.2: Python 3.15 syntax and Python capacity (2026-10-20)
 
-One pull request, analyzer `0.1.0-dev.8` → `0.1.0-dev.9`. Exact-head CI and owner merge
-are required.
+Analyzer `0.1.0-dev.8` → `0.1.0-dev.9`. Landed in [PR #48](https://github.com/urveesh09/project-atlas/pull/48), merged 2026-10-20.
 - **M2.7, Python 3.15 syntax ([ADR-080](adr/ADR-080-python-3-15-syntax.md)).**
   - No tree-sitter-python release has the syntax. The grammar is upstream 0.25.0 plus a
     recorded patch for lazy imports (as upstream PR #336), unpacking in comprehensions

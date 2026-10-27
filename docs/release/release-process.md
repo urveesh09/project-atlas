@@ -64,7 +64,12 @@ metadata to tell you its own expected identity.
 2. analyzes them offline;
 3. requires the committed baseline bytes;
 4. builds the static viewer around the verified **vuejs/core** artifact;
-5. deploys to GitHub Pages.
+5. opens the built site in Chromium from a sub-folder, as Pages serves it
+   (`scripts/check-demo-site.mjs`). The city must load and a file must open in the
+   inspector, every request must stay inside the site folder and succeed, and the page
+   must log no errors;
+6. deploys to GitHub Pages, from `main` or a published release only. Dispatched from any
+   other branch, the run stops after the check.
 
 Locally:
 
@@ -72,6 +77,7 @@ Locally:
 pnpm build
 node scripts/validate-real-repositories.mjs --acquire && node scripts/validate-real-repositories.mjs
 node scripts/build-demo-site.mjs --artifact .atlas-tmp/release-corpus/vuejs-core/artifact --out .atlas-tmp/demo-site
+node scripts/check-demo-site.mjs .atlas-tmp/demo-site
 ```
 
 ## Security and dependencies
@@ -119,6 +125,7 @@ These need repository admin rights. They are not changed by workflows.
 | Setting | Where | Why |
 |---|---|---|
 | Pages source: **GitHub Actions** | Settings → Pages | Lets the demo-site workflow deploy |
+| `github-pages` environment: allow tags `v*` as well as `main` | Settings → Environments | A published release deploys from its tag. With only `main` allowed, GitHub rejects that deploy; until then, run `demo site` from `main` after publishing |
 | Private vulnerability reporting: on | Settings → Code security | The private channel in SECURITY.md |
 | Dependabot alerts and security updates: on | Settings → Code security | Advisories for pinned dependencies |
 | Ruleset on `main`: CI and security checks required, no force pushes or deletion | Settings → Rules | Keeps `main` releasable |

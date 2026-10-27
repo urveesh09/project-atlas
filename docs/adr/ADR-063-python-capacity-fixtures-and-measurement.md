@@ -1,6 +1,6 @@
 # ADR-063: Python capacity fixtures and measurement
 
-Date: 2026-10-16; amended 2026-10-17 before acceptance. Status: implementation checkpoint; final measurements pending.
+Date: 2026-10-16; amended 2026-10-17 before acceptance. Status: accepted, merged in [PR #26](https://github.com/urveesh09/project-atlas/pull/26) on 2026-10-17; the final measurements are [ADR-081](ADR-081-python-capacity.md).
 Production M2.2. Extends ADR-037; uses analyzer dev.8 from prerequisite ADR-066.
 
 ## Evidence and cause

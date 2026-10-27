@@ -243,6 +243,14 @@ export function formatNumber(value: number | null | undefined): string {
   return value === null || value === undefined ? 'n/a' : value.toLocaleString('en-US');
 }
 
+const ORDINAL_RULES = new Intl.PluralRules('en-US', { type: 'ordinal' });
+const ORDINAL_SUFFIX: Partial<Record<Intl.LDMLPluralRule, string>> = { one: 'st', two: 'nd', few: 'rd' };
+
+/** English ordinal of a whole number: 1st, 2nd, 3rd, 11th, 21st, 112th. */
+export function formatOrdinal(value: number): string {
+  return `${formatNumber(value)}${ORDINAL_SUFFIX[ORDINAL_RULES.select(value)] ?? 'th'}`;
+}
+
 export function shortOid(oid: string): string {
   return oid.slice(0, 7);
 }

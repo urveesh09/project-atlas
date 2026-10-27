@@ -1,6 +1,6 @@
 # ADR-065: Python workspace and mixed-repository corpus evidence
 
-Date: 2026-10-17. Status: local evidence complete; required CI and owner merge pending.
+Date: 2026-10-17. Status: accepted, merged in [PR #33](https://github.com/urveesh09/project-atlas/pull/33) on 2026-10-17.
 Extends ADR-057/060 for production M2.6. No analysis or artifact semantic change.
 
 ## Evidence and cause

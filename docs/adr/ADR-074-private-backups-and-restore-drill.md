@@ -1,6 +1,6 @@
 # ADR-074: Private backups and a quarantined, isolated restore drill
 
-Date: 2026-10-18. Status: proposed for production-plan M4.3; exact-head CI and owner merge required.
+Date: 2026-10-18. Status: accepted for production-plan M4.3, merged in [PR #41](https://github.com/urveesh09/project-atlas/pull/41) on 2026-10-18.
 Builds on [ADR-072](ADR-072-reference-hosted-deployment.md) and
 [ADR-073](ADR-073-operator-monitoring.md). No analyzer, artifact, application API or
 database-schema semantics change.

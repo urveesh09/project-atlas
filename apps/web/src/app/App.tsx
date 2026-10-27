@@ -127,6 +127,11 @@ export function App() {
       }
       activeLoad.current?.abort();
       replaceDataset(null);
+      // A static demo build (ADR-044) opens its bundled artifact through the same validation.
+      // Neither `atlas serve` nor the hosted service ever serves it, so it does not probe their
+      // APIs: on a static host those are two failed requests before the city starts loading.
+      // The worker fetches the artifact, so resolve the folder against the page, not the worker script.
+      if (DEMO_BASE) return void run('Loading the demo city', { kind: 'server', base: new URL(DEMO_BASE, location.href).pathname }, null);
       const session = await detectLocalSession();
       if (stale()) return;
       if (session) return void run('Loading the served artifact', { kind: 'server', base: '/artifact/' }, session.source);
@@ -137,9 +142,6 @@ export function App() {
         if (stale()) return;
         setPhase(current.kind === 'legal' ? { kind: 'legal', document: current.document, capabilities, notices } : { kind: 'hosted-landing', capabilities, notices });
       } else if (capabilities) setPhase({ kind: 'unavailable', code: 'ARTIFACT_NOT_FOUND' });
-      // A static demo build (ADR-044) opens its bundled artifact through the same validation.
-      // The worker fetches it, so resolve the folder against the page, not the worker script.
-      else if (DEMO_BASE) void run('Loading the demo city', { kind: 'server', base: new URL(DEMO_BASE, location.href).pathname }, null);
       else setPhase({ kind: 'landing' });
     };
     void route();

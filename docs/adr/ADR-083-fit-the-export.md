@@ -1,6 +1,6 @@
 # ADR-083: Fit the export to its limits quickly, and degrade instead of failing
 
-Date: 2026-10-20. Status: proposed; exact-head CI and owner merge required. Production
+Date: 2026-10-20. Status: accepted, merged in [PR #49](https://github.com/urveesh09/project-atlas/pull/49) on 2026-10-20. Production
 M5.2. Supersedes the "reject" half of
 [ADR-024](ADR-024-decoded-artifact-capacity.md) for a selected graph whose evidence alone
 exceeds the decoded ceiling; the 128 MiB decoded and stored ceilings and the 20 MiB

@@ -1,6 +1,6 @@
 # ADR-079: Draw-call guards per detail level, and folder picks in browser tests
 
-Date: 2026-10-18. Status: proposed; exact-head CI and owner merge required. Supersedes,
+Date: 2026-10-18. Status: accepted, merged in [PR #46](https://github.com/urveesh09/project-atlas/pull/46) on 2026-10-18. Supersedes,
 for this test only, the single "under 30" draw-call bound recorded in
 [ADR-041](ADR-041-living-city.md) §7. The product budgets in the master plan are
 unchanged.

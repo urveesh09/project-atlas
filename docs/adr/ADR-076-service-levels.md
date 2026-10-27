@@ -1,6 +1,6 @@
 # ADR-076: Hosted service levels, their indicators and incidents
 
-Date: 2026-10-18. Status: proposed for M4.5; exact-head CI and owner merge required.
+Date: 2026-10-18. Status: accepted for M4.5, merged in [PR #44](https://github.com/urveesh09/project-atlas/pull/44) on 2026-10-18.
 Builds on [ADR-073](ADR-073-operator-monitoring.md) (operator metrics and Prometheus). It
 changes ADR-073's Prometheus retention from 15 to 35 days. Analyzer and artifact versions
 are unchanged.

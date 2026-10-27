@@ -1,6 +1,6 @@
 # ADR-061: Dependency currency, October 2026
 
-Date: 2026-10-16. Status: proposed for M1.1 review; local verification below.
+Date: 2026-10-16. Status: accepted, merged in [PR #20](https://github.com/urveesh09/project-atlas/pull/20) on 2026-10-16. Local verification below.
 Amends ADR-014's runtime pin. ADR-015's resolution policy remains unchanged.
 
 ## Evidence and cause
