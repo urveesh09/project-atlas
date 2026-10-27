@@ -34,6 +34,10 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   where a `TYPE_CHECKING` guard uses it (policy `atlas.capacity.python/2`).
 
 ### Fixed
+- The public demo no longer asks for the `atlas serve` and hosted-service APIs, which do
+  not exist on a static host: two failed requests and console errors before the city
+  loaded. `demo site` now opens the built site in Chromium before deploying it, and
+  deploys only from `main` or a release.
 - The inspector's hotspot table writes percentiles as English ordinals ("31st", not
   "31th").
 - `fast-uri` 3.1.9 fixes four advisories (GHSA-333x-w4r6-6crp, GHSA-w74x-v6f9-j3xg,

@@ -70,8 +70,27 @@ One pull request after PR #50. No analyzer, artifact or schema version changes.
     step.
 - **Checks on 2026-10-27, Windows, Node 24.22.0:** `pnpm verify` with required browser
   tests and the CPython 3.15.0 oracle: 926 passed, 91 skipped (service-gated).
-- **Deployment:** the demo site was last deployed on 2026-10-12. It is redeployed from
-  `main` with the `demo site` workflow; a live service (R6-06) is not.
+- **Demo site deployed, and a defect it showed fixed.**
+  - The site had last been deployed on 2026-10-12. `demo site` run 40439311432 deployed
+    `main` (`feb5bef`, analyzer dev.10) on 2026-10-27; build and deploy passed.
+  - **Checked live in Chromium:** the city renders in 3D at 1280 and 390 px, a file opens
+    in the inspector, and there is no sideways scroll.
+  - **Defect:** the page first asked for `/api/session` and `/api/v1/capabilities`, the
+    `atlas serve` and hosted-service probes. On Pages both are 404s outside the site
+    folder, logged as two console errors, and the city waited for both.
+  - **Fix:** a demo build opens its bundled artifact directly, since neither server ever
+    serves it. Other builds are unchanged.
+  - **New gate before publishing:** `scripts/check-demo-site.mjs` serves the built site
+    from a sub-folder, as Pages does. It fails unless the city loads, a file opens, every
+    request stays inside the folder and succeeds, and the page logs no errors.
+    - On the build of `feb5bef` it fails with exactly those two requests. With the fix it
+      passes, also with CI's SwiftShader flags.
+    - The workflow deploys only from `main` or a release; from other branches it stops
+      after the check.
+  - **Found and not changed:** the `github-pages` environment allows only `main`. A
+    published release runs from its tag and would be refused, so the owner should allow
+    tags `v*` (backlog).
+  - A live service (R6-06) is still not deployed.
 
 ### Production M5.2, part 1: exact capacity fixtures, export fitting and history memory (2026-10-20)
 

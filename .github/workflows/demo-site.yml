@@ -2,7 +2,8 @@ name: demo site
 
 # Publishes the static demo (ADR-044): the viewer opening a verified, source-free analysis of
 # a pinned public repository from the corpus (vuejs/core, MIT). Runs on demand and when a
-# release is published; GitHub Pages must use "GitHub Actions" as its source.
+# release is published; GitHub Pages must use "GitHub Actions" as its source. Dispatched
+# from any other branch, it builds and checks the site without deploying it.
 on:
   workflow_dispatch:
   release:
@@ -37,12 +38,16 @@ jobs:
         env:
           # The Pages address of this repository; link previews need absolute URLs (ADR-058).
           SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+      - run: pnpm --filter @atlas/web exec playwright install --with-deps chromium
+      - name: Open the built site in Chromium before publishing it
+        run: node scripts/check-demo-site.mjs "$RUNNER_TEMP/site"
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: ${{ runner.temp }}/site
 
   deploy:
     needs: build
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

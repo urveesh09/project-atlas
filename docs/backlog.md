@@ -42,6 +42,11 @@ and image identities.
 - **Release `v0.1.0-beta.2`.** The tag exists (2026-10-19) and its release run left a
   draft. Review and publish it, or leave it as a draft; then move the versions to the
   next `-dev` version.
+- **Pages deploys from releases.** The `github-pages` environment allows only the `main`
+  branch, but a published release runs `demo site` from its tag, which GitHub then
+  refuses to deploy. That path has never run. Allow tags `v*` in Settings → Environments,
+  or run `demo site` from `main` after publishing
+  ([release process](release/release-process.md#owner-settings)).
 - **Merged branches.** Deleting the remote branches of merged pull requests is safe and
   optional.
 
