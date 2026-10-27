@@ -1,6 +1,6 @@
 # ADR-080: Python 3.15 syntax
 
-Date: 2026-10-19. Status: proposed; exact-head CI and owner merge required. Production
+Date: 2026-10-19. Status: accepted, merged in [PR #48](https://github.com/urveesh09/project-atlas/pull/48) on 2026-10-20. Production
 M2.7. Supersedes [ADR-056](ADR-056-python-support-design-and-facts.md) §1's choice of the
 prebuilt npm grammar file; its vendoring rules (licence, recorded SHA-256, hash test) still
 apply. Analyzer `0.1.0-dev.9`; artifact and graph schemas are unchanged.

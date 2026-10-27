@@ -1,6 +1,6 @@
 # ADR-077: Public-service pages with the owner's wording
 
-Date: 2026-10-18. Status: proposed for M4.6; exact-head CI and owner merge required.
+Date: 2026-10-18. Status: accepted for M4.6, merged in [PR #45](https://github.com/urveesh09/project-atlas/pull/45) on 2026-10-18.
 Builds on [ADR-072](ADR-072-reference-hosted-deployment.md) (production profile). Adds
 `GET /api/v1/legal` to the public contract; analyzer and artifact versions are unchanged.
 

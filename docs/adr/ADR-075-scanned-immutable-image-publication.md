@@ -1,6 +1,6 @@
 # ADR-075: Scan immutable image graphs before publishing and signing
 
-Date: 2026-10-18. Status: proposed for M4.4; exact-head CI and owner merge required.
+Date: 2026-10-18. Status: accepted for M4.4, merged in [PR #43](https://github.com/urveesh09/project-atlas/pull/43) on 2026-10-18.
 Extends [ADR-044](ADR-044-release-engineering-and-pilot-readiness.md) and the reference
 kit ([ADR-072](ADR-072-reference-hosted-deployment.md)). No analyzer/artifact/schema bump.
 

@@ -1,6 +1,6 @@
 # ADR-078: Job-record retention and the status channel
 
-Date: 2026-10-18. Status: proposed; exact-head CI and owner merge required. Decided by
+Date: 2026-10-18. Status: accepted, merged in [PR #46](https://github.com/urveesh09/project-atlas/pull/46) on 2026-10-18. Decided by
 the agent under the owner's explicit delegation (2026-10-18: "how long to keep the
 records up to you … for the 3rd point also you can decide"). Builds on
 [ADR-077](ADR-077-public-service-pages.md) and [ADR-076](ADR-076-service-levels.md).

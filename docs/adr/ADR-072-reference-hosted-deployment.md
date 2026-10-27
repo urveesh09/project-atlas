@@ -1,6 +1,6 @@
 # ADR-072: Reference hosted deployment and enforceable worker egress
 
-Date: 2026-10-18. Status: proposed for M4.1; exact-head CI and owner merge required.
+Date: 2026-10-18. Status: accepted for M4.1, merged in [PR #39](https://github.com/urveesh09/project-atlas/pull/39) on 2026-10-18.
 Extends ADR-031/033/034 and production plan M4.1. Analyzer/artifact versions unchanged.
 
 ## Evidence and cause

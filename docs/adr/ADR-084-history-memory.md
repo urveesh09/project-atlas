@@ -1,6 +1,6 @@
 # ADR-084: Hold history within the 2 GiB job
 
-Date: 2026-10-20. Status: proposed; exact-head CI and owner merge required. Production
+Date: 2026-10-20. Status: accepted, merged in [PR #49](https://github.com/urveesh09/project-atlas/pull/49) on 2026-10-20. Production
 M5.2. Memory only: analyzer `0.1.0-dev.10` output, the artifact and its limits are
 unchanged, so the analyzer version is not bumped.
 

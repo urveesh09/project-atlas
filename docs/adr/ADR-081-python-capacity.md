@@ -1,6 +1,6 @@
 # ADR-081: Python and mixed capacity results
 
-Date: 2026-10-20. Status: proposed; exact-head CI and owner merge required. Production
+Date: 2026-10-20. Status: accepted, merged in [PR #48](https://github.com/urveesh09/project-atlas/pull/48) on 2026-10-20. Production
 M2.2. Completes the measurement planned by
 [ADR-063](ADR-063-python-capacity-fixtures-and-measurement.md). Its fixture rule of a
 `typing` import in every module is superseded by policy `atlas.capacity.python/2`

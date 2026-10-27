@@ -1,6 +1,6 @@
 # ADR-082: Exact capacity fixtures at the analyzer's ceilings
 
-Date: 2026-10-20. Status: proposed; exact-head CI and owner merge required. Production
+Date: 2026-10-20. Status: accepted, merged in [PR #49](https://github.com/urveesh09/project-atlas/pull/49) on 2026-10-20. Production
 M5.2, for gate G6 and review item R6-01. The fixtures are TypeScript; the Python and mixed
 near-limit rows stay as in [ADR-081](ADR-081-python-capacity.md).
 

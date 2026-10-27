@@ -1,6 +1,6 @@
 # ADR-073: Operator monitoring with Prometheus
 
-Date: 2026-10-18. Status: proposed for M4.2; exact-head CI and owner merge required.
+Date: 2026-10-18. Status: accepted for M4.2, merged in [PR #40](https://github.com/urveesh09/project-atlas/pull/40) on 2026-10-18.
 Builds on the operator metrics of plan §15.4 and the reference kit of
 [ADR-072](ADR-072-reference-hosted-deployment.md). Analyzer and artifact versions unchanged.
 

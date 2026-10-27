@@ -1,7 +1,7 @@
 # ADR-067: Apply the existing edge ceiling to the complete dependency graph
 
-Date: 2026-10-17; landed with M2.2 on 2026-10-19. Status: proposed; exact-head CI and owner
-merge required. Production M2.2 prerequisite. Analyzer dev.8 → dev.9, shared with
+Date: 2026-10-17; landed with M2.2 on 2026-10-19. Status: accepted,
+merged in [PR #48](https://github.com/urveesh09/project-atlas/pull/48) on 2026-10-20. Production M2.2 prerequisite. Analyzer dev.8 → dev.9, shared with
 [ADR-080](ADR-080-python-3-15-syntax.md) in the same change; graph/artifact schemas and
 every resource, size and timing ceiling remain unchanged.
 

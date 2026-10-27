@@ -22,6 +22,8 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   ceiling; the benchmarks require the constructed counts in every sample.
 
 ### Changed
+- [docs/backlog.md](docs/backlog.md) lists every open item in one place, and the ADRs,
+  plan and guides no longer describe merged work as pending.
 - Analyzer `0.1.0-dev.10` (from dev.8): the parser identity records the patched grammar
   (dev.9), and export fitting changes results over the limits (dev.10), so analysis IDs
   change. Graph content of the pinned corpus is otherwise unchanged.
@@ -32,6 +34,10 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   where a `TYPE_CHECKING` guard uses it (policy `atlas.capacity.python/2`).
 
 ### Fixed
+- The inspector's hotspot table writes percentiles as English ordinals ("31st", not
+  "31th").
+- `fast-uri` 3.1.9 fixes four advisories (GHSA-333x-w4r6-6crp, GHSA-w74x-v6f9-j3xg,
+  GHSA-wjr9-j795-jxcr, GHSA-xhq7-xmqj-769h). It is used only by a test, through `ajv`.
 - Package and source dependency edges share the 100,000-edge budget, so a repository
   near the limit gives a partial result instead of failing export
   ([ADR-067](docs/adr/ADR-067-shared-dependency-edge-budget.md)).

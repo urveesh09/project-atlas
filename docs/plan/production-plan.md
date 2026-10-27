@@ -42,7 +42,8 @@ ADR. It does not cover:
     city with history, findings and comparison.
   - The hosted service analyzes public GitHub repositories in offline sandboxes.
 - **Versions.**
-  - Packages: `0.1.0-beta.2` (prepared 2026-10-18, not yet tagged).
+  - Packages: `0.1.0-beta.2`, tagged `v0.1.0-beta.2` on 2026-10-19. Its release is a
+    draft until the owner publishes it.
   - Analyzer: `0.1.0-dev.10` (M5.2 export fitting, ADR-083; M2.7 Python 3.15 grammar, ADR-080; shared edge budget ADR-067; namespace correction ADR-066; runtime provenance ADR-062).
   - Graph: `atlas.graph/1.1.0`.
   - Artifact: `atlas.artifact/1.4.0`. Readers accept 1.0–1.4.
@@ -57,9 +58,9 @@ ADR. It does not cover:
     Python capacity ADR-081. M5.2's exact capacity fixtures are ADR-082, export fitting
     ADR-083 and history memory ADR-084. Allocate ADR-085 next.
 - **Evidence.**
-  - The M3.5 baseline passes 813 tests with 83 conditional skips; the CPython oracle
-    runs in this evidence. M4.1 adds operator-tooling regressions; exact current
-    counts and subsequent CI outcomes are in the status log and task pull request.
+  - `pnpm verify` passes 926 tests with 91 service-gated skips (2026-10-27, Windows,
+    required browser tests, CPython 3.15.0 oracle). CI outcomes are in the status log
+    and each pull request.
   - The viewer file has 48 journeys in each of Chromium/Firefox/WebKit, and the
     hosted file has 7 PostgreSQL/Chromium journeys.
   - Six public repositories are pinned and reproduced byte for byte on Windows,
@@ -68,23 +69,41 @@ ADR. It does not cover:
 - **Open gate.** G6 is open until R6-01…R6-07 in the
   [release audit](../release/release-audit.md) have real evidence. These items need human
   reviewers, reference hardware or a real deployment.
-- **Found in the audit for this plan, 2026-10-16:**
+- **Open work** is listed in one place, the [backlog](../backlog.md).
+- **Milestones (2026-10-27).** Landed means merged to `main` with every CI check green.
 
-| Finding | Severity | Task |
+| Milestone | State | Pull requests |
 |---|---|---|
-| Node.js is pinned to 24.15.0 (2026-04-15). It missed the security releases 24.17.0 and 24.18.1; the current 24.x is 24.22.0 (2026-10-14) | High | M1.1 |
-| `smol-toml` 1.8.0 has a quadratic-time parse advisory (Dependabot alerts 1 and 2). It parses untrusted `pyproject.toml` files. Fixed in 1.9.0; latest 1.9.1 | Medium | M1.2 |
-| The capacity benchmarks predate Python. Nothing has measured the WASM Python parser at the 10,000-file limit under the hosted 2 GiB cap | High for hosted launch | M2.2 |
-| The hosted container gates use a TS/JS fixture only. Nothing has shown the sandbox image analyzing Python | High for hosted launch | M2.3 |
-| CI runs on Windows and Linux only. The CLI is offered for macOS too, but never tested there | Medium | M3.1 |
-| Browser journeys run in Chromium only | Medium | M3.2 |
-| Operator metrics are JSON only, and the runbook's alerts exist only as prose. Standard monitoring needs Prometheus text | Medium | M4.2 |
-| Nothing ships a production deployment: no reverse proxy config, worker service unit, egress firewall rules or backup job | High for hosted launch | M4.1, M4.3 |
-| Released images have provenance attestations but no SBOM or vulnerability scan | Medium | M4.4 |
-| The sandbox image pins Debian `git=1:2.47.3-0+deb13u1`. The build breaks once Debian supersedes that version | Medium | M1.4 |
-| CI's PostgreSQL service uses the floating tag `postgres:17-alpine`, not a digest | Low | M1.4 |
-| There are no property-based or fuzz tests, and no coverage report | Medium | M2.4, M2.5 |
-| User docs still say TS/JS only in several places | Low | M2.1 |
+| M1.1–M1.5 platform currency and security | Landed | [#20](https://github.com/urveesh09/project-atlas/pull/20), [#22](https://github.com/urveesh09/project-atlas/pull/22), [#23](https://github.com/urveesh09/project-atlas/pull/23), [#24](https://github.com/urveesh09/project-atlas/pull/24) |
+| M2.1 documentation sweep | Landed | [#25](https://github.com/urveesh09/project-atlas/pull/25) |
+| M2.2 Python capacity | Landed: tooling, then all eight rows (ADR-063, ADR-081) | [#26](https://github.com/urveesh09/project-atlas/pull/26), [#33](https://github.com/urveesh09/project-atlas/pull/33), [#48](https://github.com/urveesh09/project-atlas/pull/48) |
+| M2.3 hosted Python path | Landed | [#27](https://github.com/urveesh09/project-atlas/pull/27) |
+| M2.4–M2.6 properties, coverage, more Python repositories | Landed | [#33](https://github.com/urveesh09/project-atlas/pull/33) |
+| M2.7 Python 3.15 syntax | Landed (ADR-080) | [#48](https://github.com/urveesh09/project-atlas/pull/48) |
+| M3.1–M3.3 macOS, Firefox and WebKit, accessibility preparation | Landed | [#34](https://github.com/urveesh09/project-atlas/pull/34), [#35](https://github.com/urveesh09/project-atlas/pull/35), [#36](https://github.com/urveesh09/project-atlas/pull/36) |
+| M3.4 intermittent sideways scroll | **Open**: not reproduced | — |
+| M3.5 silent WebGL fallback | Landed (ADR-071) | [#37](https://github.com/urveesh09/project-atlas/pull/37) |
+| M4.1–M4.6 hosted production kit | Landed, plus record retention (ADR-078). Not deployed: R6-06 | [#39](https://github.com/urveesh09/project-atlas/pull/39), [#40](https://github.com/urveesh09/project-atlas/pull/40), [#41](https://github.com/urveesh09/project-atlas/pull/41), [#43](https://github.com/urveesh09/project-atlas/pull/43), [#44](https://github.com/urveesh09/project-atlas/pull/44), [#45](https://github.com/urveesh09/project-atlas/pull/45), [#46](https://github.com/urveesh09/project-atlas/pull/46) |
+| M5.1 `0.1.0-beta.2` | Tagged 2026-10-19; release draft unpublished | [#47](https://github.com/urveesh09/project-atlas/pull/47) |
+| M5.2 release candidate | Part 1 landed (ADR-082–084). **Open:** the 20-run exact rows, reviewer packets, candidate freeze | [#49](https://github.com/urveesh09/project-atlas/pull/49), [#50](https://github.com/urveesh09/project-atlas/pull/50) |
+
+- **Found in the audit for this plan, 2026-10-16** (all resolved; the last column says how):
+
+| Finding | Severity | Task | Resolved |
+|---|---|---|---|
+| Node.js is pinned to 24.15.0 (2026-04-15). It missed the security releases 24.17.0 and 24.18.1; the current 24.x is 24.22.0 (2026-10-14) | High | M1.1 | Node 24.22.0, [#20](https://github.com/urveesh09/project-atlas/pull/20) |
+| `smol-toml` 1.8.0 has a quadratic-time parse advisory (Dependabot alerts 1 and 2). It parses untrusted `pyproject.toml` files. Fixed in 1.9.0; latest 1.9.1 | Medium | M1.2 | 1.9.1, [#22](https://github.com/urveesh09/project-atlas/pull/22) |
+| The capacity benchmarks predate Python. Nothing has measured the WASM Python parser at the 10,000-file limit under the hosted 2 GiB cap | High for hosted launch | M2.2 | All eight rows pass, [#48](https://github.com/urveesh09/project-atlas/pull/48) |
+| The hosted container gates use a TS/JS fixture only. Nothing has shown the sandbox image analyzing Python | High for hosted launch | M2.3 | [#27](https://github.com/urveesh09/project-atlas/pull/27) |
+| CI runs on Windows and Linux only. The CLI is offered for macOS too, but never tested there | Medium | M3.1 | [#34](https://github.com/urveesh09/project-atlas/pull/34); the owner has yet to require the jobs |
+| Browser journeys run in Chromium only | Medium | M3.2 | [#35](https://github.com/urveesh09/project-atlas/pull/35); the owner has yet to require the jobs |
+| Operator metrics are JSON only, and the runbook's alerts exist only as prose. Standard monitoring needs Prometheus text | Medium | M4.2 | [#40](https://github.com/urveesh09/project-atlas/pull/40) |
+| Nothing ships a production deployment: no reverse proxy config, worker service unit, egress firewall rules or backup job | High for hosted launch | M4.1, M4.3 | [#39](https://github.com/urveesh09/project-atlas/pull/39), [#41](https://github.com/urveesh09/project-atlas/pull/41); a live deployment is R6-06 |
+| Released images have provenance attestations but no SBOM or vulnerability scan | Medium | M4.4 | [#43](https://github.com/urveesh09/project-atlas/pull/43) |
+| The sandbox image pins Debian `git=1:2.47.3-0+deb13u1`. The build breaks once Debian supersedes that version | Medium | M1.4 | Pin confirmed current and the refresh documented, [#23](https://github.com/urveesh09/project-atlas/pull/23) |
+| CI's PostgreSQL service uses the floating tag `postgres:17-alpine`, not a digest | Low | M1.4 | Pinned by digest, [#23](https://github.com/urveesh09/project-atlas/pull/23) |
+| There are no property-based or fuzz tests, and no coverage report | Medium | M2.4, M2.5 | [#33](https://github.com/urveesh09/project-atlas/pull/33) |
+| User docs still say TS/JS only in several places | Low | M2.1 | [#25](https://github.com/urveesh09/project-atlas/pull/25) |
 
 ## 2. What "production" means here
 
@@ -296,7 +315,7 @@ is landed; dated currency evidence does not replace release re-audit or G6 sign-
 
 #### M2.1 Documentation sweep
 
-**Implementation ready, 2026-10-16:** the guides, metadata, capabilities, comparison and audit
+**Implementation ready, 2026-10-16 (landed in [PR #25](https://github.com/urveesh09/project-atlas/pull/25)):** the guides, metadata, capabilities, comparison and audit
 now describe TS/JS and Python, four pinned repositories and 28 authored checks.
 Unsupported languages and open Python capacity/hosted/corpus work stay explicit.
 Full local verification (751 tests), link/count checks, workflow validation and all
@@ -324,8 +343,7 @@ historical correction checklist, not the current support description:
 
 #### M2.2 Python capacity benchmark (high for hosted launch)
 
-**Implemented, 2026-10-20 ([ADR-081](../adr/ADR-081-python-capacity.md)); exact-head CI
-and owner merge required.**
+**Landed in [PR #48](https://github.com/urveesh09/project-atlas/pull/48), 2026-10-20 ([ADR-081](../adr/ADR-081-python-capacity.md)).**
 - **All eight rows pass** on analyzer dev.9, from one clean commit and image, 20 runs
   each in 4 CPUs and 2 GiB with no swap:
   - medium and large HEAD, Python and mixed: p95 5.74–18.09 s against 15 and 60 s;
@@ -364,7 +382,7 @@ and owner merge required.**
 
 #### M2.3 Hosted Python path (high for hosted launch)
 
-**Implementation evidence, 2026-10-16:** the independently authored two-frame Python
+**Implementation evidence, 2026-10-16 (landed in [PR #27](https://github.com/urveesh09/project-atlas/pull/27)):** the independently authored two-frame Python
 fixture passes full artifact checks through the deployed offline sandbox and the
 hosted Chromium journey. All 145 local hosted checks pass, including exact imports,
 PyPI resolution and rename lineage. ADR-064 and implementation status retain the
@@ -386,7 +404,7 @@ capacity, corpus and G6 acceptance stay separate.
 
 #### M2.4 Property-based tests on the untrusted-input boundaries
 
-**Implementation evidence, 2026-10-17:** 24 fixed-seed properties cover all named
+**Implementation evidence, 2026-10-17 (landed in [PR #33](https://github.com/urveesh09/project-atlas/pull/33)):** 24 fixed-seed properties cover all named
 boundaries with 2,638 bounded generated examples. ADR-061 records the exact test-only
 dependency and the initial invalid extension-namespace test-data failure. Full
 verification and required CI are tracked in implementation status and the task PR.
@@ -411,7 +429,7 @@ No production analyzer, schema or error contract is changed.
 
 #### M2.5 Coverage report (informational)
 
-**Implementation evidence, 2026-10-17:** `pnpm coverage` reports all production
+**Implementation evidence, 2026-10-17 (landed in [PR #33](https://github.com/urveesh09/project-atlas/pull/33)):** `pnpm coverage` reports all production
 TS/TSX files, with no percentage gate. `docs/coverage.md` records the low modules
 and the boundary between Node instrumentation, browser/subprocess execution and
 service-gated checks. Four risk-driven additions pass; full verification and the
@@ -434,8 +452,8 @@ namespace-precedence defect, fixed independently in dev.8/ADR-066 without changi
 the expectations. All six repositories × five offline repeats, 46 authored checks,
 artifact validation and both new local CLI viewer journeys pass. Existing four
 baseline digests are unchanged; path comparison against the dev.8 prerequisite is
-identical for Harbor and all six repositories. Required expanded Windows/Linux CI
-and owner merge remain pending; M2.2 capacity is tracked separately.
+identical for Harbor and all six repositories. Landed in [PR #33](https://github.com/urveesh09/project-atlas/pull/33), merged
+2026-10-17 with the required Windows and Linux CI; M2.2 capacity landed separately.
 
 - **Why.** The TS/JS corpus covers single-package, monorepo and mixed shapes. Python has
   one repository, flask, which has one `src/` project. The workspace, Poetry, `setup.py`
@@ -469,8 +487,7 @@ and owner merge remain pending; M2.2 capacity is tracked separately.
 
 #### M2.7 Python 3.15 syntax (found by M3.1)
 
-**Implemented, 2026-10-19 ([ADR-080](../adr/ADR-080-python-3-15-syntax.md)); exact-head CI
-and owner merge required.**
+**Landed in [PR #48](https://github.com/urveesh09/project-atlas/pull/48), 2026-10-20 ([ADR-080](../adr/ADR-080-python-3-15-syntax.md)).**
 - **No upstream release has the syntax,** so the grammar is upstream 0.25.0 plus a recorded
   patch. It covers lazy imports as in upstream PR #336, PEP 798 and unary-plus patterns.
 - **Built reproducibly.** `scripts/build-python-grammar.mjs` uses a pinned commit, CLI hash
@@ -574,6 +591,16 @@ manual gate; it does not close it. Landed in PR #36. M3.4/M3.5 remain separate w
 - **Next time it fails,** use those names to find the element, fix the layout at its
   cause, and add a regression check at that width.
 - **Never** rerun until green, or drop the check.
+- **Reproduction attempt, 2026-10-27: not reproduced.**
+  - The failed run's log records only `false`: the check was then a boolean.
+  - A probe sampled the page width on every frame for 2.5 s after load and after each
+    tap, in 21 recorded 390 px touch sessions on Windows. It covered every file in the
+    table, the journey's zoom, reset, pan and pinch, 6× CPU throttling, and the storage
+    the earlier journeys leave. No frame was wider than the viewport, and the full
+    journey file passed.
+  - CI's headless Chromium hides scrollbars (`--hide-scrollbars`), so a classic Windows
+    scrollbar cannot explain the CI failure.
+  - The probe is not committed, and no CSS changed.
 
 #### M3.5 Silent fallback when WebGL2 is missing
 
@@ -749,11 +776,12 @@ the others give their measured basis.
 
 #### M5.1 `0.1.0-beta.2`
 
-**Prepared, 2026-10-18.** Every workspace package is `0.1.0-beta.2`. The changelog's
+**Landed in [PR #47](https://github.com/urveesh09/project-atlas/pull/47), 2026-10-18; tagged `v0.1.0-beta.2` on 2026-10-19.** The
+release run left a draft, which the owner has not published. Every workspace package is `0.1.0-beta.2`. The changelog's
 Unreleased entries became the dated `0.1.0-beta.2` section, with duplicate headings
 merged and no entry changed. The release notes summarize what changed since beta.1, and
 `check-release-version.mjs` accepts `v0.1.0-beta.2` and refuses `v0.1.0-beta.1`.
-- **Owner:** tag, review the release run, and publish.
+- **Owner:** review the release run and publish the draft.
 - The `v0.1.0-beta.1` draft release was never published; deleting it is the owner's call.
 - After publishing, set the versions to the next `-dev` version.
 
@@ -768,6 +796,10 @@ The owner tags and publishes. Publishing also redeploys the public demo with the
 analyzer.
 
 #### M5.2 Release candidate for G6
+
+**Part 1 landed** in [PR #49](https://github.com/urveesh09/project-atlas/pull/49) and [PR #50](https://github.com/urveesh09/project-atlas/pull/50), 2026-10-20: exact capacity
+fixtures, export fitting and history memory (ADR-082–084). **Remaining:** the three exact
+20-run rows, when the owner schedules them, then the steps below.
 
 When M1–M4 are done:
 - freeze a candidate commit;

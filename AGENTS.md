@@ -16,36 +16,21 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
    with milestones, how to test each kind of change, and the coding standards. Start
    there for new work.
 
-**Current state (2026-10-18):** the four pillars and Phase 6 candidate tooling are
+**Current state (2026-10-27):** the four pillars and Phase 6 candidate tooling are
 implemented for committed TS/JS and Python (`.py`, `.pyi`), including mixed repositories.
-M3.3 accessibility preparation landed in PR #36, after macOS and cross-browser CI
-landed in PRs #34 and #35. M3.5 silent WebGL fallback, GPU-free diagnostics and
-primary-action contrast landed in PR #37 (ADR-071). M4.1 reference deployment kit
-landed via PR #39 (ADR-072); M4.2 monitoring landed in PR #40 (ADR-073).
-M4.3 landed in PR #41: private streaming backups and a quarantined scratch-only
-restore drill (ADR-074). The current task is M4.4: scanned, immutable OCI image
-publication and signed-origin verification (ADR-075). Never point restored cleanup at live storage; older backups
-cannot remember later deletions. M4.5 service levels stack on it
-([hosted-slo.md](docs/hosted-slo.md), ADR-076): provisional objectives measured from
-`/metrics`, with tested rules and incident handling. M4.6 adds privacy, terms and
-takedown pages (ADR-077): the owner supplies the wording and contact, and a production
-API refuses to start without them or with the shipped placeholders. ADR-078 deletes job
-records 30 days after they end, through a schema-owned function the worker may only
-execute, and requires a status page (`ATLAS_STATUS_URL`). M5.1 prepares `0.1.0-beta.2`
-for the owner to tag. None authorizes a live deployment or closes R6-06.
-Human R6-04 review and M3.4 intermittent layout diagnosis remain open. M2.7 parses
-Python 3.15 syntax with a reproducibly built, patched grammar (ADR-080;
-`scripts/build-python-grammar.mjs`), and M2.2 records the Python/mixed capacity matrix
-(ADR-081); both landed in PR #48. M5.2 builds the plan's exact capacity fixtures
-(ADR-082) and fits the export to its limits in one pass, degrading dense graphs instead of
-failing (ADR-083), and holds large history within the 2 GiB job (ADR-084). M1 upgrades landed in PRs #20, #22,
-#23 and #24. Analyzer `0.1.0-dev.10` fits the export (ADR-083) on top of the 3.15 grammar
-(ADR-080), one dependency edge budget for package and source edges (ADR-067) and the
-namespace correction (ADR-066); parser runtime provenance remains ADR-062 and the artifact schema stays 1.4.0. Cython, notebooks and further languages
-remain opaque buildings. The hosted Python journey (ADR-064)
-and the uv workspace and mixed corpus (ADR-065) have landed. The master plan has no Phase 7.
-Gate G6 stays open on the exact capacity-fixture matrix, human, reference-hardware and
-deployment acceptance (R6-01…R6-07).
+Production milestones M1–M4 have landed (PRs #20–#46), except M3.4, an unreproduced layout
+overflow. M2.7's Python 3.15 grammar (ADR-080) and M2.2's Python capacity rows (ADR-081)
+landed in PR #48. `0.1.0-beta.2` was tagged
+on 2026-10-19; its release is an unpublished draft. M5.2 part 1 landed in PRs #49 and #50:
+exact capacity fixtures (ADR-082), export fitting (ADR-083) and history memory (ADR-084).
+Analyzer `0.1.0-dev.10`; the artifact schema stays 1.4.0. Cython, notebooks and further
+languages remain opaque buildings. The hosted kit (M4) is implemented but not deployed:
+nothing authorizes a live deployment or closes R6-06. Never point restored cleanup at
+live storage; older backups cannot remember later deletions.
+Everything open is in [docs/backlog.md](docs/backlog.md): the three exact 20-run rows,
+the reviewer packets and candidate freeze, M3.4's unreproduced layout overflow, and
+R6-01…R6-07, which need people, reference hardware or a real deployment. Gate G6 stays
+open until they have real results.
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime
 tracing, more languages or private hosted repositories, needs the owner's direction and
 an ADR first.
