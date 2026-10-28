@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -10,7 +10,7 @@ import { run, type CliIO } from '@atlas/cli';
 import { viewerDirectory } from '../src/commands/serve.js';
 import { SourceAttachment } from '../src/server/source.js';
 import { startViewerServer, type RunningViewerServer } from '../src/server/server.js';
-import { buildDemoRepository, type GitFixture } from '@atlas/test-fixtures';
+import { buildDemoRepository, createGitFixture, type GitFixture } from '@atlas/test-fixtures';
 import { audit } from '../../../apps/web/test/audit.js';
 import type {} from '../../../apps/web/src/city/probe.js';
 
@@ -1460,4 +1460,122 @@ gate state: ${JSON.stringify({ shown, picks, requests: requests.slice(-12), page
       );
     } finally { await isolated.close(); }
   });
+});
+
+
+describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () => {
+  let qualityRepo: GitFixture, qualityServer: RunningViewerServer;
+  const qualityDir = () => path.join(work, 'quality-artifact');
+  const io = (): CliIO => ({ cwd: work, env: { NO_COLOR: '1' }, signal: new AbortController().signal, stdout: { write: () => true }, stderr: { write: () => true } });
+  beforeAll(async () => {
+    qualityRepo = createGitFixture([
+      { date: '2026-10-01T00:00:00Z', message: 'two lint findings', files: { 'sample.py': 'import os\nprint(missing)\n' } },
+      { date: '2026-10-02T00:00:00Z', message: 'one lint finding', files: { 'sample.py': 'import os\nprint(0)\n' } },
+    ], { parent: work });
+    expect(await run(['analyze', qualityRepo.dir, '--out', qualityDir()], io())).toBe(0);
+    const loaded = await readArtifactDirectory(qualityDir());
+    if (!loaded.ok) throw new Error('quality artifact');
+    const raw = JSON.parse(readFileSync(new URL('../../graph/test/fixtures/ruff-0.17.3.sarif.json', import.meta.url), 'utf8'));
+    writeFileSync(path.join(work, 'quality-old.sarif'), JSON.stringify(raw));
+    raw.runs[0].results = raw.runs[0].results.filter((r: { ruleId: string }) => r.ruleId === 'F401');
+    writeFileSync(path.join(work, 'quality-new.sarif'), JSON.stringify(raw));
+    for (const [source, output, commit] of [
+      ['quality-old.sarif', 'quality-old.json', loaded.bundle.manifest.frames[0]!.commit.oid],
+      ['quality-new.sarif', 'quality-new.json', loaded.bundle.manifest.selectedCommit.oid],
+    ]) expect(await run(['findings', source!, '--artifact', qualityDir(), '--commit', commit!, '--out', output!], io())).toBe(0);
+    writeFileSync(path.join(work, 'quality-invalid.json'), '{"SECRET":"broken');
+    const wrong = JSON.parse(readFileSync(path.join(work, 'quality-new.json'), 'utf8'));
+    wrong.commitOid = '0'.repeat(40);
+    writeFileSync(path.join(work, 'quality-wrong.json'), JSON.stringify(wrong));
+    qualityServer = await startViewerServer({ artifactDir: qualityDir(), bundle: loaded.bundle, viewerDir: viewerDirectory(), source: SourceAttachment.none('NOT_REQUESTED') });
+  }, 60_000);
+  afterAll(async () => { await qualityServer?.close(); qualityRepo?.dispose(); });
+
+  it('opens local reports, selects evidence, compares conservatively and hides stale findings', async () => {
+    const isolated = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+    try {
+      const page = await isolated.newPage();
+      const requests: { url: string; method: string }[] = [], errors: string[] = [];
+      page.on('request', (r) => requests.push({ url: r.url(), method: r.method() }));
+      page.on('pageerror', (e) => errors.push(String(e)));
+      await page.goto(qualityServer.sessionUrl);
+      await page.waitForSelector('#overview-title');
+      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await page.getByRole('button', { name: 'External findings', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      const panel = page.getByRole('region', { name: 'External findings', exact: true });
+      await panel.waitFor();
+      const start = requests.length;
+      await page.locator('input[data-quality="current"]').setInputFiles(path.join(work, 'quality-new.json'));
+      await expect.poll(() => panel.innerText()).toContain('Current report opened: 1 Ruff findings');
+      await panel.getByRole('button', { name: 'sample.py:1:8', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('sample.py');
+      expect(await page.getByRole('tabpanel').getByRole('heading', { name: /External Ruff findings/ }).isVisible()).toBe(true);
+      expect(await page.getByRole('tabpanel').innerText()).toContain('F401');
+      expect(await page.getByRole('tabpanel').innerText()).not.toContain('imported but unused');
+      await page.locator('input[data-quality="baseline"]').setInputFiles(path.join(work, 'quality-old.json'));
+      await expect.poll(() => panel.innerText()).toContain('0 newly reported; 1 no longer reported; 1 at the same location');
+      expect(await panel.innerText()).toContain('Missing findings do not establish resolution');
+      expect(await audit(page, 'external-quality-comparison')).toEqual([]);
+      for (const name of ['quality-invalid.json', 'quality-wrong.json']) {
+        await page.locator('input[data-quality="current"]').setInputFiles(path.join(work, name));
+        await panel.getByRole('alert').waitFor();
+        expect(await panel.innerText()).toContain('1 retained of 1');
+        expect(await panel.innerText()).not.toContain('SECRET');
+      }
+      await page.getByRole('button', { name: /^Snapshot 1 of 2:/ }).click();
+      await expect.poll(() => panel.innerText()).toContain('Report findings are hidden on this snapshot');
+      expect(await page.getByRole('tabpanel').getByRole('heading', { name: /External Ruff findings/ }).count()).toBe(0);
+      await panel.getByRole('button', { name: 'Show report snapshot', exact: true }).click();
+      await expect.poll(() => panel.innerText()).not.toContain('Report findings are hidden on this snapshot');
+      if (process.env['ATLAS_CAPTURE_QUALITY'] === '1') writeFileSync(path.resolve(`.atlas-tmp/quality-requests-${engineName}.json`), JSON.stringify(requests.slice(start).map((r) => ({ method: r.method, protocol: new URL(r.url).protocol, origin: new URL(r.url).origin })), null, 2));
+      // WebKit also emits request events for local blob reads. Compare parsed origins:
+      // a blob: URL keeps its creator's origin and performs no network upload.
+      expect(requests.slice(start).filter((r) => r.method !== 'GET' || new URL(r.url).origin !== new URL(qualityServer.url).origin)).toEqual([]);
+      expect(errors).toEqual([]);
+      for (const width of [390, 320]) {
+        await page.setViewportSize({ width, height: 844 });
+        await expectNoSidewaysScroll(page);
+        expect(await audit(page, `external-quality-narrow-error-${width}`)).toEqual([]);
+      }
+      await panel.getByRole('button', { name: 'Clear reports', exact: true }).click();
+      expect(await panel.innerText()).not.toContain('Current report opened');
+      expect(await page.getByRole('tabpanel').getByRole('heading', { name: /External Ruff findings/ }).count()).toBe(0);
+      await panel.getByRole('button', { name: 'Hide external findings', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      expect(await page.locator('#external-quality-toggle').evaluate((e) => e === document.activeElement)).toBe(true);
+    } finally { await isolated.close(); }
+  });
+
+  it('cancels a held import, recovers and clears reports on reload', async () => {
+    const loaded = await readArtifactDirectory(qualityDir());
+    if (!loaded.ok) throw new Error('quality artifact');
+    const freshServer = await startViewerServer({ artifactDir: qualityDir(), bundle: loaded.bundle, viewerDir: viewerDirectory(), source: SourceAttachment.none('NOT_REQUESTED') });
+    const isolated = await browser.newContext();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    try {
+      const page = await isolated.newPage();
+      await page.goto(freshServer.sessionUrl);
+      await page.waitForSelector('#overview-title');
+      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await page.getByRole('button', { name: 'External findings', exact: true }).click();
+      const panel = page.getByRole('region', { name: 'External findings', exact: true });
+      await page.route('**/assets/quality.worker-*.js', async (route) => { await held; await route.abort(); });
+      await page.locator('input[data-quality="current"]').setInputFiles(path.join(work, 'quality-new.json'));
+      await panel.getByRole('button', { name: 'Cancel and clear reports', exact: true }).waitFor();
+      await panel.getByRole('button', { name: 'Cancel and clear reports', exact: true }).click();
+      expect(await panel.innerText()).toContain('External reports cleared');
+      release();
+      await page.unrouteAll({ behavior: 'wait' });
+      await page.locator('input[data-quality="current"]').setInputFiles(path.join(work, 'quality-new.json'));
+      await expect.poll(() => panel.innerText()).toContain('Current report opened: 1 Ruff findings');
+      if (process.env['ATLAS_CAPTURE_QUALITY'] === '1') await page.screenshot({ path: path.resolve('.atlas-tmp/quality-ui.png'), fullPage: true });
+      await page.reload();
+      await page.getByRole('button', { name: 'External findings', exact: true }).click();
+      expect(await panel.innerText()).not.toContain('1 retained of 1');
+    } finally { release(); await isolated.close(); await freshServer.close(); }
+  });
+
 });

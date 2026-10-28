@@ -13,6 +13,8 @@ import { Tombstone } from './HistoryPanel';
 import { DEMO, OWN_REPOSITORY_GUIDE, StartPanel } from './StartPanel';
 import { ResultActions } from '../hosted/ResultActions';
 import { Icon } from './Icon';
+import { QualityProvider, useExternalQuality } from '../app/quality';
+import { ExternalQualityPanel } from './ExternalQuality';
 
 /**
  * The functional explorer: tree, search, inspector and overview, all plain HTML. A hosted
@@ -26,7 +28,9 @@ export function Explorer(props: ExplorerProps) {
   const root = useRef<HTMLDivElement>(null);
   return (
     <WorkspaceProvider target={root}>
-      <ExplorerShell {...props} root={root} />
+      <QualityProvider>
+        <ExplorerShell {...props} root={root} />
+      </QualityProvider>
     </WorkspaceProvider>
   );
 }
@@ -34,6 +38,7 @@ export function Explorer(props: ExplorerProps) {
 function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { root: RefObject<HTMLDivElement | null> }) {
   const { model, state, select, dispatch } = useViewer();
   const workspace = useWorkspace();
+  const quality = useExternalQuality();
   const searchRef = useRef<HTMLInputElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   // Hiding the tree is a per-viewer layout preference, like the city style.
@@ -115,6 +120,9 @@ function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { r
         </div>
         <Search ref={searchRef} />
         <div className="topbar-actions">
+          <button id="external-quality-toggle" type="button" className="button ghost" aria-label="External findings" title="External findings" aria-controls={quality.open ? 'external-quality-panel' : undefined} aria-expanded={quality.open} onClick={() => quality.setOpen(!quality.open)}>
+            <Icon name="file" /><span className="action-label">External findings</span>
+          </button>
           {/* On narrow desktops these two show only their icon; the name stays for assistive
               technology and the tooltip, so the header keeps one row (ADR-058). */}
           <button type="button" className="button ghost" aria-expanded={!treeHidden} aria-controls="repository-tree" onClick={toggleTree} title={treeHidden ? 'Show tree' : 'Hide tree'}>
@@ -169,6 +177,7 @@ function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { r
         </nav>
         <main id="main-content" className="content city-content" tabIndex={-1}>
           <StartPanel />
+          <ExternalQualityPanel />
           <City />
           <div className="city-inspector">
             {state.tombstone ? (

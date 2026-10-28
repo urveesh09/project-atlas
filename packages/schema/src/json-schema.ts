@@ -6,6 +6,7 @@ import { IndexedGraphSchema } from './indexed-graph.js';
 import { HistoryArtifactSchema } from './history.js';
 import { LayoutArtifactSchema } from './layout.js';
 import { LIMITS } from './limits.js';
+import { QualityReportSchema } from './quality.js';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION, LAYOUT_VERSION, METRIC_DEFINITION_VERSION } from './versions.js';
 
 /**
@@ -19,6 +20,7 @@ const ARTIFACT_SCHEMAS = {
   'history-artifact': HistoryArtifactSchema,
   'layout-artifact': LayoutArtifactSchema,
   'artifact-manifest': ArtifactManifestSchema,
+  'quality-report': QualityReportSchema,
 } as const;
 
 const API_SCHEMAS = {
@@ -43,6 +45,7 @@ export function artifactJsonSchemas(): Record<string, Record<string, unknown>> {
     'history-artifact': GRAPH_SCHEMA_VERSION,
     'layout-artifact': LAYOUT_VERSION,
     'artifact-manifest': ARTIFACT_VERSION,
+    'quality-report': 'atlas.quality/1',
   };
   const out: Record<string, Record<string, unknown>> = {};
   for (const [name, schema] of Object.entries(ARTIFACT_SCHEMAS)) {

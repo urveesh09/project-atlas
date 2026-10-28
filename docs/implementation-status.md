@@ -2,7 +2,7 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-27):** production-plan M5.2, the G6 release candidate:
+**Current milestone (2026-10-28):** production-plan M5.2, the G6 release candidate:
 exact capacity fixtures, export fitting and history memory (ADR-082–084) landed in
 PRs #49 and #50; the 20-run exact rows, reviewer packets and candidate freeze remain.
 Everything open is listed in the [backlog](backlog.md). Before it: M4.6 public-service pages
@@ -33,6 +33,70 @@ Unchanged since 2026-10-11:
 - Runtime instrumentation remains deferred.
 
 Agents: read [AGENTS.md](../AGENTS.md).
+
+### Local external findings: first product extension (2026-10-28)
+
+- **Scope:** the owner authorized scanner integration/change review after the deployed
+  corrections in PR #51. Main and the other local checkouts had no implementation.
+  [ADR-085](adr/ADR-085-local-external-findings.md) fixes the first increment's boundary;
+  the [roadmap](plan/external-findings-roadmap.md) separates subsequent increments.
+- **Implementation:** `atlas findings` imports one-run Ruff SARIF 2.1.0 into a separate
+  `atlas.quality/1` sidecar. Bounded regular-file reads, strict UTF-8/schema/count/identity
+  checks, explicit source-root mapping and validated commit/file/blob references.
+  Exclusive 0600 output (where supported) cannot overwrite a report or enter the
+  immutable artifact through a directory alias. POSIX FIFOs are opened nonblocking
+  before the regular-file check. No scanner, configuration, plugin or fix executes.
+- **Viewer:** current/baseline reports open locally in a disposable seven-second worker.
+  Invalid imports preserve valid reports; cancellation/replacement fences pending work.
+  Rows select synchronized files and open Findings, with controlled labels and no raw
+  producer messages. Reports hide on other snapshots, clear on reload/replacement and
+  never upload. Keyboard close restores trigger focus; 320/390 px and automated
+  accessibility journeys exercise the new panel. [Guide and screenshot](guides/external-findings.md).
+- **Physical producer:** a hash-verified official Ruff 0.17.3 binary scanned a first-party
+  two-line Python fixture with `--isolated`. Independently expected F401 at 1:8 and F821
+  at 2:7 match the original absolute-URI import. Ruff exits 1 for those findings;
+  import exits 0. Every artifact byte is unchanged; raw messages and machine paths are
+  excluded from the sidecar. [Sanitized record](benchmarks/external-quality-import.json).
+- **Initial verification:** required-browser `pnpm verify` passes **962 tests, 92 skips**
+  (86 passing files, five gated files). The skips include Windows's inapplicable POSIX
+  FIFO case and the existing service/OS/oracle gates; local Python is 3.14, while CI
+  supplies the pinned 3.15 oracle. The new pure/CLI cases pass 34 tests on Windows,
+  and all **50 Chromium journeys** pass. Full Firefox and WebKit runs pass 50/50 each;
+  both new journeys pass again in each engine on the final implementation.
+  Six pinned real repositories pass five offline repeats and the committed-byte/
+  independent-source baseline guard. The relocated portable archive passes all eight
+  stages, including source-free `findings` import with outbound CLI sockets denied.
+  Archive SHA-256 `7fb25a80037f27b013eda0c2529cd85ad7c347f6422e903f9aeab78e0ad80258`
+  identifies a dirty development candidate, not a signed release. Generated corpus/
+  distribution release records are restored after their checks, per the production plan.
+- **Failures and limits:** the initial Chromium heading assertion and WebKit URL-prefix
+  assertion failures, causes and passing retests are recorded in the
+  [functional report](benchmarks/external-quality-import.md). No budgets, production
+  assertions or deadlines were loosened. Captured UI was visually reviewed; additional
+  interactive Work-browser use is disabled in settings. Exact-commit CI must pass
+  before owner merge; these local results do not close human/device/site acceptance.
+- **PR #52 review follow-up:** CodeQL alert 74 (`js/missing-origin-check`) prompted
+  explicit native private-channel metadata and `File` checks in the dedicated worker.
+  Six actual-handler regressions reject unexpected origin/source, synthetic events
+  and fake file objects before any read; valid native imports pass in Chromium,
+  Firefox and WebKit. Full `pnpm verify`: **968 passed, 92 skips**, 87 passing files
+  and five gated files, including all 50 Chromium journeys. Portable archive: **8/8**,
+  SHA-256 `5fd6af7d994ffb959e0518a401f04c971eef313a723bb53db6ecde4f178d8d38`
+  (dirty development candidate based on `e60440b`). The alert is not dismissed or
+  suppressed; the follow-up scan must confirm the code change.
+- **Initial CI anomaly:** run [40707908446](https://github.com/urveesh09/project-atlas/actions/runs/40707908446)
+  on `e60440b` passed 16/17 checks, including hosted gates and all three corpus jobs.
+  macOS's existing J1 keyboard journey timed out at the unchanged 30-second deadline;
+  its other 49 journeys, including the two new ones, passed. Retained accessibility
+  records report zero violations for repository-overview/search-results/file-overview
+  at approximately 14:41:51/14:42:06/14:42:20 UTC. Why the audit sequence ran slowly is
+  unproven; the worker guard does not fix or explain that startup timeout. Track any
+  recurrence in the backlog, with original assertions/deadlines preserved.
+- **Boundary:** binding is user-declared and scan scope/configuration unverified.
+  Exact-location comparison within one analysis/Ruff version cannot establish issue
+  identity, resolution, clean coverage or a merge gate. No other producer, vulnerability
+  scanner, private publication or billing ships. Existing free features remain free.
+  Analyzer dev.10, artifact 1.4.0 and beta.2 remain unchanged. G6/R6 acceptance stays open.
 
 ### Open-issue fixes: advisories, ordinals, tracking (2026-10-27)
 

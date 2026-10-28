@@ -1,6 +1,6 @@
 # Backlog
 
-Everything known to be unresolved, in one place (2026-10-27). Each item links to its
+Everything known to be unresolved, in one place (2026-10-28). Each item links to its
 evidence. History stays in the [implementation status](implementation-status.md) log;
 this page says only what is open, who can close it, and the next step.
 
@@ -31,6 +31,7 @@ and image identities.
 |---|---|---|
 | Narrow-screen sideways scroll (M3.4) | Open, not reproduced | Seen once, Windows CI run 39010571149: the 390 px touch page scrolled sideways just after the inspector opened. Not reproduced since; see the 2026-10-27 entry in the status log. The check names the overflowing elements: fix at the cause when it recurs. No speculative CSS |
 | WebKit folder-pick stall | Mitigated; cause unknown | Playwright's `setInputFiles` once never returned although the page had the folder ([ADR-079](adr/ADR-079-draw-call-guards-and-folder-picks.md)). Picks now wait for the page, and every step is bounded and reports its state. Since 2026-10-18, 12 of 12 CI runs passed the Firefox and WebKit journeys on the first attempt |
+| macOS cold keyboard/audit timeout | Observed once in PR #52; cause unproven | Existing J1 hit its 30-second deadline in [run 40707908446](https://github.com/urveesh09/project-atlas/actions/runs/40707908446); the other 49 journeys passed. Retained audit records eventually report zero violations for its three named states. Preserve the deadline; if it recurs, capture per-step/audit durations and renderer/CPU state before choosing a fix. See the 2026-10-28 status entry |
 | Scorecard Binary-Artifacts | By design | It flags `packages/analyzer-py/grammar/tree-sitter-python.wasm`, a grammar built reproducibly from pinned sources and checked by hash ([ADR-080](adr/ADR-080-python-3-15-syntax.md)). Only the owner triages or dismisses security alerts |
 
 ## Owner actions
@@ -52,7 +53,12 @@ and image identities.
 
 ## Proposed product work (owner direction and an ADR first)
 
-Ideas that build on data ATLAS already produces. None is started; each is new scope.
+Ideas that build on data ATLAS already produces. Except for the authorized increment
+below, each remains new scope.
+The owner authorized external findings on 2026-10-28: Ruff SARIF import and conservative
+local report comparison are implemented for review in ADR-085. Other producers,
+authenticated CI scope/provenance, robust issue tracking and architecture gates remain
+future work. Existing V0.1 acceptance work above is unchanged.
 
 - **Review a change.** Start from the changed files, show changed dependencies and the
   static consumer paths, and link every statement to its evidence. No claims about

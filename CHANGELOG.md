@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Local Ruff SARIF import (`atlas findings`), source-free quality sidecars, browser-local
+  evidence and conservative exact-location comparison (ADR-085). Commit binding is
+  user-declared and scan scope unverified; no scanner executes.
 - Python 3.15 syntax ([ADR-080](docs/adr/ADR-080-python-3-15-syntax.md)):
   - lazy imports (`lazy import x`, `lazy from x import y`) are found as ordinary imports;
   - unpacking in comprehensions and unary plus in `match` literal patterns parse;
