@@ -57,7 +57,7 @@ Agents: read [AGENTS.md](../AGENTS.md).
   at 2:7 match the original absolute-URI import. Ruff exits 1 for those findings;
   import exits 0. Every artifact byte is unchanged; raw messages and machine paths are
   excluded from the sidecar. [Sanitized record](benchmarks/external-quality-import.json).
-- **Verification:** final required-browser `pnpm verify` passes **962 tests, 92 skips**
+- **Initial verification:** required-browser `pnpm verify` passes **962 tests, 92 skips**
   (86 passing files, five gated files). The skips include Windows's inapplicable POSIX
   FIFO case and the existing service/OS/oracle gates; local Python is 3.14, while CI
   supplies the pinned 3.15 oracle. The new pure/CLI cases pass 34 tests on Windows,
@@ -75,6 +75,23 @@ Agents: read [AGENTS.md](../AGENTS.md).
   assertions or deadlines were loosened. Captured UI was visually reviewed; additional
   interactive Work-browser use is disabled in settings. Exact-commit CI must pass
   before owner merge; these local results do not close human/device/site acceptance.
+- **PR #52 review follow-up:** CodeQL alert 74 (`js/missing-origin-check`) prompted
+  explicit native private-channel metadata and `File` checks in the dedicated worker.
+  Six actual-handler regressions reject unexpected origin/source, synthetic events
+  and fake file objects before any read; valid native imports pass in Chromium,
+  Firefox and WebKit. Full `pnpm verify`: **968 passed, 92 skips**, 87 passing files
+  and five gated files, including all 50 Chromium journeys. Portable archive: **8/8**,
+  SHA-256 `5fd6af7d994ffb959e0518a401f04c971eef313a723bb53db6ecde4f178d8d38`
+  (dirty development candidate based on `e60440b`). The alert is not dismissed or
+  suppressed; the follow-up scan must confirm the code change.
+- **Initial CI anomaly:** run [40707908446](https://github.com/urveesh09/project-atlas/actions/runs/40707908446)
+  on `e60440b` passed 16/17 checks, including hosted gates and all three corpus jobs.
+  macOS's existing J1 keyboard journey timed out at the unchanged 30-second deadline;
+  its other 49 journeys, including the two new ones, passed. Retained accessibility
+  records report zero violations for repository-overview/search-results/file-overview
+  at approximately 14:41:51/14:42:06/14:42:20 UTC. Why the audit sequence ran slowly is
+  unproven; the worker guard does not fix or explain that startup timeout. Track any
+  recurrence in the backlog, with original assertions/deadlines preserved.
 - **Boundary:** binding is user-declared and scan scope/configuration unverified.
   Exact-location comparison within one analysis/Ruff version cannot establish issue
   identity, resolution, clean coverage or a merge gate. No other producer, vulnerability

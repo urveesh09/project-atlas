@@ -33,6 +33,10 @@ customer-produced results preserves ATLAS's offline, non-executing analysis boun
    arbitrary properties or links**. Rule codes and versions have constrained syntax;
    labels come from ATLAS's small controlled catalog. Original report text remains local.
 6. The browser opens normalized sidecars locally in a bounded disposable worker.
+   Its receiver checks the native dedicated-worker channel metadata (empty origin,
+   null source and trusted event) and a real `File` before reading bytes. This is a
+   private creator channel, not a cross-document window listener; these checks do
+   not authenticate the scanned commit or scope.
    Findings select the corresponding file through existing synchronized city/tree/
    inspector navigation. Historical reports never leak into another frame. Keep at
    most a current and baseline report, in memory only; replacement ends their session.
@@ -54,13 +58,21 @@ and browser journeys (including offline/no-upload and accessibility), distributi
 the real-repository baseline and all CI checks. Record failures and final counts in
 implementation status; do not infer human/device/site acceptance from these checks.
 
-Local verification completed on 2026-10-28: 962 passing tests (92 gated/platform
+Initial local verification completed on 2026-10-28: 962 passing tests (92 gated/platform
 skips), all 50 viewer journeys in each browser engine plus final focused retests,
 the six-repository/five-repeat baseline guard and eight relocated distribution stages.
 The actual producer check and two test-assertion failures/retests are documented in
 [the functional report](../benchmarks/external-quality-import.md) and
 [implementation status](../implementation-status.md). Owner merge and exact-head
 CI remain required. No original release gate is closed by this extension.
+
+PR #52's initial CodeQL review flagged `js/missing-origin-check` (alert 74) at the
+worker's `self.onmessage`. The explicit channel/payload checks above replace the
+implicit assumption, without suppressing the rule or dismissing the alert. Six
+regression cases exercise the actual handler; native imports are tested in each
+browser engine. Follow-up `pnpm verify` passes 968 tests with 92 gated/platform skips;
+the portable archive passes eight stages. See implementation status, including the
+separately recorded first-head macOS J1 timeout; this worker guard does not explain it.
 
 ## Primary references
 

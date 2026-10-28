@@ -28,6 +28,22 @@ See [the sanitized result](external-quality-import.json) and
   and `blob:` requests with the same loopback origin. The test now compares parsed
   origins and still rejects every non-GET request and foreign origin. The full WebKit
   retest passes 50/50. No application upload, deadline change or budget relaxation.
+- PR #52's first CodeQL review flagged the dedicated worker's message handler
+  (`js/missing-origin-check`, alert 74). The handler now requires the private channel's
+  native empty origin/null source, a trusted event and an actual `File` before any
+  byte read. Six tests invoke the real handler with valid and rejected metadata/
+  payloads; browser journeys separately prove native messages work. No alert dismissal
+  or query suppression. This checks channel assumptions, not scan provenance.
+- Initial CI run [40707908446](https://github.com/urveesh09/project-atlas/actions/runs/40707908446)
+  passes 16 of 17 checks. The macOS existing J1 journey hits 30 seconds; its other
+  49 journeys pass. Retained audit records for overview/search/file overview have
+  zero violations at about 14:41:51/14:42:06/14:42:20 UTC. The slow sequence's cause is
+  unproven; no test limit is raised, and the unrelated worker guard is not claimed
+  to fix it. Further occurrences need per-step/audit and CPU/renderer evidence.
+
+The channel behavior follows the HTML [message-port post-message steps](https://html.spec.whatwg.org/multipage/web-messaging.html#message-port-post-message-steps)
+and [dedicated worker messaging](https://html.spec.whatwg.org/multipage/workers.html#dom-worker-postmessage):
+the private port's message sets data/ports and leaves origin/source at their defaults.
 
 Full Firefox and WebKit runs pass all 50 journeys. Following the keyboard-focus
 refinement, both new journeys pass again in each engine. Automated new journeys cover
