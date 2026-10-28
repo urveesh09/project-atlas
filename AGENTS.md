@@ -16,7 +16,7 @@ repository. People should start with [docs/START_HERE.md](docs/START_HERE.md).
    with milestones, how to test each kind of change, and the coding standards. Start
    there for new work.
 
-**Current state (2026-10-27):** the four pillars and Phase 6 candidate tooling are
+**Current state (2026-10-28):** the four pillars and Phase 6 candidate tooling are
 implemented for committed TS/JS and Python (`.py`, `.pyi`), including mixed repositories.
 Production milestones M1–M4 have landed (PRs #20–#46), except M3.4, an unreproduced layout
 overflow. M2.7's Python 3.15 grammar (ADR-080) and M2.2's Python capacity rows (ADR-081)
@@ -31,6 +31,13 @@ Everything open is in [docs/backlog.md](docs/backlog.md): the three exact 20-run
 the reviewer packets and candidate freeze, M3.4's unreproduced layout overflow, and
 R6-01…R6-07, which need people, reference hardware or a real deployment. Gate G6 stays
 open until they have real results.
+The owner authorized local external findings on 2026-10-28 (ADR-085): Ruff SARIF import,
+separate quality sidecars and conservative report comparison. Read
+`docs/guides/external-findings.md` and `docs/plan/external-findings-roadmap.md`.
+No scanner/repository code executes; raw messages/source stay out of sidecars, commit
+binding is user-declared, and scan scope/configuration remain unverified. These reports
+cannot establish resolution or feed a merge gate. Hosted publications are unchanged.
+
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime
 tracing, more languages or private hosted repositories, needs the owner's direction and
 an ADR first.
@@ -70,7 +77,7 @@ an ADR first.
 | `packages/analyzer-ts`, `analyzer-py`, `analyzer-core` | TS/JS and Python facts and resolution; snapshot/history orchestration (`analyzeCommit`) |
 | `packages/graph`, `history`, `layout` | Aggregation/SCCs/queries; lineage and churn; deterministic integer city layout |
 | `packages/artifact` | Packing, verification and loading (Node and browser) |
-| `packages/cli` | `atlas doctor/analyze/inspect/verify/serve` |
+| `packages/cli` | `atlas doctor/analyze/inspect/verify/serve/findings` |
 | `packages/control` | Hosted control plane: migrations, roles, storage, publications, GitHub budget |
 | `apps/api`, `apps/worker`, `apps/web` | Hosted HTTP API; coordinator and sandboxes; React/Three.js viewer |
 | `deploy/` | Sandbox and API images, development stack; `production/` reference kit and validation tooling |
@@ -127,7 +134,7 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-084. Allocate ADR-085 next.
+  The current sequence is ADR-001…ADR-085. Allocate ADR-086 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

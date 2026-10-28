@@ -5,6 +5,7 @@ import { doctor } from './commands/doctor.js';
 import { inspect } from './commands/inspect.js';
 import { serve } from './commands/serve.js';
 import { verify } from './commands/verify.js';
+import { findings } from './commands/findings.js';
 import { EXIT, UsageError, createContext, type CliIO } from './context.js';
 import { PALETTE, createStyler, detectColorLevel } from './ui/style.js';
 
@@ -16,6 +17,9 @@ const HELP = `
     atlas analyze [dir] [options]      analyze the committed tree into an artifact
     atlas inspect <artifact> [--no-map]  report on an artifact, with a city plan
     atlas verify <artifact>            validate an artifact end to end
+    atlas findings <ruff.sarif> --artifact <dir> --commit <full-oid> --out <quality.json>
+                                       import local external findings (no scanner execution)
+      [--source-root <dir>] [--baseline <quality.json>]
     atlas serve <artifact> [--repo <dir>] [--no-open] [--port <n>]
                                        browse an artifact in your browser (127.0.0.1 only)
 
@@ -127,6 +131,14 @@ export async function run(argv: readonly string[], io: CliIO): Promise<number> {
         const port = intOption(values.port, '--port');
         if (port !== undefined && port > 65_535) throw new UsageError('--port must be at most 65535');
         return await serve(ctx, { artifact: positionals[0]!, open: !values['no-open'], ...(values.repo !== undefined ? { repo: values.repo } : {}), ...(port !== undefined ? { port } : {}) });
+      }
+      case 'findings': {
+        const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, strict: true,
+          options: { artifact: { type: 'string' }, commit: { type: 'string' }, out: { type: 'string' }, 'source-root': { type: 'string' }, baseline: { type: 'string' }, json: { type: 'boolean' } } });
+        if (positionals.length !== 1 || !values.artifact || !values.commit || !values.out)
+          throw new UsageError('findings requires one Ruff SARIF report, --artifact, --commit and --out.');
+        return await findings(ctx, { report: positionals[0]!, artifact: values.artifact, commit: values.commit, out: values.out,
+          ...(values['source-root'] !== undefined ? { sourceRoot: values['source-root'] } : {}), ...(values.baseline !== undefined ? { baseline: values.baseline } : {}) });
       }
       default:
         throw new UsageError(`Unknown command "${command}". Run atlas --help.`);

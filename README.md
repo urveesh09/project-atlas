@@ -66,6 +66,12 @@ Artifacts use a lossless indexed graph transport ([ADR-018](docs/adr/ADR-018-ind
 
 ## V0.1 capabilities
 
+Optional [external Ruff findings](docs/guides/external-findings.md): import a local
+SARIF report with `atlas findings`, open its source-free quality sidecar in the viewer,
+and inspect reported lint locations alongside the city. Exact-location comparison
+discloses unverified scope; missing findings never imply resolution. No scanner or
+repository code executes and nothing is uploaded (ADR-085).
+
 | Pillar | Capability |
 |---|---|
 | Structure & navigation | Packages and directories as nested districts; search, tree, breadcrumbs, inspector, source links |

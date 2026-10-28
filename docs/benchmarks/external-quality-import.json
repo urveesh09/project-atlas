@@ -1,0 +1,26 @@
+{
+  "format": "atlas.external-quality-smoke/1",
+  "date": "2026-10-28",
+  "ruffVersion": "0.17.3",
+  "ruffArchiveSha256": "a84d9ac74af8ef5bac84a1888a1634df18e6e985e2f930d35c052beacd00e813",
+  "ruffExit": 1,
+  "importExit": 0,
+  "findings": [
+    {
+      "rule": "F401",
+      "line": 1,
+      "column": 8
+    },
+    {
+      "rule": "F821",
+      "line": 2,
+      "column": 7
+    }
+  ],
+  "artifactUnchanged": true,
+  "machinePathsAndRawMessagesExcluded": true,
+  "qualitySha256": "06cd9d16cd21a421a85cca86f65ae4976ed7f625bbde90e3e95a8a2f9dc3271f",
+  "sourceBaseCommit": "544b56c6d0f20506946b2b0070f916e43d880e70",
+  "workingTreeDirty": true,
+  "limit": "Functional producer/import check on the development branch; not a release or capacity benchmark."
+}

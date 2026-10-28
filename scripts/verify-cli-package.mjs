@@ -8,13 +8,13 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { buildDemoRepository } from '../packages/test-fixtures/dist/index.js';
+import { buildDemoRepository, createGitFixture } from '../packages/test-fixtures/dist/index.js';
 import { killProcessTree } from '../packages/ingest/dist/index.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const result = JSON.parse(await readFile(process.argv[2], 'utf8'));
 assert.equal(createHash('sha256').update(await readFile(result.archive)).digest('hex'), result.sha256, 'Archive digest mismatch');
 const work = await mkdtemp(path.join(os.tmpdir(), 'atlas-cli-install-'));
-let demo, server, browser;
+let demo, qualityRepo, server, browser;
 const stages = [];
 const env = { PATH: process.env.PATH ?? '', ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), NO_COLOR: '1' };
 try {
@@ -72,6 +72,24 @@ try {
     return output;
   };
   cli(['doctor']);
+  // An authored Python fixture exercises the new command from the relocated archive,
+  // with no scanner executable, repository dependency install or outbound socket.
+  qualityRepo = createGitFixture([{ date: '2026-10-01T00:00:00Z', message: 'authored lint fixture', files: { 'sample.py': 'import os\n' } }], { parent: work });
+  const qualityArtifact = path.join(work, 'quality-artifact');
+  cli(['analyze', qualityRepo.dir, '--out', qualityArtifact, '--no-history', '--json']);
+  const qualityManifestBytes = await readFile(path.join(qualityArtifact, 'manifest.json'));
+  const qualityManifest = JSON.parse(qualityManifestBytes.toString('utf8'));
+  const sarif = path.join(work, 'ruff.sarif');
+  await writeFile(sarif, JSON.stringify({ version: '2.1.0', runs: [{ tool: { driver: { name: 'ruff', version: '0.17.3' } }, results: [{ ruleId: 'F401', level: 'warning', message: { text: 'SOURCE_SENTINEL' }, locations: [{ physicalLocation: { artifactLocation: { uri: 'sample.py' }, region: { startLine: 1, startColumn: 8 } } }] }] }] }));
+  const qualityOut = path.join(work, 'quality.json');
+  const qualityResult = JSON.parse(cli(['findings', sarif, '--artifact', qualityArtifact, '--commit', qualityManifest.selectedCommit.oid, '--out', qualityOut, '--json']));
+  assert.equal(qualityResult.findings, 1);
+  assert.equal(qualityResult.binding, 'user-declared');
+  assert.equal(qualityResult.scanScope, 'unverified');
+  const qualityBytes = await readFile(qualityOut, 'utf8');
+  assert(!qualityBytes.includes('SOURCE_SENTINEL'));
+  assert.equal(JSON.parse(qualityBytes).findings[0].ruleId, 'F401');
+  assert.deepEqual(await readFile(path.join(qualityArtifact, 'manifest.json')), qualityManifestBytes);
   demo = buildDemoRepository({ parent: work });
   const artifact = path.join(work, 'artifact');
   cli(['analyze', demo.dir, '--out', artifact, '--json']);
@@ -132,6 +150,7 @@ try {
   await browser?.close();
   if (server?.pid && server.exitCode === null) killProcessTree(server.pid);
   demo?.dispose();
+  qualityRepo?.dispose();
   // The only recursive removal is this harness's own fresh directory under OS temp.
   assert(path.dirname(work) === path.resolve(os.tmpdir()) && path.basename(work).startsWith('atlas-cli-install-'));
   await rm(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });

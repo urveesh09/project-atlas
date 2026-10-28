@@ -5,6 +5,19 @@
  *   light: text #1d2430 on #ffffff ≈ 15:1 · muted #4f5a6b on #ffffff ≈ 7.2:1 · accent #1f5f8b ≈ 6.9:1
  * Focus rings are ≥ 3:1 against both the control and the page.
  */
+.external-quality {
+  padding: 20px;
+  margin-block: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+.external-quality-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.external-quality-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.external-quality-actions .button { max-width: 100%; white-space: normal; padding-block: 8px; }
+.external-quality .rows li { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
+.external-quality .quality-caveat { border-inline-start: 3px solid var(--warn); padding-inline-start: 12px; }
 :root {
   color-scheme: dark;
   --bg: #0f131b;

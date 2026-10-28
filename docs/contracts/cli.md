@@ -2,6 +2,9 @@
 
 From plan §14. `doctor`, `analyze`, `inspect`, `verify` and `serve` are implemented through P2.6. History options take effect and history is on by default. `--no-history` explicitly disables only history. Inspect reports the requested/observed window, frame selection, lineage and history availability; verification streams every frame. Serve verifies source attachment for every declared historical frame.
 
+The optional `findings` extension is specified separately below (ADR-085); its import
+verdict, exit codes and exclusive sidecar output differ from analysis output.
+
 ```sh
 atlas doctor
 atlas analyze <dir> --out <dir> [--ref <commit-or-simple-ref>] [--history-days 1..90]
@@ -11,6 +14,8 @@ atlas analyze <dir> --out <dir> [--ref <commit-or-simple-ref>] [--history-days 1
 atlas inspect <artifact-dir> [--json] [--no-map]
 atlas verify <artifact-dir>
 atlas serve <artifact-dir> [--repo <dir>] [--no-open]
+atlas findings <ruff.sarif> --artifact <dir> --commit <full-oid> --out <quality.json>
+               [--source-root <dir>] [--baseline <quality.json>] [--json]
 ```
 
 `doctor` requires the Node 24 major and recommends at least 24.22.0, matching the
@@ -40,7 +45,7 @@ Output layout:
 
 With `--json`, `analyze` writes NDJSON events to stdout (`start`, `progress`, `result` or `error`); human progress goes to stderr. `NO_COLOR` and non-TTY output are plain text; `ATLAS_ASCII=1` avoids Unicode glyphs.
 
-Guarantees, all tested:
+Artifact-analysis guarantees, all tested:
 
 - `--ref` accepts only a full commit ID or a simple ref name (`isSimpleRefName`). Revision expressions and option-like values are rejected with `REF_INVALID`.
 - Only committed objects are read. Working-tree edits and untracked files are invisible, which is tested.
@@ -63,3 +68,16 @@ The same `serve` command now opens the production city. Choose 3D, map or paged 
 Structure, maximum complexity and fan-in lenses retain raw metrics and a visible legend. Incoming/outgoing dependency lists expose omitted arcs and support pinning; static reachability has explicit limits. The full external-package list remains available beyond the 50-terminal display cap. WebGL failure falls back to map; all graph tasks remain available through semantic HTML when canvas is unavailable.
 
 Image export is bounded to 2048×2048 and at most 4 million pixels. The PNG is accompanied by JSON identifying commit, analysis, layout/version, selection, lens, filters, edge limits and camera. Export does not upload data or embed source. Browser file import likewise stays local.
+
+
+## External quality reports (ADR-085)
+
+`atlas findings <ruff.sarif> --artifact <dir> --commit <full-oid> --out <file>` imports
+one-run Ruff SARIF 2.1.0. Optional `--source-root <dir>` maps absolute file URIs;
+`--baseline <quality.json>` compares exact locations in the same analysis/Ruff version.
+No scanner executes. The separate `atlas.quality/1` sidecar binds an analyzed snapshot,
+with user-declared commit provenance and unverified scan scope. Nothing is uploaded.
+Output must be new and outside the artifact (including resolved parent aliases).
+Exit 0 is a successful import, not a clean scan; 2 means dropped records (duplicates
+alone stay 0); 1 is failure, 64 usage, 130 cancelled. Read the
+[guide](../guides/external-findings.md) for limits, privacy and interpretation.

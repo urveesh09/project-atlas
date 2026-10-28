@@ -6,6 +6,7 @@ import { ROLE_LABEL, formatNumber, formatOrdinal, shortOid } from '../app/model'
 import { TABS, type InspectorTab } from '../app/state';
 import { AvailabilityNote, Chip, Paged, Section, SeverityBadge } from './ui';
 import { HistoryTab } from './HistoryPanel';
+import { ExternalFileFindings } from './ExternalQuality';
 
 const LANGUAGE_LABEL = { typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python' } as const;
 
@@ -108,7 +109,7 @@ export function Inspector({ node }: { node: GraphNode }) {
       <div className="tabpanel" role="tabpanel" id={`panel-${state.tab}`} aria-labelledby={`tab-${state.tab}`} tabIndex={0}>
         {state.tab === 'overview' && <OverviewTab node={node} />}
         {state.tab === 'dependencies' && <DependenciesTab node={node} />}
-        {state.tab === 'findings' && <FindingsTab node={node} />}
+        {state.tab === 'findings' && <><ExternalFileFindings node={node} /><FindingsTab node={node} /></>}
         {state.tab === 'history' && <HistoryTab node={node} />}
       </div>
     </article>
