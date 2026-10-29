@@ -78,6 +78,11 @@ signature material and independently pinned GitHub workflow/source trust. The vi
 shows declarations without treating them as authenticated. Provenance cannot establish
 a clean scan or issue resolution (ADR-086).
 
+Optional [contextual finding review](docs/guides/finding-review.md): `atlas review-findings`
+tracks unchanged unique code context through line shifts and accepted renames in one
+history analysis. Open the review in the viewer to follow either snapshot. Ambiguous
+or changed context stays unmatched; reported disappearance never means resolved (ADR-087).
+
 | Pillar | Capability |
 |---|---|
 | Structure & navigation | Packages and directories as nested districts; search, tree, breadcrumbs, inspector, source links |
@@ -119,7 +124,7 @@ The hosted service repeats these properties inside containers. A sentinel suite 
 
 ## Developing
 
-Prerequisites: Node.js 24.22.0, pnpm 10.34.6 and Git ≥ 2.38 ([toolchain](docs/toolchain.md)).
+Prerequisites: Node.js 24.22.1, pnpm 10.34.6 and Git ≥ 2.38 ([toolchain](docs/toolchain.md)).
 
 ```sh
 pnpm install

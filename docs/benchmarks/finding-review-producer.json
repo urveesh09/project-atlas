@@ -1,0 +1,26 @@
+{
+  "format": "atlas.finding-review.producer-check/1",
+  "ok": true,
+  "ruff": "0.17.3",
+  "baseline": "63d41d977ceb70502238f4db83c08cf154080483",
+  "current": "83fc8a11a0e1e5b749328cd5a2001c8a99d36edb",
+  "expectedPositions": [
+    [
+      7,
+      7
+    ],
+    [
+      10,
+      7
+    ]
+  ],
+  "retainedFindings": [
+    1,
+    1
+  ],
+  "continuing": 1,
+  "acceptedRename": true,
+  "sourceExcluded": true,
+  "gitMetadataUnchanged": true,
+  "signature": "not-created"
+}

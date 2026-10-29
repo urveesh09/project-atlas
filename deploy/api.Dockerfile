@@ -3,7 +3,7 @@
 #
 #   docker build -f deploy/api.Dockerfile -t atlas-api:dev .
 
-ARG NODE_IMAGE=node@sha256:7f486cabe892bff8fef04c0f7da8dba84a560be3e4e2740b7a86afc57ebec315
+ARG NODE_IMAGE=node@sha256:89c5244bc22a9bc3287d89ebc7e49b9cb5bb84cd40e6175ac3421d5a9f68b95a
 
 FROM ${NODE_IMAGE} AS build
 RUN corepack enable && corepack prepare pnpm@10.34.6 --activate

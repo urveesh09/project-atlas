@@ -28,8 +28,10 @@ local quality report and inspect it alongside the city. No scanner executes or u
 For CI producers, [scan evidence and provenance](guides/scan-provenance.md) adds declared
 file/profile accounting and explicit offline signature verification. The signing recipe
 needs owner activation; browser declarations alone are unauthenticated.
+For changes across commits, [contextual finding review](guides/finding-review.md)
+tracks evidence against committed source and lets you navigate both snapshots.
 
-1. Install **Node.js 24.22.0**: <https://nodejs.org/en/download> (choose v24.22.0). Check
+1. Install **Node.js 24.22.1**: <https://nodejs.org/en/download> (choose v24.22.1). Check
    with `node --version`.
 2. Install **pnpm 10.34.6**: `npm install -g pnpm@10.34.6`. Check with `pnpm --version`.
 3. Install **Git 2.38 or newer**: <https://git-scm.com/download/win>. Check with `git --version`.

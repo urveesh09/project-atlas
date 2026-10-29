@@ -1,0 +1,179 @@
+{
+  "task": "Q2.2 synthetic pure finding-review capacity",
+  "recordedAt": "2026-10-29T14:08:58.310Z",
+  "node": "v24.22.0",
+  "platform": "Windows_NT 10.0.26200 x64",
+  "sourceCommit": "e518ecf4f0cdf57562a3aed1db305eb592c79a5b",
+  "workingTreeDirty": true,
+  "method": "20 fresh Node processes; timing starts after module load and includes authored report preparation, context indexing, matching and canonical round-trip validation. Synthetic source metadata, no Git ingestion or real Ruff/signatures in this benchmark.",
+  "p50Ms": 875.5485,
+  "p95Ms": 899.6454999999999,
+  "worstMs": 920.8109,
+  "samples": [
+    {
+      "ms": 920.8109,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 264.9921875,
+      "maxRssMiB": 264.99609375
+    },
+    {
+      "ms": 878.1873999999999,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 265.828125,
+      "maxRssMiB": 265.83203125
+    },
+    {
+      "ms": 877.6969000000001,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 264.86328125,
+      "maxRssMiB": 264.8671875
+    },
+    {
+      "ms": 875.9389000000001,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 264.7734375,
+      "maxRssMiB": 264.77734375
+    },
+    {
+      "ms": 860.9279999999999,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 263.6171875,
+      "maxRssMiB": 263.62109375
+    },
+    {
+      "ms": 871.5204000000001,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 264.8046875,
+      "maxRssMiB": 264.8125
+    },
+    {
+      "ms": 884.5968,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 265.02734375,
+      "maxRssMiB": 265.03125
+    },
+    {
+      "ms": 879.236,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 265.18359375,
+      "maxRssMiB": 265.1875
+    },
+    {
+      "ms": 899.6454999999999,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 267.7421875,
+      "maxRssMiB": 267.74609375
+    },
+    {
+      "ms": 887.5832000000001,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 263.83203125,
+      "maxRssMiB": 263.8359375
+    },
+    {
+      "ms": 883.3838000000001,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 264.9921875,
+      "maxRssMiB": 264.99609375
+    },
+    {
+      "ms": 872.6237000000001,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 262.15234375,
+      "maxRssMiB": 262.15625
+    },
+    {
+      "ms": 866.7904999999998,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 270.765625,
+      "maxRssMiB": 270.83203125
+    },
+    {
+      "ms": 863.8999000000001,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 265.15234375,
+      "maxRssMiB": 265.15625
+    },
+    {
+      "ms": 865.5986,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 264.671875,
+      "maxRssMiB": 264.67578125
+    },
+    {
+      "ms": 873.0985000000001,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 270.8671875,
+      "maxRssMiB": 270.87109375
+    },
+    {
+      "ms": 865.0764,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 270.796875,
+      "maxRssMiB": 270.80078125
+    },
+    {
+      "ms": 868.0011,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 267.80078125,
+      "maxRssMiB": 267.8046875
+    },
+    {
+      "ms": 877.0832,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 265.33203125,
+      "maxRssMiB": 265.3359375
+    },
+    {
+      "ms": 875.5485,
+      "bytes": 6094886,
+      "findingsPerSide": 4096,
+      "continuing": 4096,
+      "rssMiB": 267.91796875,
+      "maxRssMiB": 267.921875
+    }
+  ],
+  "limits": [
+    "Functional comparison capacity only; no reference-machine, GPU or browser latency claim.",
+    "Dirty development observations are not clean-tree release acceptance.",
+    "Producer and cryptographic evidence have separate tests. No clean/resolved verdict."
+  ]
+}

@@ -11,11 +11,12 @@ import { createRequire } from 'node:module';
 import { buildDemoRepository, createGitFixture } from '../packages/test-fixtures/dist/index.js';
 import { killProcessTree } from '../packages/ingest/dist/index.js';
 import { openArtifactDirectory } from '../packages/artifact/dist/node.js';
+import { parseFindingReview } from '../packages/graph/dist/index.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const result = JSON.parse(await readFile(process.argv[2], 'utf8'));
 assert.equal(createHash('sha256').update(await readFile(result.archive)).digest('hex'), result.sha256, 'Archive digest mismatch');
 const work = await mkdtemp(path.join(os.tmpdir(), 'atlas-cli-install-'));
-let demo, qualityRepo, server, browser;
+let demo, qualityRepo, reviewRepo, server, browser;
 const stages = [];
 const env = { PATH: process.env.PATH ?? '', ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), NO_COLOR: '1' };
 try {
@@ -65,11 +66,19 @@ try {
   const guard = path.join(work, 'offline-guard.cjs');
   await writeFile(guard, `const net=require('node:net');const connect=net.Socket.prototype.connect;net.Socket.prototype.connect=function(...args){const o=args[0];const host=typeof o==='object'?o.host:(typeof args[1]==='string'?args[1]:'localhost');if(host!=='127.0.0.1'&&host!=='::1'&&host!=='localhost')throw new Error('OFFLINE_SOCKET_DENIED');return connect.apply(this,args)};`);
   const bin = path.join(bundle, 'bin/atlas.js');
-  const cli = (args) => {
+  const cli = (args, expectedExit = 0) => {
     const started = performance.now();
-    const output = execFileSync(process.execPath, ['--require', guard, bin, ...args], { cwd: work, env, encoding: 'utf8', windowsHide: true, timeout: 300_000, maxBuffer: 2 * 1024 * 1024 });
-    // execFileSync throws on nonzero; no undocumented partial exit is accepted here.
-    stages.push({ stage: args[0], elapsedMs: performance.now() - started, passed: true });
+    let output;
+    try {
+      output = execFileSync(process.execPath, ['--require', guard, bin, ...args], { cwd: work, env, encoding: 'utf8', windowsHide: true, timeout: 300_000, maxBuffer: 2 * 1024 * 1024 });
+      assert.equal(expectedExit, 0, 'Expected the documented partial exit, not success');
+    } catch (error) {
+      // Only the explicit unsigned-review case below accepts its documented partial
+      // status. A native failure, missing output, or any other command still fails.
+      if (args[0] !== 'review-findings' || expectedExit !== 2 || error.status !== 2) throw error;
+      output = error.stdout;
+    }
+    stages.push({ stage: args[0], elapsedMs: performance.now() - started, ...(expectedExit ? { expectedExit } : {}), passed: true });
     return output;
   };
   cli(['doctor']);
@@ -103,6 +112,34 @@ try {
   assert.equal(scan.provenance, 'unverified');
   assert.equal(scan.scopeMatchesAnalysis, true);
   assert(!(await readFile(scanPath, 'utf8')).includes('SOURCE_SENTINEL'));
+  // Two scan declarations in ONE history artifact; the package must preserve
+  // a unique code context across shifted lines without invoking any scanner.
+  const reviewSource = 'a = 1\nb = 2\nprint(missing)\nc = 3\nd = 4\n';
+  reviewRepo = createGitFixture([
+    { date: '2026-10-01T00:00:00Z', message: 'baseline lint context', files: { 'sample.py': reviewSource } },
+    { date: '2026-10-02T00:00:00Z', message: 'shift context', files: { 'sample.py': '# prefix a\n# prefix b\n# prefix c\n' + reviewSource } },
+  ], { parent: work });
+  const reviewArtifact = path.join(work, 'review-artifact');
+  cli(['analyze', reviewRepo.dir, '--out', reviewArtifact, '--snapshots', '2', '--json']);
+  const reviewed = await openArtifactDirectory(reviewArtifact);
+  assert(reviewed.ok);
+  for (let i = 0; i < 2; i++) {
+    const frame = await reviewed.artifact.frame(i); assert(frame.ok);
+    const report = path.join(work, `review-${i}.sarif`), quality = path.join(work, `review-${i}.quality.json`);
+    await writeFile(report, JSON.stringify({ version: '2.1.0', runs: [{ tool: { driver: { name: 'ruff', version: '0.17.3' } }, results: [{ ruleId: 'F821', locations: [{ physicalLocation: { artifactLocation: { uri: 'sample.py' }, region: { startLine: i === 0 ? 3 : 6, startColumn: 7 } } }] }] }] }));
+    cli(['findings', report, '--artifact', reviewArtifact, '--commit', frame.graph.commitOid, '--out', quality, '--json']);
+    const sourceFile = frame.graph.nodes.find((n) => n.kind === 'file' && n.path === 'sample.py'); assert(sourceFile?.kind === 'file');
+    await writeFile(profilePath, JSON.stringify({ format: 'atlas.ruff-profile/1', isolated: true, ignoreNoqa: true, respectGitignore: false, forceExclude: false, targetVersion: 'py314', rules: ['F821'] }));
+    await writeFile(scopePath, JSON.stringify({ format: 'atlas.scan-scope/1', files: [{ path: sourceFile.path, blobOid: sourceFile.blobOid }] }));
+    cli(['scan-evidence', quality, '--artifact', reviewArtifact, '--profile', profilePath, '--scope', scopePath, '--exit-code', '1', '--out', path.join(work, `review-${i}.scan.json`), '--json']);
+  }
+  const reviewOutput = path.join(work, 'finding-review.json');
+  const resultReview = JSON.parse(cli(['review-findings', path.join(work, 'review-1.scan.json'), '--baseline', path.join(work, 'review-0.scan.json'), '--artifact', reviewArtifact, '--repo', reviewRepo.dir, '--out', reviewOutput, '--json'], 2));
+  assert.equal(resultReview.provenanceVerifiedInThisProcess, false);
+  assert.equal(resultReview.counts.continuing, 1);
+  const reviewText = await readFile(reviewOutput, 'utf8');
+  assert(!reviewText.includes('print(missing)'));
+  assert.equal(parseFindingReview(reviewText).issues[0].state, 'continuing');
   demo = buildDemoRepository({ parent: work });
   const artifact = path.join(work, 'artifact');
   cli(['analyze', demo.dir, '--out', artifact, '--json']);
@@ -164,6 +201,7 @@ try {
   if (server?.pid && server.exitCode === null) killProcessTree(server.pid);
   demo?.dispose();
   qualityRepo?.dispose();
+  reviewRepo?.dispose();
   // The only recursive removal is this harness's own fresh directory under OS temp.
   assert(path.dirname(work) === path.resolve(os.tmpdir()) && path.basename(work).startsWith('atlas-cli-install-'));
   await rm(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });

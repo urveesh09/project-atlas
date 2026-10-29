@@ -22,3 +22,4 @@ export * from './delta-graph.js';
 export * from './compact-chunks.js';
 export * from './quality.js';
 export * from './scan.js';
+export * from './finding-review.js';

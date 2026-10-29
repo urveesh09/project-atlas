@@ -6,8 +6,8 @@ rename or close the original V0.1 release gates. Existing free features remain f
 | Increment | Deliverable | Acceptance boundary |
 |---|---|---|
 | Q1, merged [PR #52](https://github.com/urveesh09/project-atlas/pull/52) | Local Ruff SARIF import, separate quality contract, snapshot-bound browser evidence and conservative exact-location report comparison | Actual producer fixture, CLI round trip, adversarial input/reference checks, no uploads/source leakage, all browser engines, accessibility and existing CI |
-| Q2.1, this increment, ADR-086 | Source-free scan scope/profile evidence, official GitHub CLI offline provenance verification with exact workflow/source/root policy; browser declaration view | Real signed vendor fixture with no network, tamper/wrong-policy rejection, validated partial scope, no browser trust marker. Reviewed signing recipe stays inactive until owner approval/merge/dispatch; a live ATLAS scan attestation is not yet established |
-| Q2.2, future ADR | Durable issue matching across changes and trusted comparable-scan review | Comparable complete scans before a disappearing finding may become resolved; moved/ambiguous contexts, changed versions/configuration and incomplete runs stay explicit. Signature success alone is insufficient |
+| Q2.1, merged [PR #53](https://github.com/urveesh09/project-atlas/pull/53), ADR-086 | Source-free scan scope/profile evidence, official GitHub CLI offline provenance verification with exact workflow/source/root policy; browser declaration view | Real signed vendor fixture with no network, tamper/wrong-policy rejection, validated partial scope, no browser trust marker. Reviewed signing recipe stays inactive until owner activation; a live ATLAS scan attestation is not yet established |
+| Q2.2, this increment, ADR-087 | Context-based tracking inside one history analysis; committed-source review, explicit historical-target/producer policies and browser navigation | Unique unchanged context or identical blob/location retains identity. Duplicate/changed context, changed settings and partial/unverified scope stay uncertain. Comparable authenticated declarations may establish newly/no longer reported evidence, never automatic resolution or a merge verdict. Cross-artifact/long-term issue databases remain future work |
 | Q3, future ADR | Production/test dependency policies, package-boundary rules, new-cycle evidence and review/CI reports | Independently authored violation fixtures and exact baselines. Static paths never imply runtime impact or exploitability |
 | Q4, future ADR | Private review workspaces, retained baselines, shared decisions and ownership | Pilot teams demonstrate repeated use; tenancy/access/deletion/retention and operating cost are measured before billing |
 
@@ -35,3 +35,5 @@ paid conveniences; current analysis/viewer capabilities remain MIT/free (ADR-048
 Before adding a producer or ruleset, review its exact license and output privacy.
 An open engine does not make every compatible rule collection commercially reusable.
 Read [the user guide](../guides/external-findings.md) for Q1 commands and limitations.
+Read [contextual finding review](../guides/finding-review.md) for Q2.2's exact identity,
+source/privacy bounds and the inactive historical producer/signing recipe.

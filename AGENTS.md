@@ -43,6 +43,15 @@ verification. Read `docs/guides/scan-provenance.md`. Trust policy/root/workflow 
 come from the operator, never from the bundle. Browser declarations stay unauthenticated;
 no "resolved", clean or merge verdict follows from an attestation. The signing recipe
 is inactive documentation; owner review/merge/dispatch is needed for a live ATLAS proof.
+PR #53 is merged. Continued owner direction on 2026-10-29 authorizes Q2.2 (ADR-087):
+contextual finding review within one bounded history artifact. Read
+`docs/guides/finding-review.md`. Track unique unchanged context, never guess between
+duplicates or label disappearance resolved. Historical review policies separately pin
+the inspected commit and attested producer checkout; direct `verify-scan` is unchanged.
+Stored review verification claims remain unauthenticated in the browser. Producer/signing
+recipes stay inactive; no release, deployment, private hosting or billing is authorized.
+ADR-088 updates the runtime security floor and every Node image pin to 24.22.1 after
+the original Q2.2 CI scan blocked 24.22.0. Keep the vulnerability gate unchanged.
 
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime
 tracing, more languages or private hosted repositories, needs the owner's direction and
@@ -69,7 +78,7 @@ an ADR first.
 - **Dependency direction** (enforced by `pnpm check:deps`): `schema` is foundational;
   analyzers never import the viewer or API; the viewer never imports analyzer or ingest
   code; runtime instrumentation is banned in V0.1.
-- **Pinned toolchain:** Node 24.22.0 or newer 24.x, pnpm 10.34.6, exact library versions
+- **Pinned toolchain:** Node 24.22.1 or newer 24.x, pnpm 10.34.6, exact library versions
   ([toolchain](docs/toolchain.md)). Don't upgrade pnpm or dependencies casually, and don't use floating versions.
 - **Least privilege** for hosted roles, sandboxes (uid 10001, read-only root, no
   capabilities) and tokens. Never put a personal token in containers, files or logs.
@@ -83,7 +92,7 @@ an ADR first.
 | `packages/analyzer-ts`, `analyzer-py`, `analyzer-core` | TS/JS and Python facts and resolution; snapshot/history orchestration (`analyzeCommit`) |
 | `packages/graph`, `history`, `layout` | Aggregation/SCCs/queries; lineage and churn; deterministic integer city layout |
 | `packages/artifact` | Packing, verification and loading (Node and browser) |
-| `packages/cli` | `atlas doctor/analyze/inspect/verify/serve/findings/scan-evidence/verify-scan` |
+| `packages/cli` | `atlas doctor/analyze/inspect/verify/serve/findings/scan-evidence/verify-scan/review-findings` |
 | `packages/control` | Hosted control plane: migrations, roles, storage, publications, GitHub budget |
 | `apps/api`, `apps/worker`, `apps/web` | Hosted HTTP API; coordinator and sandboxes; React/Three.js viewer |
 | `deploy/` | Sandbox and API images, development stack; `production/` reference kit and validation tooling |
@@ -140,7 +149,7 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-086. Allocate ADR-087 next.
+  The current sequence is ADR-001…ADR-088. Allocate ADR-089 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

@@ -6,7 +6,7 @@ Recorded 10 October 2026. Rationale lives in [ADR-013](adr/ADR-013-pin-typescrip
 
 | Tool | Version | Notes |
 |---|---|---|
-| Node.js | 24.22.0 (`.nvmrc`; `engines: >=24.22.0 <25`) | `engine-strict=true` |
+| Node.js | 24.22.1 (`.nvmrc`; `engines: >=24.22.1 <25`) | `engine-strict=true` |
 | pnpm | 10.34.6 (`packageManager`) | `npm i -g pnpm@10.34.6` or Corepack |
 | Git | ≥ 2.38; verified on 2.55.0.windows.3 | Required by the CLI and tests; diagnosed by `atlas doctor` (P1.5) |
 

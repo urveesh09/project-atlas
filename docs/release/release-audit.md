@@ -5,6 +5,10 @@ The four pillars are implemented; runtime tracing/instrumentation remains wholly
 This audit distinguishes implementation/test evidence from human, reference-device and
 public-infrastructure acceptance. The canonical requirements remain the [master plan](../plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md).
 
+The supported runtime/security pins now use Node 24.22.1 ([ADR-088](../adr/ADR-088-node-october-security-patch.md)).
+The initial Q2.2 image scan correctly blocked vulnerable 24.22.0; fresh checks are
+required on the patched candidate. This maintenance does not close G6 or deploy the kit.
+
 ## Phase 5 review closure
 
 Review commits `6113d94` and `944d579` fix shared-engine reconciliation fencing, stale
@@ -28,6 +32,7 @@ recorded in [implementation status](../implementation-status.md).
 | Dependencies/diagnostics (§10) | `packages/graph`, shared catalog/metrics; SCC witness, bounded reach, external/package summaries, independent churn/hotspot math | Automated implementation checks; user interpretation reviewed under P6.3 |
 | Optional external lint evidence (owner extension, ADR-085) | Separate `atlas.quality/1` sidecars, local Ruff SARIF import, validated snapshot/file references and exact-location comparison; [guide](../guides/external-findings.md), [physical producer check](../benchmarks/external-quality-import.json) | Source messages/host paths excluded; binding is user-declared and scan scope/configuration unverified. This cannot establish resolution, security coverage or a merge gate. Original G6 requirements remain open |
 | Optional scan declarations/provenance (Q2.1, ADR-086) | Separate `atlas.scan/1`, isolated profile/path/blob accounting, strict independently selected GitHub workflow/source/root policy; [guide](../guides/scan-provenance.md), [actual offline verifier check](../benchmarks/scan-provenance.md) | Real vendor signatures verify with networking disabled; tampering/wrong policy fail. Execution/scope remain producer assertions; browser declarations remain unauthenticated. The signing recipe is inactive and a live ATLAS scan proof remains owner work. No clean/resolution/merge verdict or G6 closure |
+| Optional contextual finding review (Q2.2, ADR-087) | Committed-source anchors, deterministic within-analysis tracking, explicit historical-target/producer pins, browser two-snapshot navigation; [guide](../guides/finding-review.md) | Duplicated/changed context, changed settings and partial/unverified scope remain uncertain. Real Ruff producer and full-size matching/import checks are distinct from signature mocks and vendor crypto proof. Browser verification claims are never authenticated; live ATLAS signed scan pair remains owner activation work. No automatic resolved/clean/merge verdict or G6 closure |
 | Mainline history/lineage (§11) | Authored roots/merges/rename/duplicates/clock-skew fixtures; no future leakage; union invariance/delta/compact round trips | Local and hosted recovery tests; large temporal performance still pending |
 | Deterministic layout (§12) | `packages/layout`, graph/layout invariants, stable plots; cross-OS Harbor golden; real corpus full canonical/wire digests | Six pinned repositories run on Windows, Linux and macOS, with the three-way comparison passing in PR #35 |
 | Frontend interactions/equivalents (§3/12/16) | Real browser keyboard, deep-link/tombstone/compare/partial, reduced motion/320px, map/table/fallback; [named audits of visible screens, menus and source dialog](accessibility-preparation.md), including WCAG 2.1 A rules; null/throwing WebGL fallback checks console/page errors and primary-action transition ratios meet 4.5:1 (ADR-071) | Automated preparation; M3.4 intermittent overflow diagnosis, five developers/manual assistive use pending |

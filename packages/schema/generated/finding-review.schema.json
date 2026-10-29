@@ -1,0 +1,915 @@
+{
+  "$id": "https://atlas.invalid/schemas/finding-review.schema.json",
+  "title": "ATLAS finding-review (atlas.finding-review/1)",
+  "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "atlas.finding-review/1"
+    },
+    "algorithm": {
+      "type": "string",
+      "const": "exact-context/1"
+    },
+    "current": {
+      "type": "object",
+      "properties": {
+        "report": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "const": "atlas.quality/1"
+            },
+            "analysisId": {
+              "type": "string",
+              "pattern": "^analysis_[0-9a-f]{64}$"
+            },
+            "repoId": {
+              "type": "string",
+              "pattern": "^repo_[0-9a-f]{64}$"
+            },
+            "snapshotId": {
+              "type": "string",
+              "pattern": "^snap_[0-9a-f]{64}$"
+            },
+            "commitOid": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "binding": {
+              "type": "string",
+              "const": "user-declared"
+            },
+            "scanScope": {
+              "type": "string",
+              "const": "unverified"
+            },
+            "tool": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "const": "ruff"
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$"
+                }
+              },
+              "required": [
+                "name",
+                "version"
+              ],
+              "additionalProperties": false
+            },
+            "inputResults": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20000
+            },
+            "dropped": {
+              "type": "object",
+              "properties": {
+                "unmapped": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20000
+                },
+                "unsupported": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20000
+                },
+                "suppressed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20000
+                },
+                "duplicates": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20000
+                }
+              },
+              "required": [
+                "unmapped",
+                "unsupported",
+                "suppressed",
+                "duplicates"
+              ],
+              "additionalProperties": false
+            },
+            "findings": {
+              "maxItems": 4096,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^qf_[0-9a-f]{64}$"
+                  },
+                  "nodeId": {
+                    "type": "string",
+                    "pattern": "^node_[0-9a-f]{64}$"
+                  },
+                  "lineageId": {
+                    "type": "string",
+                    "pattern": "^lin_[0-9a-f]{64}$"
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "blobOid": {
+                    "type": "string",
+                    "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                  },
+                  "ruleId": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{1,5}[0-9]{3,4}$"
+                  },
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "error",
+                      "warning",
+                      "note"
+                    ]
+                  },
+                  "line": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000000
+                  },
+                  "column": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "nodeId",
+                  "lineageId",
+                  "path",
+                  "blobOid",
+                  "ruleId",
+                  "level",
+                  "line",
+                  "column"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "format",
+            "analysisId",
+            "repoId",
+            "snapshotId",
+            "commitOid",
+            "binding",
+            "scanScope",
+            "tool",
+            "inputResults",
+            "dropped",
+            "findings"
+          ],
+          "additionalProperties": false
+        },
+        "scanSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "declaredTrust": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "format": {
+                  "type": "string",
+                  "const": "atlas.review-scan-trust/1"
+                },
+                "scanCommit": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                },
+                "producer": {
+                  "type": "object",
+                  "properties": {
+                    "format": {
+                      "type": "string",
+                      "const": "atlas.scan-trust/1"
+                    },
+                    "repository": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}\\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
+                    },
+                    "workflow": {
+                      "type": "string",
+                      "pattern": "^\\.github\\/workflows\\/[A-Za-z0-9][A-Za-z0-9._-]{0,79}\\.ya?ml$"
+                    },
+                    "workflowCommit": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "sourceCommit": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "sourceRef": {
+                      "type": "string",
+                      "pattern": "^refs\\/heads\\/[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$"
+                    },
+                    "trustedRootSha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "format",
+                    "repository",
+                    "workflow",
+                    "workflowCommit",
+                    "sourceCommit",
+                    "sourceRef",
+                    "trustedRootSha256"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "format",
+                "scanCommit",
+                "producer"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "const": "atlas.ruff-profile/1"
+            },
+            "isolated": {
+              "type": "boolean",
+              "const": true
+            },
+            "ignoreNoqa": {
+              "type": "boolean",
+              "const": true
+            },
+            "respectGitignore": {
+              "type": "boolean",
+              "const": false
+            },
+            "forceExclude": {
+              "type": "boolean",
+              "const": false
+            },
+            "targetVersion": {
+              "type": "string",
+              "pattern": "^py3(?:[89]|1[0-5])$"
+            },
+            "rules": {
+              "minItems": 1,
+              "maxItems": 1024,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z]{1,5}[0-9]{3,4}$"
+              }
+            }
+          },
+          "required": [
+            "format",
+            "isolated",
+            "ignoreNoqa",
+            "respectGitignore",
+            "forceExclude",
+            "targetVersion",
+            "rules"
+          ],
+          "additionalProperties": false
+        },
+        "profileSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "analyzedPythonFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "declaredScannedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "missingFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "droppedRecords": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20000
+            },
+            "scopeMatchesAnalysis": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "analyzedPythonFiles",
+            "declaredScannedFiles",
+            "missingFiles",
+            "droppedRecords",
+            "scopeMatchesAnalysis"
+          ],
+          "additionalProperties": false
+        },
+        "anchors": {
+          "maxItems": 4096,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "findingId": {
+                "type": "string",
+                "pattern": "^qf_[0-9a-f]{64}$"
+              },
+              "contextSha256": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "unique-context",
+                  "repeated-context",
+                  "unknown-column",
+                  "source-unavailable",
+                  "context-unavailable"
+                ]
+              },
+              "counterpart": {
+                "type": "string",
+                "enum": [
+                  "unique-context",
+                  "same-blob",
+                  "changed-context",
+                  "repeated-context",
+                  "source-unavailable",
+                  "file-not-in-scope"
+                ]
+              }
+            },
+            "required": [
+              "findingId",
+              "contextSha256",
+              "basis",
+              "counterpart"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "report",
+        "scanSha256",
+        "declaredTrust",
+        "profile",
+        "profileSha256",
+        "coverage",
+        "anchors"
+      ],
+      "additionalProperties": false
+    },
+    "baseline": {
+      "type": "object",
+      "properties": {
+        "report": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "const": "atlas.quality/1"
+            },
+            "analysisId": {
+              "type": "string",
+              "pattern": "^analysis_[0-9a-f]{64}$"
+            },
+            "repoId": {
+              "type": "string",
+              "pattern": "^repo_[0-9a-f]{64}$"
+            },
+            "snapshotId": {
+              "type": "string",
+              "pattern": "^snap_[0-9a-f]{64}$"
+            },
+            "commitOid": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "binding": {
+              "type": "string",
+              "const": "user-declared"
+            },
+            "scanScope": {
+              "type": "string",
+              "const": "unverified"
+            },
+            "tool": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "const": "ruff"
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$"
+                }
+              },
+              "required": [
+                "name",
+                "version"
+              ],
+              "additionalProperties": false
+            },
+            "inputResults": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20000
+            },
+            "dropped": {
+              "type": "object",
+              "properties": {
+                "unmapped": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20000
+                },
+                "unsupported": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20000
+                },
+                "suppressed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20000
+                },
+                "duplicates": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20000
+                }
+              },
+              "required": [
+                "unmapped",
+                "unsupported",
+                "suppressed",
+                "duplicates"
+              ],
+              "additionalProperties": false
+            },
+            "findings": {
+              "maxItems": 4096,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^qf_[0-9a-f]{64}$"
+                  },
+                  "nodeId": {
+                    "type": "string",
+                    "pattern": "^node_[0-9a-f]{64}$"
+                  },
+                  "lineageId": {
+                    "type": "string",
+                    "pattern": "^lin_[0-9a-f]{64}$"
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "blobOid": {
+                    "type": "string",
+                    "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                  },
+                  "ruleId": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{1,5}[0-9]{3,4}$"
+                  },
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "error",
+                      "warning",
+                      "note"
+                    ]
+                  },
+                  "line": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000000
+                  },
+                  "column": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "nodeId",
+                  "lineageId",
+                  "path",
+                  "blobOid",
+                  "ruleId",
+                  "level",
+                  "line",
+                  "column"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "format",
+            "analysisId",
+            "repoId",
+            "snapshotId",
+            "commitOid",
+            "binding",
+            "scanScope",
+            "tool",
+            "inputResults",
+            "dropped",
+            "findings"
+          ],
+          "additionalProperties": false
+        },
+        "scanSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "declaredTrust": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "format": {
+                  "type": "string",
+                  "const": "atlas.review-scan-trust/1"
+                },
+                "scanCommit": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                },
+                "producer": {
+                  "type": "object",
+                  "properties": {
+                    "format": {
+                      "type": "string",
+                      "const": "atlas.scan-trust/1"
+                    },
+                    "repository": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}\\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
+                    },
+                    "workflow": {
+                      "type": "string",
+                      "pattern": "^\\.github\\/workflows\\/[A-Za-z0-9][A-Za-z0-9._-]{0,79}\\.ya?ml$"
+                    },
+                    "workflowCommit": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "sourceCommit": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "sourceRef": {
+                      "type": "string",
+                      "pattern": "^refs\\/heads\\/[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$"
+                    },
+                    "trustedRootSha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "format",
+                    "repository",
+                    "workflow",
+                    "workflowCommit",
+                    "sourceCommit",
+                    "sourceRef",
+                    "trustedRootSha256"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "format",
+                "scanCommit",
+                "producer"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "const": "atlas.ruff-profile/1"
+            },
+            "isolated": {
+              "type": "boolean",
+              "const": true
+            },
+            "ignoreNoqa": {
+              "type": "boolean",
+              "const": true
+            },
+            "respectGitignore": {
+              "type": "boolean",
+              "const": false
+            },
+            "forceExclude": {
+              "type": "boolean",
+              "const": false
+            },
+            "targetVersion": {
+              "type": "string",
+              "pattern": "^py3(?:[89]|1[0-5])$"
+            },
+            "rules": {
+              "minItems": 1,
+              "maxItems": 1024,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z]{1,5}[0-9]{3,4}$"
+              }
+            }
+          },
+          "required": [
+            "format",
+            "isolated",
+            "ignoreNoqa",
+            "respectGitignore",
+            "forceExclude",
+            "targetVersion",
+            "rules"
+          ],
+          "additionalProperties": false
+        },
+        "profileSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "analyzedPythonFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "declaredScannedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "missingFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "droppedRecords": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20000
+            },
+            "scopeMatchesAnalysis": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "analyzedPythonFiles",
+            "declaredScannedFiles",
+            "missingFiles",
+            "droppedRecords",
+            "scopeMatchesAnalysis"
+          ],
+          "additionalProperties": false
+        },
+        "anchors": {
+          "maxItems": 4096,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "findingId": {
+                "type": "string",
+                "pattern": "^qf_[0-9a-f]{64}$"
+              },
+              "contextSha256": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "unique-context",
+                  "repeated-context",
+                  "unknown-column",
+                  "source-unavailable",
+                  "context-unavailable"
+                ]
+              },
+              "counterpart": {
+                "type": "string",
+                "enum": [
+                  "unique-context",
+                  "same-blob",
+                  "changed-context",
+                  "repeated-context",
+                  "source-unavailable",
+                  "file-not-in-scope"
+                ]
+              }
+            },
+            "required": [
+              "findingId",
+              "contextSha256",
+              "basis",
+              "counterpart"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "report",
+        "scanSha256",
+        "declaredTrust",
+        "profile",
+        "profileSha256",
+        "coverage",
+        "anchors"
+      ],
+      "additionalProperties": false
+    },
+    "declaredVerification": {
+      "type": "string",
+      "enum": [
+        "unverified",
+        "same-producer-policy",
+        "different-producer-policy"
+      ]
+    },
+    "reasons": {
+      "maxItems": 6,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "unverified-provenance",
+          "producer-policy-differs",
+          "partial-current-scope",
+          "partial-baseline-scope",
+          "ruff-version-differs",
+          "profile-differs"
+        ]
+      }
+    },
+    "issues": {
+      "maxItems": 8192,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^qi_[0-9a-f]{64}$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "continuing",
+              "newly-reported",
+              "no-longer-reported",
+              "unmatched-current",
+              "unmatched-baseline"
+            ]
+          },
+          "baselineFindingId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^qf_[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currentFindingId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^qf_[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "unique-context",
+              "exact-blob-location",
+              "repeated-context",
+              "unknown-column",
+              "source-unavailable",
+              "context-unavailable",
+              "changed-context",
+              "file-not-in-scope",
+              "scan-not-comparable"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "baselineFindingId",
+          "currentFindingId",
+          "basis"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "format",
+    "algorithm",
+    "current",
+    "baseline",
+    "declaredVerification",
+    "reasons",
+    "issues"
+  ],
+  "additionalProperties": false
+}

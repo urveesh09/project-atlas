@@ -18,7 +18,7 @@ atlas findings <ruff.sarif> --artifact <dir> --commit <full-oid> --out <quality.
                [--source-root <dir>] [--baseline <quality.json>] [--json]
 ```
 
-`doctor` requires the Node 24 major and recommends at least 24.22.0, matching the
+`doctor` requires the Node 24 major and recommends at least 24.22.1, matching the
 workspace engine minimum. Older 24.x runtimes produce a `warn` check and an upgrade
 message, but warnings alone leave `ok: true` and exit code 0. Other major versions
 produce a `fail` check and exit code 1. JSON check statuses are `ok`, `warn`, `fail`
@@ -106,3 +106,32 @@ complete repository scanning, resolved issues or a merge verdict. JSON output pr
 the producer-asserted execution boundary. It is not a reusable browser trust receipt.
 See the [guide](../guides/scan-provenance.md) for exact schemas, caps and the inactive
 owner-reviewed signing example.
+
+## Contextual finding review (ADR-087)
+
+```sh
+atlas review-findings current.scan.json --baseline old.scan.json --artifact <dir> --repo <dir> --out review.json [--json]
+  [--current-proof <dir> --baseline-proof <dir> [--gh <absolute-executable>]]
+```
+
+Both scans must belong to different ordered frames of one history analysis. Read only
+committed Git objects; verify real ancestry, frame inventories and read blob hashes.
+No source checkout, config execution, scanner or network. Unique exact code context
+retains a tracking ID across moved lines/accepted renames; ambiguous/changed/unavailable
+context uses unchanged-blob location identity or stays unmatched. IDs are bounded to
+the analysis's lineage window, not permanent cross-artifact issue identity.
+
+Output `atlas.finding-review/1` is exclusive and outside the artifact, capped at 8 MiB,
+source-free and independently validated on opening. Optional proof directories each
+contain `bundle.jsonl`, `trust.json`, `trusted-root.jsonl`; both or neither are required.
+Legacy direct policies retain source/scan equality. Explicit `atlas.review-scan-trust/1`
+policies independently pin the historical scan commit and attested producer source/
+workflow/root, enabling a current producer to scan historical objects. See the
+[guide](../guides/finding-review.md) for the exact policy format and verification limits.
+
+Exit 0 means comparable authenticated declarations without unmatched rows, even when
+findings remain; 2 means useful uncertainty/unsigned scope, 1 failure, 64 usage, 130
+cancelled. Newly/no longer reported accounting never establishes a fix or merge verdict.
+The browser always treats stored verification claims as unauthenticated declarations.
+Importing a review atomically replaces both reports; invalid imports preserve previous
+state. Individual report import, clear, reload and dataset replacement clear the review.

@@ -136,3 +136,7 @@ shipped physical test instead verifies authentic public vendor fixture material 
 must not be described as an ATLAS scan execution proof.
 
 [Decision](../adr/ADR-086-scan-evidence-and-provenance.md).
+
+For two scan subjects in a history artifact, see [contextual finding review](finding-review.md).
+Its explicit historical policy separates the inspected commit from the producer's
+attested checkout. The direct `verify-scan` equality above stays unchanged.
