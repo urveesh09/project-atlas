@@ -2,7 +2,7 @@
 
 Maintained per plan §20.1. A task is **done** only when its completion evidence exists and its checks pass.
 
-**Current milestone (2026-10-28):** production-plan M5.2, the G6 release candidate:
+**Current milestone (2026-10-29):** production-plan M5.2, the G6 release candidate:
 exact capacity fixtures, export fitting and history memory (ADR-082–084) landed in
 PRs #49 and #50; the 20-run exact rows, reviewer packets and candidate freeze remain.
 Everything open is listed in the [backlog](backlog.md). Before it: M4.6 public-service pages
@@ -33,6 +33,63 @@ Unchanged since 2026-10-11:
 - Runtime instrumentation remains deferred.
 
 Agents: read [AGENTS.md](../AGENTS.md).
+
+### Scan declarations and offline provenance verification: Q2.1 (2026-10-29)
+
+- **Scope:** continued owner-authorized development after merged PR #52. Q2 is split
+  into this evidence/provenance increment and future Q2.2 durable issue matching.
+  [ADR-086](adr/ADR-086-scan-evidence-and-provenance.md) and the
+  [guide](guides/scan-provenance.md) fix the trust boundary before implementation.
+- **Implementation:** `atlas scan-evidence` creates a separate bounded `atlas.scan/1`
+  manifest with a constrained isolated Ruff profile, explicit scanned path/blob list,
+  profile hash and producer-asserted completed execution/exit status. Scope, rules,
+  counts and artifact references must reconcile. Partial/empty scope or dropped
+  records cannot establish completeness. Exclusive output stays outside the artifact.
+- **Verification:** `atlas verify-scan` separately uses official GitHub CLI 2.102.0
+  with local bundle/root and an independently selected SHA-256-pinned trust policy.
+  Exact repository, workflow revision, source commit/ref, Actions OIDC, hosted runner
+  and SLSA v1 are required. Private immutable copies, a minimal credential/proxy/config-
+  free environment, process/output/deadline limits and tree cancellation keep this
+  outside analysis. No scanner, repository configuration or dependency executes.
+- **Actual proof:** native Windows tests pass real signatures, tampered bytes and wrong
+  workflow/source-ref policies. The same adapter passes an isolated Linux check with
+  networking disabled, read-only root, uid 10001, no capabilities and 512 MiB memory.
+  Adapter/CLI mocks are labeled separately from cryptographic evidence. The real
+  isolated Ruff producer example checks this repository's committed Python bytes
+  before/after scanning and creates an unsigned declaration. The signing recipe
+  remains inactive; a live ATLAS signed scan still needs owner review/merge/dispatch.
+  [Functional record and corrected initial failures](benchmarks/scan-provenance.md).
+- **Viewer:** accepts declarations locally and shows scope/profile/drop counts with an
+  explicit unauthenticated warning; invalid imports preserve prior reports and two
+  declared profiles must match for comparison. No receipt or JSON field creates a
+  trust badge. The new journey covers 320 px overflow, automated accessibility,
+  no uploads, invalid-blob recovery, profile mismatch and clear/reload behavior.
+- **Full local gate:** `pnpm verify` passes **1,000 tests, 92 skips**, 91 passing files
+  and five gated files, with browser and real native-verifier gates required. This
+  includes all 51 Chromium journeys. Local Python is 3.14; the unchanged CI oracle is
+  3.15. Service/OS skips remain disclosed. Dependency direction and all 11 generated
+  contracts pass. The screenshot was visually reviewed; human/device/site acceptance
+  is not inferred from automated checks.
+- **Cross-browser:** full Firefox and WebKit runs each pass **51/51 journeys** on the
+  final implementation, including the new declaration/profile workflow and the
+  existing map/table/3D/history tasks. Chromium's existing CI-only pan/pinch driver
+  exception in other engines remains unchanged (ADR-069).
+  A separate full Chromium run with `CI=1` also passes **51/51** using SwiftShader.
+- **Analysis preservation:** all six pinned repositories pass five offline cold
+  repeats and the exact committed-byte/independent-source baseline guard. Vite's
+  existing partial coverage remains explicit. Analyzer/artifact identities and
+  payloads are unchanged; generated release corpus records are restored after checks.
+- **Portable CLI:** `pnpm verify:distribution` passes **9/9 stages**, including isolated
+  source-free `scan-evidence` creation, archive/file integrity, keyboard city/history
+  inspection and zero outbound browser requests/page errors. Archive SHA-256
+  `ac0e3489100851cf71b432200da0faa1c1e14dde3968ca0cb4122efa4ada0d8a` identifies a dirty
+  development candidate based on `43b651c`, not a signed release. Generated release
+  smoke records and the packaged screenshot are restored after checking, per the plan.
+- **Boundary:** provenance authenticates bytes from the selected workflow, not the
+  truth of producer execution/coverage. Matching scope means included analyzed Python
+  files, not the whole repository. No clean, resolved, vulnerability or merge verdict;
+  no durable issue matching, private hosting or billing. Core analyzer dev.10,
+  artifact 1.4.0, beta.2 and every existing free feature stay unchanged. G6/R6 stays open.
 
 ### Local external findings: first product extension (2026-10-28)
 

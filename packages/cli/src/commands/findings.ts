@@ -15,24 +15,24 @@ import { canonicalJson, QUALITY_LIMITS } from '@atlas/schema';
 import { EXIT, UsageError, type CommandContext } from '../context.js';
 
 /** Bounded descriptor read: do not stat one path and later read its replacement. */
-async function readReport(file: string): Promise<string> {
+export async function readReport(file: string, maxBytes: number = QUALITY_LIMITS.bytes, preserveBom = false): Promise<string> {
   // A POSIX FIFO must not block open before the descriptor's regular-file check.
   const flags = process.platform === 'win32' ? constants.O_RDONLY : constants.O_RDONLY | constants.O_NONBLOCK;
   const handle = await open(file, flags);
   try {
     const stat = await handle.stat();
-    if (!stat.isFile() || stat.size > QUALITY_LIMITS.bytes)
-      throw new QualityImportError('Report must be a regular file of at most 8 MiB.');
-    const buffer = Buffer.alloc(QUALITY_LIMITS.bytes + 1);
+    if (!stat.isFile() || stat.size > maxBytes)
+      throw new QualityImportError('Report must be a regular file within its byte limit.');
+    const buffer = Buffer.alloc(maxBytes + 1);
     let used = 0;
     while (used < buffer.length) {
       const { bytesRead } = await handle.read(buffer, used, buffer.length - used, used);
       if (bytesRead === 0) break;
       used += bytesRead;
     }
-    if (used > QUALITY_LIMITS.bytes) throw new QualityImportError('Report exceeds the 8 MiB limit.');
+    if (used > maxBytes) throw new QualityImportError('Report exceeds its byte limit.');
     try {
-      return new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, used));
+      return new TextDecoder('utf-8', { fatal: true, ignoreBOM: preserveBom }).decode(buffer.subarray(0, used));
     } catch {
       throw new QualityImportError('Report is not valid UTF-8.');
     }

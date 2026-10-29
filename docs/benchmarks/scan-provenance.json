@@ -1,0 +1,26 @@
+{
+  "format": "atlas.scan-verifier-physical/1",
+  "node": "v24.22.0",
+  "gh": "2.102.0",
+  "positive": true,
+  "tamperRejected": true,
+  "wrongWorkflowRejected": true,
+  "evidenceSha256": "ae57936def59bc4c75edd3a837d89bcefc6d3a5e31d55a6fa7a71624f92c3c3b",
+  "trustedRootSha256": "65ca537f6ed8a47fd0e560c421baa1f6c1efb8b25fc200d8c5c02c0e92eb2b9c",
+  "scope": "authentic public vendor fixture; never installed or executed",
+  "recordedDate": "2026-10-29",
+  "sourceBase": "43b651cf60dfdc88e7abbb0cb7d2501e412c7f59",
+  "workingTree": "uncommitted Q2.1 development candidate",
+  "isolation": {
+    "network": "none",
+    "readOnlyRoot": true,
+    "capabilities": "none",
+    "noNewPrivileges": true,
+    "pids": 64,
+    "memoryMiB": 512,
+    "cpus": 1,
+    "temporaryMiB": 64,
+    "uid": 10001,
+    "image": "sha256:ab3276c21b5d79187f0cdaf5e06043a3bb55b60fe49b6b69b27df70843f125c1"
+  }
+}

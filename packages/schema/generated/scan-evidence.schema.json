@@ -1,0 +1,311 @@
+{
+  "$id": "https://atlas.invalid/schemas/scan-evidence.schema.json",
+  "title": "ATLAS scan-evidence (atlas.scan/1)",
+  "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "atlas.scan/1"
+    },
+    "report": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "const": "atlas.quality/1"
+        },
+        "analysisId": {
+          "type": "string",
+          "pattern": "^analysis_[0-9a-f]{64}$"
+        },
+        "repoId": {
+          "type": "string",
+          "pattern": "^repo_[0-9a-f]{64}$"
+        },
+        "snapshotId": {
+          "type": "string",
+          "pattern": "^snap_[0-9a-f]{64}$"
+        },
+        "commitOid": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "binding": {
+          "type": "string",
+          "const": "user-declared"
+        },
+        "scanScope": {
+          "type": "string",
+          "const": "unverified"
+        },
+        "tool": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "ruff"
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$"
+            }
+          },
+          "required": [
+            "name",
+            "version"
+          ],
+          "additionalProperties": false
+        },
+        "inputResults": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20000
+        },
+        "dropped": {
+          "type": "object",
+          "properties": {
+            "unmapped": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20000
+            },
+            "unsupported": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20000
+            },
+            "suppressed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20000
+            },
+            "duplicates": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20000
+            }
+          },
+          "required": [
+            "unmapped",
+            "unsupported",
+            "suppressed",
+            "duplicates"
+          ],
+          "additionalProperties": false
+        },
+        "findings": {
+          "maxItems": 4096,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^qf_[0-9a-f]{64}$"
+              },
+              "nodeId": {
+                "type": "string",
+                "pattern": "^node_[0-9a-f]{64}$"
+              },
+              "lineageId": {
+                "type": "string",
+                "pattern": "^lin_[0-9a-f]{64}$"
+              },
+              "path": {
+                "type": "string"
+              },
+              "blobOid": {
+                "type": "string",
+                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+              },
+              "ruleId": {
+                "type": "string",
+                "pattern": "^[A-Z]{1,5}[0-9]{3,4}$"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning",
+                  "note"
+                ]
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000000
+              },
+              "column": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "nodeId",
+              "lineageId",
+              "path",
+              "blobOid",
+              "ruleId",
+              "level",
+              "line",
+              "column"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "format",
+        "analysisId",
+        "repoId",
+        "snapshotId",
+        "commitOid",
+        "binding",
+        "scanScope",
+        "tool",
+        "inputResults",
+        "dropped",
+        "findings"
+      ],
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "const": "atlas.ruff-profile/1"
+        },
+        "isolated": {
+          "type": "boolean",
+          "const": true
+        },
+        "ignoreNoqa": {
+          "type": "boolean",
+          "const": true
+        },
+        "respectGitignore": {
+          "type": "boolean",
+          "const": false
+        },
+        "forceExclude": {
+          "type": "boolean",
+          "const": false
+        },
+        "targetVersion": {
+          "type": "string",
+          "pattern": "^py3(?:[89]|1[0-5])$"
+        },
+        "rules": {
+          "minItems": 1,
+          "maxItems": 1024,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]{1,5}[0-9]{3,4}$"
+          }
+        }
+      },
+      "required": [
+        "format",
+        "isolated",
+        "ignoreNoqa",
+        "respectGitignore",
+        "forceExclude",
+        "targetVersion",
+        "rules"
+      ],
+      "additionalProperties": false
+    },
+    "profileSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "const": "atlas.scan-scope/1"
+        },
+        "files": {
+          "maxItems": 10000,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "blobOid": {
+                "type": "string",
+                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+              }
+            },
+            "required": [
+              "path",
+              "blobOid"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "format",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "declaration": {
+          "type": "string",
+          "const": "producer-asserted"
+        },
+        "completed": {
+          "type": "boolean",
+          "const": true
+        },
+        "exitCode": {
+          "anyOf": [
+            {
+              "type": "number",
+              "const": 0
+            },
+            {
+              "type": "number",
+              "const": 1
+            }
+          ]
+        }
+      },
+      "required": [
+        "declaration",
+        "completed",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "format",
+    "report",
+    "profile",
+    "profileSha256",
+    "scope",
+    "execution"
+  ],
+  "additionalProperties": false
+}

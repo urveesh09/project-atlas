@@ -1,0 +1,39 @@
+{
+  "$id": "https://atlas.invalid/schemas/scan-scope.schema.json",
+  "title": "ATLAS scan-scope (atlas.scan-scope/1)",
+  "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "atlas.scan-scope/1"
+    },
+    "files": {
+      "maxItems": 10000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "blobOid": {
+            "type": "string",
+            "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+          }
+        },
+        "required": [
+          "path",
+          "blobOid"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "format",
+    "files"
+  ],
+  "additionalProperties": false
+}

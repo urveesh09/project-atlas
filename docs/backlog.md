@@ -1,6 +1,6 @@
 # Backlog
 
-Everything known to be unresolved, in one place (2026-10-28). Each item links to its
+Everything known to be unresolved, in one place (2026-10-29). Each item links to its
 evidence. History stays in the [implementation status](implementation-status.md) log;
 this page says only what is open, who can close it, and the next step.
 
@@ -56,9 +56,13 @@ and image identities.
 Ideas that build on data ATLAS already produces. Except for the authorized increment
 below, each remains new scope.
 The owner authorized external findings on 2026-10-28: Ruff SARIF import and conservative
-local report comparison are implemented for review in ADR-085. Other producers,
-authenticated CI scope/provenance, robust issue tracking and architecture gates remain
-future work. Existing V0.1 acceptance work above is unchanged.
+local report comparison landed in PR #52 (ADR-085). Q2.1 adds source-free scan
+declarations and explicit offline GitHub signature verification (ADR-086), pending
+review/merge. The inactive signing recipe still needs owner review, merge and dispatch
+before there is a live ATLAS scan proof; a real vendor signature fixture is a separate
+test. Consider adding `scan provenance verifier (offline)` to required checks after
+review. Q2.2 durable issue matching/comparable scans, other producers and architecture
+gates remain future work. Existing V0.1 acceptance work above is unchanged.
 
 - **Review a change.** Start from the changed files, show changed dependencies and the
   static consumer paths, and link every statement to its evidence. No claims about

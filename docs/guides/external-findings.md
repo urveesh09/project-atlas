@@ -73,5 +73,8 @@ Line movement can create unmatched locations on both sides; severity can change 
 matched location. Commit binding is user-declared; scope/configuration are unverified.
 Zero or disappearing results never establish clean coverage, safety or resolution.
 
-Authenticated CI provenance, other tools, robust issue tracking, architecture gates
-and private team sharing remain separate increments. [Decision](../adr/ADR-085-local-external-findings.md).
+For explicit scope/profile declarations and separate offline GitHub signature checks,
+see [scan evidence and provenance](scan-provenance.md) (Q2.1). Plain quality reports keep
+the limitations above; browser declarations remain unauthenticated. Other tools,
+robust issue tracking, architecture gates and private team sharing remain future
+increments. [Original decision](../adr/ADR-085-local-external-findings.md).

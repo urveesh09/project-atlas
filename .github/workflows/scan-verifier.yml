@@ -1,0 +1,33 @@
+name: scan verifier
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: scan-verifier-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  offline:
+    name: scan provenance verifier (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Acquire the reviewed verifier before entering the offline namespace
+        run: |
+          mkdir -p .atlas-tmp/scan-gh
+          curl --fail --location --proto '=https' --tlsv1.2 https://github.com/cli/cli/releases/download/v2.102.0/gh_2.102.0_linux_amd64.tar.gz --output .atlas-tmp/scan-gh/gh.tar.gz
+          echo 'bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386  .atlas-tmp/scan-gh/gh.tar.gz' | sha256sum --check --strict
+          tar -xzf .atlas-tmp/scan-gh/gh.tar.gz -C .atlas-tmp/scan-gh
+      - name: Verify real signatures and negative policies with no network
+        run: |
+          sudo unshare --net -- env PATH="$PATH" ATLAS_REQUIRE_SCAN_VERIFIER_TESTS=1 ATLAS_TEST_SCAN_GH="$PWD/.atlas-tmp/scan-gh/gh_2.102.0_linux_amd64/bin/gh" pnpm exec vitest run packages/cli/test/scan-verifier.physical.test.ts
