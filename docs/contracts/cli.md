@@ -18,7 +18,7 @@ atlas findings <ruff.sarif> --artifact <dir> --commit <full-oid> --out <quality.
                [--source-root <dir>] [--baseline <quality.json>] [--json]
 ```
 
-`doctor` requires the Node 24 major and recommends at least 24.22.0, matching the
+`doctor` requires the Node 24 major and recommends at least 24.22.1, matching the
 workspace engine minimum. Older 24.x runtimes produce a `warn` check and an upgrade
 message, but warnings alone leave `ok: true` and exit code 0. Other major versions
 produce a `fail` check and exit code 1. JSON check statuses are `ok`, `warn`, `fail`

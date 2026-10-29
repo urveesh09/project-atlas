@@ -20,11 +20,15 @@ interface Check {
 }
 
 const MIN_GIT: [number, number] = [2, 38];
-const MIN_NODE: [number, number] = [24, 22];
+const MIN_NODE: [number, number, number] = [24, 22, 1];
 
-function compareVersion(version: string, min: [number, number]): boolean {
-  const [major = 0, minor = 0] = version.split('.').map((p) => Number.parseInt(p, 10));
-  return major > min[0] || (major === min[0] && minor >= min[1]);
+function compareVersion(version: string, min: readonly number[]): boolean {
+  const parts = version.split('.').map((p) => Number.parseInt(p, 10));
+  for (let index = 0; index < min.length; index++) {
+    const actual = parts[index] ?? 0;
+    if (actual !== min[index]) return actual > min[index]!;
+  }
+  return true;
 }
 
 export async function doctor(ctx: CommandContext): Promise<number> {
@@ -32,7 +36,7 @@ export async function doctor(ctx: CommandContext): Promise<number> {
   const node = process.versions.node;
   const [nodeMajor = 0] = node.split('.').map(Number);
   const nodeStatus = nodeMajor !== MIN_NODE[0] ? 'fail' : compareVersion(node, MIN_NODE) ? 'ok' : 'warn';
-  const minimumNode = `${MIN_NODE.join('.')}.0`;
+  const minimumNode = MIN_NODE.join('.');
   const nodeAdvice = nodeStatus === 'fail' ? `  (requires 24.x; minimum ${minimumNode})`
     : nodeStatus === 'warn' ? `  (upgrade to ${minimumNode} or newer 24.x for security fixes)` : '';
   checks.push({ id: 'node', label: 'Node.js', status: nodeStatus, detail: `${node}${nodeAdvice}` });

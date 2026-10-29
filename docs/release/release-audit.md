@@ -5,6 +5,10 @@ The four pillars are implemented; runtime tracing/instrumentation remains wholly
 This audit distinguishes implementation/test evidence from human, reference-device and
 public-infrastructure acceptance. The canonical requirements remain the [master plan](../plan/PROJECT_ATLAS_V0.1_MASTER_PLAN.md).
 
+The supported runtime/security pins now use Node 24.22.1 ([ADR-088](../adr/ADR-088-node-october-security-patch.md)).
+The initial Q2.2 image scan correctly blocked vulnerable 24.22.0; fresh checks are
+required on the patched candidate. This maintenance does not close G6 or deploy the kit.
+
 ## Phase 5 review closure
 
 Review commits `6113d94` and `944d579` fix shared-engine reconciliation fencing, stale

@@ -7,7 +7,7 @@ it.each([
   ['24.0.0', 'warn', EXIT.ok],
   ['24.15.0', 'warn', EXIT.ok],
   ['24.21.9', 'warn', EXIT.ok],
-  ['24.22.0', 'ok', EXIT.ok],
+  ['24.22.0', 'warn', EXIT.ok],
   ['24.22.1', 'ok', EXIT.ok],
   ['24.23.0', 'ok', EXIT.ok],
   ['23.11.0', 'fail', EXIT.failure],
@@ -40,8 +40,8 @@ it.each([
         expect(stdout).toContain(status === 'ok' ? 'Ready.' : '1 check failed.');
         expect(stdout).not.toContain('Ready with');
       }
-      if (status === 'warn') expect(stdout).toContain('upgrade to 24.22.0 or newer 24.x for security fixes');
-      if (status === 'fail') expect(stdout).toContain('requires 24.x; minimum 24.22.0');
+      if (status === 'warn') expect(stdout).toContain('upgrade to 24.22.1 or newer 24.x for security fixes');
+      if (status === 'fail') expect(stdout).toContain('requires 24.x; minimum 24.22.1');
     }
   } finally {
     Object.defineProperty(process.versions, 'node', descriptor);

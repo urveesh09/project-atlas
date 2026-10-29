@@ -50,6 +50,8 @@ duplicates or label disappearance resolved. Historical review policies separatel
 the inspected commit and attested producer checkout; direct `verify-scan` is unchanged.
 Stored review verification claims remain unauthenticated in the browser. Producer/signing
 recipes stay inactive; no release, deployment, private hosting or billing is authorized.
+ADR-088 updates the runtime security floor and every Node image pin to 24.22.1 after
+the original Q2.2 CI scan blocked 24.22.0. Keep the vulnerability gate unchanged.
 
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime
 tracing, more languages or private hosted repositories, needs the owner's direction and
@@ -76,7 +78,7 @@ an ADR first.
 - **Dependency direction** (enforced by `pnpm check:deps`): `schema` is foundational;
   analyzers never import the viewer or API; the viewer never imports analyzer or ingest
   code; runtime instrumentation is banned in V0.1.
-- **Pinned toolchain:** Node 24.22.0 or newer 24.x, pnpm 10.34.6, exact library versions
+- **Pinned toolchain:** Node 24.22.1 or newer 24.x, pnpm 10.34.6, exact library versions
   ([toolchain](docs/toolchain.md)). Don't upgrade pnpm or dependencies casually, and don't use floating versions.
 - **Least privilege** for hosted roles, sandboxes (uid 10001, read-only root, no
   capabilities) and tokens. Never put a personal token in containers, files or logs.
@@ -147,7 +149,7 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-087. Allocate ADR-088 next.
+  The current sequence is ADR-001…ADR-088. Allocate ADR-089 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

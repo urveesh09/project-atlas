@@ -34,6 +34,30 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Runtime security maintenance during Q2.2 (2026-10-29)
+
+The initial PR #54 image scan on `ac62e98` blocked both images: Node 24.22.0 had
+four fixable High/Critical advisories in the current database. [ADR-088](adr/ADR-088-node-october-security-patch.md)
+records the official 24.22.1 patch, archive checksum and resolved image-index/amd64
+digests. The toolchain, all Node image bases and the scan cache initializer now use
+the patched runtime. Doctor distinguishes 24.22.0 (warn) from 24.22.1 (ok).
+No suppression, scanner threshold, deadline or artifact/analyzer identity changed.
+The initial failed reports remain on [run 40891822901](https://github.com/urveesh09/project-atlas/actions/runs/40891822901).
+On checksum-verified Node 24.22.1, `pnpm install --frozen-lockfile` and `pnpm verify`
+pass: 1,021 tests, 92 explicitly gated skips, 13 contracts and all 53 Chromium journeys
+with CI software rendering. The actual GitHub cryptographic-verifier fixtures are
+enabled. The first head's other 16 CI checks pass; the patched head must pass fresh
+image scans and the complete matrix. Exact-head hosted evidence is retained on the
+PR; no release or live deployment is performed.
+The six pinned repositories each complete five offline repeats on 24.22.1, and
+`check-repository-baseline.mjs` preserves every committed payload byte and authored
+source expectation. Vite's pre-existing partial coverage stays explicit. Fresh
+environment reports are retained locally rather than overwriting historical evidence.
+The relocated portable CLI also passes all 15 stages on 24.22.1 (development archive
+10,837,842 bytes, SHA-256 `d1cf946283906c12fc9c6ee31318fcf2665bc6086146c0fc199acadb74420f8f`).
+This dirty-tree development archive is not a release artifact; the committed historic
+distribution report and screenshot are preserved.
+
 ### Contextual finding review: Q2.2 (2026-10-29)
 
 - **Scope:** continued owner direction after merged PR #53 (`e518ecf`).

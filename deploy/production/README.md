@@ -14,7 +14,7 @@ Read [operations](../../docs/hosted-operations.md) and [ADR-072](../../docs/adr/
 - A supported Linux host with systemd 257 or later and nftables 1.1.3 or later;
   Docker Engine with the normal rootful bridge networking/firewall enabled, Compose v2.
   Rootless Docker is not a drop-in replacement: its networking bypasses this bridge policy.
-- Node 24.22.0, pnpm 10.34.6, reviewed source and lockfile. Prepare releases in a
+- Node 24.22.1, pnpm 10.34.6, reviewed source and lockfile. Prepare releases in a
   trusted build environment, never on an analyzed repository.
 - Operator-provisioned PostgreSQL and a private HTTPS S3-compatible bucket, reachable
   by both hosts. API and worker use different database and storage credentials.
