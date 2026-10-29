@@ -7,6 +7,7 @@ import { serve } from './commands/serve.js';
 import { verify } from './commands/verify.js';
 import { findings } from './commands/findings.js';
 import { scanEvidence, verifyScan } from './commands/scan.js';
+import { reviewFindings } from './commands/review-findings.js';
 import { EXIT, UsageError, createContext, type CliIO } from './context.js';
 import { PALETTE, createStyler, detectColorLevel } from './ui/style.js';
 
@@ -25,6 +26,9 @@ const HELP = `
       --scope <scope.json> --exit-code <0|1> --out <scan.json>
     atlas verify-scan <scan.json> --artifact <dir> --bundle <sigstore.json>
       --policy <trust.json> --trusted-root <root.json> [--gh <absolute-executable>]
+    atlas review-findings <current.scan.json> --baseline <old.scan.json>
+      --artifact <dir> --repo <dir> --out <review.json>
+      [--current-proof <dir> --baseline-proof <dir> [--gh <absolute-executable>]]
     atlas serve <artifact> [--repo <dir>] [--no-open] [--port <n>]
                                        browse an artifact in your browser (127.0.0.1 only)
 
@@ -154,6 +158,11 @@ export async function run(argv: readonly string[], io: CliIO): Promise<number> {
         const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, strict: true, options: { artifact: { type: 'string' }, bundle: { type: 'string' }, policy: { type: 'string' }, 'trusted-root': { type: 'string' }, gh: { type: 'string' }, json: { type: 'boolean' } } });
         if (positionals.length !== 1 || !values.artifact || !values.bundle || !values.policy || !values['trusted-root']) throw new UsageError('verify-scan requires scan JSON, --artifact, --bundle, --policy and --trusted-root.');
         return await verifyScan(ctx, { evidence: positionals[0]!, artifact: values.artifact, bundle: values.bundle, policy: values.policy, trustedRoot: values['trusted-root'], ...(values.gh ? { gh: values.gh } : {}) });
+      }
+      case 'review-findings': {
+        const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, strict: true, options: { baseline: { type: 'string' }, artifact: { type: 'string' }, repo: { type: 'string' }, out: { type: 'string' }, 'current-proof': { type: 'string' }, 'baseline-proof': { type: 'string' }, gh: { type: 'string' }, json: { type: 'boolean' } } });
+        if (positionals.length !== 1 || !values.baseline || !values.artifact || !values.repo || !values.out || Boolean(values['current-proof']) !== Boolean(values['baseline-proof']) || values['current-proof'] === '' || values['baseline-proof'] === '' || values.gh === '' || (values.gh !== undefined && !values['current-proof'])) throw new UsageError('review-findings requires current scan, --baseline, --artifact, --repo and --out. Supply both nonempty proof directories or neither; --gh requires proofs.');
+        return await reviewFindings(ctx, { current: positionals[0]!, baseline: values.baseline, artifact: values.artifact, repo: values.repo, out: values.out, ...(values['current-proof'] ? { currentProof: values['current-proof'], baselineProof: values['baseline-proof']! } : {}), ...(values.gh ? { gh: values.gh } : {}) });
       }
       default:
         throw new UsageError(`Unknown command "${command}". Run atlas --help.`);

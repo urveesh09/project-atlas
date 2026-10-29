@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Contextual Ruff finding review (`atlas review-findings`), bounded committed-source
+  anchors, explicit historical-target/producer policies and browser review/navigation
+  (ADR-087). Uncertain matches stay unmatched; no automatic resolved/clean verdict.
 - Source-free scan scope/profile manifests (`atlas scan-evidence`), explicit offline
   GitHub Actions attestation verification (`atlas verify-scan`) and a browser declaration
   view (ADR-086). Signature verification is separate from scan truth and quality verdicts.

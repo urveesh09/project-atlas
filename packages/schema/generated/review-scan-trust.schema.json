@@ -1,0 +1,66 @@
+{
+  "$id": "https://atlas.invalid/schemas/review-scan-trust.schema.json",
+  "title": "ATLAS review-scan-trust (atlas.review-scan-trust/1)",
+  "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "atlas.review-scan-trust/1"
+    },
+    "scanCommit": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "producer": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "const": "atlas.scan-trust/1"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}\\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
+        },
+        "workflow": {
+          "type": "string",
+          "pattern": "^\\.github\\/workflows\\/[A-Za-z0-9][A-Za-z0-9._-]{0,79}\\.ya?ml$"
+        },
+        "workflowCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "sourceCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "sourceRef": {
+          "type": "string",
+          "pattern": "^refs\\/heads\\/[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$"
+        },
+        "trustedRootSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "format",
+        "repository",
+        "workflow",
+        "workflowCommit",
+        "sourceCommit",
+        "sourceRef",
+        "trustedRootSha256"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "format",
+    "scanCommit",
+    "producer"
+  ],
+  "additionalProperties": false
+}

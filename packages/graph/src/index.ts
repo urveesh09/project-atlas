@@ -7,3 +7,4 @@ export * from './hotspot.js';
 export * from './compare.js';
 export * from './quality.js';
 export * from './scan.js';
+export * from './finding-review.js';

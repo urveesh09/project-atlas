@@ -5,6 +5,7 @@ import { useExternalQuality, type DeclaredScanSummary } from '../app/quality';
 import { useViewer } from '../app/context';
 import { shortOid } from '../app/model';
 import { Paged, Section } from './ui';
+import { FindingReviewPanel } from './FindingReview';
 
 function FindingsList({
   findings,
@@ -92,11 +93,12 @@ function DeclaredScope({ scope }: { scope: DeclaredScanSummary | null }) {
 export function ExternalQualityPanel() {
   const quality = useExternalQuality();
   const { dataset, model, goToFrame } = useViewer();
+  const currentActive = quality.current?.snapshotId === model.graph.snapshotId;
   const currentInput = useRef<HTMLInputElement>(null),
-    baselineInput = useRef<HTMLInputElement>(null);
+    baselineInput = useRef<HTMLInputElement>(null), reviewInput = useRef<HTMLInputElement>(null);
   // Selection/frame changes must not re-hash thousands of unchanged report rows.
   const { compared, comparisonError } = useMemo(() => {
-    if (!quality.current || !quality.baseline) return { compared: null, comparisonError: false };
+    if (quality.review || !quality.current || !quality.baseline) return { compared: null, comparisonError: false };
     if (
       quality.scopes.current &&
       quality.scopes.baseline &&
@@ -113,6 +115,7 @@ export function ExternalQualityPanel() {
     quality.baseline,
     quality.scopes.current?.profileSha256,
     quality.scopes.baseline?.profileSha256,
+    quality.review,
   ]);
   if (!quality.open) return null;
   return (
@@ -135,6 +138,7 @@ export function ExternalQualityPanel() {
         <code>atlas scan-evidence</code>. Files stay in this browser session; nothing is uploaded or saved
         automatically.
       </p>
+      <p>Open a finding review from <code>atlas review-findings</code> to load both reports and inspect tracking across code changes.</p>
       <p className="quality-caveat">
         These are reported lint findings, separate from ATLAS heuristics. Commit binding is user-declared; scan scope
         and configuration are unverified. Zero findings does not mean clean, secure or fully scanned.
@@ -165,6 +169,9 @@ export function ExternalQualityPanel() {
             </button>{' '}
           </span>
         ))}
+        <input ref={reviewInput} type="file" className="sr-only" tabIndex={-1} aria-hidden="true" data-quality="review" accept=".json,application/json"
+          onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void quality.load(file, 'review'); }} />
+        <button type="button" className="button" onClick={() => reviewInput.current?.click()}>Open finding review…</button>
         <button
           type="button"
           className="button ghost"
@@ -178,13 +185,14 @@ export function ExternalQualityPanel() {
         {quality.message}
       </p>
       {quality.error && <p role="alert">{quality.error}</p>}
+      {quality.review && <FindingReviewPanel key={`${quality.review.current.scanSha256}:${quality.review.baseline.scanSha256}:${quality.review.declaredVerification}`} review={quality.review} />}
       {quality.current && (
         <>
           <h3>Current report</h3>
           <ReportSummary report={quality.current} />
           <DeclaredScope scope={quality.scopes.current} />
-          {quality.active ? (
-            <FindingsList findings={quality.active.findings} />
+          {currentActive ? (
+            <FindingsList findings={quality.current.findings} />
           ) : (
             <p>
               Report findings are hidden on this snapshot to prevent stale evidence.{' '}

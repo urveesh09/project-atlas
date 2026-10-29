@@ -78,3 +78,6 @@ see [scan evidence and provenance](scan-provenance.md) (Q2.1). Plain quality rep
 the limitations above; browser declarations remain unauthenticated. Other tools,
 robust issue tracking, architecture gates and private team sharing remain future
 increments. [Original decision](../adr/ADR-085-local-external-findings.md).
+For source-backed tracking through line shifts and renames, use
+[contextual finding review](finding-review.md) within one history artifact. It keeps
+uncertain evidence unmatched and never turns disappearance into a resolved verdict.

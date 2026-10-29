@@ -6,7 +6,7 @@ import { chromium, firefox, webkit, type Browser, type BrowserContext, type Brow
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION } from '@atlas/schema';
-import { createScanEvidence, parseQualityReport, qualityTarget } from '@atlas/graph';
+import { createScanEvidence, parseQualityReport, qualityTarget, importRuffSarif, parseFindingReview, createFindingReview } from '@atlas/graph';
 import { run, type CliIO } from '@atlas/cli';
 import { viewerDirectory } from '../src/commands/serve.js';
 import { SourceAttachment } from '../src/server/source.js';
@@ -1628,4 +1628,165 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
     } finally { release(); await isolated.close(); await freshServer.close(); }
   });
 
+});
+
+describe.runIf(browserAvailable && viewerBuilt)('contextual finding reviews', () => {
+  let repository: GitFixture, reviewServer: RunningViewerServer, capacityRepository: GitFixture, capacityServer: RunningViewerServer;
+  const artifactDir = () => path.join(work, 'review-artifact');
+  const io = (): CliIO => ({ cwd: work, env: { NO_COLOR: '1' }, signal: new AbortController().signal, stdout: { write: () => true }, stderr: { write: () => true } });
+  beforeAll(async () => {
+    const text = '# top one\n# top two\n# top three\n# top four\nx = 1\ny = 2\nprint(missing)\nz = 3\nw = 4\n# last\n';
+    repository = createGitFixture([
+      { date: '2026-10-01T00:00:00Z', message: 'authored contextual finding', files: { 'sample.py': text } },
+      { date: '2026-10-02T00:00:00Z', message: 'rename', renames: [['sample.py', 'renamed.py']] },
+      { date: '2026-10-03T00:00:00Z', message: 'shift lines', files: { 'renamed.py': '# extra a\n# extra b\n# extra c\n' + text } },
+    ], { parent: work });
+    expect(await run(['analyze', repository.dir, '--out', artifactDir(), '--snapshots', '3'], io())).toBe(0);
+    const loaded = await readArtifactDirectory(artifactDir());
+    if (!loaded.ok) throw new Error('review artifact');
+    for (let i = 0; i < 3; i++) {
+      const graph = loaded.bundle.graphs[i]!, target = qualityTarget(graph, loaded.bundle.manifest.analysisId);
+      const report = importRuffSarif(JSON.stringify({ version: '2.1.0', runs: [{ tool: { driver: { name: 'ruff', version: '0.17.3' } }, results: [
+        { ruleId: 'F821', level: 'error', locations: [{ physicalLocation: { artifactLocation: { uri: i === 0 ? 'sample.py' : 'renamed.py' }, region: { startLine: i === 2 ? 10 : 7, startColumn: 7 } } }] },
+      ] }] }), target, target.commitOid);
+      const scan = createScanEvidence(report, { format: 'atlas.ruff-profile/1', isolated: true, ignoreNoqa: true, respectGitignore: false, forceExclude: false, targetVersion: 'py314', rules: ['F821'] }, { format: 'atlas.scan-scope/1', files: target.files.map(({ path, blobOid }) => ({ path, blobOid })) }, 1, target);
+      writeFileSync(path.join(work, `review-scan-${i}.json`), JSON.stringify(scan));
+    }
+    expect(await run(['review-findings', 'review-scan-2.json', '--baseline', 'review-scan-0.json', '--artifact', artifactDir(), '--repo', repository.dir, '--out', 'finding-review.json'], io())).toBe(2);
+    const review = parseFindingReview(readFileSync(path.join(work, 'finding-review.json'), 'utf8'));
+    expect(review.issues).toHaveLength(1);
+    expect(review.issues[0]!.state).toBe('continuing');
+    const claimed = (side: typeof review.current): typeof review.current => ({ ...side, declaredTrust: { format: 'atlas.review-scan-trust/1', scanCommit: side.report.commitOid,
+      producer: { format: 'atlas.scan-trust/1', repository: 'owner/repo', workflow: '.github/workflows/scan.yml', workflowCommit: review.current.report.commitOid,
+        sourceCommit: review.current.report.commitOid, sourceRef: 'refs/heads/main', trustedRootSha256: 'f'.repeat(64) } } });
+    writeFileSync(path.join(work, 'review-claimed-verification.json'), JSON.stringify(createFindingReview(claimed(review.current), claimed(review.baseline), 'same-producer-policy')));
+    writeFileSync(path.join(work, 'review-wrong-binding.json'), JSON.stringify({ ...review, current: { ...review.current, report: { ...review.current.report, commitOid: '0'.repeat(40) } } }));
+    writeFileSync(path.join(work, 'review-invalid-row.json'), JSON.stringify({ ...review, issues: [{ ...review.issues[0], id: 'qi_' + '0'.repeat(64) }] }));
+    reviewServer = await startViewerServer({ artifactDir: artifactDir(), bundle: loaded.bundle, viewerDir: viewerDirectory(), source: SourceAttachment.none('NOT_REQUESTED') });
+    const body = '# padding one\n# padding two\n' + Array.from({ length: 4096 }, (_, i) => `print(missing${i})\n`).join('') + '# tail one\n# tail two\n';
+    capacityRepository = createGitFixture([
+      { date: '2026-10-01T00:00:00Z', message: 'full finding capacity', files: { 'sample.py': body } },
+      { date: '2026-10-02T00:00:00Z', message: 'shift all contexts', files: { 'sample.py': '# shifted\n' + body } },
+    ], { parent: work });
+    const capacityDir = path.join(work, 'review-capacity-artifact');
+    expect(await run(['analyze', capacityRepository.dir, '--out', capacityDir, '--snapshots', '2'], io())).toBe(0);
+    const large = await readArtifactDirectory(capacityDir); if (!large.ok) throw new Error('capacity artifact');
+    for (let i = 0; i < 2; i++) {
+      const graph = large.bundle.graphs[i]!, target = qualityTarget(graph, large.bundle.manifest.analysisId);
+      const report = importRuffSarif(JSON.stringify({ version: '2.1.0', runs: [{ tool: { driver: { name: 'ruff', version: '0.17.3' } }, results: Array.from({ length: 4096 }, (_, line) => ({ ruleId: 'F821', locations: [{ physicalLocation: { artifactLocation: { uri: 'sample.py' }, region: { startLine: line + 3 + i, startColumn: 7 } } }] })) }] }), target, target.commitOid);
+      const scan = createScanEvidence(report, { format: 'atlas.ruff-profile/1', isolated: true, ignoreNoqa: true, respectGitignore: false, forceExclude: false, targetVersion: 'py314', rules: ['F821'] }, { format: 'atlas.scan-scope/1', files: target.files.map(({ path, blobOid }) => ({ path, blobOid })) }, 1, target);
+      writeFileSync(path.join(work, `capacity-scan-${i}.json`), JSON.stringify(scan));
+    }
+    expect(await run(['review-findings', 'capacity-scan-1.json', '--baseline', 'capacity-scan-0.json', '--artifact', capacityDir, '--repo', capacityRepository.dir, '--out', 'capacity-review.json'], io())).toBe(2);
+    capacityServer = await startViewerServer({ artifactDir: capacityDir, bundle: large.bundle, viewerDir: viewerDirectory(), source: SourceAttachment.none('NOT_REQUESTED') });
+  }, 60_000);
+  afterAll(async () => { await reviewServer?.close(); await capacityServer?.close(); repository?.dispose(); capacityRepository?.dispose(); });
+
+  it('opens all 4,096 finding pairs within the bounded worker and reveals rows progressively without saving across reload', async () => {
+    const isolated = await browser.newContext({ viewport: { width: 1280, height: 940 } });
+    try {
+      const page = await isolated.newPage(), errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(String(e)));
+      page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+      await page.goto(capacityServer.sessionUrl); await page.waitForSelector('#overview-title');
+      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await page.getByRole('button', { name: 'External findings', exact: true }).click();
+      await page.locator('input[data-quality="review"]').setInputFiles(path.join(work, 'capacity-review.json'));
+      const panel = page.getByRole('region', { name: 'External findings', exact: true }), evidence = panel.getByRole('region', { name: 'Contextual finding review', exact: true });
+      // The production worker deadline stays seven seconds. This correctness poll
+      // allows one extra second for the validated result to render; it is not a device benchmark.
+      await expect.poll(async () => ({ reviews: await evidence.count(), errors: await panel.getByRole('alert').allTextContents() }), { timeout: 8_000 }).toMatchObject({ reviews: 1, errors: [] });
+      expect(await evidence.innerText()).toContain('4096 continuing; 0 newly reported; 0 no longer reported; 0 unmatched');
+      expect(await evidence.locator('.rows > li').count()).toBe(20);
+      await evidence.getByRole('button', { name: /^Show 20 more of/ }).click();
+      expect(await evidence.locator('.rows > li').count()).toBe(40);
+      await evidence.getByLabel('Review evidence', { exact: true }).selectOption('unmatched-current');
+      expect(await evidence.locator('.rows > li').count()).toBe(0);
+      await evidence.getByLabel('Review evidence', { exact: true }).selectOption('continuing');
+      expect(await evidence.locator('.rows > li').count()).toBe(20);
+      await page.reload(); await page.getByRole('button', { name: 'External findings', exact: true }).click();
+      expect(await evidence.count()).toBe(0); expect(errors).toEqual([]);
+    } finally { await isolated.close(); }
+  });
+
+  it('opens contextual evidence, follows both snapshots and keeps imported verification claims unauthenticated', async () => {
+    const isolated = await browser.newContext({ viewport: { width: 1280, height: 940 } });
+    const mark = (stage: string) => { if (process.env['ATLAS_CAPTURE_REVIEW'] === '1') writeFileSync(path.resolve('.atlas-tmp/review-stage.json'), JSON.stringify({ stage, at: new Date().toISOString() })); };
+    try {
+      const page = await isolated.newPage(), requests: { method: string; url: string }[] = [], errors: string[] = [];
+      page.on('request', (r) => requests.push({ method: r.method(), url: r.url() }));
+      page.on('pageerror', (e) => errors.push(String(e)));
+      page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+      mark('open viewer');
+      await page.goto(reviewServer.sessionUrl);
+      await page.waitForSelector('#overview-title');
+      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await page.getByRole('button', { name: 'External findings', exact: true }).click();
+      const panel = page.getByRole('region', { name: 'External findings', exact: true });
+      mark('choose review by keyboard');
+      const chooserPromise = page.waitForEvent('filechooser', { timeout: 5_000 });
+      await panel.getByRole('button', { name: 'Open finding review…', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      await (await chooserPromise).setFiles(path.join(work, 'finding-review.json'));
+      mark('wait for parsed review');
+      const evidence = panel.getByRole('region', { name: 'Contextual finding review', exact: true });
+      await expect.poll(async () => ({ reviews: await evidence.count(), alerts: await panel.getByRole('alert').allTextContents(), status: await panel.getByRole('status').allTextContents(), errors })).toMatchObject({ reviews: 1 });
+      await expect.poll(() => evidence.innerText()).toContain('1 continuing; 0 newly reported; 0 no longer reported; 0 unmatched');
+      expect(await evidence.innerText()).toContain('Scan signatures were not verified');
+      expect(await evidence.innerText()).toContain('not authenticated in this browser');
+      expect(await evidence.innerText()).not.toContain('print(missing)');
+      expect(await panel.getByRole('region', { name: 'External report comparison', exact: true }).count()).toBe(0);
+      mark('choose continuing filter');
+      expect(await evidence.getByLabel('Review evidence', { exact: true }).count()).toBe(1);
+      await evidence.getByLabel('Review evidence', { exact: true }).selectOption('continuing');
+      mark('navigate baseline');
+      await evidence.getByRole('button', { name: 'Baseline: sample.py:7:7 · F821', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('sample.py');
+      await expect.poll(() => page.getByRole('tabpanel').innerText()).toContain('F821');
+      expect(await panel.innerText()).toContain('Report findings are hidden on this snapshot');
+      mark('navigate current');
+      await evidence.getByRole('button', { name: 'Current: renamed.py:10:7 · F821', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('renamed.py');
+      await expect.poll(() => page.getByRole('tabpanel').innerText()).toContain('line 10:7');
+      mark('audit desktop');
+      expect(await audit(page, 'contextual-finding-review')).toEqual([]);
+      if (process.env['ATLAS_CAPTURE_REVIEW'] === '1') await page.screenshot({ path: path.resolve(`.atlas-tmp/finding-review-${engineName}.png`), fullPage: true });
+      const id = await evidence.locator('code').innerText();
+      mark('invalid imports');
+      for (const name of ['review-wrong-binding.json', 'review-invalid-row.json']) {
+        await page.locator('input[data-quality="review"]').setInputFiles(path.join(work, name));
+        await panel.getByRole('alert').waitFor();
+        expect(await evidence.locator('code').innerText()).toBe(id);
+        expect(await panel.innerText()).toContain('Current report');
+        expect(await panel.innerText()).toContain('Baseline report');
+      }
+      await page.locator('input[data-quality="review"]').setInputFiles(path.join(work, 'review-claimed-verification.json'));
+      mark('claimed verification');
+      await expect.poll(() => panel.getByRole('alert').count()).toBe(0);
+      expect(await evidence.innerText()).toContain('Copied verification claims do not establish trust');
+      await expect.poll(() => evidence.innerText()).not.toContain('Scan signatures were not verified');
+      expect(await evidence.innerText()).toContain('not authenticated in this browser');
+      for (const width of [390, 320]) {
+        mark(`audit narrow ${width}`);
+        await page.setViewportSize({ width, height: 844 });
+        await expectNoSidewaysScroll(page);
+        expect(await audit(page, `contextual-review-narrow-${width}`)).toEqual([]);
+      }
+      await evidence.getByLabel('Review evidence', { exact: true }).selectOption('unmatched-current');
+      mark('filter and clear');
+      expect(await evidence.innerText()).toContain('No review evidence in this category');
+      expect(await evidence.innerText()).toContain('does not establish a clean scan');
+      await page.locator('input[data-quality="baseline"]').setInputFiles(path.join(work, 'review-scan-1.json'));
+      await expect.poll(() => evidence.count()).toBe(0);
+      await page.locator('input[data-quality="review"]').setInputFiles(path.join(work, 'finding-review.json'));
+      await evidence.waitFor();
+      await panel.getByRole('button', { name: 'Clear reports', exact: true }).click();
+      expect(await evidence.count()).toBe(0);
+      expect(await page.getByRole('tabpanel').getByRole('heading', { name: /External Ruff findings/ }).count()).toBe(0);
+      expect(requests.every((r) => r.method === 'GET' && new URL(r.url).origin === new URL(reviewServer.url).origin)).toBe(true);
+      expect(errors).toEqual([]);
+    } finally { await isolated.close(); }
+  });
 });

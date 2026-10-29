@@ -8,6 +8,7 @@ import { LayoutArtifactSchema } from './layout.js';
 import { LIMITS } from './limits.js';
 import { QualityReportSchema } from './quality.js';
 import { ScanEvidenceSchema, ScanTrustPolicySchema, ScanScopeSchema, RuffProfileSchema } from './scan.js';
+import { FindingReviewSchema, ReviewScanTrustSchema } from './finding-review.js';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION, LAYOUT_VERSION, METRIC_DEFINITION_VERSION } from './versions.js';
 
 /**
@@ -26,6 +27,8 @@ const ARTIFACT_SCHEMAS = {
   'scan-trust': ScanTrustPolicySchema,
   'scan-scope': ScanScopeSchema,
   'ruff-profile': RuffProfileSchema,
+  'finding-review': FindingReviewSchema,
+  'review-scan-trust': ReviewScanTrustSchema,
 } as const;
 
 const API_SCHEMAS = {
@@ -55,6 +58,8 @@ export function artifactJsonSchemas(): Record<string, Record<string, unknown>> {
     'scan-trust': 'atlas.scan-trust/1',
     'scan-scope': 'atlas.scan-scope/1',
     'ruff-profile': 'atlas.ruff-profile/1',
+    'finding-review': 'atlas.finding-review/1',
+    'review-scan-trust': 'atlas.review-scan-trust/1',
   };
   const out: Record<string, Record<string, unknown>> = {};
   for (const [name, schema] of Object.entries(ARTIFACT_SCHEMAS)) {

@@ -18,6 +18,8 @@
 .external-quality-actions .button { max-width: 100%; white-space: normal; padding-block: 8px; }
 .external-quality .rows li { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
 .external-quality .quality-caveat { border-inline-start: 3px solid var(--warn); padding-inline-start: 12px; }
+.external-quality .finding-review .rows li { display: grid; gap: 6px; }
+.finding-review .rows li > div { min-width: 0; }
 :root {
   color-scheme: dark;
   --bg: #0f131b;

@@ -56,13 +56,16 @@ and image identities.
 Ideas that build on data ATLAS already produces. Except for the authorized increment
 below, each remains new scope.
 The owner authorized external findings on 2026-10-28: Ruff SARIF import and conservative
-local report comparison landed in PR #52 (ADR-085). Q2.1 adds source-free scan
-declarations and explicit offline GitHub signature verification (ADR-086), pending
-review/merge. The inactive signing recipe still needs owner review, merge and dispatch
+local report comparison landed in PR #52 (ADR-085). Q2.1 scan declarations and offline
+GitHub verification landed in PR #53 (ADR-086). Q2.2 contextual review within one
+history artifact, historical-target/producer policies and browser navigation are
+implemented for review (ADR-087). The inactive signing recipes need owner review,
+copy/merge and dispatch
 before there is a live ATLAS scan proof; a real vendor signature fixture is a separate
 test. Consider adding `scan provenance verifier (offline)` to required checks after
-review. Q2.2 durable issue matching/comparable scans, other producers and architecture
-gates remain future work. Existing V0.1 acceptance work above is unchanged.
+review. Cross-artifact/long-term issue databases, other producers and Q3 architecture
+gates remain future work. Context fingerprints are best-effort evidence continuity;
+no disappearing result is automatically resolved. Existing V0.1 acceptance work is unchanged.
 
 - **Review a change.** Start from the changed files, show changed dependencies and the
   static consumer paths, and link every statement to its evidence. No claims about

@@ -34,6 +34,70 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Contextual finding review: Q2.2 (2026-10-29)
+
+- **Scope:** continued owner direction after merged PR #53 (`e518ecf`).
+  [ADR-087](adr/ADR-087-contextual-finding-review.md) and the
+  [guide](guides/finding-review.md) define conservative tracking inside one history
+  artifact, not permanent cross-analysis issue identity or automatic resolution.
+- **Committed evidence:** `atlas review-findings` validates scan/artifact bindings,
+  actual first-parent order, frame inventories and read Git blob hashes. Unique exact
+  code context retains an ID through line shifts/accepted renames and severity changes.
+  Repeated/changed context, unknown columns, absent lineage and source limits remain
+  explicit. Native reads batch 64 blobs/8 MiB; 1 MiB/blob, 64 MiB total, 200,000 context
+  windows and 16 KiB/context cap work without sampling uniqueness. Core analysis and
+  existing free capabilities stay unchanged.
+- **Trust:** optional paired proof directories use the existing real verifier. Direct
+  policies retain source/scan equality. Explicit historical policies separately pin
+  the target scan commit and attested producer checkout/workflow/root, so a current
+  approved producer can inspect older objects. Both signatures, full declared scope
+  and matching settings/producer identity are prerequisites for stronger reported-
+  appearance/absence accounting. Execution remains asserted. Stored trust fields are
+  declarations; no copied JSON becomes authenticated evidence.
+- **Browser:** atomically imports both reports, filters tracking rows and navigates
+  baseline/current files with the appropriate inspector report. Invalid rows/bindings
+  preserve prior state. Individual report imports, clear, reload and dataset replacement
+  clear review. It always warns that imported verification claims are unauthenticated.
+  The production worker deadline remains seven seconds; full-size import retains
+  4,096 findings per side and reveals rows progressively. No source or uploads.
+- **Actual producer:** hash-checked Ruff 0.17.3 reports the independently authored
+  F821 positions `sample.py:7:7` and `renamed.py:10:7` after rename/insertion. One unique-
+  context row continues; every `.git` file byte stays unchanged. Working-tree edits,
+  source snippets and host paths are excluded from the exported review.
+  [Functional record](benchmarks/finding-review.md) separates this actual producer,
+  mocked policy orchestration and authentic vendor signature proof. The read-only
+  CI job exercises the producer in a no-network namespace; signing recipes remain
+  inactive and a live ATLAS signed historical pair still needs owner activation.
+- **Local gate:** required-browser/real-verifier `pnpm verify` passes **1,021 tests,
+  92 skips**, 93 passing files and five gated files. All **53 Chromium journeys** pass
+  with CI software rendering, including full-size review import, 320/390 px layouts,
+  automated accessibility, invalid-import recovery, forged claims and no uploads.
+  Typecheck, dependency direction and **13 generated contracts** pass. Local Python
+  is 3.14; CI's pinned oracle remains 3.15. Service/platform skips are disclosed.
+  Full Firefox and WebKit each pass **53/53**. Screenshots were visually reviewed.
+- **Comparison capacity:** [20 fresh-process synthetic runs](benchmarks/finding-review-capacity.md)
+  each retain exactly 4,096 findings per side and 4,096 continuing IDs. Canonical
+  output is 6,094,886 bytes below the 8 MiB cap. Development observations: p50 875.5 ms,
+  p95 899.6 ms, worst 920.8 ms. This includes synthetic report preparation, indexing,
+  matching and canonical validation after module load; it is not an analyzer, Git,
+  browser, reference-device or clean-tree release acceptance measurement.
+- **Preservation and package:** six pinned repositories pass five offline cold repeats
+  and the exact committed-byte/independent-source baseline guard. Existing Vite partial
+  coverage remains explicit. The portable CLI passes **15/15 stages** outside the
+  checkout, including unsigned review's documented partial exit, preserved context,
+  no source in output and zero browser outbound requests/page errors. Archive SHA-256
+  `877cb3f0f58e7dadb894219a9ef8813892fbe92bb6f6b68f8e4a319eca2b88e8` is a dirty
+  development candidate based on `e518ecf`, not a release. Generated corpus/distribution
+  release records and the package screenshot are restored after their checks.
+- **Corrections:** the first new browser journey exposed a wrongly associated filter
+  label, not a slow application. Explicit label association fixes its actual accessible
+  name. Original assertions and the 30-second test deadline remain. The historical
+  producer/target distinction was corrected before release; direct verification was
+  not weakened. Details and retained failure stages are in the functional record.
+- **Boundary:** no resolved/clean/security/merge verdict, cross-artifact issue database,
+  private hosting, billing, signing activation or deployment. Analyzer dev.10, artifact
+  1.4.0 and beta.2 remain unchanged. Original G6/R6 human/device/site gates stay open.
+
 ### Scan declarations and offline provenance verification: Q2.1 (2026-10-29)
 
 - **Scope:** continued owner-authorized development after merged PR #52. Q2 is split
