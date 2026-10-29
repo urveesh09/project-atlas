@@ -1,0 +1,117 @@
+{
+  "recordedAt": "2026-10-29T17:36:27.467Z",
+  "sourceCommit": "16f20dfd61491bc82818ec3d8ec914fb7d6c5c71",
+  "workingTreeDirty": true,
+  "node": "v24.22.1",
+  "cpu": "Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz",
+  "method": "20 fresh processes; prepare 10,000-file/100,000-edge baseline and current graphs before timing; 16 matching rules, 1,600,000 continuing matches; time includes normalization/evaluation/retention/schema/canonical serialization. No Git/parser/browser/resource-container or reference-hardware acceptance claim.",
+  "p50Ms": 3569.2851999999993,
+  "p95Ms": 3673.9595000000004,
+  "worstMs": 3733.0845,
+  "maxRssBytes": 570695680,
+  "serializedBytes": 1975044,
+  "retainedRows": 2000,
+  "rowsOmitted": 1598000,
+  "runs": [
+    {
+      "ms": 3548.8338999999996,
+      "bytes": 1975044,
+      "rss": 558034944
+    },
+    {
+      "ms": 3576.8556000000003,
+      "bytes": 1975044,
+      "rss": 566886400
+    },
+    {
+      "ms": 3563.6899999999996,
+      "bytes": 1975044,
+      "rss": 563159040
+    },
+    {
+      "ms": 3491.0134,
+      "bytes": 1975044,
+      "rss": 567255040
+    },
+    {
+      "ms": 3598.3661,
+      "bytes": 1975044,
+      "rss": 557973504
+    },
+    {
+      "ms": 3545.9933999999994,
+      "bytes": 1975044,
+      "rss": 552251392
+    },
+    {
+      "ms": 3550.8950999999997,
+      "bytes": 1975044,
+      "rss": 469770240
+    },
+    {
+      "ms": 3585.4175999999998,
+      "bytes": 1975044,
+      "rss": 558612480
+    },
+    {
+      "ms": 3528.7128,
+      "bytes": 1975044,
+      "rss": 560271360
+    },
+    {
+      "ms": 3479.8031000000005,
+      "bytes": 1975044,
+      "rss": 541614080
+    },
+    {
+      "ms": 3581.934,
+      "bytes": 1975044,
+      "rss": 570695680
+    },
+    {
+      "ms": 3613.0157000000004,
+      "bytes": 1975044,
+      "rss": 558788608
+    },
+    {
+      "ms": 3569.2851999999993,
+      "bytes": 1975044,
+      "rss": 469344256
+    },
+    {
+      "ms": 3619.1921,
+      "bytes": 1975044,
+      "rss": 562601984
+    },
+    {
+      "ms": 3666.3374,
+      "bytes": 1975044,
+      "rss": 567238656
+    },
+    {
+      "ms": 3505.987,
+      "bytes": 1975044,
+      "rss": 565145600
+    },
+    {
+      "ms": 3733.0845,
+      "bytes": 1975044,
+      "rss": 567349248
+    },
+    {
+      "ms": 3630.7495000000004,
+      "bytes": 1975044,
+      "rss": 491237376
+    },
+    {
+      "ms": 3559.4440000000004,
+      "bytes": 1975044,
+      "rss": 568586240
+    },
+    {
+      "ms": 3673.9595000000004,
+      "bytes": 1975044,
+      "rss": 560082944
+    }
+  ]
+}

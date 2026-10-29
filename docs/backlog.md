@@ -34,6 +34,13 @@ and image identities.
 | macOS cold keyboard/audit timeout | Observed once in PR #52; cause unproven | Existing J1 hit its 30-second deadline in [run 40707908446](https://github.com/urveesh09/project-atlas/actions/runs/40707908446); the other 49 journeys passed. Retained audit records eventually report zero violations for its three named states. Preserve the deadline; if it recurs, capture per-step/audit durations and renderer/CPU state before choosing a fix. See the 2026-10-28 status entry |
 | Scorecard Binary-Artifacts | By design | It flags `packages/analyzer-py/grammar/tree-sitter-python.wasm`, a grammar built reproducibly from pinned sources and checked by hash ([ADR-080](adr/ADR-080-python-3-15-syntax.md)). Only the owner triages or dismisses security alerts |
 
+**Windows Harbor fixture timeout:** observed once in PR #54, cause unproven. The
+existing reproducible-history test exceeded 30 seconds in
+[attempt 1](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123519713078);
+the unchanged retry passed. Twenty local rebuilds retained the same commits, worst
+2.25 seconds. If it recurs, capture per-Git-command durations and runner I/O/CPU
+before choosing a fix. Keep the original deadline and equality assertion.
+
 ## Owner actions
 
 - **Required checks.** Add `verify (macos-latest)`, `pinned repository corpus (macos-latest)`
@@ -59,12 +66,14 @@ The owner authorized external findings on 2026-10-28: Ruff SARIF import and cons
 local report comparison landed in PR #52 (ADR-085). Q2.1 scan declarations and offline
 GitHub verification landed in PR #53 (ADR-086). Q2.2 contextual review within one
 history artifact, historical-target/producer policies and browser navigation are
-implemented for review (ADR-087). The inactive signing recipes need owner review,
+merged in PR #54 (ADR-087/088). Q3 offline architecture review is implemented for
+review (ADR-089): explicit boundary rules, cycle-component baselines and JSON/Markdown
+with opt-in CI checks. The inactive signing recipes need owner review,
 copy/merge and dispatch
 before there is a live ATLAS scan proof; a real vendor signature fixture is a separate
 test. Consider adding `scan provenance verifier (offline)` to required checks after
-review. Cross-artifact/long-term issue databases, other producers and Q3 architecture
-gates remain future work. Context fingerprints are best-effort evidence continuity;
+review. Cross-artifact/long-term issue databases, other producers, interactive
+architecture overlays and Q4 workspaces remain future work. Context fingerprints are best-effort evidence continuity;
 no disappearing result is automatically resolved. Existing V0.1 acceptance work is unchanged.
 
 - **Review a change.** Start from the changed files, show changed dependencies and the

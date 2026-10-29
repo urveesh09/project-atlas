@@ -1,0 +1,1308 @@
+{
+  "$id": "https://atlas.invalid/schemas/architecture-review.schema.json",
+  "title": "ATLAS architecture-review (atlas.architecture-review/1)",
+  "$comment": "Generated from @atlas/schema. Runtime validators additionally enforce ordering, references, coverage arithmetic and geometry invariants.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "atlas.architecture-review/1"
+    },
+    "analysisId": {
+      "type": "string",
+      "pattern": "^analysis_[0-9a-f]{64}$"
+    },
+    "repoId": {
+      "type": "string",
+      "pattern": "^repo_[0-9a-f]{64}$"
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "const": "atlas.architecture-policy/1"
+        },
+        "rules": {
+          "minItems": 1,
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "forbidden-dependency"
+                  },
+                  "from": {
+                    "type": "object",
+                    "properties": {
+                      "paths": {
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": ""
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "roles": {
+                        "minItems": 1,
+                        "maxItems": 6,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "source",
+                            "test",
+                            "declaration",
+                            "config",
+                            "asset",
+                            "opaque"
+                          ]
+                        }
+                      },
+                      "packages": {
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": ""
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "to": {
+                    "type": "object",
+                    "properties": {
+                      "paths": {
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": ""
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "roles": {
+                        "minItems": 1,
+                        "maxItems": 6,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "source",
+                            "test",
+                            "declaration",
+                            "config",
+                            "asset",
+                            "opaque"
+                          ]
+                        }
+                      },
+                      "packages": {
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": ""
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "edgeKinds": {
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "imports-value",
+                        "imports-type",
+                        "reexports-value",
+                        "reexports-type",
+                        "imports-dynamic-literal",
+                        "requires-literal",
+                        "imports-resource"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind",
+                  "from",
+                  "to",
+                  "edgeKinds"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "cycle"
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "format",
+        "rules"
+      ],
+      "additionalProperties": false
+    },
+    "policySha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "current": {
+      "type": "object",
+      "properties": {
+        "snapshotId": {
+          "type": "string",
+          "pattern": "^snap_[0-9a-f]{64}$"
+        },
+        "commitOid": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "discoveredFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "includedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "supportedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "parsedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "parseFailedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "opaqueFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "excludedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "omittedFiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "observedImports": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "internalResolved": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "externalResolved": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "builtinResolved": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "unresolved": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "unsupported": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "excludedTargets": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "reasons": {
+              "maxItems": 512,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                  },
+                  "count": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "code",
+                  "count"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "limitsHit": {
+              "maxItems": 64,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              }
+            },
+            "warnings": {
+              "maxItems": 10000,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                  },
+                  "path": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "path"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "discoveredFiles",
+            "includedFiles",
+            "supportedFiles",
+            "parsedFiles",
+            "parseFailedFiles",
+            "opaqueFiles",
+            "excludedFiles",
+            "omittedFiles",
+            "observedImports",
+            "internalResolved",
+            "externalResolved",
+            "builtinResolved",
+            "unresolved",
+            "unsupported",
+            "excludedTargets",
+            "reasons",
+            "limitsHit",
+            "warnings"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "snapshotId",
+        "commitOid",
+        "coverage"
+      ],
+      "additionalProperties": false
+    },
+    "baseline": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "snapshotId": {
+              "type": "string",
+              "pattern": "^snap_[0-9a-f]{64}$"
+            },
+            "commitOid": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "coverage": {
+              "type": "object",
+              "properties": {
+                "discoveredFiles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "includedFiles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "supportedFiles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "parsedFiles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "parseFailedFiles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "opaqueFiles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "excludedFiles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "omittedFiles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "observedImports": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "internalResolved": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "externalResolved": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "builtinResolved": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "unresolved": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "unsupported": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "excludedTargets": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "reasons": {
+                  "maxItems": 512,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                      },
+                      "count": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "count"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "limitsHit": {
+                  "maxItems": 64,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                  }
+                },
+                "warnings": {
+                  "maxItems": 10000,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                      },
+                      "path": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "path"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "discoveredFiles",
+                "includedFiles",
+                "supportedFiles",
+                "parsedFiles",
+                "parseFailedFiles",
+                "opaqueFiles",
+                "excludedFiles",
+                "omittedFiles",
+                "observedImports",
+                "internalResolved",
+                "externalResolved",
+                "builtinResolved",
+                "unresolved",
+                "unsupported",
+                "excludedTargets",
+                "reasons",
+                "limitsHit",
+                "warnings"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "snapshotId",
+            "commitOid",
+            "coverage"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rules": {
+      "maxItems": 16,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ruleId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,63}$"
+          },
+          "current": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "newlyObserved": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "continuing": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "noLongerObserved": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currentFrom": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "currentTo": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "baselineFrom": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "baselineTo": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ruleId",
+          "current",
+          "baseline",
+          "newlyObserved",
+          "continuing",
+          "noLongerObserved",
+          "currentFrom",
+          "currentTo",
+          "baselineFrom",
+          "baselineTo"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "reasons": {
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "current-coverage",
+          "baseline-coverage",
+          "unmatched-selector",
+          "lineage-unavailable",
+          "evidence-limit"
+        ]
+      }
+    },
+    "rows": {
+      "maxItems": 2000,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^ar_[0-9a-f]{64}$"
+              },
+              "ruleId": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,63}$"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "uncompared",
+                  "newly-observed",
+                  "continuing"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "const": "forbidden-dependency"
+              },
+              "edge": {
+                "type": "object",
+                "properties": {
+                  "edgeId": {
+                    "type": "string",
+                    "pattern": "^edge_[0-9a-f]{64}$"
+                  },
+                  "from": {
+                    "type": "object",
+                    "properties": {
+                      "nodeId": {
+                        "type": "string",
+                        "pattern": "^node_[0-9a-f]{64}$"
+                      },
+                      "lineageId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^lin_[0-9a-f]{64}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string",
+                        "enum": [
+                          "source",
+                          "test",
+                          "declaration",
+                          "config",
+                          "asset",
+                          "opaque"
+                        ]
+                      },
+                      "packagePath": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "const": ""
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "nodeId",
+                      "lineageId",
+                      "path",
+                      "role",
+                      "packagePath"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "to": {
+                    "type": "object",
+                    "properties": {
+                      "nodeId": {
+                        "type": "string",
+                        "pattern": "^node_[0-9a-f]{64}$"
+                      },
+                      "lineageId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^lin_[0-9a-f]{64}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string",
+                        "enum": [
+                          "source",
+                          "test",
+                          "declaration",
+                          "config",
+                          "asset",
+                          "opaque"
+                        ]
+                      },
+                      "packagePath": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "const": ""
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "nodeId",
+                      "lineageId",
+                      "path",
+                      "role",
+                      "packagePath"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "imports-value",
+                      "imports-type",
+                      "reexports-value",
+                      "reexports-type",
+                      "imports-dynamic-literal",
+                      "requires-literal",
+                      "imports-resource",
+                      "declares-package",
+                      "project-reference"
+                    ]
+                  },
+                  "confidence": {
+                    "type": "string",
+                    "enum": [
+                      "exact",
+                      "inferred",
+                      "heuristic"
+                    ]
+                  },
+                  "observations": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "locations": {
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "observationId": {
+                          "type": "string",
+                          "pattern": "^obs_[0-9a-f]{64}$"
+                        },
+                        "range": {
+                          "type": "object",
+                          "properties": {
+                            "startOffset": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "endOffset": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "startLine": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "startColumn": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "endLine": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "endColumn": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "startOffset",
+                            "endOffset",
+                            "startLine",
+                            "startColumn",
+                            "endLine",
+                            "endColumn"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "observationId",
+                        "range"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "evidenceOmitted": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "edgeId",
+                  "from",
+                  "to",
+                  "kind",
+                  "confidence",
+                  "observations",
+                  "locations",
+                  "evidenceOmitted"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "ruleId",
+              "state",
+              "kind",
+              "edge"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^ar_[0-9a-f]{64}$"
+              },
+              "ruleId": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,63}$"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "uncompared",
+                  "newly-observed",
+                  "continuing"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "const": "cycle"
+              },
+              "members": {
+                "minItems": 1,
+                "maxItems": 32,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "nodeId": {
+                      "type": "string",
+                      "pattern": "^node_[0-9a-f]{64}$"
+                    },
+                    "lineageId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^lin_[0-9a-f]{64}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "source",
+                        "test",
+                        "declaration",
+                        "config",
+                        "asset",
+                        "opaque"
+                      ]
+                    },
+                    "packagePath": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": ""
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "nodeId",
+                    "lineageId",
+                    "path",
+                    "role",
+                    "packagePath"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "memberCount": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "membersOmitted": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "witness": {
+                "maxItems": 64,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "edgeId": {
+                      "type": "string",
+                      "pattern": "^edge_[0-9a-f]{64}$"
+                    },
+                    "from": {
+                      "type": "object",
+                      "properties": {
+                        "nodeId": {
+                          "type": "string",
+                          "pattern": "^node_[0-9a-f]{64}$"
+                        },
+                        "lineageId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^lin_[0-9a-f]{64}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "source",
+                            "test",
+                            "declaration",
+                            "config",
+                            "asset",
+                            "opaque"
+                          ]
+                        },
+                        "packagePath": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": ""
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "nodeId",
+                        "lineageId",
+                        "path",
+                        "role",
+                        "packagePath"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "to": {
+                      "type": "object",
+                      "properties": {
+                        "nodeId": {
+                          "type": "string",
+                          "pattern": "^node_[0-9a-f]{64}$"
+                        },
+                        "lineageId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^lin_[0-9a-f]{64}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "source",
+                            "test",
+                            "declaration",
+                            "config",
+                            "asset",
+                            "opaque"
+                          ]
+                        },
+                        "packagePath": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": ""
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "nodeId",
+                        "lineageId",
+                        "path",
+                        "role",
+                        "packagePath"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "imports-value",
+                        "imports-type",
+                        "reexports-value",
+                        "reexports-type",
+                        "imports-dynamic-literal",
+                        "requires-literal",
+                        "imports-resource",
+                        "declares-package",
+                        "project-reference"
+                      ]
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "exact",
+                        "inferred",
+                        "heuristic"
+                      ]
+                    },
+                    "observations": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "locations": {
+                      "maxItems": 4,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "observationId": {
+                            "type": "string",
+                            "pattern": "^obs_[0-9a-f]{64}$"
+                          },
+                          "range": {
+                            "type": "object",
+                            "properties": {
+                              "startOffset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "endOffset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "startLine": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991
+                              },
+                              "startColumn": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991
+                              },
+                              "endLine": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991
+                              },
+                              "endColumn": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "startOffset",
+                              "endOffset",
+                              "startLine",
+                              "startColumn",
+                              "endLine",
+                              "endColumn"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "observationId",
+                          "range"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "evidenceOmitted": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "edgeId",
+                    "from",
+                    "to",
+                    "kind",
+                    "confidence",
+                    "observations",
+                    "locations",
+                    "evidenceOmitted"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "witnessUnavailable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "ruleId",
+              "state",
+              "kind",
+              "members",
+              "memberCount",
+              "membersOmitted",
+              "witness",
+              "witnessUnavailable"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "rowsOmitted": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "format",
+    "analysisId",
+    "repoId",
+    "policy",
+    "policySha256",
+    "current",
+    "baseline",
+    "rules",
+    "reasons",
+    "rows",
+    "rowsOmitted"
+  ],
+  "additionalProperties": false
+}

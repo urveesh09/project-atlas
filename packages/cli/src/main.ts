@@ -8,6 +8,7 @@ import { verify } from './commands/verify.js';
 import { findings } from './commands/findings.js';
 import { scanEvidence, verifyScan } from './commands/scan.js';
 import { reviewFindings } from './commands/review-findings.js';
+import { reviewArchitectureCommand } from './commands/review-architecture.js';
 import { EXIT, UsageError, createContext, type CliIO } from './context.js';
 import { PALETTE, createStyler, detectColorLevel } from './ui/style.js';
 
@@ -29,6 +30,8 @@ const HELP = `
     atlas review-findings <current.scan.json> --baseline <old.scan.json>
       --artifact <dir> --repo <dir> --out <review.json>
       [--current-proof <dir> --baseline-proof <dir> [--gh <absolute-executable>]]
+    atlas review-architecture <artifact> --policy <policy.json> --commit <full-oid>
+      --out <review.json> [--baseline <earlier-full-oid>] [--markdown] [--fail-on new|all]
     atlas serve <artifact> [--repo <dir>] [--no-open] [--port <n>]
                                        browse an artifact in your browser (127.0.0.1 only)
 
@@ -47,7 +50,7 @@ const HELP = `
     --json                   machine-readable output on stdout
     -h, --help   -v, --version
 
-  Exit codes: 0 complete · 2 partial · 1 failure · 64 usage · 130 cancelled
+  Exit codes: 0 complete · 2 partial · 3 explicit architecture policy blocked · 1 failure · 64 usage · 130 cancelled
 `;
 
 function intOption(value: string | undefined, name: string): number | undefined {
@@ -70,6 +73,28 @@ export async function run(argv: readonly string[], io: CliIO): Promise<number> {
   const ctx = createContext(io, json);
   try {
     switch (command) {
+      case 'review-architecture': {
+        const { values, positionals } = parseArgs({
+          args: rest, allowPositionals: true, strict: true,
+          options: {
+            policy: { type: 'string' }, commit: { type: 'string' },
+            baseline: { type: 'string' }, out: { type: 'string' },
+            markdown: { type: 'boolean' }, 'fail-on': { type: 'string' }, json: { type: 'boolean' },
+          },
+        });
+        const failOn = values['fail-on'];
+        if (positionals.length !== 1 || !values.policy || !values.commit || !values.out || values.baseline === ''
+          || (failOn !== undefined && failOn !== 'new' && failOn !== 'all')
+          || (failOn === 'new' && !values.baseline)) {
+          throw new UsageError('review-architecture requires one artifact, --policy, --commit and --out. --fail-on accepts new|all; new requires --baseline.');
+        }
+        return await reviewArchitectureCommand(ctx, {
+          artifact: positionals[0]!, policy: values.policy, commit: values.commit, out: values.out,
+          markdown: values.markdown ?? false,
+          ...(values.baseline ? { baseline: values.baseline } : {}),
+          ...(failOn ? { failOn } : {}),
+        });
+      }
       case 'doctor': {
         parseArgs({ args: rest, options: { json: { type: 'boolean' } }, strict: true, allowPositionals: false });
         return await doctor(ctx);

@@ -9,6 +9,15 @@ The supported runtime/security pins now use Node 24.22.1 ([ADR-088](../adr/ADR-0
 The initial Q2.2 image scan correctly blocked vulnerable 24.22.0; fresh checks are
 required on the patched candidate. This maintenance does not close G6 or deploy the kit.
 
+## Optional architecture review (Q3)
+
+Optional Q3 [architecture review](../guides/architecture-review.md), ADR-089, evaluates
+declared file-role/path/package boundaries and bounded cycle-component evidence
+offline. Its explicitly selected CI failures apply only to observed internal file
+dependencies in a supplied artifact; it authenticates no producer and grants no
+security/merge approval. Partial coverage and evidence omission remain visible.
+This extension closes no G6/R6 item and changes no analyzer/artifact identity.
+
 ## Phase 5 review closure
 
 Review commits `6113d94` and `944d579` fix shared-engine reconciliation fencing, stale
