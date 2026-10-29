@@ -34,6 +34,37 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### PR #55 browser verification correction (2026-10-29)
+
+The first Q3 head `0656688` passed 17 checks and all 31 new architecture tests;
+macOS's existing named-view journey exceeded its unchanged 30-second deadline.
+Its menu/imported/restored audits eventually recorded zero violations, but those
+late callbacks do not establish a passing journey. Retain the
+[original failed job](https://github.com/urveesh09/project-atlas/actions/runs/40924967843/job/123627912440)
+and its accessibility artifact.
+
+[ADR-092](adr/ADR-092-isolated-browser-verification.md) records observed overlap with
+the other file worker's 24.56-second exact-capacity fixture and 84.54-second Python
+oracle. Required browser verification now selects one file worker, as physical
+fault gates already did. Every test, assertion, audit tag/rule, poll and deadline
+remains unchanged. This removes proven avoidable workload overlap; CPU contention
+is still an inference, not a proven sole cause of every historical timeout.
+
+Completed `axe-*.jsonl` records now add settle/axe/total timing, test-worker CPU
+deltas and whitelisted renderer/mode/visibility/counts. Separate typed
+`audit-timings-*.jsonl` records show begin/settled/complete/failure phases; an
+unfinished audit is never written as a completed zero-violation record. Diagnostics
+do not activate benchmark mode, create/query WebGL contexts or change product state.
+Human/device accessibility and G6/R6 acceptance remain open.
+
+Local corrected verification passes **1,052 tests, 92 gated skips**, including all
+53 Chromium journeys with the original deadlines and all audit rules. One file
+worker completes the full run in 464.22 seconds on the Windows development host.
+The named-view audits take 1,297/1,584/3,287 ms in its three states, all with zero
+violations; automated incomplete results remain present for human review. These
+are diagnostic observations, not reference-hardware performance acceptance.
+Fresh macOS and the complete exact-head CI matrix must pass before PR readiness.
+
 ### Offline architecture review: Q3 (2026-10-29)
 
 - Continued owner direction after merged PR #54 (`16f20df`) authorizes

@@ -129,6 +129,9 @@ run compiled `dist/`. Rebuild before benchmarks or container tests.
 and live GitHub. The variables and setup are in [hosted development → Test gates](docs/hosted-development.md#test-gates).
 With physical gates enabled, Vitest runs one file at a time (`vitest.config.ts`) because
 fault tests deliberately exhaust memory and PIDs.
+Required browser verification (`ATLAS_REQUIRE_BROWSER_TESTS=1`) also runs one file
+at a time, so renderer/audit work does not overlap capacity fixtures or the Python
+oracle (ADR-092). Keep every audit, assertion and deadline intact.
 
 **Changes land through pull requests.** `main` requires a pull request and nine named
 checks, with no bypass ([ADR-046](docs/adr/ADR-046-security-triage-and-enforced-checks.md)).
@@ -155,7 +158,8 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-089. Allocate ADR-090 next.
+  ADR-090/091 are reserved for the parallel architecture viewer/local-workspace PRs.
+  ADR-092 records browser test isolation. Allocate ADR-093 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

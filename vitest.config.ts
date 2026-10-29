@@ -5,6 +5,7 @@ const packagesDir = fileURLToPath(new URL('./packages/', import.meta.url));
 const physicalGates = process.env['ATLAS_CONTAINER_TESTS'] === '1'
   || process.env['ATLAS_REQUIRE_HOSTED_TESTS'] === '1'
   || Boolean(process.env['ATLAS_TEST_DATABASE_URL']);
+const browserGate = process.env['ATLAS_REQUIRE_BROWSER_TESTS'] === '1';
 
 export default defineConfig({
   resolve: {
@@ -37,6 +38,8 @@ export default defineConfig({
     // Physical fault tests intentionally exhaust memory/PIDs and kill processes.
     // Run their files without unrelated integration files competing for the host;
     // queue/lease/ownership races still create explicit concurrency inside each test.
-    maxWorkers: physicalGates ? 1 : 2,
+    // Required browser journeys/audits must likewise not compete with whole-capacity
+    // fixtures and the Python oracle in another file worker (ADR-092).
+    maxWorkers: physicalGates || browserGate ? 1 : 2,
   },
 });
