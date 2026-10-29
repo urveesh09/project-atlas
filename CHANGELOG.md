@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Source-free scan scope/profile manifests (`atlas scan-evidence`), explicit offline
+  GitHub Actions attestation verification (`atlas verify-scan`) and a browser declaration
+  view (ADR-086). Signature verification is separate from scan truth and quality verdicts.
 - Local Ruff SARIF import (`atlas findings`), source-free quality sidecars, browser-local
   evidence and conservative exact-location comparison (ADR-085). Commit binding is
   user-declared and scan scope unverified; no scanner executes.

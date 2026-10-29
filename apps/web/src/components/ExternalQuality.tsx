@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { compareQualityReports, qualityRuleLabel } from '@atlas/graph';
 import { compareUtf8, type GraphNode, type QualityFinding, type QualityReport } from '@atlas/schema';
-import { useExternalQuality } from '../app/quality';
+import { useExternalQuality, type DeclaredScanSummary } from '../app/quality';
 import { useViewer } from '../app/context';
 import { shortOid } from '../app/model';
 import { Paged, Section } from './ui';
@@ -64,6 +64,31 @@ function ReportSummary({ report }: { report: QualityReport }) {
   );
 }
 
+function DeclaredScope({ scope }: { scope: DeclaredScanSummary | null }) {
+  if (!scope) return null;
+  return (
+    <section aria-label="Producer-declared scan scope">
+      <h3>Producer-declared scan scope</h3>
+      <p>
+        {scope.declaredScannedFiles} of {scope.analyzedPythonFiles} analyzed Python files declared scanned. Missing:{' '}
+        {scope.missingFiles}; dropped records: {scope.droppedRecords}.
+      </p>
+      <p>
+        Isolated Ruff · Python {scope.profile.targetVersion.slice(2, 3)}.{scope.profile.targetVersion.slice(3)} ·{' '}
+        {scope.profile.rules.slice(0, 8).join(', ')}
+        {scope.profile.rules.length > 8 ? ` + ${scope.profile.rules.length - 8} more rules` : ''}.
+      </p>
+      <p className="section-description">
+        Profile SHA-256: <code>{scope.profileSha256}</code>
+      </p>
+      <p className="quality-caveat">
+        This declaration is not authenticated in this browser. Verify the signature with <code>atlas verify-scan</code>.
+        A matching file list does not prove execution, complete repository coverage or a clean scan.
+      </p>
+    </section>
+  );
+}
+
 export function ExternalQualityPanel() {
   const quality = useExternalQuality();
   const { dataset, model, goToFrame } = useViewer();
@@ -72,12 +97,23 @@ export function ExternalQualityPanel() {
   // Selection/frame changes must not re-hash thousands of unchanged report rows.
   const { compared, comparisonError } = useMemo(() => {
     if (!quality.current || !quality.baseline) return { compared: null, comparisonError: false };
+    if (
+      quality.scopes.current &&
+      quality.scopes.baseline &&
+      quality.scopes.current.profileSha256 !== quality.scopes.baseline.profileSha256
+    )
+      return { compared: null, comparisonError: true };
     try {
       return { compared: compareQualityReports(quality.current, quality.baseline), comparisonError: false };
     } catch {
       return { compared: null, comparisonError: true };
     }
-  }, [quality.current, quality.baseline]);
+  }, [
+    quality.current,
+    quality.baseline,
+    quality.scopes.current?.profileSha256,
+    quality.scopes.baseline?.profileSha256,
+  ]);
   if (!quality.open) return null;
   return (
     <section id="external-quality-panel" className="external-quality panel" aria-labelledby="external-quality-title">
@@ -95,8 +131,9 @@ export function ExternalQualityPanel() {
         </button>
       </div>
       <p>
-        Open a local quality JSON created by <code>atlas findings</code> from Ruff SARIF. Files stay in this browser
-        session; nothing is uploaded or saved automatically.
+        Open a local quality or scan-evidence JSON created by <code>atlas findings</code> or{' '}
+        <code>atlas scan-evidence</code>. Files stay in this browser session; nothing is uploaded or saved
+        automatically.
       </p>
       <p className="quality-caveat">
         These are reported lint findings, separate from ATLAS heuristics. Commit binding is user-declared; scan scope
@@ -145,6 +182,7 @@ export function ExternalQualityPanel() {
         <>
           <h3>Current report</h3>
           <ReportSummary report={quality.current} />
+          <DeclaredScope scope={quality.scopes.current} />
           {quality.active ? (
             <FindingsList findings={quality.active.findings} />
           ) : (
@@ -167,6 +205,7 @@ export function ExternalQualityPanel() {
         <>
           <h3>Baseline report</h3>
           <ReportSummary report={quality.baseline} />
+          <DeclaredScope scope={quality.scopes.baseline} />
         </>
       )}
       {compared && (
@@ -190,7 +229,12 @@ export function ExternalQualityPanel() {
           )}
         </section>
       )}
-      {comparisonError && <p role="alert">Comparison is unavailable: use the same analysis and Ruff version.</p>}
+      {comparisonError && (
+        <p role="alert">
+          Comparison is unavailable: use the same analysis and Ruff version; declared profiles must match when both
+          reports include them.
+        </p>
+      )}
       <p className="section-description">
         Viewing snapshot {model.frame + 1} of {dataset.frames.length}. Closing this artifact discards these external
         reports.

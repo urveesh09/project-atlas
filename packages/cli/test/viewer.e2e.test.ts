@@ -6,6 +6,7 @@ import { chromium, firefox, webkit, type Browser, type BrowserContext, type Brow
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION } from '@atlas/schema';
+import { createScanEvidence, parseQualityReport, qualityTarget } from '@atlas/graph';
 import { run, type CliIO } from '@atlas/cli';
 import { viewerDirectory } from '../src/commands/serve.js';
 import { SourceAttachment } from '../src/server/source.js';
@@ -1487,6 +1488,18 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
     const wrong = JSON.parse(readFileSync(path.join(work, 'quality-new.json'), 'utf8'));
     wrong.commitOid = '0'.repeat(40);
     writeFileSync(path.join(work, 'quality-wrong.json'), JSON.stringify(wrong));
+    const scanProfile = { format: 'atlas.ruff-profile/1', isolated: true, ignoreNoqa: true, respectGitignore: false, forceExclude: false, targetVersion: 'py314', rules: ['F401', 'F821'] };
+    for (const [index, source, output, profile] of [
+      [1, 'quality-new.json', 'scan-new.json', scanProfile],
+      [0, 'quality-old.json', 'scan-other-profile.json', { ...scanProfile, targetVersion: 'py313' }],
+    ] as const) {
+      const graph = loaded.bundle.graphs[index]!;
+      const scan = createScanEvidence(parseQualityReport(readFileSync(path.join(work, source), 'utf8')), profile, { format: 'atlas.scan-scope/1', files: graph.nodes.flatMap((n) => n.kind === 'file' ? [{ path: n.path, blobOid: n.blobOid }] : []) }, 1, qualityTarget(graph, loaded.bundle.manifest.analysisId));
+      writeFileSync(path.join(work, output), JSON.stringify(scan));
+    }
+    const wrongScan = JSON.parse(readFileSync(path.join(work, 'scan-new.json'), 'utf8'));
+    wrongScan.scope.files[0].blobOid = '0'.repeat(40);
+    writeFileSync(path.join(work, 'scan-wrong.json'), JSON.stringify(wrongScan));
     qualityServer = await startViewerServer({ artifactDir: qualityDir(), bundle: loaded.bundle, viewerDir: viewerDirectory(), source: SourceAttachment.none('NOT_REQUESTED') });
   }, 60_000);
   afterAll(async () => { await qualityServer?.close(); qualityRepo?.dispose(); });
@@ -1546,6 +1559,43 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
       await page.keyboard.press('Enter');
       expect(await page.locator('#external-quality-toggle').evaluate((e) => e === document.activeElement)).toBe(true);
     } finally { await isolated.close(); }
+  });
+
+  it('shows declared scan scope without authenticating it and blocks differing profile comparisons', async () => {
+    const loaded = await readArtifactDirectory(qualityDir());
+    if (!loaded.ok) throw new Error('quality artifact');
+    const freshServer = await startViewerServer({ artifactDir: qualityDir(), bundle: loaded.bundle, viewerDir: viewerDirectory(), source: SourceAttachment.none('NOT_REQUESTED') });
+    const isolated = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+      const page = await isolated.newPage();
+      const requests: { url: string; method: string }[] = [], errors: string[] = [];
+      page.on('request', (r) => requests.push({ url: r.url(), method: r.method() }));
+      page.on('pageerror', (e) => errors.push(String(e)));
+      page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+      await page.goto(freshServer.sessionUrl);
+      await page.waitForSelector('#overview-title');
+      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await page.getByRole('button', { name: 'External findings', exact: true }).click();
+      const panel = page.getByRole('region', { name: 'External findings', exact: true });
+      await page.locator('input[data-quality="current"]').setInputFiles(path.join(work, 'scan-new.json'));
+      await expect.poll(() => panel.innerText()).toContain('1 of 1 analyzed Python files declared scanned');
+      expect(await panel.innerText()).toContain('not authenticated in this browser');
+      expect(await panel.innerText()).toContain('Python 3.14');
+      expect(await audit(page, 'declared-scan-scope')).toEqual([]);
+      if (process.env['ATLAS_CAPTURE_SCAN'] === '1') await page.screenshot({ path: path.resolve('.atlas-tmp/scan-scope-ui.png'), fullPage: true });
+      await page.locator('input[data-quality="current"]').setInputFiles(path.join(work, 'scan-wrong.json'));
+      await panel.getByRole('alert').waitFor();
+      expect(await panel.innerText()).toContain('1 of 1 analyzed Python files declared scanned');
+      await page.locator('input[data-quality="baseline"]').setInputFiles(path.join(work, 'scan-other-profile.json'));
+      await expect.poll(async () => (await panel.getByRole('alert').allTextContents()).join(' ')).toContain('declared profiles must match');
+      await page.setViewportSize({ width: 320, height: 844 });
+      await expectNoSidewaysScroll(page);
+      expect(await audit(page, 'declared-scan-scope-narrow')).toEqual([]);
+      expect(requests.every((r) => r.method === 'GET' && new URL(r.url).origin === new URL(freshServer.url).origin)).toBe(true);
+      expect(errors).toEqual([]);
+      await panel.getByRole('button', { name: 'Clear reports', exact: true }).click();
+      expect(await panel.getByRole('region', { name: 'Producer-declared scan scope' }).count()).toBe(0);
+    } finally { await isolated.close(); await freshServer.close(); }
   });
 
   it('cancels a held import, recovers and clears reports on reload', async () => {

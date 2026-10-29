@@ -5,8 +5,9 @@ rename or close the original V0.1 release gates. Existing free features remain f
 
 | Increment | Deliverable | Acceptance boundary |
 |---|---|---|
-| Q1, this PR | Local Ruff SARIF import, separate quality contract, snapshot-bound browser evidence and conservative exact-location report comparison | Actual producer fixture, CLI round trip, adversarial input/reference checks, no uploads/source leakage, all browser engines, accessibility and existing CI |
-| Q2, future ADR | CI provenance and scan-scope/configuration evidence; durable issue matching across changes | Comparable complete scans before a disappearing finding may become resolved; changed versions/configuration and incomplete runs stay explicit |
+| Q1, merged [PR #52](https://github.com/urveesh09/project-atlas/pull/52) | Local Ruff SARIF import, separate quality contract, snapshot-bound browser evidence and conservative exact-location report comparison | Actual producer fixture, CLI round trip, adversarial input/reference checks, no uploads/source leakage, all browser engines, accessibility and existing CI |
+| Q2.1, this increment, ADR-086 | Source-free scan scope/profile evidence, official GitHub CLI offline provenance verification with exact workflow/source/root policy; browser declaration view | Real signed vendor fixture with no network, tamper/wrong-policy rejection, validated partial scope, no browser trust marker. Reviewed signing recipe stays inactive until owner approval/merge/dispatch; a live ATLAS scan attestation is not yet established |
+| Q2.2, future ADR | Durable issue matching across changes and trusted comparable-scan review | Comparable complete scans before a disappearing finding may become resolved; moved/ambiguous contexts, changed versions/configuration and incomplete runs stay explicit. Signature success alone is insufficient |
 | Q3, future ADR | Production/test dependency policies, package-boundary rules, new-cycle evidence and review/CI reports | Independently authored violation fixtures and exact baselines. Static paths never imply runtime impact or exploitability |
 | Q4, future ADR | Private review workspaces, retained baselines, shared decisions and ownership | Pilot teams demonstrate repeated use; tenancy/access/deletion/retention and operating cost are measured before billing |
 

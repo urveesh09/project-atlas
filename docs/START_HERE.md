@@ -25,6 +25,9 @@ deployed (section 6, R6-06).
 
 Optional: [import external Ruff findings](guides/external-findings.md) into a separate
 local quality report and inspect it alongside the city. No scanner executes or uploads.
+For CI producers, [scan evidence and provenance](guides/scan-provenance.md) adds declared
+file/profile accounting and explicit offline signature verification. The signing recipe
+needs owner activation; browser declarations alone are unauthenticated.
 
 1. Install **Node.js 24.22.0**: <https://nodejs.org/en/download> (choose v24.22.0). Check
    with `node --version`.

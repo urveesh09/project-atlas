@@ -7,6 +7,7 @@ import { HistoryArtifactSchema } from './history.js';
 import { LayoutArtifactSchema } from './layout.js';
 import { LIMITS } from './limits.js';
 import { QualityReportSchema } from './quality.js';
+import { ScanEvidenceSchema, ScanTrustPolicySchema, ScanScopeSchema, RuffProfileSchema } from './scan.js';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION, LAYOUT_VERSION, METRIC_DEFINITION_VERSION } from './versions.js';
 
 /**
@@ -21,6 +22,10 @@ const ARTIFACT_SCHEMAS = {
   'layout-artifact': LayoutArtifactSchema,
   'artifact-manifest': ArtifactManifestSchema,
   'quality-report': QualityReportSchema,
+  'scan-evidence': ScanEvidenceSchema,
+  'scan-trust': ScanTrustPolicySchema,
+  'scan-scope': ScanScopeSchema,
+  'ruff-profile': RuffProfileSchema,
 } as const;
 
 const API_SCHEMAS = {
@@ -46,6 +51,10 @@ export function artifactJsonSchemas(): Record<string, Record<string, unknown>> {
     'layout-artifact': LAYOUT_VERSION,
     'artifact-manifest': ARTIFACT_VERSION,
     'quality-report': 'atlas.quality/1',
+    'scan-evidence': 'atlas.scan/1',
+    'scan-trust': 'atlas.scan-trust/1',
+    'scan-scope': 'atlas.scan-scope/1',
+    'ruff-profile': 'atlas.ruff-profile/1',
   };
   const out: Record<string, Record<string, unknown>> = {};
   for (const [name, schema] of Object.entries(ARTIFACT_SCHEMAS)) {

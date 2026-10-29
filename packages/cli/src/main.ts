@@ -6,6 +6,7 @@ import { inspect } from './commands/inspect.js';
 import { serve } from './commands/serve.js';
 import { verify } from './commands/verify.js';
 import { findings } from './commands/findings.js';
+import { scanEvidence, verifyScan } from './commands/scan.js';
 import { EXIT, UsageError, createContext, type CliIO } from './context.js';
 import { PALETTE, createStyler, detectColorLevel } from './ui/style.js';
 
@@ -20,6 +21,10 @@ const HELP = `
     atlas findings <ruff.sarif> --artifact <dir> --commit <full-oid> --out <quality.json>
                                        import local external findings (no scanner execution)
       [--source-root <dir>] [--baseline <quality.json>]
+    atlas scan-evidence <quality.json> --artifact <dir> --profile <profile.json>
+      --scope <scope.json> --exit-code <0|1> --out <scan.json>
+    atlas verify-scan <scan.json> --artifact <dir> --bundle <sigstore.json>
+      --policy <trust.json> --trusted-root <root.json> [--gh <absolute-executable>]
     atlas serve <artifact> [--repo <dir>] [--no-open] [--port <n>]
                                        browse an artifact in your browser (127.0.0.1 only)
 
@@ -139,6 +144,16 @@ export async function run(argv: readonly string[], io: CliIO): Promise<number> {
           throw new UsageError('findings requires one Ruff SARIF report, --artifact, --commit and --out.');
         return await findings(ctx, { report: positionals[0]!, artifact: values.artifact, commit: values.commit, out: values.out,
           ...(values['source-root'] !== undefined ? { sourceRoot: values['source-root'] } : {}), ...(values.baseline !== undefined ? { baseline: values.baseline } : {}) });
+      }
+      case 'scan-evidence': {
+        const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, strict: true, options: { artifact: { type: 'string' }, profile: { type: 'string' }, scope: { type: 'string' }, 'exit-code': { type: 'string' }, out: { type: 'string' }, json: { type: 'boolean' } } });
+        if (positionals.length !== 1 || !values.artifact || !values.profile || !values.scope || !values.out || !['0', '1'].includes(values['exit-code'] ?? '')) throw new UsageError('scan-evidence requires quality JSON, --artifact, --profile, --scope, --exit-code 0|1 and --out.');
+        return await scanEvidence(ctx, { quality: positionals[0]!, artifact: values.artifact, profile: values.profile, scope: values.scope, exitCode: Number(values['exit-code']), out: values.out });
+      }
+      case 'verify-scan': {
+        const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, strict: true, options: { artifact: { type: 'string' }, bundle: { type: 'string' }, policy: { type: 'string' }, 'trusted-root': { type: 'string' }, gh: { type: 'string' }, json: { type: 'boolean' } } });
+        if (positionals.length !== 1 || !values.artifact || !values.bundle || !values.policy || !values['trusted-root']) throw new UsageError('verify-scan requires scan JSON, --artifact, --bundle, --policy and --trusted-root.');
+        return await verifyScan(ctx, { evidence: positionals[0]!, artifact: values.artifact, bundle: values.bundle, policy: values.policy, trustedRoot: values['trusted-root'], ...(values.gh ? { gh: values.gh } : {}) });
       }
       default:
         throw new UsageError(`Unknown command "${command}". Run atlas --help.`);

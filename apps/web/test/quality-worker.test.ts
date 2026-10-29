@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeId } from '@atlas/schema';
+import { createScanEvidence, parseQualityReport } from '@atlas/graph';
 
 // Exercise the actual worker handler. These unit events model channel metadata;
 // real browser journeys separately prove that native File messages are accepted.
@@ -40,6 +41,13 @@ function event(overrides: Record<string, unknown> = {}): MessageEvent<unknown> {
 }
 
 describe('quality worker channel boundary', () => {
+  it('opens a scan manifest as a declaration without inventing authenticated browser provenance', async () => {
+    const report = parseQualityReport(await input().text());
+    const evidence = createScanEvidence(report, { format: 'atlas.ruff-profile/1', isolated: true, ignoreNoqa: true, respectGitignore: false, forceExclude: false, targetVersion: 'py314', rules: ['F401'] }, { format: 'atlas.scan-scope/1', files: [] }, 0, { analysisId: report.analysisId, repoId: report.repoId, snapshotId: report.snapshotId, commitOid: report.commitOid, files: [] });
+    await scope.onmessage!(event({ data: new File([JSON.stringify(evidence)], 'scan.json') }));
+    expect(scope.postMessage).toHaveBeenCalledWith({ ok: true, report, scan: evidence });
+    expect(scope.postMessage.mock.calls[0]![0]).not.toHaveProperty('verified');
+  });
   it('accepts a native-shaped private-channel File and validates its contents', async () => {
     await scope.onmessage!(event());
     expect(scope.postMessage).toHaveBeenCalledOnce();

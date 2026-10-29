@@ -1,15 +1,20 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { qualityTarget, validateQualityReport } from '@atlas/graph';
-import { QUALITY_LIMITS, type QualityReport } from '@atlas/schema';
+import { qualityTarget, validateQualityReport, validateScanEvidence } from '@atlas/graph';
+import { QUALITY_LIMITS, type QualityReport, type ScanEvidence, type RuffProfile } from '@atlas/schema';
 import { useViewer } from './context';
 
 type Slot = 'current' | 'baseline';
+export type DeclaredScanSummary = ReturnType<typeof validateScanEvidence> & {
+  profile: RuffProfile;
+  profileSha256: string;
+};
 interface QualityContextValue {
   open: boolean;
   setOpen: (open: boolean) => void;
   current: QualityReport | null;
   baseline: QualityReport | null;
   active: QualityReport | null;
+  scopes: Record<Slot, DeclaredScanSummary | null>;
   pending: boolean;
   error: string | null;
   message: string;
@@ -26,7 +31,11 @@ export function useExternalQuality(): QualityContextValue {
 export function QualityProvider({ children }: { children: ReactNode }) {
   const { dataset, model, queries } = useViewer();
   const [open, setOpen] = useState(false);
-  const [reports, setReports] = useState<Record<Slot, QualityReport | null>>({ current: null, baseline: null });
+  const [loaded, setLoaded] = useState<
+    Record<Slot, { report: QualityReport; scope: DeclaredScanSummary | null } | null>
+  >({ current: null, baseline: null });
+  const reports = { current: loaded.current?.report ?? null, baseline: loaded.baseline?.report ?? null };
+  const scopes = { current: loaded.current?.scope ?? null, baseline: loaded.baseline?.scope ?? null };
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -44,7 +53,7 @@ export function QualityProvider({ children }: { children: ReactNode }) {
     ticket.current++;
     cancel.current?.();
     cancel.current = null;
-    setReports({ current: null, baseline: null });
+    setLoaded({ current: null, baseline: null });
     setPending(false);
     setError(null);
     setMessage('External reports cleared from this session.');
@@ -58,7 +67,7 @@ export function QualityProvider({ children }: { children: ReactNode }) {
     setMessage('Checking the local quality report…');
     try {
       if (file.size > QUALITY_LIMITS.bytes) throw new Error('size');
-      const report = await new Promise<QualityReport>((resolve, reject) => {
+      const imported = await new Promise<{ report: QualityReport; scan: ScanEvidence | null }>((resolve, reject) => {
         const worker = new Worker(new URL('../data/quality.worker.ts', import.meta.url), {
           type: 'module',
           name: 'atlas-quality-import',
@@ -79,9 +88,9 @@ export function QualityProvider({ children }: { children: ReactNode }) {
           finish();
           reject(new Error('worker'));
         };
-        worker.onmessage = (event: MessageEvent<{ ok: boolean; report?: QualityReport }>) => {
+        worker.onmessage = (event: MessageEvent<{ ok: boolean; report?: QualityReport; scan?: ScanEvidence }>) => {
           finish();
-          if (event.data.ok && event.data.report) resolve(event.data.report);
+          if (event.data.ok && event.data.report) resolve({ report: event.data.report, scan: event.data.scan ?? null });
           else reject(new Error('invalid'));
         };
         try {
@@ -92,6 +101,7 @@ export function QualityProvider({ children }: { children: ReactNode }) {
         }
       });
       if (request !== ticket.current) return;
+      const { report, scan } = imported;
       const index = dataset.frames.findIndex(
         (f) => f.snapshotId === report.snapshotId && f.commit.oid === report.commitOid,
       );
@@ -99,16 +109,20 @@ export function QualityProvider({ children }: { children: ReactNode }) {
         throw new Error('binding');
       const graph = index === model.frame ? model.graph : queries ? (await queries.frame(index)).graph : null;
       if (!graph) throw new Error('frame');
-      validateQualityReport(report, qualityTarget(graph, dataset.manifest.analysisId));
+      const target = qualityTarget(graph, dataset.manifest.analysisId);
+      validateQualityReport(report, target);
+      const scope = scan
+        ? { ...validateScanEvidence(scan, target), profile: scan.profile, profileSha256: scan.profileSha256 }
+        : null;
       if (request !== ticket.current) return;
-      setReports((previous) => ({ ...previous, [slot]: report }));
+      setLoaded((previous) => ({ ...previous, [slot]: { report, scope } }));
       setMessage(
         `${slot === 'current' ? 'Current' : 'Baseline'} report opened: ${report.findings.length} Ruff findings. Nothing was uploaded.`,
       );
     } catch {
       if (request !== ticket.current) return;
       setError(
-        'Could not open this quality report. Use a valid atlas.quality/1 file of at most 8 MiB, created for a snapshot in this analysis. Existing reports are unchanged.',
+        'Could not open this quality report. Use a valid atlas.quality/1 or atlas.scan/1 file of at most 8 MiB, created for a snapshot in this analysis. Existing reports are unchanged.',
       );
       setMessage('Quality report was not opened.');
     } finally {
@@ -120,7 +134,9 @@ export function QualityProvider({ children }: { children: ReactNode }) {
   };
   const active = reports.current?.snapshotId === model.graph.snapshotId ? reports.current : null;
   return (
-    <QualityContext.Provider value={{ open, setOpen, ...reports, active, pending, error, message, load, clear }}>
+    <QualityContext.Provider
+      value={{ open, setOpen, ...reports, scopes, active, pending, error, message, load, clear }}
+    >
       {children}
     </QualityContext.Provider>
   );

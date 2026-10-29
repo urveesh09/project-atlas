@@ -1,0 +1,57 @@
+# Reviewed recipe; NOT an active repository workflow. Owner approval/copy/dispatch
+# is required. Public attestations disclose workflow identity/commit, not source.
+name: Produce an ATLAS scan attestation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Acquire a pinned scanner outside the analysis stage
+        run: |
+          mkdir -p "$RUNNER_TEMP/atlas-ruff" .atlas-tmp
+          curl --fail --location --proto '=https' --tlsv1.2 https://github.com/astral-sh/ruff/releases/download/0.17.3/ruff-x86_64-unknown-linux-gnu.tar.gz --output "$RUNNER_TEMP/atlas-ruff/ruff.tar.gz"
+          echo "2b0890f5a55900af741f133918c2656919bbf18c2ab7741b4ca8403a90e647a9  $RUNNER_TEMP/atlas-ruff/ruff.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/atlas-ruff/ruff.tar.gz" -C "$RUNNER_TEMP/atlas-ruff"
+      - name: Produce evidence from committed Python files in this trusted repository
+        run: node scripts/produce-scan-evidence.mjs --ruff "$RUNNER_TEMP/atlas-ruff/ruff-x86_64-unknown-linux-gnu/ruff" --out .atlas-tmp/scan-attestation
+      - name: Sign source-free scan evidence
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: .atlas-tmp/scan-attestation/scan.json
+          push-to-registry: false
+          create-storage-record: false
+      - name: Place the public bundle beside its signed subject
+        env:
+          ATLAS_BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: cp -- "$ATLAS_BUNDLE_PATH" .atlas-tmp/scan-attestation/scan.sigstore.json
+      - name: Retain only the evidence and public signature bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: atlas-signed-scan
+          path: |
+            .atlas-tmp/scan-attestation/scan.json
+            .atlas-tmp/scan-attestation/scan.sigstore.json
+          if-no-files-found: error
+          retention-days: 7
+# Never upload ruff.sarif, checkout/source, private credentials or a policy meant to
+# bootstrap the consumer's trust. The consumer chooses workflow/root policy separately.

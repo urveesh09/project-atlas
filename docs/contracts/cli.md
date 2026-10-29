@@ -81,3 +81,28 @@ Output must be new and outside the artifact (including resolved parent aliases).
 Exit 0 is a successful import, not a clean scan; 2 means dropped records (duplicates
 alone stay 0); 1 is failure, 64 usage, 130 cancelled. Read the
 [guide](../guides/external-findings.md) for limits, privacy and interpretation.
+
+## Scan evidence and provenance (ADR-086)
+
+```sh
+atlas scan-evidence quality.json --artifact <dir> --profile profile.json --scope scope.json --exit-code 0|1 --out scan.json [--json]
+atlas verify-scan scan.json --artifact <dir> --bundle bundle.json --policy trust.json --trusted-root root.json [--gh <absolute-executable>] [--json]
+```
+
+`scan-evidence` validates a separate `atlas.scan/1` manifest: the existing quality
+report, explicit isolated Ruff profile, unique path/blob scope and producer-asserted
+execution. Output must be new and outside the artifact. It runs no scanner and reports
+provenance as unverified. `verify-scan` independently validates artifact binding and
+invokes the official GitHub CLI 2.102.0 against private copies of local proof material.
+The operator selects the exact repository/workflow revision, source commit/ref and
+SHA-256-pinned root; no report-supplied policy becomes its own authority. The verifier
+has a minimal credential/proxy/config-free environment, a 20-second process deadline,
+2 MiB stdout limit and tree cancellation. No implicit download or upload is added.
+
+Both commands exit 2 for partial/empty declared Python scope or dropped records, 1 for
+failure, 64 for usage and 130 for cancellation. Exit 0 means matching declared analysis
+scope; only `verify-scan` additionally authenticates provenance. It never means lint-clean,
+complete repository scanning, resolved issues or a merge verdict. JSON output preserves
+the producer-asserted execution boundary. It is not a reusable browser trust receipt.
+See the [guide](../guides/scan-provenance.md) for exact schemas, caps and the inactive
+owner-reviewed signing example.

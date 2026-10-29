@@ -72,6 +72,12 @@ and inspect reported lint locations alongside the city. Exact-location compariso
 discloses unverified scope; missing findings never imply resolution. No scanner or
 repository code executes and nothing is uploaded (ADR-085).
 
+Optional [scan evidence and provenance](docs/guides/scan-provenance.md): record declared
+Ruff scope/profile with `atlas scan-evidence`, then use `atlas verify-scan` with local
+signature material and independently pinned GitHub workflow/source trust. The viewer
+shows declarations without treating them as authenticated. Provenance cannot establish
+a clean scan or issue resolution (ADR-086).
+
 | Pillar | Capability |
 |---|---|
 | Structure & navigation | Packages and directories as nested districts; search, tree, breadcrumbs, inspector, source links |
