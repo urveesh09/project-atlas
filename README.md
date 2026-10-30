@@ -83,6 +83,11 @@ tracks unchanged unique code context through line shifts and accepted renames in
 history analysis. Open the review in the viewer to follow either snapshot. Ambiguous
 or changed context stays unmatched; reported disappearance never means resolved (ADR-087).
 
+Optional [architecture review](docs/guides/architecture-review.md): `atlas review-architecture`
+checks declared production/test and package boundaries and compares static cycle
+components against an explicit baseline. It produces source-free JSON/Markdown,
+with opt-in CI policy checks and explicit coverage/retention limits (ADR-089).
+
 | Pillar | Capability |
 |---|---|
 | Structure & navigation | Packages and directories as nested districts; search, tree, breadcrumbs, inspector, source links |

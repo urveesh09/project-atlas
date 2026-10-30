@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Offline architecture review (`atlas review-architecture`): explicit file-role/path/
+  package boundaries, baseline relation and static-cycle component comparison,
+  bounded source-free JSON/Markdown, and opt-in CI policy failure (ADR-089).
 - Contextual Ruff finding review (`atlas review-findings`), bounded committed-source
   anchors, explicit historical-target/producer policies and browser review/navigation
   (ADR-087). Uncertain matches stay unmatched; no automatic resolved/clean verdict.

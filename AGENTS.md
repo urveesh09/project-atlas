@@ -52,6 +52,12 @@ Stored review verification claims remain unauthenticated in the browser. Produce
 recipes stay inactive; no release, deployment, private hosting or billing is authorized.
 ADR-088 updates the runtime security floor and every Node image pin to 24.22.1 after
 the original Q2.2 CI scan blocked 24.22.0. Keep the vulnerability gate unchanged.
+PR #54 is merged. Continued owner direction authorizes Q3 (ADR-089): offline
+`review-architecture` policies, baseline comparison and bounded JSON/Markdown reports.
+Read `docs/guides/architecture-review.md`. Policy execution, private hosting and billing
+are not authorized. CI blocking is explicit (`--fail-on new|all`, exit 3); incomplete
+evidence cannot establish a clean result. Cycle identity is component membership,
+not every possible cycle path. Do not change core graph bytes for this extension.
 
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime
 tracing, more languages or private hosted repositories, needs the owner's direction and
@@ -92,7 +98,7 @@ an ADR first.
 | `packages/analyzer-ts`, `analyzer-py`, `analyzer-core` | TS/JS and Python facts and resolution; snapshot/history orchestration (`analyzeCommit`) |
 | `packages/graph`, `history`, `layout` | Aggregation/SCCs/queries; lineage and churn; deterministic integer city layout |
 | `packages/artifact` | Packing, verification and loading (Node and browser) |
-| `packages/cli` | `atlas doctor/analyze/inspect/verify/serve/findings/scan-evidence/verify-scan/review-findings` |
+| `packages/cli` | `atlas doctor/analyze/inspect/verify/serve/findings/scan-evidence/verify-scan/review-findings/review-architecture` |
 | `packages/control` | Hosted control plane: migrations, roles, storage, publications, GitHub budget |
 | `apps/api`, `apps/worker`, `apps/web` | Hosted HTTP API; coordinator and sandboxes; React/Three.js viewer |
 | `deploy/` | Sandbox and API images, development stack; `production/` reference kit and validation tooling |
@@ -123,6 +129,9 @@ run compiled `dist/`. Rebuild before benchmarks or container tests.
 and live GitHub. The variables and setup are in [hosted development → Test gates](docs/hosted-development.md#test-gates).
 With physical gates enabled, Vitest runs one file at a time (`vitest.config.ts`) because
 fault tests deliberately exhaust memory and PIDs.
+Required browser verification (`ATLAS_REQUIRE_BROWSER_TESTS=1`) also runs one file
+at a time, so renderer/audit work does not overlap capacity fixtures or the Python
+oracle (ADR-092). Keep every audit, assertion and deadline intact.
 
 **Changes land through pull requests.** `main` requires a pull request and nine named
 checks, with no bypass ([ADR-046](docs/adr/ADR-046-security-triage-and-enforced-checks.md)).
@@ -149,7 +158,8 @@ must be green before a change counts as verified.
   (ADR-037).
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
-  The current sequence is ADR-001…ADR-088. Allocate ADR-089 next.
+  ADR-090/091 are reserved for the parallel architecture viewer/local-workspace PRs.
+  ADR-092 records browser test isolation. Allocate ADR-093 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

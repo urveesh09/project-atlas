@@ -73,9 +73,11 @@ try {
       output = execFileSync(process.execPath, ['--require', guard, bin, ...args], { cwd: work, env, encoding: 'utf8', windowsHide: true, timeout: 300_000, maxBuffer: 2 * 1024 * 1024 });
       assert.equal(expectedExit, 0, 'Expected the documented partial exit, not success');
     } catch (error) {
-      // Only the explicit unsigned-review case below accepts its documented partial
-      // status. A native failure, missing output, or any other command still fails.
-      if (args[0] !== 'review-findings' || expectedExit !== 2 || error.status !== 2) throw error;
+      // Only these explicit review invocations accept their documented nonzero
+      // statuses. Native failures, missing output and all other commands still fail.
+      const allowed = (args[0] === 'review-findings' && expectedExit === 2)
+        || (args[0] === 'review-architecture' && expectedExit === 3);
+      if (!allowed || error.status !== expectedExit) throw error;
       output = error.stdout;
     }
     stages.push({ stage: args[0], elapsedMs: performance.now() - started, ...(expectedExit ? { expectedExit } : {}), passed: true });
@@ -148,6 +150,23 @@ try {
   const analyzed = JSON.parse(await readFile(path.join(artifact, 'manifest.json'), 'utf8'));
   assert.equal(analyzed.frames.length, 12);
   assert.equal(analyzed.coverage.head.includedFiles, 26);
+  const architecturePolicy = path.join(work, 'architecture-policy.json');
+  await writeFile(architecturePolicy, JSON.stringify({ format: 'atlas.architecture-policy/1', rules: [{ id: 'pricing-ledger', kind: 'forbidden-dependency', from: { paths: ['src/server/pricing.ts'] }, to: { paths: ['packages/ledger/src/index.ts'] }, edgeKinds: ['imports-value'] }] }));
+  const architectureOutput = path.join(work, 'architecture-review.json');
+  const architectureArgs = ['review-architecture', artifact, '--policy', architecturePolicy, '--commit', analyzed.frames.at(-1).commit.oid, '--out', architectureOutput, '--fail-on', 'all', '--json'];
+  const architectureSummary = JSON.parse(cli(architectureArgs, 3));
+  assert.equal(architectureSummary.policyBlocked, true);
+  const architectureReview = JSON.parse(await readFile(architectureOutput, 'utf8'));
+  assert.equal(architectureReview.rules[0].current, 1);
+  assert.equal(architectureReview.rows[0].edge.from.path, 'src/server/pricing.ts');
+  assert.equal(architectureReview.rows[0].edge.to.path, 'packages/ledger/src/index.ts');
+  assert.equal(architectureReview.rows[0].edge.kind, 'imports-value');
+  assert(!(await readFile(architectureOutput, 'utf8')).includes(work));
+  const markdownArgs = [...architectureArgs];
+  markdownArgs[markdownArgs.indexOf(architectureOutput)] = path.join(work, 'architecture-review.md');
+  markdownArgs.push('--markdown');
+  cli(markdownArgs, 3);
+  assert((await readFile(path.join(work, 'architecture-review.md'), 'utf8')).includes('pricing&#46;ts'));
   server = spawn(process.execPath, ['--require', guard, bin, 'serve', artifact, '--repo', demo.dir, '--no-open', '--json'], { cwd: work, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   server.stderr.resume();
   const serving = await new Promise((resolve, reject) => {

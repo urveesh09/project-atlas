@@ -21,7 +21,7 @@ export interface CommandContext {
   note(line?: string): void;
 }
 
-export const EXIT = { ok: 0, failure: 1, partial: 2, usage: 64, cancelled: 130 } as const;
+export const EXIT = { ok: 0, failure: 1, partial: 2, policyBlocked: 3, usage: 64, cancelled: 130 } as const;
 
 export class UsageError extends Error {
   constructor(message: string) {

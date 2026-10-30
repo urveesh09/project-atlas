@@ -34,6 +34,101 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### PR #55 browser verification correction (2026-10-29)
+
+The first Q3 head `0656688` passed 17 checks and all 31 new architecture tests;
+macOS's existing named-view journey exceeded its unchanged 30-second deadline.
+Its menu/imported/restored audits eventually recorded zero violations, but those
+late callbacks do not establish a passing journey. Retain the
+[original failed job](https://github.com/urveesh09/project-atlas/actions/runs/40924967843/job/123627912440)
+and its accessibility artifact.
+
+[ADR-092](adr/ADR-092-isolated-browser-verification.md) records observed overlap with
+the other file worker's 24.56-second exact-capacity fixture and 84.54-second Python
+oracle. Required browser verification now selects one file worker, as physical
+fault gates already did. Every test, assertion, audit tag/rule, poll and deadline
+remains unchanged. This removes proven avoidable workload overlap; CPU contention
+is still an inference, not a proven sole cause of every historical timeout.
+
+Completed `axe-*.jsonl` records now add settle/axe/total timing, test-worker CPU
+deltas and whitelisted renderer/mode/visibility/counts. Separate typed
+`audit-timings-*.jsonl` records show begin/settled/complete/failure phases; an
+unfinished audit is never written as a completed zero-violation record. Diagnostics
+do not activate benchmark mode, create/query WebGL contexts or change product state.
+Human/device accessibility and G6/R6 acceptance remain open.
+
+Local corrected verification passes **1,052 tests, 92 gated skips**, including all
+53 Chromium journeys with the original deadlines and all audit rules. One file
+worker completes the full run in 464.22 seconds on the Windows development host.
+The named-view audits take 1,297/1,584/3,287 ms in its three states, all with zero
+violations; automated incomplete results remain present for human review. These
+are diagnostic observations, not reference-hardware performance acceptance.
+Fresh macOS and the complete exact-head CI matrix must pass before PR readiness.
+
+### Offline architecture review: Q3 (2026-10-29)
+
+- Continued owner direction after merged PR #54 (`16f20df`) authorizes
+  [ADR-089](adr/ADR-089-offline-architecture-review.md) and the
+  [architecture review guide](guides/architecture-review.md). Explicit declarative
+  production/test and package boundaries evaluate resolved internal file edges;
+  fixed-policy static cycle components compare by bounded member lineage.
+- `atlas review-architecture` produces bounded source-free JSON or escaped Markdown,
+  with per-rule match/selector counts, full frame coverage, relation evidence and
+  declared baseline comparisons. Opt-in `--fail-on new|all` returns 3; incomplete
+  nonblocking evidence returns 2. Unknown/duplicate fields/keys, invalid paths,
+  excessive input/depth and artifact-relative/alias outputs fail closed. No Git,
+  scanner, repository config, network, publication or executable policy runs.
+- Relation identities are computed once per frame and reused across all rules.
+  A first development sample spent 14.17 s and ended at 984 MiB RSS while hashing
+  each matching relation for every rule. Reusing relation hashes removes that
+  repeated work; [20 fresh-process observations](benchmarks/architecture-review-capacity.md)
+  exercise 10,000 files/100,000 edges per frame, 16 rules and 1.6 million matches.
+  These are synthetic development observations, not a new SLA or G6 capacity pass.
+- Development checks caught two test mistakes: a substring assertion also matched
+  `unresolved` in coverage, and a synthetic fixture invented `schemaVersion` on a
+  graph frame. The assertion now checks the actual verdict token, and the fixture
+  follows the re-read graph contract. No production assertion/deadline was loosened.
+- The existing cycle engine may return a truncated nonclosed path for a long cycle.
+  This extension checks closure and edge continuity before exporting a witness;
+  otherwise it reports unavailable. It does not change analyzer cycle bytes or
+  enumerate every simple cycle/new route inside an existing component.
+- Core analyzer dev.10, artifact 1.4.0, existing viewer and free features remain
+  unchanged. UI overlays/import, private workspaces and billing remain later work.
+  Interactive workflows remain intentionally separate from this offline increment.
+- **Final local verification, Node 24.22.1 / Windows:** `pnpm verify` passes
+  **1,052 tests, 92 explicit gated skips** (95 passing files, 5 skipped). Typecheck,
+  layering and all **15 generated contracts** pass. All 53 Chromium viewer journeys
+  run with CI software rendering; the two real GitHub verifier fixtures are enabled.
+  The local Python oracle uses 3.14; CI retains its pinned 3.15 oracle.
+- **Independent evidence:** 31 new focused tests cover authored mixed TS/Python
+  violations, a new static cycle, continuing package evidence, bounded lineage,
+  uncertainty, hostile/ambiguous policies, exclusive output/aliases, byte caps and
+  escaped Markdown. A fixed report digest checks cross-platform bytes; independent
+  semantic assertions establish the expected counts, separately from that golden.
+- **Exact baseline:** all six pinned repositories complete five offline repeats and
+  preserve every committed payload byte and authored source expectation. Vite retains
+  its expected partial coverage. Generated environment reports are retained locally;
+  the committed historical baseline is not rewritten.
+- **Portable CLI:** all **17 stages** pass from a fresh directory outside the checkout,
+  including authored boundary JSON/Markdown and explicitly expected exit 3. The entry
+  process denies outbound sockets; the browser has zero outbound requests/page errors.
+  Final development archive: 10,862,072 bytes, SHA-256
+  `f25ad1e54ae1ddc96c537fa099591805bf014215f89966307497a0060a205882`.
+  This dirty-tree archive is not a release artifact; historical package evidence stays
+  unchanged. Fresh exact-head CI/security results are retained on the implementation PR.
+
+### PR #54 closure and retained CI timeout (2026-10-29)
+
+The owner merged PR #54 after all 18 checks passed on `3247cbb`. Both patched
+images passed the unchanged scanner policy with zero blocking matches. The first
+Windows verify attempt exceeded the existing 30-second deadline while rebuilding
+Harbor in `first-session.test.ts`; this was not a native crash or a commit-equality
+mismatch. Twenty local rebuilds retained identical 12-commit histories (worst 2.25 s).
+The unchanged Windows rerun passed, with that six-test file taking 5.74 s, and all
+15 portable-package stages passing. Cause remains unproven. Preserve the original
+[failed job](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123519713078)
+and [successful rerun](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123526710451).
+
 ### Runtime security maintenance during Q2.2 (2026-10-29)
 
 The initial PR #54 image scan on `ac62e98` blocked both images: Node 24.22.0 had

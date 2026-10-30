@@ -1,5 +1,13 @@
 # CLI contract
 
+Q3's [architecture review contract](../guides/architecture-review.md) and ADR-089 add
+`review-architecture`. It reads only validated artifact data and an explicit JSON
+policy. Exclusive sidecar output is JSON by default or Markdown with `--markdown`.
+Default review mode returns 0/2 for complete/incomplete evidence; opt-in
+`--fail-on new|all` returns **3** for observed blocking policy matches, including when
+coverage is partial. `new` requires an earlier baseline. Errors/usage/cancellation
+remain 1/64/130. This is not an authenticated security or merge-approval verdict.
+
 From plan §14. `doctor`, `analyze`, `inspect`, `verify` and `serve` are implemented through P2.6. History options take effect and history is on by default. `--no-history` explicitly disables only history. Inspect reports the requested/observed window, frame selection, lineage and history availability; verification streams every frame. Serve verifies source attachment for every declared historical frame.
 
 The optional `findings` extension is specified separately below (ADR-085); its import
@@ -16,6 +24,9 @@ atlas verify <artifact-dir>
 atlas serve <artifact-dir> [--repo <dir>] [--no-open]
 atlas findings <ruff.sarif> --artifact <dir> --commit <full-oid> --out <quality.json>
                [--source-root <dir>] [--baseline <quality.json>] [--json]
+atlas review-architecture <artifact-dir> --policy <policy.json> --commit <full-oid>
+               --out <review.json> [--baseline <earlier-full-oid>] [--markdown]
+               [--fail-on new|all] [--json]
 ```
 
 `doctor` requires the Node 24 major and recommends at least 24.22.1, matching the

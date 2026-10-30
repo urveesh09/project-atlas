@@ -30,6 +30,8 @@ file/profile accounting and explicit offline signature verification. The signing
 needs owner activation; browser declarations alone are unauthenticated.
 For changes across commits, [contextual finding review](guides/finding-review.md)
 tracks evidence against committed source and lets you navigate both snapshots.
+For team boundaries, [architecture review](guides/architecture-review.md) evaluates
+explicit policies offline and produces JSON/Markdown reports with optional CI blocking.
 
 1. Install **Node.js 24.22.1**: <https://nodejs.org/en/download> (choose v24.22.1). Check
    with `node --version`.
