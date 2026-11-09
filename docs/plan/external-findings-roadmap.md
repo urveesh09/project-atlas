@@ -38,5 +38,6 @@ Read [the user guide](../guides/external-findings.md) for Q1 commands and limita
 Read [contextual finding review](../guides/finding-review.md) for Q2.2's exact identity,
 source/privacy bounds and the inactive historical producer/signing recipe.
 Read [offline architecture review](../guides/architecture-review.md) for Q3's policy
-format, scope, evidence bounds, exit codes and CI examples. Interactive architecture
-overlays/import are later work; Q4 private hosting/billing is not authorized by Q3.
+format, scope, evidence bounds, exit codes and CI examples. The
+[city guide](../guides/architecture-city.md) covers Q3.1 local import, background
+recomputation and current/baseline file navigation.

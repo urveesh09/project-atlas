@@ -20,6 +20,16 @@
 .external-quality .quality-caveat { border-inline-start: 3px solid var(--warn); padding-inline-start: 12px; }
 .external-quality .finding-review .rows li { display: grid; gap: 6px; }
 .finding-review .rows li > div { min-width: 0; }
+.architecture-review .rows > li { display: grid; gap: 6px; min-width: 0; padding-block: 12px; }
+.architecture-review .rows > li + li { border-top: 1px solid var(--border); }
+.architecture-file-links { display: grid; justify-items: start; gap: 4px; min-width: 0; }
+.architecture-review .link { max-width: 100%; overflow-wrap: anywhere; text-align: start; }
+.architecture-review details { min-width: 0; }
+.architecture-review .architecture-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 14px; }
+.architecture-filters > div { display: grid; gap: 4px; max-width: 100%; }
+.architecture-filters select { min-height: 44px; max-width: 100%; }
+.architecture-rule-counts { padding-inline-start: 20px; }
+.topbar-actions .architecture-toggle { min-height: 44px; }
 :root {
   color-scheme: dark;
   --bg: #0f131b;

@@ -5,8 +5,8 @@ import path from 'node:path';
 import { chromium, firefox, webkit, type Browser, type BrowserContext, type BrowserType, type Page } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
-import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION } from '@atlas/schema';
-import { createScanEvidence, parseQualityReport, qualityTarget, importRuffSarif, parseFindingReview, createFindingReview } from '@atlas/graph';
+import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION, type ArtifactBundle, type ArchitectureReview } from '@atlas/schema';
+import { createScanEvidence, parseQualityReport, qualityTarget, importRuffSarif, parseFindingReview, createFindingReview, reviewArchitecture } from '@atlas/graph';
 import { run, type CliIO } from '@atlas/cli';
 import { viewerDirectory } from '../src/commands/serve.js';
 import { SourceAttachment } from '../src/server/source.js';
@@ -1788,5 +1788,171 @@ describe.runIf(browserAvailable && viewerBuilt)('contextual finding reviews', ()
       expect(requests.every((r) => r.method === 'GET' && new URL(r.url).origin === new URL(reviewServer.url).origin)).toBe(true);
       expect(errors).toEqual([]);
     } finally { await isolated.close(); }
+  });
+});
+
+describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city', () => {
+  let repository: GitFixture, capacityRepository: GitFixture, bundle: ArtifactBundle, capacityBundle: ArtifactBundle;
+  const directory = () => path.join(work, 'architecture-city-artifact');
+  const capacityDirectory = () => path.join(work, 'architecture-city-capacity');
+  const io = (): CliIO => ({ cwd: work, env: { NO_COLOR: '1' }, signal: new AbortController().signal, stdout: { write: () => true }, stderr: { write: () => true } });
+  beforeAll(async () => {
+    const original = Array.from({ length: 30 }, (_, i) => `// retained context ${i}\n`).join('') + 'import { helper } from "./helper";\nexport const main = helper;\n';
+    repository = createGitFixture([
+      { date: '2026-10-01T00:00:00Z', message: 'authored baseline', files: { 'package.json': '{"name":"architecture-city"}', 'src/main.ts': original, 'src/helper.ts': 'export const helper = 1;\n', 'tests/helper.ts': 'export const fixture = 2;\n' } },
+      { date: '2026-10-02T00:00:00Z', message: 'authored rename, boundary and cycle', renames: [['src/main.ts', 'src/entry.ts']], files: { 'src/entry.ts': original + 'import { fixture } from "../tests/helper";\nexport const observed = fixture;\n', 'src/helper.ts': 'import { main } from "./entry";\nexport const helper = main;\n' } },
+    ], { parent: work });
+    expect(await run(['analyze', repository.dir, '--out', directory(), '--snapshots', '2'], io())).toBe(0);
+    const loaded = await readArtifactDirectory(directory()); if (!loaded.ok) throw new Error('architecture city fixture');
+    bundle = loaded.bundle;
+    const policy = { format: 'atlas.architecture-policy/1' as const, rules: [
+      { id: 'prod-tests', kind: 'forbidden-dependency' as const, from: { roles: ['source' as const] }, to: { roles: ['test' as const] }, edgeKinds: ['imports-value' as const] },
+      { id: 'retained-helper', kind: 'forbidden-dependency' as const, from: { paths: ['src'] }, to: { paths: ['src/helper.ts'] }, edgeKinds: ['imports-value' as const] },
+      { id: 'all', kind: 'cycle' as const },
+    ] };
+    const review: ArchitectureReview = reviewArchitecture(bundle.manifest.analysisId, bundle.graphs[1]!, policy, bundle.graphs[0]!);
+    expect(review.rules.find(r => r.ruleId === 'prod-tests')).toMatchObject({ current: 1, baseline: 0, newlyObserved: 1 });
+    expect(review.rules.find(r => r.ruleId === 'retained-helper')).toMatchObject({ current: 1, baseline: 1, continuing: 1 });
+    expect(review.rules.find(r => r.ruleId === 'all')).toMatchObject({ current: 1, baseline: 0, newlyObserved: 1 });
+    expect(review.rows).toHaveLength(3);
+    writeFileSync(path.join(work, 'architecture-city.json'), JSON.stringify(review));
+    const tampered = structuredClone(review); tampered.rules[0]!.current++;
+    writeFileSync(path.join(work, 'architecture-city-tampered.json'), JSON.stringify(tampered));
+    writeFileSync(path.join(work, 'architecture-city-claimed.json'), JSON.stringify({ ...review, verified: true, source: 'PRIVATE_INPUT_SENTINEL' }));
+    const files: Record<string, string> = { 'package.json': '{"name":"architecture-capacity"}', 'src/f0.ts': 'export const value = 0;\n' };
+    for (let i = 1; i < 140; i++) files[`src/f${i}.ts`] = `import { value } from './f0';\nexport const item${i} = value;\n`;
+    capacityRepository = createGitFixture([{ date: '2026-10-03T00:00:00Z', message: 'authored retained-row capacity', files }], { parent: work });
+    expect(await run(['analyze', capacityRepository.dir, '--out', capacityDirectory(), '--no-history'], io())).toBe(0);
+    const capacity = await readArtifactDirectory(capacityDirectory()); if (!capacity.ok) throw new Error('architecture capacity fixture');
+    capacityBundle = capacity.bundle;
+    const capacityPolicy = { format: 'atlas.architecture-policy/1' as const, rules: Array.from({ length: 16 }, (_, i) => ({ id: `boundary-${i}`, kind: 'forbidden-dependency' as const, from: { paths: ['src'] }, to: { paths: ['src'] }, edgeKinds: ['imports-value' as const] })) };
+    const report = reviewArchitecture(capacityBundle.manifest.analysisId, capacityBundle.graphs[0]!, capacityPolicy);
+    expect(report.rules.every(r => r.current === 139)).toBe(true);
+    expect(report.rows).toHaveLength(2000); expect(report.rowsOmitted).toBe(224);
+    writeFileSync(path.join(work, 'architecture-city-capacity.json'), JSON.stringify(report));
+  }, 60_000);
+  afterAll(() => { repository?.dispose(); capacityRepository?.dispose(); });
+
+  async function openArchitecture(large = false, width = 1280) {
+    const serving = await startViewerServer({ artifactDir: large ? capacityDirectory() : directory(), bundle: large ? capacityBundle : bundle, viewerDir: viewerDirectory(), source: SourceAttachment.none('NOT_REQUESTED') });
+    const isolated = await browser.newContext({ viewport: { width, height: 940 } });
+    const page = await isolated.newPage(), errors: string[] = [], requests: { url: string; method: string }[] = [];
+    page.on('pageerror', error => errors.push(String(error)));
+    page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+    page.on('request', request => requests.push({ url: request.url(), method: request.method() }));
+    try {
+      await page.goto(serving.sessionUrl); await page.waitForSelector('#overview-title');
+      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await page.getByRole('button', { name: 'Architecture review', exact: true }).click();
+      const panel = page.getByRole('region', { name: 'Architecture review', exact: true });
+      return { isolated, serving, page, panel, errors, requests, close: async () => { await isolated.close(); await serving.close(); } };
+    } catch (error) { await isolated.close(); await serving.close(); throw error; }
+  }
+  const openReport = async (page: Page, large = false) => {
+    await page.locator('input[data-architecture-input]').setInputFiles(path.join(work, large ? 'architecture-city-capacity.json' : 'architecture-city.json'));
+    await page.getByRole('region', { name: 'Architecture review', exact: true }).getByRole('heading', { name: 'Recomputed policy evidence', exact: true }).waitFor({ timeout: 20_000 });
+  };
+
+  it('recomputes a local report, filters states and follows current and renamed baseline files', async () => {
+    const test = await openArchitecture();
+    try {
+      const { page, panel } = test;
+      await openReport(page);
+      expect(await panel.innerText()).toContain('Producer provenance remains unauthenticated');
+      expect(await panel.innerText()).toContain('3 retained rows; 0 omitted');
+      const relation = panel.locator('[data-architecture-rule="prod-tests"]');
+      await relation.getByRole('button', { name: 'Baseline file: src/main.ts', exact: true }).click();
+      await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('main.ts');
+      await relation.getByRole('button', { name: /^Current file: src\/entry.ts:/ }).click();
+      await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('entry.ts');
+      await expect.poll(() => page.getByRole('tab', { name: 'Dependencies', exact: true }).getAttribute('aria-selected')).toBe('true');
+      expect(await page.getByRole('tabpanel').innerText()).toContain('tests/helper.ts');
+      await panel.getByLabel('Architecture evidence state', { exact: true }).selectOption('continuing');
+      await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(1);
+      await panel.getByLabel('Architecture evidence state', { exact: true }).selectOption('all');
+      await panel.getByLabel('Architecture rule', { exact: true }).selectOption('all');
+      await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(1);
+      expect(await panel.locator('[data-architecture-kind="cycle"]').count()).toBe(1);
+      await panel.getByText('Closed witness relationships (2)', { exact: true }).click();
+      expect(await panel.innerText()).toContain('value import');
+      await panel.getByLabel('Architecture rule', { exact: true }).selectOption('');
+      expect(await audit(page, 'architecture-review-evidence')).toEqual([]);
+      if (process.env['ATLAS_CAPTURE_ARCHITECTURE'] === '1') await page.screenshot({ path: path.resolve(`.atlas-tmp/architecture-city-${engineName}.png`), fullPage: true });
+      expect(test.requests.every(r => r.method === 'GET' && new URL(r.url).origin === new URL(test.serving.url).origin)).toBe(true);
+      expect(test.errors).toEqual([]);
+    } finally { await test.close(); }
+  });
+
+  it('keeps prior evidence on invalid imports, clears on request, and stores nothing across reload', async () => {
+    const test = await openArchitecture();
+    try {
+      const { page, panel } = test;
+      await openReport(page);
+      const prior = await panel.locator('.section-description code').innerText();
+      for (const file of ['architecture-city-tampered.json', 'architecture-city-claimed.json']) {
+        await page.locator('input[data-architecture-input]').setInputFiles(path.join(work, file));
+        await panel.getByRole('alert').waitFor();
+        expect(await panel.locator('.section-description code').innerText()).toBe(prior);
+        expect(await panel.innerText()).not.toContain('PRIVATE_INPUT_SENTINEL');
+      }
+      await panel.getByRole('button', { name: 'Clear architecture review', exact: true }).click();
+      await expect.poll(() => panel.getByRole('heading', { name: 'Recomputed policy evidence', exact: true }).count()).toBe(0);
+      await openReport(page);
+      await page.reload(); await page.waitForSelector('#overview-title');
+      await page.getByRole('button', { name: 'Architecture review', exact: true }).click();
+      expect(await panel.getByRole('heading', { name: 'Recomputed policy evidence', exact: true }).count()).toBe(0);
+      expect(test.errors).toEqual([]);
+    } finally { await test.close(); }
+  });
+
+  it('checks all 2,000 retained rows in the real worker and resets progressive reveal on filters and reimport', async () => {
+    const test = await openArchitecture(true);
+    try {
+      const { page, panel } = test;
+      await openReport(page, true);
+      expect(await panel.innerText()).toContain('2000 retained rows; 224 omitted');
+      expect(await panel.innerText()).toContain('Some matching evidence could not be retained');
+      expect(await panel.locator('[data-architecture-kind]').count()).toBe(20);
+      await panel.getByRole('button', { name: /^Show 20 more/ }).click();
+      await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(40);
+      await panel.getByLabel('Architecture evidence state', { exact: true }).selectOption('continuing');
+      await expect.poll(() => panel.innerText()).toContain('No retained evidence matches');
+      await panel.getByLabel('Architecture evidence state', { exact: true }).selectOption('all');
+      await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(20);
+      await panel.getByRole('button', { name: /^Show 20 more/ }).click();
+      await page.locator('input[data-architecture-input]').setInputFiles(path.join(work, 'architecture-city-capacity.json'));
+      await expect.poll(() => panel.locator('[data-architecture-kind]').count(), { timeout: 20_000 }).toBe(20);
+      expect(await panel.getByRole('alert').count()).toBe(0);
+      expect(test.errors).toEqual([]);
+    } finally { await test.close(); }
+  });
+
+  it('supports keyboard import, 320px reflow and discards evidence when another artifact opens', async () => {
+    const test = await openArchitecture(false, 320);
+    try {
+      const { page, panel } = test;
+      const chooser = page.waitForEvent('filechooser');
+      await panel.getByRole('button', { name: 'Open architecture review JSON…', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      await (await chooser).setFiles(path.join(work, 'architecture-city.json'));
+      await panel.getByRole('heading', { name: 'Recomputed policy evidence', exact: true }).waitFor();
+      await expectNoSidewaysScroll(page);
+      expect(await audit(page, 'architecture-review-narrow-320')).toEqual([]);
+      await panel.getByRole('button', { name: 'Hide architecture review', exact: true }).focus();
+      await page.keyboard.press('Escape');
+      expect(await page.locator('#architecture-review-toggle').evaluate(element => element === document.activeElement)).toBe(true);
+      await page.getByRole('button', { name: 'Open artifact…', exact: true }).click();
+      // Match the existing browser-only picker guard: Safari can acknowledge late.
+      let pickError: unknown;
+      void page.locator('input[webkitdirectory]').setInputFiles(capacityDirectory()).catch(error => { pickError = error; });
+      await page.locator('.repo-name').filter({ hasText: capacityBundle.manifest.repo.displayName }).waitFor();
+      expect(pickError).toBeUndefined();
+      await page.getByRole('button', { name: 'Architecture review', exact: true }).click();
+      expect(await panel.getByRole('heading', { name: 'Recomputed policy evidence', exact: true }).count()).toBe(0);
+      await openReport(page, true);
+      expect(await panel.innerText()).toContain('2000 retained rows; 224 omitted');
+      expect(test.requests.every(r => r.method === 'GET' && new URL(r.url).origin === new URL(test.serving.url).origin)).toBe(true);
+      expect(test.errors).toEqual([]);
+    } finally { await test.close(); }
   });
 });
