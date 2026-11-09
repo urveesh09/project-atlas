@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Extract a locally built candidate away from the checkout and prove offline usability. */
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, mkdir, readdir, lstat, rm, access } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, readdir, lstat, rm, access, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +15,7 @@ import { parseFindingReview } from '../packages/graph/dist/index.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const result = JSON.parse(await readFile(process.argv[2], 'utf8'));
 assert.equal(createHash('sha256').update(await readFile(result.archive)).digest('hex'), result.sha256, 'Archive digest mismatch');
-const work = await mkdtemp(path.join(os.tmpdir(), 'atlas-cli-install-'));
+const work = await mkdtemp(path.join(await realpath(os.tmpdir()), 'atlas-cli-install-'));
 let demo, qualityRepo, reviewRepo, server, browser;
 const stages = [];
 const env = { PATH: process.env.PATH ?? '', ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), NO_COLOR: '1' };
@@ -80,7 +80,8 @@ try {
       if (!allowed || error.status !== expectedExit) throw error;
       output = error.stdout;
     }
-    stages.push({ stage: args[0], elapsedMs: performance.now() - started, ...(expectedExit ? { expectedExit } : {}), passed: true });
+    const stage = args[0] === 'workspace' ? `workspace-${args[1]}` : args[0];
+    stages.push({ stage, elapsedMs: performance.now() - started, ...(expectedExit ? { expectedExit } : {}), passed: true });
     return output;
   };
   cli(['doctor']);
@@ -167,6 +168,25 @@ try {
   markdownArgs.push('--markdown');
   cli(markdownArgs, 3);
   assert((await readFile(path.join(work, 'architecture-review.md'), 'utf8')).includes('pricing&#46;ts'));
+  const workspace = path.join(work, 'architecture-workspace');
+  const workspaceArtifact = ['--artifact', artifact, '--json'];
+  const initialized = JSON.parse(cli(['workspace', 'init', architectureOutput, ...workspaceArtifact, '--out', workspace]));
+  assert.equal(initialized.revision, 0);
+  const issueId = architectureReview.rows[0].id;
+  const decided = JSON.parse(cli(['workspace', 'decide', workspace, ...workspaceArtifact, '--issue', issueId, '--state', 'acknowledged', '--owner', 'maintainers', '--expected-revision', '0']));
+  assert.equal(decided.revision, 1);
+  assert.equal(decided.policyOverride, 'none');
+  assert.equal(decided.reportSha256, initialized.reportSha256);
+  assert.deepEqual(decided.decisions, [{ issueId, reportSha256: decided.reportSha256, state: 'acknowledged', owner: 'maintainers', changedRevision: 1 }]);
+  const workspaceExport = path.join(work, 'workspace-export.json');
+  cli(['workspace', 'export', workspace, ...workspaceArtifact, '--out', workspaceExport]);
+  const exported = await readFile(workspaceExport, 'utf8');
+  assert(!exported.includes(work));
+  assert.deepEqual(JSON.parse(exported).report, architectureReview);
+  const restored = path.join(work, 'architecture-workspace-restored');
+  cli(['workspace', 'import', workspaceExport, ...workspaceArtifact, '--out', restored]);
+  assert.equal(await readFile(path.join(restored, 'workspace.json'), 'utf8'), exported);
+  assert.deepEqual(JSON.parse(cli(['workspace', 'inspect', restored, ...workspaceArtifact])), decided);
   server = spawn(process.execPath, ['--require', guard, bin, 'serve', artifact, '--repo', demo.dir, '--no-open', '--json'], { cwd: work, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   server.stderr.resume();
   const serving = await new Promise((resolve, reject) => {

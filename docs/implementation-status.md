@@ -117,6 +117,19 @@ Fresh macOS and the complete exact-head CI matrix must pass before PR readiness.
   This dirty-tree archive is not a release artifact; historical package evidence stays
   unchanged. Fresh exact-head CI/security results are retained on the implementation PR.
 
+### Local review workspace: Q4 preparation (2026-11-09)
+
+- [ADR-091](adr/ADR-091-local-review-workspaces.md) and the
+  [workspace guide](guides/local-review-workspace.md) define five local CLI
+  actions. Every action recomputes its architecture evidence against the matching
+  artifact. Structured decisions bind to an exact report and issue. Concurrent
+  or stale writes fail before replacing the state, and a portable copy preserves
+  the revision and decisions without weakening a policy exit.
+- [Verification](benchmarks/local-review-workspace.md) covers the isolated
+  filesystem store, CLI round trips, portable package and unchanged analyzer
+  corpus. This is a local pilot foundation. Shared access, tenancy, billing and
+  G6/R6 acceptance require separate evidence.
+
 ### PR #54 closure and retained CI timeout (2026-10-29)
 
 The owner merged PR #54 after all 18 checks passed on `3247cbb`. Both patched

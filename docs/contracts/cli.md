@@ -146,3 +146,20 @@ cancelled. Newly/no longer reported accounting never establishes a fix or merge 
 The browser always treats stored verification claims as unauthenticated declarations.
 Importing a review atomically replaces both reports; invalid imports preserve previous
 state. Individual report import, clear, reload and dataset replacement clear the review.
+
+## Local architecture review workspace (ADR-091)
+
+```sh
+atlas workspace init review.json --artifact <dir> --out <new-workspace> [--json]
+atlas workspace inspect <workspace> --artifact <dir> [--json]
+atlas workspace decide <workspace> --artifact <dir> --issue <full-ar-id> --state needs-review|acknowledged|deferred --expected-revision <n> [--owner <queue>] [--json]
+atlas workspace export <workspace> --artifact <dir> --out <new-file.json> [--json]
+atlas workspace import <export.json> --artifact <dir> --out <new-workspace> [--json]
+```
+
+Each command recomputes the stored architecture review against the matching artifact.
+Decision revisions serialize cooperating local writers. Destinations are exclusive
+and decisions leave architecture policy results intact. Exit 0 means the workspace
+operation completed, 1 indicates failure or conflict, 64 indicates invalid arguments,
+and 130 indicates cancellation. See the [local workspace guide](../guides/local-review-workspace.md)
+for ownership queues, filesystem rules and recovery.

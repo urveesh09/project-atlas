@@ -24,7 +24,7 @@ import { findStaticCycles } from './scc.js';
 function fail(message: string): never { throw new QualityImportError(message); }
 function unique(values: readonly string[]): boolean { return new Set(values).size === values.length; }
 /** JSON.parse accepts duplicate keys. Reject ambiguity, including escaped key aliases. */
-function architectureJson(text: string, limit: number): unknown {
+export function parseBoundedReviewJson(text: string, limit: number): unknown {
   const value = parseScanJson(text, limit);
   const stack: (Set<string> | null)[] = [];
   for (let i = 0; i < text.length; i++) {
@@ -54,7 +54,7 @@ function architectureJson(text: string, limit: number): unknown {
   return value;
 }
 export function parseArchitecturePolicy(text: string): ArchitecturePolicy {
-  const parsed = ArchitecturePolicySchema.safeParse(architectureJson(text, ARCHITECTURE_LIMITS.policyBytes));
+  const parsed = ArchitecturePolicySchema.safeParse(parseBoundedReviewJson(text, ARCHITECTURE_LIMITS.policyBytes));
   if (!parsed.success)
     fail('Invalid or unsupported architecture policy.');
   const policy = parsed.data;
@@ -199,7 +199,7 @@ export function reviewArchitecture(analysisId: string, current: GraphSnapshot, p
   return report;
 }
 export function validateArchitectureReview(text: string, analysisId: string, current: GraphSnapshot, baseline: GraphSnapshot | null = null): ArchitectureReview {
-  const parsed = ArchitectureReviewSchema.safeParse(architectureJson(text, ARCHITECTURE_LIMITS.reportBytes));
+  const parsed = ArchitectureReviewSchema.safeParse(parseBoundedReviewJson(text, ARCHITECTURE_LIMITS.reportBytes));
   if (!parsed.success)
     fail('Invalid or unsupported architecture review.');
   const expected = reviewArchitecture(analysisId, current, parsed.data.policy, baseline);
