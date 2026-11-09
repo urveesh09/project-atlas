@@ -9,3 +9,4 @@ export * from './quality.js';
 export * from './scan.js';
 export * from './finding-review.js';
 export * from './architecture.js';
+export * from './workspace.js';

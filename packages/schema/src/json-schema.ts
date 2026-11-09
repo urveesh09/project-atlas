@@ -10,6 +10,7 @@ import { QualityReportSchema } from './quality.js';
 import { ScanEvidenceSchema, ScanTrustPolicySchema, ScanScopeSchema, RuffProfileSchema } from './scan.js';
 import { FindingReviewSchema, ReviewScanTrustSchema } from './finding-review.js';
 import { ArchitecturePolicySchema, ArchitectureReviewSchema } from './architecture.js';
+import { ReviewWorkspaceSchema } from './workspace.js';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION, LAYOUT_VERSION, METRIC_DEFINITION_VERSION } from './versions.js';
 
 /**
@@ -32,6 +33,7 @@ const ARTIFACT_SCHEMAS = {
   'review-scan-trust': ReviewScanTrustSchema,
   'architecture-policy': ArchitecturePolicySchema,
   'architecture-review': ArchitectureReviewSchema,
+  'local-review-workspace': ReviewWorkspaceSchema,
 } as const;
 
 const API_SCHEMAS = {
@@ -65,6 +67,7 @@ export function artifactJsonSchemas(): Record<string, Record<string, unknown>> {
     'review-scan-trust': 'atlas.review-scan-trust/1',
     'architecture-policy': 'atlas.architecture-policy/1',
     'architecture-review': 'atlas.architecture-review/1',
+    'local-review-workspace': 'atlas.local-review-workspace/1',
   };
   const out: Record<string, Record<string, unknown>> = {};
   for (const [name, schema] of Object.entries(ARTIFACT_SCHEMAS)) {

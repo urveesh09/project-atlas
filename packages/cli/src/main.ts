@@ -9,6 +9,7 @@ import { findings } from './commands/findings.js';
 import { scanEvidence, verifyScan } from './commands/scan.js';
 import { reviewFindings } from './commands/review-findings.js';
 import { reviewArchitectureCommand } from './commands/review-architecture.js';
+import { workspaceCommand } from './commands/workspace.js';
 import { EXIT, UsageError, createContext, type CliIO } from './context.js';
 import { PALETTE, createStyler, detectColorLevel } from './ui/style.js';
 
@@ -32,6 +33,13 @@ const HELP = `
       [--current-proof <dir> --baseline-proof <dir> [--gh <absolute-executable>]]
     atlas review-architecture <artifact> --policy <policy.json> --commit <full-oid>
       --out <review.json> [--baseline <earlier-full-oid>] [--markdown] [--fail-on new|all]
+    atlas workspace init <review.json> --artifact <dir> --out <new-workspace-dir>
+    atlas workspace inspect <workspace-dir> --artifact <dir>
+    atlas workspace decide <workspace-dir> --artifact <dir> --issue <ar-id>
+      --state needs-review|acknowledged|deferred --expected-revision <n>
+      [--owner unassigned|maintainers|architecture-review|security-review]
+    atlas workspace export <workspace-dir> --artifact <dir> --out <new-export.json>
+    atlas workspace import <export.json> --artifact <dir> --out <new-workspace-dir>
     atlas serve <artifact> [--repo <dir>] [--no-open] [--port <n>]
                                        browse an artifact in your browser (127.0.0.1 only)
 
@@ -73,6 +81,34 @@ export async function run(argv: readonly string[], io: CliIO): Promise<number> {
   const ctx = createContext(io, json);
   try {
     switch (command) {
+      case 'workspace': {
+        const { values, positionals } = parseArgs({
+          args: rest, allowPositionals: true, strict: true,
+          options: {
+            artifact: { type: 'string' }, out: { type: 'string' }, issue: { type: 'string' },
+            state: { type: 'string' }, owner: { type: 'string' }, 'expected-revision': { type: 'string' },
+            json: { type: 'boolean' },
+          },
+        });
+        const action = positionals[0];
+        if (positionals.length !== 2 || !values.artifact
+          || (action !== 'init' && action !== 'import' && action !== 'inspect' && action !== 'decide' && action !== 'export'))
+          throw new UsageError('workspace requires init|import|inspect|decide|export, one input and --artifact.');
+        const hasDecision = values.issue !== undefined || values.state !== undefined || values.owner !== undefined || values['expected-revision'] !== undefined;
+        if ((action === 'decide' && (values.out !== undefined || !values.issue || !values.state || values['expected-revision'] === undefined))
+          || (action !== 'decide' && hasDecision)
+          || (action === 'inspect' && values.out !== undefined)
+          || ((action === 'init' || action === 'import' || action === 'export') && !values.out))
+          throw new UsageError('Choose only the options documented for this workspace action; output and decision arguments are action-specific.');
+        return await workspaceCommand(ctx, {
+          action, input: positionals[1]!, artifact: values.artifact,
+          ...(values.out !== undefined ? { out: values.out } : {}),
+          ...(values.issue !== undefined ? { issue: values.issue } : {}),
+          ...(values.state !== undefined ? { state: values.state } : {}),
+          ...(values.owner !== undefined ? { owner: values.owner } : {}),
+          ...(values['expected-revision'] !== undefined ? { expectedRevision: values['expected-revision'] } : {}),
+        });
+      }
       case 'review-architecture': {
         const { values, positionals } = parseArgs({
           args: rest, allowPositionals: true, strict: true,
