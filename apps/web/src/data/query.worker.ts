@@ -1,7 +1,7 @@
 import type { OpenedArtifact } from '@atlas/artifact';
-import { GraphIndex, SearchIndex, compareFrames, hotspotBaseline, hotspotFactors, type GraphIndexData } from '@atlas/graph';
+import { GraphIndex, SearchIndex, compareFrames, hotspotBaseline, hotspotFactors, parseScanJson, validateArchitectureReview, type GraphIndexData } from '@atlas/graph';
 import { prepareCity, type CityData } from '@atlas/layout';
-import type { GraphSnapshot } from '@atlas/schema';
+import { ARCHITECTURE_LIMITS, ArchitectureReviewSchema, type ArtifactManifest, type GraphSnapshot } from '@atlas/schema';
 import { buildOverlay, prepareOverlayLookup, type OverlayOptions } from '../city/overlay';
 
 /**
@@ -17,7 +17,8 @@ export type QueryRequest =
   | { id: number; type: 'search'; frame: number; query: string }
   | { id: number; type: 'reach'; frame: number; nodeId: string; direction: 'outgoing' | 'incoming'; depth: number }
   | { id: number; type: 'overlay'; frame: number; options: OverlayOptions }
-  | { id: number; type: 'compare'; a: number; b: number };
+  | { id: number; type: 'compare'; a: number; b: number }
+  | { id: number; type: 'architecture'; file: File };
 
 export interface PreparedFrame {
   frame: number;
@@ -48,6 +49,7 @@ export class FrameStore {
   constructor(
     private readonly opened: Pick<OpenedArtifact, 'frame' | 'layout'> | null,
     head: { frame: number; graph: GraphSnapshot; index: GraphIndex; city: CityData },
+    private readonly manifest: Pick<ArtifactManifest, 'analysisId' | 'repo' | 'frames'> | null = null,
   ) {
     this.headIndex = head.frame;
     this.cache.set(head.frame, { graph: head.graph, index: head.index, city: head.city, search: null });
@@ -93,6 +95,26 @@ export class FrameStore {
       this.pending.delete(frame);
     }
   }
+
+  /** Picked review bytes and complete recomputation never reach the UI thread. */
+  async architecture(file: File) {
+    const manifest = this.manifest;
+    if (!manifest || !(file instanceof File) || file.size > ARCHITECTURE_LIMITS.reportBytes)
+      throw new Error('Architecture review could not be checked against this artifact.');
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
+    const parsed = ArchitectureReviewSchema.safeParse(parseScanJson(text, ARCHITECTURE_LIMITS.reportBytes));
+    if (!parsed.success) throw new Error('Invalid architecture review.');
+    const declared = parsed.data;
+    if (declared.analysisId !== manifest.analysisId || declared.repoId !== manifest.repo.repoId)
+      throw new Error('Architecture review does not belong to this artifact.');
+    const at = (side: typeof declared.current) => manifest.frames.findIndex(f => f.snapshotId === side.snapshotId && f.commit.oid === side.commitOid);
+    const currentAt = at(declared.current), baselineAt = declared.baseline ? at(declared.baseline) : -1;
+    if (currentAt < 0 || (declared.baseline && (baselineAt < 0 || baselineAt >= currentAt)))
+      throw new Error('Architecture review snapshot order does not match this artifact.');
+    const current = await this.get(currentAt);
+    const baseline = baselineAt < 0 ? null : await this.get(baselineAt);
+    return validateArchitectureReview(text, manifest.analysisId, current.graph, baseline?.graph ?? null);
+  }
 }
 
 let store: FrameStore | null = null;
@@ -106,8 +128,11 @@ function standalone(graph: GraphSnapshot, city: CityData, frame: number): FrameS
   return new FrameStore(null, { frame, graph, index: new GraphIndex(graph), city });
 }
 
-export async function handleQuery(q: QueryRequest) {
+export async function handleQuery(q: QueryRequest, channel?: Pick<MessageEvent, 'origin' | 'source' | 'isTrusted'>) {
   try {
+    if (q.type === 'architecture' && (!channel || channel.origin !== '' || channel.source !== null || !channel.isTrusted
+      || !Number.isSafeInteger(q.id) || q.id < 1 || !(q.file instanceof File) || q.file.size > ARCHITECTURE_LIMITS.reportBytes))
+      throw new Error('Architecture review request was rejected.');
     if (q.type === 'init') {
       initializeQueries(standalone(q.graph, q.city, q.frame));
       scope.postMessage({ id: q.id, result: true });
@@ -116,6 +141,9 @@ export async function handleQuery(q: QueryRequest) {
     if (!store) throw new Error('The query index is not ready');
     let result: unknown;
     switch (q.type) {
+      case 'architecture':
+        result = await store.architecture(q.file);
+        break;
       case 'frame': {
         const entry = await store.get(q.frame);
         result = { frame: q.frame, graph: entry.graph, prepared: entry.index.transferData(), city: entry.city } satisfies PreparedFrame;
@@ -144,7 +172,7 @@ export async function handleQuery(q: QueryRequest) {
     }
     scope.postMessage({ id: q.id, result });
   } catch (e) {
-    scope.postMessage({ id: q.id, error: e instanceof Error ? e.message : 'Query failed' });
+    scope.postMessage({ id: q.id, error: q.type === 'architecture' ? 'Architecture review could not be checked. Existing evidence is unchanged.' : e instanceof Error ? e.message : 'Query failed' });
   }
 }
-scope.onmessage = ({ data }) => void handleQuery(data);
+scope.onmessage = (event) => void handleQuery(event.data, event);

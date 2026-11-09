@@ -34,6 +34,30 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Architecture review in the city: Q3.1 (2026-11-09)
+
+- [ADR-090](adr/ADR-090-architecture-review-in-the-city.md) and the
+  [city guide](guides/architecture-city.md) add a browser-local review panel.
+  The retained worker recomputes the report against the bound artifact frames.
+  Coverage and omitted rows stay visible, and file links select the current or
+  earlier occurrence in the Dependencies inspector.
+- Browser journeys check keyboard import, 320 px reflow, a 2,000-row import,
+  renamed-file navigation, rejected input and dataset replacement. Reports are
+  cleared on reload, and an invalid import preserves the last valid report.
+  No analyzer, renderer or artifact contract changes.
+- The first full local run had one failure in the existing scan-scope journey.
+  Chromium returned `ERR_NO_BUFFER_SPACE` at loopback navigation, before the
+  feature assertions. Windows TCP event 4231 confirmed ephemeral-port exhaustion
+  in that interval. The failed log is retained. No test deadline or assertion
+  changed for the retest.
+- The full Windows retest passed **1,067 tests** with **92 gated skips**,
+  including all **57 Chromium journeys**. All 59 axe checkpoints recorded zero
+  violations and retained incomplete checks for human review. The four focused
+  journeys also passed in Firefox and WebKit before the final Escape handling
+  was scoped to the panel. The CI matrix checks the final revision on all engines.
+- The relocated CLI candidate passed all **17 smoke stages**, with zero browser
+  outbound requests and page errors. This is development package evidence.
+
 ### PR #55 browser verification correction (2026-10-29)
 
 The first Q3 head `0656688` passed 17 checks and all 31 new architecture tests;
@@ -63,7 +87,8 @@ worker completes the full run in 464.22 seconds on the Windows development host.
 The named-view audits take 1,297/1,584/3,287 ms in its three states, all with zero
 violations; automated incomplete results remain present for human review. These
 are diagnostic observations, not reference-hardware performance acceptance.
-Fresh macOS and the complete exact-head CI matrix must pass before PR readiness.
+The corrected head `499db6a` passed all 18 checks, including macOS, and
+[PR #55](https://github.com/urveesh09/project-atlas/pull/55) merged as `9f6e5e2`.
 
 ### Offline architecture review: Q3 (2026-10-29)
 
