@@ -159,7 +159,8 @@ must be green before a change counts as verified.
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
   ADR-090/091 are reserved for the parallel architecture viewer/local-workspace PRs.
-  ADR-092 records browser test isolation. Allocate ADR-093 next.
+  ADR-092 records browser test isolation. ADR-093 pins the corrected Debian image
+  packages. Allocate ADR-094 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

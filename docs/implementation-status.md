@@ -129,6 +129,20 @@ The unchanged Windows rerun passed, with that six-test file taking 5.74 s, and a
 [failed job](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123519713078)
 and [successful rerun](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123526710451).
 
+### Debian image maintenance for the architecture follow-ups (2026-11-09)
+
+- The first [PR #57 image run](https://github.com/urveesh09/project-atlas/actions/runs/42590323399)
+  flagged fixable High APT and zlib findings from the shared Debian base.
+  [ADR-093](adr/ADR-093-debian-image-security-refresh.md) moves the base to the
+  official digest-pinned Node 24.22.2 Trixie slim image with fixed APT and
+  installs the exact fixed zlib package from Debian. The scanner policy and
+  host Node minimum are unchanged.
+- Both final local linux/amd64 images built successfully. Network-disabled
+  inspection confirmed the installed package versions and Node runtime.
+  Windows `pnpm verify` on Node 24.22.2 passed **1,052 tests** with **92 gated
+  skips**, including all 53 Chromium journeys. Fresh OCI scan and hosted
+  verification run in CI.
+
 ### Runtime security maintenance during Q2.2 (2026-10-29)
 
 The initial PR #54 image scan on `ac62e98` blocked both images: Node 24.22.0 had

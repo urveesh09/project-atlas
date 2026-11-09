@@ -1,12 +1,18 @@
 # Functional backup/drill tooling, never installed in API or analysis containers.
-FROM node@sha256:89c5244bc22a9bc3287d89ebc7e49b9cb5bb84cd40e6175ac3421d5a9f68b95a AS build
+FROM node@sha256:0820eaa85e07d0490446dd01d14707e17e6108a36988cf374899cd057eb3812d AS patched
+# DSA-6613-1. Apply the fixed package to build and runtime (ADR-093).
+RUN apt-get update \
+ && apt-get install --yes --no-install-recommends --only-upgrade zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \
+ && rm -rf /var/lib/apt/lists/*
+
+FROM patched AS build
 RUN corepack enable && corepack prepare pnpm@10.34.6 --activate
 WORKDIR /src
 COPY . .
 RUN pnpm install --frozen-lockfile && pnpm exec tsc -b apps/worker \
  && pnpm --filter @atlas/worker deploy --prod --legacy --config.strict-peer-dependencies=false /atlas
 
-FROM node@sha256:89c5244bc22a9bc3287d89ebc7e49b9cb5bb84cd40e6175ac3421d5a9f68b95a
+FROM patched
 RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client-17=17.11-0+deb13u1 openssl=3.5.7-1~deb13u3 \
  && rm -rf /var/lib/apt/lists/* \
