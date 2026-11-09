@@ -38,4 +38,19 @@ All six pinned public repositories completed five offline repeats and matched
 the committed artifact bytes and independent source checks. Vite retained its
 expected partial coverage. The analyzer and artifact versions stay unchanged.
 
+The first [macOS](https://github.com/urveesh09/project-atlas/actions/runs/42593450669/job/129080351561)
+and [Windows](https://github.com/urveesh09/project-atlas/actions/runs/42593450669/job/129080352080)
+jobs passed their repository suites and reached all 22 package assertions. Both
+failed the smoke command during cleanup. The temporary directory had a canonical
+root while the cleanup guard used the lexical alias. Both now use the same
+canonical root, and the guard resolves the owned directory again before removing
+it. Package success is reported only after cleanup completes.
+
+After the descriptor and cleanup corrections, Windows `pnpm verify` passed
+**1,069 tests** with **93 gated skips**. All **22 package stages** passed both
+with the normal Windows temporary directory and through an authored directory
+junction. The junction run verified that its extracted folder was removed
+from the resolved root. The descriptor mismatch regression verified that
+the reader closed the file before reading any bytes.
+
 No timing, reference-device or whole-job capacity pass is claimed here.

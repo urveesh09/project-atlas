@@ -31,9 +31,10 @@ source-free format, so this increment uses a finite vocabulary only.
   are stored. Local revision numbers express edits, not an authenticated audit trail.
 - Initialize only a new directory outside the artifact. Use mode 0700 directories
   and 0600 files where supported. Reject symlink/junction path components, hard-linked
-  state files, Windows alternate data streams and nonregular/oversized state. Read
-  one descriptor and check its inode;
-  no stat-one-file/read-another pattern or arbitrary file inventory is followed.
+  state files, Windows alternate data streams and nonregular/oversized state.
+  Open once with read-only flags, then validate the descriptor, pathname and
+  directory identity before reading. POSIX uses no-follow and nonblocking
+  flags. Windows verifies the pathname after opening and before reading bytes.
   Protected-directory ancestry is checked by filesystem identity, including case
   aliases on case-insensitive POSIX filesystems, rather than string prefixes alone.
 - Decision updates require an expected revision and a cooperative exclusive lock.
@@ -62,3 +63,9 @@ regular-file bounds, optimistic conflict/concurrent writer behavior, atomic fail
 preservation and portable export/import. Focused tests and actual observed results
 are recorded in the guide/evidence and PR. Full verification, packaging and exact
 analyzer corpus checks remain mandatory before commit. G6/R6 remains open.
+
+The initial PR #59 scan flagged [CodeQL alert 75](https://github.com/urveesh09/project-atlas/security/code-scanning/75)
+on the read-only stat-before-open sequence. The revised reader opens first
+and uses its descriptor for the bounded read. An injected mismatch between
+the opened file and requested pathname must close the descriptor with zero
+reads. The initial result is retained and the unchanged scan gate reruns.

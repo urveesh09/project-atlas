@@ -105,6 +105,24 @@ it('refuses case aliases of protected directories on case-insensitive filesystem
   expect(await readdir(artifact)).toEqual([]);
 });
 
+it('closes a mismatched descriptor without reading any bytes', async () => {
+  await initializeWorkspace(directory, artifact, initial());
+  const state = path.join(directory, 'workspace.json');
+  const other = path.join(root, 'other.json');
+  await writeFile(other, 'other bytes', { mode: 0o600 });
+  const native = await vi.importActual<typeof fs>('node:fs/promises');
+  const handle = await native.open(other, 'r');
+  const read = vi.spyOn(handle, 'read');
+  try {
+    vi.spyOn(fs, 'open').mockResolvedValueOnce(handle);
+    await expect(readWorkspaceFile(state, true)).rejects.toThrow(/pathname changed/);
+    expect(read).not.toHaveBeenCalled();
+    expect(handle.fd).toBe(-1);
+  } finally {
+    if (handle.fd >= 0) await handle.close();
+  }
+});
+
 it.skipIf(process.platform !== 'win32')('refuses alternate streams on protected artifact directories', async () => {
   const workspace = initial();
   await initializeWorkspace(directory, artifact, workspace);

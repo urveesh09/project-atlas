@@ -15,7 +15,8 @@ import { parseFindingReview } from '../packages/graph/dist/index.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const result = JSON.parse(await readFile(process.argv[2], 'utf8'));
 assert.equal(createHash('sha256').update(await readFile(result.archive)).digest('hex'), result.sha256, 'Archive digest mismatch');
-const work = await mkdtemp(path.join(await realpath(os.tmpdir()), 'atlas-cli-install-'));
+const temporaryRoot = await realpath(os.tmpdir());
+const work = await mkdtemp(path.join(temporaryRoot, 'atlas-cli-install-'));
 let demo, qualityRepo, reviewRepo, server, browser;
 const stages = [];
 const env = { PATH: process.env.PATH ?? '', ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), NO_COLOR: '1' };
@@ -231,10 +232,6 @@ try {
   assert.deepEqual(outbound, []);
   assert.deepEqual(errors, []);
   stages.push({ stage: 'packaged-browser-city-history-search-and-dependencies', passed: true, outboundRequests: 0, pageErrors: 0, browser: browser.version(), renderer: 'SwiftShader; functional only' });
-  const report = { task: 'P6 distribution candidate fresh-install smoke', recordedAt: new Date().toISOString(), os: `${os.type()} ${os.release()} ${os.arch()}`, node: process.version, archiveSha256: result.sha256, archiveBytes: result.archiveBytes, sourceCommit: result.sourceCommit, workingTreeDirty: result.workingTreeDirty, stages, pass: true, limits: ['Candidate only; human and reference-hardware audits remain open.', 'The CLI entry process denies outbound sockets. Existing instrumented resolver and offline analyzer-container gates independently cover parsing/analysis.', 'Archive bytes and every extracted file are verified; this is integrity evidence, not a release signature.'] };
-  await writeFile(path.join(root, 'docs/release/distribution-smoke.json'), `${JSON.stringify(report, null, 2)}\n`);
-  await writeFile(path.join(root, 'docs/release/distribution-smoke.md'), ['# CLI distribution candidate: fresh-install smoke', '', `Recorded ${report.recordedAt} on ${report.os}, Node ${report.node}.`, '', `Archive: ${report.archiveBytes} bytes; SHA-256 \`${report.archiveSha256}\`. Source commit \`${report.sourceCommit}\`; working tree dirty: ${report.workingTreeDirty}. This candidate is not a signed-off release.`, '', 'Extracted into a fresh temporary directory outside the checkout, verified every distributed file, and ran without a package manager or any dependency install. CLI entry-process outbound sockets were denied. The browser accepted only the loopback server origin.', '', ...stages.map((s) => `- ${s.stage}: passed${s.files ? ` (${s.files} files)` : ''}${s.elapsedMs ? ` (${(s.elapsedMs / 1000).toFixed(2)} s)` : ''}.`), '', 'The authored Harbor repository yielded all 12 frames and 26 HEAD files. The bundled viewer opened that artifact, searched with the keyboard and showed its independently checked ledger dependency. Zero page errors or browser outbound requests. Software rendering validates behavior; it is not a reference-GPU benchmark.', '', '![Packaged viewer, outside the checkout](../images/phase6-packaged-city.png)', '', ...report.limits, ''].join('\n'));
-  console.log(JSON.stringify({ pass: true, stages: stages.length, archiveBytes: result.archiveBytes, archiveSha256: result.sha256 }));
 } finally {
   await browser?.close();
   if (server?.pid && server.exitCode === null) killProcessTree(server.pid);
@@ -242,6 +239,12 @@ try {
   qualityRepo?.dispose();
   reviewRepo?.dispose();
   // The only recursive removal is this harness's own fresh directory under OS temp.
-  assert(path.dirname(work) === path.resolve(os.tmpdir()) && path.basename(work).startsWith('atlas-cli-install-'));
-  await rm(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  const cleanup = await realpath(work);
+  assert(cleanup === work && path.dirname(cleanup) === temporaryRoot && path.basename(cleanup).startsWith('atlas-cli-install-'));
+  await rm(cleanup, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }
+
+const report = { task: 'P6 distribution candidate fresh-install smoke', recordedAt: new Date().toISOString(), os: `${os.type()} ${os.release()} ${os.arch()}`, node: process.version, archiveSha256: result.sha256, archiveBytes: result.archiveBytes, sourceCommit: result.sourceCommit, workingTreeDirty: result.workingTreeDirty, stages, pass: true, limits: ['Candidate only; human and reference-hardware audits remain open.', 'The CLI entry process denies outbound sockets. Existing instrumented resolver and offline analyzer-container gates independently cover parsing/analysis.', 'Archive bytes and every extracted file are verified; this is integrity evidence, not a release signature.'] };
+await writeFile(path.join(root, 'docs/release/distribution-smoke.json'), `${JSON.stringify(report, null, 2)}\n`);
+await writeFile(path.join(root, 'docs/release/distribution-smoke.md'), ['# CLI distribution candidate: fresh-install smoke', '', `Recorded ${report.recordedAt} on ${report.os}, Node ${report.node}.`, '', `Archive: ${report.archiveBytes} bytes; SHA-256 \`${report.archiveSha256}\`. Source commit \`${report.sourceCommit}\`; working tree dirty: ${report.workingTreeDirty}. This candidate is not a signed-off release.`, '', 'Extracted into a fresh temporary directory outside the checkout, verified every distributed file, and ran without a package manager or any dependency install. CLI entry-process outbound sockets were denied. The browser accepted only the loopback server origin.', '', ...stages.map((s) => `- ${s.stage}: passed${s.files ? ` (${s.files} files)` : ''}${s.elapsedMs ? ` (${(s.elapsedMs / 1000).toFixed(2)} s)` : ''}.`), '', 'The authored Harbor repository yielded all 12 frames and 26 HEAD files. The bundled viewer opened that artifact, searched with the keyboard and showed its independently checked ledger dependency. Zero page errors or browser outbound requests. Software rendering validates behavior; it is not a reference-GPU benchmark.', '', '![Packaged viewer, outside the checkout](../images/phase6-packaged-city.png)', '', ...report.limits, ''].join('\n'));
+console.log(JSON.stringify({ pass: true, stages: stages.length, archiveBytes: result.archiveBytes, archiveSha256: result.sha256 }));

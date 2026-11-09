@@ -39,6 +39,7 @@ export async function checkWorkspaceDirectory(directory: string, privateLeaf = t
   const absolute = path.resolve(directory), root = path.parse(absolute).root;
   let current = root;
   let result = await lstat(root);
+  if (!result.isDirectory() || result.isSymbolicLink()) fail('Workspace paths must use real directories, never symlinks or junctions.');
   for (const segment of absolute.slice(root.length).split(path.sep).filter(Boolean)) {
     current = path.join(current, segment);
     result = await lstat(current);
@@ -50,20 +51,22 @@ export async function checkWorkspaceDirectory(directory: string, privateLeaf = t
 
 export async function readWorkspaceFile(file: string, privateFile = false): Promise<{ text: string; identity: Stats; digest: string }> {
   rejectAlternateStream(file);
-  await checkWorkspaceDirectory(path.dirname(file), false);
-  const before = await lstat(file);
-  if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1 || before.size > WORKSPACE_LIMITS.bytes)
-    fail('Workspace input must be one regular, unlinked file within its byte limit.');
-  if (privateFile && process.platform !== 'win32' && (before.mode & 0o077) !== 0) fail('Workspace file permissions must exclude other users.');
+  const directory = path.dirname(file);
+  const parent = await checkWorkspaceDirectory(directory, false);
   const flags = constants.O_RDONLY | (process.platform === 'win32' ? 0 : constants.O_NONBLOCK | constants.O_NOFOLLOW);
-  const handle = await open(file, flags);
+  // Validate the opened descriptor before reading. A prior pathname stat cannot
+  // establish what open() will return, and Windows has no O_NOFOLLOW flag.
+  const handle = await open(file, flags).catch(() => fail('Workspace input could not be opened as a regular file.'));
   try {
     const opened = await handle.stat();
-    if (!opened.isFile() || opened.nlink !== 1 || !sameIdentity(before, opened)) fail('Workspace input changed while opening.');
+    if (!opened.isFile() || opened.nlink !== 1) fail('Workspace input must be one regular, unlinked file.');
     if (opened.size > WORKSPACE_LIMITS.bytes) fail('Workspace input exceeds its byte limit.');
     const stillAtPath = await lstat(file);
-    if (!stillAtPath.isFile() || stillAtPath.isSymbolicLink() || !sameIdentity(stillAtPath, opened)) fail('Workspace input pathname changed while opening.');
-    if (privateFile && process.platform !== 'win32' && (opened.mode & 0o077) !== 0) fail('Workspace file permissions must exclude other users.');
+    if (!stillAtPath.isFile() || stillAtPath.isSymbolicLink() || stillAtPath.nlink !== 1 || !sameIdentity(stillAtPath, opened))
+      fail('Workspace input pathname changed while opening or does not name a regular, unlinked file.');
+    if (!sameIdentity(parent, await checkWorkspaceDirectory(directory, false))) fail('Workspace input directory changed while opening.');
+    if (privateFile && process.platform !== 'win32' && ((opened.mode | stillAtPath.mode) & 0o077) !== 0)
+      fail('Workspace file permissions must exclude other users.');
     const bytes = Buffer.alloc(opened.size + 1);
     let used = 0;
     while (used < bytes.length) {
@@ -72,7 +75,7 @@ export async function readWorkspaceFile(file: string, privateFile = false): Prom
       used += next.bytesRead;
     }
     const after = await handle.stat();
-    if (used > WORKSPACE_LIMITS.bytes || opened.size !== used || after.size !== used
+    if (after.nlink !== 1 || used > WORKSPACE_LIMITS.bytes || opened.size !== used || after.size !== used
       || opened.mtimeMs !== after.mtimeMs || opened.ctimeMs !== after.ctimeMs) fail('Workspace input changed or exceeded its byte limit.');
     let text: string;
     try { text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes.subarray(0, used)); }
