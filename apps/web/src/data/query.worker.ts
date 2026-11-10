@@ -1,7 +1,7 @@
 import type { OpenedArtifact } from '@atlas/artifact';
-import { GraphIndex, SearchIndex, compareFrames, hotspotBaseline, hotspotFactors, parseScanJson, validateArchitectureReview, type GraphIndexData } from '@atlas/graph';
+import { GraphIndex, SearchIndex, compareFrames, hotspotBaseline, hotspotFactors, parseArchitectureReview, parseReviewWorkspace, recomputeArchitectureReview, type GraphIndexData } from '@atlas/graph';
 import { prepareCity, type CityData } from '@atlas/layout';
-import { ARCHITECTURE_LIMITS, ArchitectureReviewSchema, type ArtifactManifest, type GraphSnapshot } from '@atlas/schema';
+import { ARCHITECTURE_LIMITS, WORKSPACE_LIMITS, type ArchitectureReview, type ArtifactManifest, type GraphSnapshot, type ReviewWorkspace } from '@atlas/schema';
 import { buildOverlay, prepareOverlayLookup, type OverlayOptions } from '../city/overlay';
 
 /**
@@ -18,7 +18,13 @@ export type QueryRequest =
   | { id: number; type: 'reach'; frame: number; nodeId: string; direction: 'outgoing' | 'incoming'; depth: number }
   | { id: number; type: 'overlay'; frame: number; options: OverlayOptions }
   | { id: number; type: 'compare'; a: number; b: number }
-  | { id: number; type: 'architecture'; file: File };
+  | { id: number; type: 'architecture'; file: File; input: ArchitectureInput };
+
+export type ArchitectureInput = 'report' | 'workspace';
+export interface ArchitectureEvidence {
+  report: ArchitectureReview;
+  workspace: Pick<ReviewWorkspace, 'revision' | 'decisions'> | null;
+}
 
 export interface PreparedFrame {
   frame: number;
@@ -96,15 +102,14 @@ export class FrameStore {
     }
   }
 
-  /** Picked review bytes and complete recomputation never reach the UI thread. */
-  async architecture(file: File) {
+  /** Only recomputed evidence and checked decision metadata cross back to the UI. */
+  async architecture(file: File, input: ArchitectureInput): Promise<ArchitectureEvidence> {
     const manifest = this.manifest;
-    if (!manifest || !(file instanceof File) || file.size > ARCHITECTURE_LIMITS.reportBytes)
+    if (!manifest)
       throw new Error('Architecture review could not be checked against this artifact.');
-    const text = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
-    const parsed = ArchitectureReviewSchema.safeParse(parseScanJson(text, ARCHITECTURE_LIMITS.reportBytes));
-    if (!parsed.success) throw new Error('Invalid architecture review.');
-    const declared = parsed.data;
+    const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: input === 'workspace' }).decode(await file.arrayBuffer());
+    const workspace = input === 'workspace' ? parseReviewWorkspace(text) : null;
+    const declared = workspace?.report ?? parseArchitectureReview(text);
     if (declared.analysisId !== manifest.analysisId || declared.repoId !== manifest.repo.repoId)
       throw new Error('Architecture review does not belong to this artifact.');
     const at = (side: typeof declared.current) => manifest.frames.findIndex(f => f.snapshotId === side.snapshotId && f.commit.oid === side.commitOid);
@@ -113,7 +118,8 @@ export class FrameStore {
       throw new Error('Architecture review snapshot order does not match this artifact.');
     const current = await this.get(currentAt);
     const baseline = baselineAt < 0 ? null : await this.get(baselineAt);
-    return validateArchitectureReview(text, manifest.analysisId, current.graph, baseline?.graph ?? null);
+    const report = recomputeArchitectureReview(declared, manifest.analysisId, current.graph, baseline?.graph ?? null);
+    return { report, workspace: workspace ? { revision: workspace.revision, decisions: workspace.decisions } : null };
   }
 }
 
@@ -130,9 +136,13 @@ function standalone(graph: GraphSnapshot, city: CityData, frame: number): FrameS
 
 export async function handleQuery(q: QueryRequest, channel?: Pick<MessageEvent, 'origin' | 'source' | 'isTrusted'>) {
   try {
-    if (q.type === 'architecture' && (!channel || channel.origin !== '' || channel.source !== null || !channel.isTrusted
-      || !Number.isSafeInteger(q.id) || q.id < 1 || !(q.file instanceof File) || q.file.size > ARCHITECTURE_LIMITS.reportBytes))
-      throw new Error('Architecture review request was rejected.');
+    if (q.type === 'architecture') {
+      if (!channel || channel.origin !== '' || channel.source !== null || !channel.isTrusted
+        || !Number.isSafeInteger(q.id) || q.id < 1 || !(q.file instanceof File)
+        || (q.input !== 'report' && q.input !== 'workspace')) throw new Error('Architecture review request was rejected.');
+      const limit = q.input === 'workspace' ? WORKSPACE_LIMITS.bytes : ARCHITECTURE_LIMITS.reportBytes;
+      if (q.file.size > limit) throw new Error('Architecture input exceeds its byte limit.');
+    }
     if (q.type === 'init') {
       initializeQueries(standalone(q.graph, q.city, q.frame));
       scope.postMessage({ id: q.id, result: true });
@@ -142,7 +152,7 @@ export async function handleQuery(q: QueryRequest, channel?: Pick<MessageEvent, 
     let result: unknown;
     switch (q.type) {
       case 'architecture':
-        result = await store.architecture(q.file);
+        result = await store.architecture(q.file, q.input);
         break;
       case 'frame': {
         const entry = await store.get(q.frame);

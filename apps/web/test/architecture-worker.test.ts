@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildHandcraftedArtifact } from '@atlas/test-fixtures';
-import { GraphIndex, reviewArchitecture } from '@atlas/graph';
+import { GraphIndex, createReviewWorkspace, decideReviewWorkspace, reviewArchitecture } from '@atlas/graph';
 import { prepareCity } from '@atlas/layout';
-import { ARCHITECTURE_LIMITS, makeId } from '@atlas/schema';
+import { ARCHITECTURE_LIMITS, WORKSPACE_LIMITS, makeId } from '@atlas/schema';
 import type * as QueryWorker from '../src/data/query.worker';
 
 const scope = { onmessage: null as ((event: MessageEvent<unknown>) => void) | null, postMessage: vi.fn() };
@@ -29,8 +29,8 @@ afterAll(() => vi.unstubAllGlobals());
 
 describe('architecture import in the retained worker', () => {
   it('accepts a private-channel native-shaped File and recomputes its report against retained data', async () => {
-    await worker.handleQuery({ id: 1, type: 'architecture', file: file() }, channel);
-    expect(scope.postMessage).toHaveBeenCalledExactlyOnceWith({ id: 1, result: report });
+    await worker.handleQuery({ id: 1, type: 'architecture', input: 'report', file: file() }, channel);
+    expect(scope.postMessage).toHaveBeenCalledExactlyOnceWith({ id: 1, result: { report, workspace: null } });
     expect(scope.postMessage.mock.calls[0]![0]).not.toHaveProperty('verified');
   });
   it.each([
@@ -38,22 +38,22 @@ describe('architecture import in the retained worker', () => {
   ])('rejects foreign or synthetic channel metadata before reading: %j', async overrides => {
     const picked = file(), read = vi.spyOn(picked, 'arrayBuffer');
     try {
-      await worker.handleQuery({ id: 2, type: 'architecture', file: picked }, { ...channel, ...overrides } as Parameters<typeof worker.handleQuery>[1]);
+      await worker.handleQuery({ id: 2, type: 'architecture', input: 'report', file: picked }, { ...channel, ...overrides } as Parameters<typeof worker.handleQuery>[1]);
       expect(read).not.toHaveBeenCalled();
       expect(scope.postMessage).toHaveBeenCalledExactlyOnceWith({ id: 2, error: ERROR });
     } finally { read.mockRestore(); }
   });
   it('rejects missing metadata, non-Files, oversized native Files and invalid request IDs before reads', async () => {
     const fake = { size: 0, arrayBuffer: vi.fn() };
-    await worker.handleQuery({ id: 3, type: 'architecture', file: fake as unknown as File }, channel);
+    await worker.handleQuery({ id: 3, type: 'architecture', input: 'report', file: fake as unknown as File }, channel);
     expect(fake.arrayBuffer).not.toHaveBeenCalled();
     const picked = new File([new Uint8Array(ARCHITECTURE_LIMITS.reportBytes + 1)], 'too-large.json');
     const read = vi.spyOn(picked, 'arrayBuffer');
     try {
-      await worker.handleQuery({ id: 4, type: 'architecture', file: picked }, channel);
+      await worker.handleQuery({ id: 4, type: 'architecture', input: 'report', file: picked }, channel);
       expect(read).not.toHaveBeenCalled();
-      await worker.handleQuery({ id: 5, type: 'architecture', file: file() });
-      await worker.handleQuery({ id: 0, type: 'architecture', file: file() }, channel);
+      await worker.handleQuery({ id: 5, type: 'architecture', input: 'report', file: file() });
+      await worker.handleQuery({ id: 0, type: 'architecture', input: 'report', file: file() }, channel);
       expect(scope.postMessage.mock.calls.every(([value]) => value.error === ERROR && !('result' in value))).toBe(true);
     } finally { read.mockRestore(); }
   });
@@ -63,7 +63,7 @@ describe('architecture import in the retained worker', () => {
     const changedPolicy = structuredClone(report);
     if (changedPolicy.policy.rules[0]?.kind === 'forbidden-dependency') changedPolicy.policy.rules[0].from.paths = ['PRIVATE_SOURCE'];
     for (const [i, value] of [count, rows, changedPolicy, { ...report, verified: true, source: 'PRIVATE_SOURCE' }].entries()) {
-      await worker.handleQuery({ id: i + 10, type: 'architecture', file: file(value) }, channel);
+      await worker.handleQuery({ id: i + 10, type: 'architecture', input: 'report', file: file(value) }, channel);
       expect(scope.postMessage.mock.calls.at(-1)?.[0]).toEqual({ id: i + 10, error: ERROR });
     }
     expect(JSON.stringify(scope.postMessage.mock.calls)).not.toContain('PRIVATE_SOURCE');
@@ -77,20 +77,58 @@ describe('architecture import in the retained worker', () => {
       { ...report, baseline: report.current },
     ];
     for (const [i, value] of variants.entries()) {
-      await worker.handleQuery({ id: i + 20, type: 'architecture', file: file(value) }, channel);
+      await worker.handleQuery({ id: i + 20, type: 'architecture', input: 'report', file: file(value) }, channel);
       expect(scope.postMessage.mock.calls.at(-1)?.[0]).toEqual({ id: i + 20, error: ERROR });
     }
   });
   it('rejects malformed JSON and invalid UTF-8 with a fixed error', async () => {
     for (const [i, picked] of [new File(['{"PRIVATE_SOURCE":'], 'bad.json'), new File([new Uint8Array([0xc0, 0x80])], 'bad-utf8.json')].entries()) {
-      await worker.handleQuery({ id: i + 30, type: 'architecture', file: picked }, channel);
+      await worker.handleQuery({ id: i + 30, type: 'architecture', input: 'report', file: picked }, channel);
       expect(scope.postMessage.mock.calls.at(-1)?.[0]).toEqual({ id: i + 30, error: ERROR });
     }
   });
   it('fails closed when the session lacks retained artifact metadata', async () => {
     const index = new GraphIndex(fixture.graph), city = prepareCity(fixture.graph, fixture.layout);
     worker.initializeQueries(new worker.FrameStore(null, { frame: 0, graph: fixture.graph, index, city }));
-    await worker.handleQuery({ id: 40, type: 'architecture', file: file() }, channel);
+    await worker.handleQuery({ id: 40, type: 'architecture', input: 'report', file: file() }, channel);
     expect(scope.postMessage).toHaveBeenCalledExactlyOnceWith({ id: 40, error: ERROR });
+  });
+});
+
+describe('local workspace import in the retained worker', () => {
+  it('returns recomputed evidence and only checked decision metadata', async () => {
+    const initial = createReviewWorkspace(report);
+    const saved = decideReviewWorkspace(initial, 0, report.rows[0]!.id, 'acknowledged', 'maintainers');
+    await worker.handleQuery({ id: 41, type: 'architecture', input: 'workspace', file: file(saved) }, channel);
+    expect(scope.postMessage).toHaveBeenCalledExactlyOnceWith({
+      id: 41, result: { report, workspace: { revision: 1, decisions: saved.decisions } },
+    });
+  });
+
+  it('rejects a rehashed forged report, unrelated analysis, invalid revision and extra ownership fields', async () => {
+    const wrongCounts = structuredClone(report);
+    wrongCounts.rules[0]!.current++;
+    const initial = createReviewWorkspace(report);
+    const saved = decideReviewWorkspace(initial, 0, report.rows[0]!.id, 'deferred', 'maintainers');
+    const cases = [
+      createReviewWorkspace(wrongCounts),
+      createReviewWorkspace({ ...report, analysisId: makeId('analysis', ['unrelated']) }),
+      { ...saved, revision: 2 },
+      { ...saved, decisions: [{ ...saved.decisions[0], author: 'PRIVATE_OWNER' }] },
+    ];
+    for (const [index, value] of cases.entries()) {
+      const id = index + 42;
+      await worker.handleQuery({ id, type: 'architecture', input: 'workspace', file: file(value) }, channel);
+      expect(scope.postMessage.mock.calls.at(-1)?.[0]).toEqual({ id, error: ERROR });
+    }
+    expect(JSON.stringify(scope.postMessage.mock.calls)).not.toContain('PRIVATE_OWNER');
+  });
+
+  it('enforces the workspace byte cap before reading the file', async () => {
+    const picked = new File([new Uint8Array(WORKSPACE_LIMITS.bytes + 1)], 'too-large.json');
+    const read = vi.spyOn(picked, 'arrayBuffer');
+    await worker.handleQuery({ id: 46, type: 'architecture', input: 'workspace', file: picked }, channel);
+    expect(read).not.toHaveBeenCalled();
+    expect(scope.postMessage).toHaveBeenCalledExactlyOnceWith({ id: 46, error: ERROR });
   });
 });

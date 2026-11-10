@@ -34,6 +34,28 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Read workspace decisions in the city (2026-11-10)
+
+- [ADR-094](adr/ADR-094-workspace-evidence-in-the-city.md) connects the
+  [local workspace export](guides/local-review-workspace.md) to the
+  [Architecture review panel](guides/architecture-city.md#inspect-saved-workspace-decisions).
+  The retained worker uses the existing workspace validator and recomputes the
+  report against the selected artifact before exposing saved decision metadata.
+- Reviewers can filter saved decisions independently of evidence states and
+  inspect the affected current and baseline files. The browser displays the
+  export read-only and keeps it only for the current artifact session. Triage
+  leaves coverage, policy findings and CI outcomes intact.
+- Windows `pnpm verify` on Node 24.22.2 passed **1,088 tests** with **93 gated
+  skips**, including all **58 Chromium journeys**. All 60 automated accessibility
+  checkpoints recorded zero violations and retained incomplete checks. Focused
+  tests cover a rehashed forged report, foreign analysis, invalid revision,
+  untrusted metadata and the 10 MiB limit before any file read.
+- All **23 relocated package smoke stages** passed. The shipped viewer opened
+  the shipped CLI's workspace export, showed the acknowledged decision and
+  recorded zero browser outbound requests and page errors.
+- The six pinned repositories each passed five offline repeats, matching the
+  committed artifact bytes and independent source checks.
+
 ### Architecture review in the city: Q3.1 (2026-11-09)
 
 - [ADR-090](adr/ADR-090-architecture-review-in-the-city.md) and the

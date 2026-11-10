@@ -67,6 +67,9 @@ the complete report again and creates a new workspace directory with the same
 content identity and revision. Existing destinations are never overwritten. Export
 retains the current report and decisions, not past versions or the analyzed artifact.
 You must separately retain the matching artifact to reopen/revalidate the workspace.
+To inspect the decisions alongside the affected files, open the export from the
+[city's Architecture review panel](architecture-city.md#inspect-saved-workspace-decisions).
+The browser shows a read-only copy and recomputes the report against the artifact.
 
 There is no expiry or background deletion. Keep/delete the directory and exported
 files using your OS's normal private-file controls. Removing an original does not

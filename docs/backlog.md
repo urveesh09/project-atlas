@@ -72,8 +72,9 @@ with opt-in CI checks. The inactive signing recipes need owner review,
 copy/merge and dispatch
 before there is a live ATLAS scan proof; a real vendor signature fixture is a separate
 test. Consider adding `scan provenance verifier (offline)` to required checks after
-review. Cross-artifact/long-term issue databases, other producers, interactive
-architecture overlays and Q4 workspaces remain future work. Context fingerprints are best-effort evidence continuity;
+review. PR #57 added architecture report import and PR #59 added local workspace
+decisions. Cross-artifact issue databases, other producers, city overlays and
+authenticated team workspaces remain future work. Context fingerprints are best-effort evidence continuity;
 no disappearing result is automatically resolved. Existing V0.1 acceptance work is unchanged.
 
 - **Review a change.** Start from the changed files, show changed dependencies and the

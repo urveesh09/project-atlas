@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -53,6 +53,7 @@ async function capture(page: Page, name: string): Promise<void> {
 }
 
 let work: string;
+let tempRoot: string;
 let demo: GitFixture;
 let server: RunningViewerServer;
 let browser: Browser;
@@ -61,7 +62,8 @@ let signedIn = false;
 
 beforeAll(async () => {
   if (!browserAvailable || !viewerBuilt) return;
-  work = mkdtempSync(path.join(tmpdir(), 'atlas-e2e-'));
+  tempRoot = realpathSync(tmpdir());
+  work = mkdtempSync(path.join(tempRoot, 'atlas-e2e-'));
   demo = buildDemoRepository();
   const io: CliIO = {
     stdout: { write: () => true },
@@ -95,7 +97,12 @@ afterAll(async () => {
   await browser?.close();
   await server?.close();
   demo?.dispose();
-  if (work) rmSync(work, { recursive: true, force: true });
+  if (work) {
+    const cleanup = realpathSync(work);
+    if (cleanup !== work || path.dirname(cleanup) !== tempRoot || !path.basename(cleanup).startsWith('atlas-e2e-'))
+      throw new Error('Unexpected viewer fixture cleanup path');
+    rmSync(cleanup, { recursive: true, force: true });
+  }
 });
 
 async function openViewer(): Promise<{ page: Page; requests: string[]; errors: string[] }> {
@@ -1819,6 +1826,18 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
     const tampered = structuredClone(review); tampered.rules[0]!.current++;
     writeFileSync(path.join(work, 'architecture-city-tampered.json'), JSON.stringify(tampered));
     writeFileSync(path.join(work, 'architecture-city-claimed.json'), JSON.stringify({ ...review, verified: true, source: 'PRIVATE_INPUT_SENTINEL' }));
+    const reviewWorkspace = path.join(work, 'architecture-workspace');
+    const exportFile = path.join(work, 'architecture-workspace.json');
+    const artifact = ['--artifact', directory()];
+    expect(await run(['workspace', 'init', path.join(work, 'architecture-city.json'), ...artifact, '--out', reviewWorkspace], io())).toBe(0);
+    for (const [revision, rule, state] of [[0, 'prod-tests', 'acknowledged'], [1, 'retained-helper', 'needs-review']] as const) {
+      const issueId = review.rows.find(row => row.ruleId === rule)!.id;
+      expect(await run(['workspace', 'decide', reviewWorkspace, ...artifact, '--issue', issueId, '--state', state, '--owner', 'maintainers', '--expected-revision', String(revision)], io())).toBe(0);
+    }
+    expect(await run(['workspace', 'export', reviewWorkspace, ...artifact, '--out', exportFile], io())).toBe(0);
+    const invalidWorkspace = JSON.parse(readFileSync(exportFile, 'utf8'));
+    invalidWorkspace.revision++;
+    writeFileSync(path.join(work, 'architecture-workspace-invalid.json'), JSON.stringify(invalidWorkspace));
     const files: Record<string, string> = { 'package.json': '{"name":"architecture-capacity"}', 'src/f0.ts': 'export const value = 0;\n' };
     for (let i = 1; i < 140; i++) files[`src/f${i}.ts`] = `import { value } from './f0';\nexport const item${i} = value;\n`;
     capacityRepository = createGitFixture([{ date: '2026-10-03T00:00:00Z', message: 'authored retained-row capacity', files }], { parent: work });
@@ -1852,6 +1871,45 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
     await page.locator('input[data-architecture-input]').setInputFiles(path.join(work, large ? 'architecture-city-capacity.json' : 'architecture-city.json'));
     await page.getByRole('region', { name: 'Architecture review', exact: true }).getByRole('heading', { name: 'Recomputed policy evidence', exact: true }).waitFor({ timeout: 20_000 });
   };
+
+  it('opens a CLI workspace export with the keyboard and filters saved decisions independently of evidence', async () => {
+    const test = await openArchitecture(false, 320);
+    try {
+      const { page, panel } = test;
+      const pickWorkspace = async (name: string) => {
+        const chooser = page.waitForEvent('filechooser');
+        await panel.getByRole('button', { name: 'Open workspace export…', exact: true }).focus();
+        await page.keyboard.press('Enter');
+        await (await chooser).setFiles(path.join(work, name));
+      };
+      await pickWorkspace('architecture-workspace.json');
+      const decisionFilter = panel.getByLabel('Workspace decision', { exact: true });
+      await decisionFilter.waitFor();
+      expect(await panel.innerText()).toContain('Workspace revision 2. Saved decisions for 2 of 3 retained rows.');
+      await decisionFilter.selectOption('unrecorded');
+      await expect.poll(() => panel.locator('[data-architecture-rule]').count()).toBe(1);
+      expect(await panel.locator('[data-architecture-rule="all"]').innerText()).toContain('No saved decision');
+      await decisionFilter.selectOption('needs-review');
+      expect(await panel.locator('[data-architecture-rule="retained-helper"]').innerText()).toContain('Saved decision · Needs review · Maintainers');
+      await decisionFilter.selectOption('acknowledged');
+      const acknowledged = panel.locator('[data-architecture-rule="prod-tests"]');
+      expect(await acknowledged.innerText()).toContain('Saved decision · Acknowledged · Maintainers');
+      await acknowledged.getByRole('button', { name: 'Baseline file: src/main.ts', exact: true }).click();
+      await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('main.ts');
+      await expectNoSidewaysScroll(page);
+      expect(await audit(page, 'architecture-workspace-narrow-320')).toEqual([]);
+      await pickWorkspace('architecture-workspace-invalid.json');
+      await panel.getByRole('alert').waitFor();
+      expect(await acknowledged.innerText()).toContain('Saved decision · Acknowledged · Maintainers');
+      expect(await decisionFilter.inputValue()).toBe('acknowledged');
+      await openReport(page);
+      await decisionFilter.waitFor({ state: 'detached' });
+      await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(3);
+      expect(await panel.getByRole('alert').count()).toBe(0);
+      expect(test.requests.every(r => r.method === 'GET' && new URL(r.url).origin === new URL(test.serving.url).origin)).toBe(true);
+      expect(test.errors).toEqual([]);
+    } finally { await test.close(); }
+  });
 
   it('recomputes a local report, filters states and follows current and renamed baseline files', async () => {
     const test = await openArchitecture();
