@@ -58,6 +58,10 @@ Read `docs/guides/architecture-review.md`. Policy execution, private hosting and
 are not authorized. CI blocking is explicit (`--fail-on new|all`, exit 3); incomplete
 evidence cannot establish a clean result. Cycle identity is component membership,
 not every possible cycle path. Do not change core graph bytes for this extension.
+ADR-091 adds the local Q4 pilot foundation. Read
+`docs/guides/local-review-workspace.md` for report recomputation, bounded decision
+fields and filesystem recovery. Local queues carry no authenticated identity,
+and decisions leave the original architecture policy result intact.
 
 Do not mark those done without real results. Any new scope beyond V0.1, such as runtime
 tracing, more languages or private hosted repositories, needs the owner's direction and
@@ -98,7 +102,7 @@ an ADR first.
 | `packages/analyzer-ts`, `analyzer-py`, `analyzer-core` | TS/JS and Python facts and resolution; snapshot/history orchestration (`analyzeCommit`) |
 | `packages/graph`, `history`, `layout` | Aggregation/SCCs/queries; lineage and churn; deterministic integer city layout |
 | `packages/artifact` | Packing, verification and loading (Node and browser) |
-| `packages/cli` | `atlas doctor/analyze/inspect/verify/serve/findings/scan-evidence/verify-scan/review-findings/review-architecture` |
+| `packages/cli` | `atlas doctor/analyze/inspect/verify/serve/findings/scan-evidence/verify-scan/review-findings/review-architecture/workspace` |
 | `packages/control` | Hosted control plane: migrations, roles, storage, publications, GitHub budget |
 | `apps/api`, `apps/worker`, `apps/web` | Hosted HTTP API; coordinator and sandboxes; React/Three.js viewer |
 | `deploy/` | Sandbox and API images, development stack; `production/` reference kit and validation tooling |
@@ -159,7 +163,8 @@ must be green before a change counts as verified.
 - New decisions get the next ADR number and the existing format: Date/Status,
   Evidence and cause, Decision, Verification.
   ADR-090/091 are reserved for the parallel architecture viewer/local-workspace PRs.
-  ADR-092 records browser test isolation. Allocate ADR-093 next.
+  ADR-092 records browser test isolation. ADR-093 pins the corrected Debian image
+  packages. Allocate ADR-094 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

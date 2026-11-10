@@ -35,6 +35,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe('query worker lifecycle', () => {
+  it('bounds architecture validation with the existing query deadline', async () => {
+    vi.useFakeTimers();
+    const { client, worker } = setup();
+    const pending = expect(client.architecture(new File(['{}'], 'architecture.json'))).rejects.toThrow('deadline');
+    expect(worker.sent.at(-1)).toMatchObject({ type: 'architecture' });
+    await vi.advanceTimersByTimeAsync(20_000);
+    await pending;
+    expect(worker.terminated).toBe(true);
+    client.dispose();
+  });
   it('routes out-of-order responses to their own request and ignores late duplicates', async () => {
     const { client, worker } = setup();
     const first = client.search(0, 'first'),

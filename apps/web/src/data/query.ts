@@ -1,6 +1,6 @@
 import type { FrameComparison, ReachResult, SearchHit } from '@atlas/graph';
 import type { CityData } from '@atlas/layout';
-import type { GraphSnapshot } from '@atlas/schema';
+import type { ArchitectureReview, GraphSnapshot } from '@atlas/schema';
 import type { OverlayOptions, OverlayResult } from '../city/overlay';
 import type { PreparedFrame, QueryRequest } from './query.worker';
 
@@ -68,6 +68,9 @@ export class QueryClient {
   }
   compare(a: number, b: number): Promise<FrameComparison> {
     return this.send('compare', { type: 'compare', a, b }, 60_000) as Promise<FrameComparison>;
+  }
+  architecture(file: File): Promise<ArchitectureReview> {
+    return this.send('architecture', { type: 'architecture', file }) as Promise<ArchitectureReview>;
   }
 
   private fail(message: string, terminate = this.owned) {

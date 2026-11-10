@@ -102,7 +102,7 @@ function serverSource(url: (path: string) => string, onRead: (path: string) => v
 scope.onmessage = async (event: MessageEvent<LoaderRequest | QueryRequest>) => {
   const request = event.data;
   if (!('kind' in request)) {
-    void handleQuery(request);
+    void handleQuery(request, event);
     return;
   }
   const report = (path: string) => scope.postMessage({ type: 'progress', path } satisfies LoaderResponse);
@@ -132,7 +132,7 @@ scope.onmessage = async (event: MessageEvent<LoaderRequest | QueryRequest>) => {
       if (request.measure) console.debug('ATLAS load stages', JSON.stringify(stages));
       const index = new GraphIndex(graph),
         city = prepareCity(graph, artifact.layout, { attention: FrameStore.attention(graph) });
-      initializeQueries(new FrameStore(artifact, { frame, graph, index, city }));
+      initializeQueries(new FrameStore(artifact, { frame, graph, index, city }, artifact.manifest));
       scope.postMessage({
         type: 'done',
         result: {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Extract a locally built candidate away from the checkout and prove offline usability. */
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, mkdir, readdir, lstat, rm, access } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, readdir, lstat, rm, access, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +15,8 @@ import { parseFindingReview } from '../packages/graph/dist/index.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const result = JSON.parse(await readFile(process.argv[2], 'utf8'));
 assert.equal(createHash('sha256').update(await readFile(result.archive)).digest('hex'), result.sha256, 'Archive digest mismatch');
-const work = await mkdtemp(path.join(os.tmpdir(), 'atlas-cli-install-'));
+const temporaryRoot = await realpath(os.tmpdir());
+const work = await mkdtemp(path.join(temporaryRoot, 'atlas-cli-install-'));
 let demo, qualityRepo, reviewRepo, server, browser;
 const stages = [];
 const env = { PATH: process.env.PATH ?? '', ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), NO_COLOR: '1' };
@@ -80,7 +81,8 @@ try {
       if (!allowed || error.status !== expectedExit) throw error;
       output = error.stdout;
     }
-    stages.push({ stage: args[0], elapsedMs: performance.now() - started, ...(expectedExit ? { expectedExit } : {}), passed: true });
+    const stage = args[0] === 'workspace' ? `workspace-${args[1]}` : args[0];
+    stages.push({ stage, elapsedMs: performance.now() - started, ...(expectedExit ? { expectedExit } : {}), passed: true });
     return output;
   };
   cli(['doctor']);
@@ -167,6 +169,25 @@ try {
   markdownArgs.push('--markdown');
   cli(markdownArgs, 3);
   assert((await readFile(path.join(work, 'architecture-review.md'), 'utf8')).includes('pricing&#46;ts'));
+  const workspace = path.join(work, 'architecture-workspace');
+  const workspaceArtifact = ['--artifact', artifact, '--json'];
+  const initialized = JSON.parse(cli(['workspace', 'init', architectureOutput, ...workspaceArtifact, '--out', workspace]));
+  assert.equal(initialized.revision, 0);
+  const issueId = architectureReview.rows[0].id;
+  const decided = JSON.parse(cli(['workspace', 'decide', workspace, ...workspaceArtifact, '--issue', issueId, '--state', 'acknowledged', '--owner', 'maintainers', '--expected-revision', '0']));
+  assert.equal(decided.revision, 1);
+  assert.equal(decided.policyOverride, 'none');
+  assert.equal(decided.reportSha256, initialized.reportSha256);
+  assert.deepEqual(decided.decisions, [{ issueId, reportSha256: decided.reportSha256, state: 'acknowledged', owner: 'maintainers', changedRevision: 1 }]);
+  const workspaceExport = path.join(work, 'workspace-export.json');
+  cli(['workspace', 'export', workspace, ...workspaceArtifact, '--out', workspaceExport]);
+  const exported = await readFile(workspaceExport, 'utf8');
+  assert(!exported.includes(work));
+  assert.deepEqual(JSON.parse(exported).report, architectureReview);
+  const restored = path.join(work, 'architecture-workspace-restored');
+  cli(['workspace', 'import', workspaceExport, ...workspaceArtifact, '--out', restored]);
+  assert.equal(await readFile(path.join(restored, 'workspace.json'), 'utf8'), exported);
+  assert.deepEqual(JSON.parse(cli(['workspace', 'inspect', restored, ...workspaceArtifact])), decided);
   server = spawn(process.execPath, ['--require', guard, bin, 'serve', artifact, '--repo', demo.dir, '--no-open', '--json'], { cwd: work, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   server.stderr.resume();
   const serving = await new Promise((resolve, reject) => {
@@ -211,10 +232,6 @@ try {
   assert.deepEqual(outbound, []);
   assert.deepEqual(errors, []);
   stages.push({ stage: 'packaged-browser-city-history-search-and-dependencies', passed: true, outboundRequests: 0, pageErrors: 0, browser: browser.version(), renderer: 'SwiftShader; functional only' });
-  const report = { task: 'P6 distribution candidate fresh-install smoke', recordedAt: new Date().toISOString(), os: `${os.type()} ${os.release()} ${os.arch()}`, node: process.version, archiveSha256: result.sha256, archiveBytes: result.archiveBytes, sourceCommit: result.sourceCommit, workingTreeDirty: result.workingTreeDirty, stages, pass: true, limits: ['Candidate only; human and reference-hardware audits remain open.', 'The CLI entry process denies outbound sockets. Existing instrumented resolver and offline analyzer-container gates independently cover parsing/analysis.', 'Archive bytes and every extracted file are verified; this is integrity evidence, not a release signature.'] };
-  await writeFile(path.join(root, 'docs/release/distribution-smoke.json'), `${JSON.stringify(report, null, 2)}\n`);
-  await writeFile(path.join(root, 'docs/release/distribution-smoke.md'), ['# CLI distribution candidate: fresh-install smoke', '', `Recorded ${report.recordedAt} on ${report.os}, Node ${report.node}.`, '', `Archive: ${report.archiveBytes} bytes; SHA-256 \`${report.archiveSha256}\`. Source commit \`${report.sourceCommit}\`; working tree dirty: ${report.workingTreeDirty}. This candidate is not a signed-off release.`, '', 'Extracted into a fresh temporary directory outside the checkout, verified every distributed file, and ran without a package manager or any dependency install. CLI entry-process outbound sockets were denied. The browser accepted only the loopback server origin.', '', ...stages.map((s) => `- ${s.stage}: passed${s.files ? ` (${s.files} files)` : ''}${s.elapsedMs ? ` (${(s.elapsedMs / 1000).toFixed(2)} s)` : ''}.`), '', 'The authored Harbor repository yielded all 12 frames and 26 HEAD files. The bundled viewer opened that artifact, searched with the keyboard and showed its independently checked ledger dependency. Zero page errors or browser outbound requests. Software rendering validates behavior; it is not a reference-GPU benchmark.', '', '![Packaged viewer, outside the checkout](../images/phase6-packaged-city.png)', '', ...report.limits, ''].join('\n'));
-  console.log(JSON.stringify({ pass: true, stages: stages.length, archiveBytes: result.archiveBytes, archiveSha256: result.sha256 }));
 } finally {
   await browser?.close();
   if (server?.pid && server.exitCode === null) killProcessTree(server.pid);
@@ -222,6 +239,12 @@ try {
   qualityRepo?.dispose();
   reviewRepo?.dispose();
   // The only recursive removal is this harness's own fresh directory under OS temp.
-  assert(path.dirname(work) === path.resolve(os.tmpdir()) && path.basename(work).startsWith('atlas-cli-install-'));
-  await rm(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  const cleanup = await realpath(work);
+  assert(cleanup === work && path.dirname(cleanup) === temporaryRoot && path.basename(cleanup).startsWith('atlas-cli-install-'));
+  await rm(cleanup, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }
+
+const report = { task: 'P6 distribution candidate fresh-install smoke', recordedAt: new Date().toISOString(), os: `${os.type()} ${os.release()} ${os.arch()}`, node: process.version, archiveSha256: result.sha256, archiveBytes: result.archiveBytes, sourceCommit: result.sourceCommit, workingTreeDirty: result.workingTreeDirty, stages, pass: true, limits: ['Candidate only; human and reference-hardware audits remain open.', 'The CLI entry process denies outbound sockets. Existing instrumented resolver and offline analyzer-container gates independently cover parsing/analysis.', 'Archive bytes and every extracted file are verified; this is integrity evidence, not a release signature.'] };
+await writeFile(path.join(root, 'docs/release/distribution-smoke.json'), `${JSON.stringify(report, null, 2)}\n`);
+await writeFile(path.join(root, 'docs/release/distribution-smoke.md'), ['# CLI distribution candidate: fresh-install smoke', '', `Recorded ${report.recordedAt} on ${report.os}, Node ${report.node}.`, '', `Archive: ${report.archiveBytes} bytes; SHA-256 \`${report.archiveSha256}\`. Source commit \`${report.sourceCommit}\`; working tree dirty: ${report.workingTreeDirty}. This candidate is not a signed-off release.`, '', 'Extracted into a fresh temporary directory outside the checkout, verified every distributed file, and ran without a package manager or any dependency install. CLI entry-process outbound sockets were denied. The browser accepted only the loopback server origin.', '', ...stages.map((s) => `- ${s.stage}: passed${s.files ? ` (${s.files} files)` : ''}${s.elapsedMs ? ` (${(s.elapsedMs / 1000).toFixed(2)} s)` : ''}.`), '', 'The authored Harbor repository yielded all 12 frames and 26 HEAD files. The bundled viewer opened that artifact, searched with the keyboard and showed its independently checked ledger dependency. Zero page errors or browser outbound requests. Software rendering validates behavior; it is not a reference-GPU benchmark.', '', '![Packaged viewer, outside the checkout](../images/phase6-packaged-city.png)', '', ...report.limits, ''].join('\n'));
+console.log(JSON.stringify({ pass: true, stages: stages.length, archiveBytes: result.archiveBytes, archiveSha256: result.sha256 }));

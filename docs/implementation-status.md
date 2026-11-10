@@ -34,6 +34,30 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Architecture review in the city: Q3.1 (2026-11-09)
+
+- [ADR-090](adr/ADR-090-architecture-review-in-the-city.md) and the
+  [city guide](guides/architecture-city.md) add a browser-local review panel.
+  The retained worker recomputes the report against the bound artifact frames.
+  Coverage and omitted rows stay visible, and file links select the current or
+  earlier occurrence in the Dependencies inspector.
+- Browser journeys check keyboard import, 320 px reflow, a 2,000-row import,
+  renamed-file navigation, rejected input and dataset replacement. Reports are
+  cleared on reload, and an invalid import preserves the last valid report.
+  No analyzer, renderer or artifact contract changes.
+- The first full local run had one failure in the existing scan-scope journey.
+  Chromium returned `ERR_NO_BUFFER_SPACE` at loopback navigation, before the
+  feature assertions. Windows TCP event 4231 confirmed ephemeral-port exhaustion
+  in that interval. The failed log is retained. No test deadline or assertion
+  changed for the retest.
+- The full Windows retest passed **1,067 tests** with **92 gated skips**,
+  including all **57 Chromium journeys**. All 59 axe checkpoints recorded zero
+  violations and retained incomplete checks for human review. The four focused
+  journeys also passed in Firefox and WebKit before the final Escape handling
+  was scoped to the panel. The CI matrix checks the final revision on all engines.
+- The relocated CLI candidate passed all **17 smoke stages**, with zero browser
+  outbound requests and page errors. This is development package evidence.
+
 ### PR #55 browser verification correction (2026-10-29)
 
 The first Q3 head `0656688` passed 17 checks and all 31 new architecture tests;
@@ -63,7 +87,8 @@ worker completes the full run in 464.22 seconds on the Windows development host.
 The named-view audits take 1,297/1,584/3,287 ms in its three states, all with zero
 violations; automated incomplete results remain present for human review. These
 are diagnostic observations, not reference-hardware performance acceptance.
-Fresh macOS and the complete exact-head CI matrix must pass before PR readiness.
+The corrected head `499db6a` passed all 18 checks, including macOS, and
+[PR #55](https://github.com/urveesh09/project-atlas/pull/55) merged as `9f6e5e2`.
 
 ### Offline architecture review: Q3 (2026-10-29)
 
@@ -117,6 +142,19 @@ Fresh macOS and the complete exact-head CI matrix must pass before PR readiness.
   This dirty-tree archive is not a release artifact; historical package evidence stays
   unchanged. Fresh exact-head CI/security results are retained on the implementation PR.
 
+### Local review workspace: Q4 preparation (2026-11-09)
+
+- [ADR-091](adr/ADR-091-local-review-workspaces.md) and the
+  [workspace guide](guides/local-review-workspace.md) define five local CLI
+  actions. Every action recomputes its architecture evidence against the matching
+  artifact. Structured decisions bind to an exact report and issue. Concurrent
+  or stale writes fail before replacing the state, and a portable copy preserves
+  the revision and decisions without weakening a policy exit.
+- [Verification](benchmarks/local-review-workspace.md) covers the isolated
+  filesystem store, CLI round trips, portable package and unchanged analyzer
+  corpus. This is a local pilot foundation. Shared access, tenancy, billing and
+  G6/R6 acceptance require separate evidence.
+
 ### PR #54 closure and retained CI timeout (2026-10-29)
 
 The owner merged PR #54 after all 18 checks passed on `3247cbb`. Both patched
@@ -128,6 +166,20 @@ The unchanged Windows rerun passed, with that six-test file taking 5.74 s, and a
 15 portable-package stages passing. Cause remains unproven. Preserve the original
 [failed job](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123519713078)
 and [successful rerun](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123526710451).
+
+### Debian image maintenance for the architecture follow-ups (2026-11-09)
+
+- The first [PR #57 image run](https://github.com/urveesh09/project-atlas/actions/runs/42590323399)
+  flagged fixable High APT and zlib findings from the shared Debian base.
+  [ADR-093](adr/ADR-093-debian-image-security-refresh.md) moves the base to the
+  official digest-pinned Node 24.22.2 Trixie slim image with fixed APT and
+  installs the exact fixed zlib package from Debian. The scanner policy and
+  host Node minimum are unchanged.
+- Both final local linux/amd64 images built successfully. Network-disabled
+  inspection confirmed the installed package versions and Node runtime.
+  Windows `pnpm verify` on Node 24.22.2 passed **1,052 tests** with **92 gated
+  skips**, including all 53 Chromium journeys. Fresh OCI scan and hosted
+  verification run in CI.
 
 ### Runtime security maintenance during Q2.2 (2026-10-29)
 
