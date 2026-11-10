@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { architectureReasonLabel } from '@atlas/graph';
-import { compareUtf8, type ArchitectureFile, type ArchitectureRow, type EdgeKind, type WorkspaceDecisionState, type WorkspaceOwner } from '@atlas/schema';
+import { architectureReasonLabel, type WorkspaceDecisionEdit } from '@atlas/graph';
+import { compareUtf8, WorkspaceDecisionStateSchema, WorkspaceOwnerSchema, type ArchitectureFile, type ArchitectureRow, type EdgeKind, type WorkspaceDecisionState, type WorkspaceOwner } from '@atlas/schema';
 import { useArchitectureReview } from '../app/architecture';
 import { useViewer } from '../app/context';
 import { shortOid } from '../app/model';
@@ -30,11 +30,23 @@ export function ArchitectureReviewPanel() {
   const inputKind = useRef<ArchitectureInput>('report');
   const [rule, setRule] = useState(''), [state, setState] = useState('all');
   const [decisionFilter, setDecisionFilter] = useState('all');
+  const [editingIssue, setEditingIssue] = useState<string | null>(null);
+  const [filterRevision, setFilterRevision] = useState(architecture.revision);
+  // Reset before publishing new controls. A passive reset can undo the user's
+  // first filter selection just after an import.
+  if (filterRevision !== architecture.revision) {
+    setFilterRevision(architecture.revision);
+    setRule('');
+    setState('all');
+    setDecisionFilter('all');
+    setEditingIssue(null);
+  }
+  const editorTrigger = useRef<HTMLButtonElement>(null);
+  const workspaceHeading = useRef<HTMLHeadingElement>(null);
   const report = architecture.evidence?.report;
   const workspace = architecture.evidence?.workspace;
   const decisions = useMemo(() => new Map(workspace?.decisions.map(decision => [decision.issueId, decision])), [workspace]);
   useEffect(() => { if (architecture.open) heading.current?.focus(); }, [architecture.open]);
-  useEffect(() => { setRule(''); setState('all'); setDecisionFilter('all'); }, [report]);
   const rows = useMemo(() => report?.rows
     .filter(row => (!rule || row.ruleId === rule)
       && (state === 'all' || row.state === state)
@@ -49,6 +61,10 @@ export function ArchitectureReviewPanel() {
   const pick = (kind: ArchitectureInput) => {
     inputKind.current = kind;
     input.current?.click();
+  };
+  const closeEditor = () => {
+    setEditingIssue(null);
+    editorTrigger.current?.focus();
   };
 
   const fileLinks = (file: ArchitectureFile, location?: string) => {
@@ -69,14 +85,15 @@ export function ArchitectureReviewPanel() {
     <section className="external-quality architecture-review panel" id="architecture-review-panel" aria-labelledby="architecture-review-title" onKeyDown={event => {
       if (event.key === 'Escape' && !(event.target instanceof HTMLSelectElement)) {
         event.stopPropagation();
-        hide();
+        if (event.target instanceof HTMLElement && event.target.closest('[data-workspace-editor]')) closeEditor();
+        else hide();
       }
     }}>
       <div className="external-quality-heading">
         <h2 id="architecture-review-title" ref={heading} tabIndex={-1}>Architecture review</h2>
         <button className="button ghost" type="button" onClick={hide}>Hide architecture review</button>
       </div>
-      <p>Open a report from <code>atlas review-architecture</code> or a copy from <code>atlas workspace export</code>. The evidence is recomputed against this artifact in the background. Files stay in this browser session.</p>
+      <p>Open a report from <code>atlas review-architecture</code> or a copy from <code>atlas workspace export</code>. The evidence is recomputed against this artifact in the background.</p>
       <p className="quality-caveat">Recomputation does not authenticate the artifact's producer or establish a clean scan, runtime impact, security or merge approval.</p>
       <div className="external-quality-actions">
         <input ref={input} type="file" accept=".json,application/json" className="sr-only" tabIndex={-1} aria-hidden="true" data-architecture-input onChange={event => {
@@ -96,9 +113,24 @@ export function ArchitectureReviewPanel() {
       {report && <>
         <h3>Recomputed policy evidence</h3>
         {workspace && <div>
-          <h4>Local workspace decisions</h4>
+          <h4 ref={workspaceHeading} tabIndex={-1}>Local workspace decisions</h4>
           <p>Workspace revision {workspace.revision}. Saved decisions for {decisions.size} of {report.rows.length} retained rows.</p>
-          <p>Queues and decisions come from the export. They carry no authenticated identity and do not change policy results. To edit them, use <code>atlas workspace decide</code> and open a new export.</p>
+          <p>Draft decisions are kept in this session. Download a separate copy to keep them. Queues are local declarations and do not change policy results.</p>
+          {architecture.drafts.size > 0 && <>
+            <p>{architecture.drafts.size} draft {architecture.drafts.size === 1 ? 'decision' : 'decisions'} based on revision {workspace.revision}.</p>
+            <p>Opening another file successfully or leaving this artifact discards the drafts.</p>
+            <div className="external-quality-actions">
+              <button type="button" className="button" aria-disabled={architecture.pending || architecture.copy !== null} onClick={() => {
+                if (!architecture.pending && !architecture.copy) void architecture.prepareCopy();
+              }}>Prepare workspace copy</button>
+              {architecture.copy && <WorkspaceDownload {...architecture.copy} />}
+              <button type="button" className="button ghost" disabled={architecture.pending} onClick={() => {
+                architecture.discard();
+                setEditingIssue(null);
+                workspaceHeading.current?.focus();
+              }}>Discard drafts</button>
+            </div>
+          </>}
         </div>}
         <p>Current {shortOid(report.current.commitOid)} · baseline {report.baseline ? shortOid(report.baseline.commitOid) : 'not selected'} · {report.rows.length} retained rows; {report.rowsOmitted} omitted.</p>
         <p className="section-description">Policy SHA-256: <code>{report.policySha256}</code></p>
@@ -124,7 +156,25 @@ export function ArchitectureReviewPanel() {
         <p>{rows.length} retained rows match these filters. No longer observed does not mean resolved.</p>
         <Paged key={`${architecture.revision}:${rule}:${state}:${decisionFilter}`} items={rows} pageSize={20} empty="No retained evidence matches these filters. Omitted or unobserved evidence does not establish a clean result." render={row => <li key={row.id} data-architecture-kind={row.kind} data-architecture-rule={row.ruleId}>
           <div><strong>{STATE_LABEL[row.state]}</strong> · {row.ruleId} · {row.kind === 'cycle' ? 'Static cycle component' : 'Boundary relation'}</div>
-          {workspace && <DecisionLabel decision={decisions.get(row.id)} />}
+          {workspace && <>
+            <DecisionLabel decision={decisions.get(row.id)} />
+            <DraftLabel draft={architecture.drafts.get(row.id)} />
+            <div><button type="button" className="button ghost" disabled={architecture.pending} aria-expanded={editingIssue === row.id} onClick={event => {
+              editorTrigger.current = event.currentTarget;
+              if (editingIssue === row.id) closeEditor();
+              else setEditingIssue(row.id);
+            }}>Edit local decision</button></div>
+            {editingIssue === row.id && <DecisionEditor
+              key={row.id}
+              issueId={row.id}
+              decision={architecture.drafts.get(row.id) ?? decisions.get(row.id)}
+              hasDraft={architecture.drafts.has(row.id)}
+              disabled={architecture.pending}
+              onStage={edit => { if (architecture.stage(edit)) closeEditor(); }}
+              onDiscard={() => { architecture.discard(row.id); closeEditor(); }}
+              onClose={closeEditor}
+            />}
+          </>}
           <div>Evidence ID: <code>{row.id}</code></div>
           {row.kind === 'forbidden-dependency' ? <>
             <div>{EDGE_LABEL[row.edge.kind]} · {row.edge.confidence} confidence · {row.edge.observations} import statements; {row.edge.evidenceOmitted} statement locations not listed.</div>
@@ -142,7 +192,57 @@ export function ArchitectureReviewPanel() {
   );
 }
 
-function DecisionLabel({ decision }: { decision: { state: WorkspaceDecisionState; owner: WorkspaceOwner } | undefined }) {
+function DecisionLabel({ decision }: { decision: WorkspaceDecisionEdit | undefined }) {
   if (!decision) return <div>{DECISION_LABEL.unrecorded}</div>;
   return <div>Saved decision · {DECISION_LABEL[decision.state]} · {QUEUE_LABEL[decision.owner]}</div>;
+}
+
+function DraftLabel({ draft }: { draft: WorkspaceDecisionEdit | undefined }) {
+  return draft ? <div>Draft decision · {DECISION_LABEL[draft.state]} · {QUEUE_LABEL[draft.owner]}</div> : null;
+}
+
+function DecisionEditor({ issueId, decision, hasDraft, disabled, onStage, onDiscard, onClose }: {
+  issueId: string;
+  decision: WorkspaceDecisionEdit | undefined;
+  hasDraft: boolean;
+  disabled: boolean;
+  onStage: (edit: WorkspaceDecisionEdit) => void;
+  onDiscard: () => void;
+  onClose: () => void;
+}) {
+  const [state, setState] = useState<WorkspaceDecisionState>(decision?.state ?? 'needs-review');
+  const [owner, setOwner] = useState<WorkspaceOwner>(decision?.owner ?? 'unassigned');
+  const select = useRef<HTMLSelectElement>(null);
+  useEffect(() => { select.current?.focus(); }, []);
+  return <form data-workspace-editor onSubmit={event => { event.preventDefault(); onStage({ issueId, state, owner }); }}>
+    <div className="architecture-filters">
+      <div>
+        <label htmlFor="workspace-draft-state">Decision state</label>
+        <select id="workspace-draft-state" ref={select} value={state} disabled={disabled} onChange={event => setState(WorkspaceDecisionStateSchema.parse(event.currentTarget.value))}>
+          {WorkspaceDecisionStateSchema.options.map(value => <option key={value} value={value}>{DECISION_LABEL[value]}</option>)}
+        </select>
+      </div>
+      <div>
+        <label htmlFor="workspace-draft-owner">Ownership queue</label>
+        <select id="workspace-draft-owner" value={owner} disabled={disabled} onChange={event => setOwner(WorkspaceOwnerSchema.parse(event.currentTarget.value))}>
+          {WorkspaceOwnerSchema.options.map(value => <option key={value} value={value}>{QUEUE_LABEL[value]}</option>)}
+        </select>
+      </div>
+    </div>
+    <div className="external-quality-actions">
+      <button type="submit" className="button" disabled={disabled}>Stage decision</button>
+      {hasDraft && <button type="button" className="button ghost" disabled={disabled} onClick={onDiscard}>Remove draft decision</button>}
+      <button type="button" className="button ghost" onClick={onClose}>Cancel edit</button>
+    </div>
+  </form>;
+}
+
+function WorkspaceDownload({ blob, revision }: { blob: Blob; revision: number }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const url = URL.createObjectURL(blob);
+    setUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [blob]);
+  return url ? <a className="button" href={url} download={`atlas-workspace-r${revision}.json`}>Download workspace copy</a> : null;
 }

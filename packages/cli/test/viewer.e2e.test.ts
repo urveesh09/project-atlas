@@ -6,7 +6,7 @@ import { chromium, firefox, webkit, type Browser, type BrowserContext, type Brow
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION, type ArtifactBundle, type ArchitectureReview } from '@atlas/schema';
-import { createScanEvidence, parseQualityReport, qualityTarget, importRuffSarif, parseFindingReview, createFindingReview, reviewArchitecture } from '@atlas/graph';
+import { createScanEvidence, parseQualityReport, qualityTarget, importRuffSarif, parseFindingReview, createFindingReview, parseReviewWorkspace, reviewArchitecture } from '@atlas/graph';
 import { run, type CliIO } from '@atlas/cli';
 import { viewerDirectory } from '../src/commands/serve.js';
 import { SourceAttachment } from '../src/server/source.js';
@@ -1871,18 +1871,18 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
     await page.locator('input[data-architecture-input]').setInputFiles(path.join(work, large ? 'architecture-city-capacity.json' : 'architecture-city.json'));
     await page.getByRole('region', { name: 'Architecture review', exact: true }).getByRole('heading', { name: 'Recomputed policy evidence', exact: true }).waitFor({ timeout: 20_000 });
   };
+  const pickWorkspace = async (page: Page, name: string) => {
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Open workspace export…', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await (await chooser).setFiles(path.join(work, name));
+  };
 
   it('opens a CLI workspace export with the keyboard and filters saved decisions independently of evidence', async () => {
     const test = await openArchitecture(false, 320);
     try {
       const { page, panel } = test;
-      const pickWorkspace = async (name: string) => {
-        const chooser = page.waitForEvent('filechooser');
-        await panel.getByRole('button', { name: 'Open workspace export…', exact: true }).focus();
-        await page.keyboard.press('Enter');
-        await (await chooser).setFiles(path.join(work, name));
-      };
-      await pickWorkspace('architecture-workspace.json');
+      await pickWorkspace(page, 'architecture-workspace.json');
       const decisionFilter = panel.getByLabel('Workspace decision', { exact: true });
       await decisionFilter.waitFor();
       expect(await panel.innerText()).toContain('Workspace revision 2. Saved decisions for 2 of 3 retained rows.');
@@ -1898,7 +1898,7 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
       await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('main.ts');
       await expectNoSidewaysScroll(page);
       expect(await audit(page, 'architecture-workspace-narrow-320')).toEqual([]);
-      await pickWorkspace('architecture-workspace-invalid.json');
+      await pickWorkspace(page, 'architecture-workspace-invalid.json');
       await panel.getByRole('alert').waitFor();
       expect(await acknowledged.innerText()).toContain('Saved decision · Acknowledged · Maintainers');
       expect(await decisionFilter.inputValue()).toBe('acknowledged');
@@ -1906,6 +1906,60 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
       await decisionFilter.waitFor({ state: 'detached' });
       await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(3);
       expect(await panel.getByRole('alert').count()).toBe(0);
+      expect(test.requests.every(r => r.method === 'GET' && new URL(r.url).origin === new URL(test.serving.url).origin)).toBe(true);
+      expect(test.errors).toEqual([]);
+    } finally { await test.close(); }
+  });
+
+  it('drafts a decision in the city and downloads a separate copy the CLI can import', async () => {
+    const test = await openArchitecture(false, 320);
+    try {
+      const { page, panel } = test;
+      const originalPath = path.join(work, 'architecture-workspace.json');
+      const original = readFileSync(originalPath, 'utf8');
+      const saved = parseReviewWorkspace(original);
+      await pickWorkspace(page, 'architecture-workspace.json');
+      await panel.getByLabel('Workspace decision', { exact: true }).selectOption('acknowledged');
+      const row = panel.locator('[data-architecture-rule="prod-tests"]');
+      const edit = row.getByRole('button', { name: 'Edit local decision' });
+      await edit.focus();
+      await page.keyboard.press('Enter');
+      const state = row.getByLabel('Decision state', { exact: true });
+      await expect.poll(() => state.evaluate(element => element === document.activeElement)).toBe(true);
+      await state.selectOption('deferred');
+      await row.getByLabel('Ownership queue', { exact: true }).selectOption('architecture-review');
+      await expectNoSidewaysScroll(page);
+      expect(await audit(page, 'architecture-workspace-draft-320')).toEqual([]);
+      await row.getByRole('button', { name: 'Stage decision', exact: true }).click();
+      expect(await edit.evaluate(element => element === document.activeElement)).toBe(true);
+      expect(await row.innerText()).toContain('Saved decision · Acknowledged · Maintainers');
+      expect(await row.innerText()).toContain('Draft decision · Deferred · Architecture review');
+      await pickWorkspace(page, 'architecture-workspace-invalid.json');
+      await panel.getByRole('alert').waitFor();
+      expect(await row.innerText()).toContain('Draft decision · Deferred · Architecture review');
+
+      await panel.getByRole('button', { name: 'Prepare workspace copy', exact: true }).click();
+      const link = panel.getByRole('link', { name: 'Download workspace copy', exact: true });
+      await link.waitFor();
+      const downloaded = page.waitForEvent('download');
+      await link.focus();
+      await page.keyboard.press('Enter');
+      const copy = await downloaded;
+      expect(copy.suggestedFilename()).toBe('atlas-workspace-r3.json');
+      const copyPath = path.join(work, 'draft-download.json');
+      await copy.saveAs(copyPath);
+      const imported = path.join(work, 'draft-imported');
+      expect(await run(['workspace', 'import', copyPath, '--artifact', directory(), '--out', imported], io())).toBe(0);
+      const restored = parseReviewWorkspace(readFileSync(path.join(imported, 'workspace.json'), 'utf8'));
+      expect(restored.report).toEqual(saved.report);
+      expect(restored.revision).toBe(3);
+      expect(restored.decisions.find(decision => decision.changedRevision === 3)).toMatchObject({ state: 'deferred', owner: 'architecture-review' });
+      expect(readFileSync(originalPath, 'utf8')).toBe(original);
+      expect(await panel.innerText()).toContain('Workspace revision 2.');
+      await edit.click();
+      await row.getByRole('button', { name: 'Remove draft decision', exact: true }).click();
+      await link.waitFor({ state: 'detached' });
+      expect(await row.innerText()).not.toContain('Draft decision');
       expect(test.requests.every(r => r.method === 'GET' && new URL(r.url).origin === new URL(test.serving.url).origin)).toBe(true);
       expect(test.errors).toEqual([]);
     } finally { await test.close(); }

@@ -34,6 +34,34 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Draft workspace decisions in the city (2026-11-10)
+
+- A reviewer can stage a decision and ownership queue on a retained row.
+  Saved decisions and draft edits remain distinct. The worker revalidates
+  the opened workspace and recomputes the artifact evidence when preparing a
+  new copy. The CLI and browser use the same revision and decision rules.
+- Downloading requires an explicit click. The original export and its saved
+  revision stay intact. A separate download can be opened in the viewer or
+  imported into a new CLI workspace. See
+  [ADR-095](adr/ADR-095-browser-workspace-drafts.md) and the
+  [city guide](guides/architecture-city.md#draft-a-decision-and-keep-a-copy).
+- The initial WebKit run lost the first saved-filter selection just after
+  import. The filter reset moved from a passive effect to the render of the
+  new review revision, before its controls are visible. All six architecture
+  journeys passed in Chromium, Firefox and WebKit after the change, and the
+  affected WebKit journey passed two additional runs. The original failure
+  is retained. Assertions and deadlines stayed intact.
+- Windows `pnpm verify` on Node 24.22.2 passed **1,091 tests** with **93 gated
+  skips**, including all **59 Chromium journeys**. The 61 automated
+  accessibility checkpoints recorded zero violations and retained incomplete
+  checks for human review.
+- All **25 relocated package smoke stages** passed. The shipped viewer prepared
+  and downloaded a draft. The shipped CLI imported it at the next revision
+  while the original export stayed byte-identical. The smoke recorded zero
+  browser outbound requests and page errors.
+- All six pinned repositories matched the committed analyzer bytes and
+  independent source checks over five offline repeats each.
+
 ### Read workspace decisions in the city (2026-11-10)
 
 - [ADR-094](adr/ADR-094-workspace-evidence-in-the-city.md) connects the

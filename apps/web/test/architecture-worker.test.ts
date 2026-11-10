@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildHandcraftedArtifact } from '@atlas/test-fixtures';
-import { GraphIndex, createReviewWorkspace, decideReviewWorkspace, reviewArchitecture } from '@atlas/graph';
+import { GraphIndex, createReviewWorkspace, decideReviewWorkspace, parseReviewWorkspace, reviewArchitecture } from '@atlas/graph';
 import { prepareCity } from '@atlas/layout';
 import { ARCHITECTURE_LIMITS, WORKSPACE_LIMITS, makeId } from '@atlas/schema';
 import type * as QueryWorker from '../src/data/query.worker';
@@ -101,7 +101,7 @@ describe('local workspace import in the retained worker', () => {
     const saved = decideReviewWorkspace(initial, 0, report.rows[0]!.id, 'acknowledged', 'maintainers');
     await worker.handleQuery({ id: 41, type: 'architecture', input: 'workspace', file: file(saved) }, channel);
     expect(scope.postMessage).toHaveBeenCalledExactlyOnceWith({
-      id: 41, result: { report, workspace: { revision: 1, decisions: saved.decisions } },
+      id: 41, result: { report, workspace: saved },
     });
   });
 
@@ -130,5 +130,22 @@ describe('local workspace import in the retained worker', () => {
     await worker.handleQuery({ id: 46, type: 'architecture', input: 'workspace', file: picked }, channel);
     expect(read).not.toHaveBeenCalled();
     expect(scope.postMessage).toHaveBeenCalledExactlyOnceWith({ id: 46, error: ERROR });
+  });
+
+  it('prepares a canonical copy and refuses foreign channels or forged evidence', async () => {
+    const workspace = createReviewWorkspace(report);
+    const edits = [{ issueId: report.rows[0]!.id, state: 'deferred' as const, owner: 'maintainers' as const }];
+    await worker.handleQuery({ id: 47, type: 'architecture-copy', workspace, edits }, channel);
+    const blob = scope.postMessage.mock.calls[0]![0].result as Blob;
+    expect(blob.type).toBe('application/json');
+    expect(parseReviewWorkspace(await blob.text())).toMatchObject({ report, revision: 1, decisions: edits });
+    const forged = structuredClone(report);
+    forged.rules[0]!.current++;
+    await worker.handleQuery({ id: 48, type: 'architecture-copy', workspace: createReviewWorkspace(forged), edits }, channel);
+    await worker.handleQuery({ id: 49, type: 'architecture-copy', workspace, edits }, { ...channel, isTrusted: false });
+    expect(scope.postMessage.mock.calls.slice(1).map(([value]) => value)).toEqual([
+      { id: 48, error: 'Workspace copy could not be prepared.' },
+      { id: 49, error: 'Workspace copy could not be prepared.' },
+    ]);
   });
 });

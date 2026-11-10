@@ -69,7 +69,8 @@ retains the current report and decisions, not past versions or the analyzed arti
 You must separately retain the matching artifact to reopen/revalidate the workspace.
 To inspect the decisions alongside the affected files, open the export from the
 [city's Architecture review panel](architecture-city.md#inspect-saved-workspace-decisions).
-The browser shows a read-only copy and recomputes the report against the artifact.
+The browser recomputes the report against the artifact. Draft edits can be
+downloaded as a separate export and imported into a new local workspace.
 
 There is no expiry or background deletion. Keep/delete the directory and exported
 files using your OS's normal private-file controls. Removing an original does not

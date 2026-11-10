@@ -33,9 +33,23 @@ Needs review decision and a row without a saved decision are separate choices.
 
 The browser recomputes the underlying report before showing the decisions.
 Queues are local declarations and leave policy counts and CI results intact.
-Use `atlas workspace decide` to make edits, then export and reopen a fresh copy.
-Opening a plain report replaces the workspace view. Clear, reload or open
-another artifact to discard the browser copy. See [ADR-094](../adr/ADR-094-workspace-evidence-in-the-city.md).
+
+### Draft a decision and keep a copy
+
+1. Choose **Edit local decision** on a retained row. Set the state and ownership
+   queue, then choose **Stage decision**. The saved decision remains visible
+   beside the draft. Filters continue to use the saved decisions.
+2. Choose **Prepare workspace copy**. The worker rechecks the evidence and
+   prepares one revision per changed issue. Choose **Download workspace copy**
+   when the link appears.
+3. Open the downloaded file again to view its saved revision, or import it
+   with `atlas workspace import` into a new directory.
+
+Use **Remove draft decision** in the row editor or **Discard drafts** in the
+workspace section to revert pending edits. Any change invalidates a prepared
+download link. Opening another valid input, clearing, reloading or replacing
+the artifact discards pending changes. Downloaded copies can diverge from the
+original. See [ADR-095](../adr/ADR-095-browser-workspace-drafts.md).
 
 Counts describe observed internal file dependencies. Unmatched selectors, incomplete
 coverage and capped evidence are shown separately. A cycle row compares the member

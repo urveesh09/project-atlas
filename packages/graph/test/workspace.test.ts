@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { canonicalJson, canonicalJsonSha256 } from '@atlas/schema';
-import { createReviewWorkspace, decideReviewWorkspace, parseReviewWorkspace, reviewArchitecture, architectureExit } from '@atlas/graph';
+import { applyReviewWorkspaceEdits, createReviewWorkspace, decideReviewWorkspace, parseReviewWorkspace, reviewArchitecture, architectureExit } from '@atlas/graph';
 import { architectureAnalysis, architectureFixture } from './architecture-fixture.js';
 
 function fixture() {
@@ -69,4 +69,25 @@ it('rejects two retained decisions claiming the same edit revision', () => {
   expect(parseReviewWorkspace(canonicalJson(two))).toEqual(two);
   const forged = { ...two, decisions: two.decisions.map(decision => ({ ...decision, changedRevision: 2 })) };
   expect(() => parseReviewWorkspace(canonicalJson(forged))).toThrow(/revision/);
+});
+
+it('applies a draft batch once per issue in stable revision order and preserves policy evidence', () => {
+  const { workspace, report } = fixture();
+  const [first, second] = report.rows;
+  const saved = decideReviewWorkspace(workspace, 0, first!.id, 'acknowledged', 'maintainers');
+  const before = canonicalJson(saved);
+  const edits = [
+    { issueId: second!.id, state: 'needs-review', owner: 'security-review' },
+    { issueId: first!.id, state: 'deferred', owner: 'architecture-review' },
+  ] as const;
+  const updated = applyReviewWorkspaceEdits(saved, 1, edits);
+  expect(updated.revision).toBe(3);
+  expect(updated.report).toEqual(report);
+  expect(architectureExit(updated.report, 'all')).toBe(3);
+  expect(updated.decisions.map(row => row.changedRevision)).toEqual([2, 3]);
+  expect(canonicalJson(updated)).toBe(canonicalJson(applyReviewWorkspaceEdits(saved, 1, [...edits].reverse())));
+  expect(parseReviewWorkspace(canonicalJson(updated))).toEqual(updated);
+  expect(() => applyReviewWorkspaceEdits(saved, 1, [edits[0], edits[0]])).toThrow(/repeated/);
+  expect(() => applyReviewWorkspaceEdits(saved, 0, edits)).toThrow(/revision/);
+  expect(canonicalJson(saved)).toBe(before);
 });

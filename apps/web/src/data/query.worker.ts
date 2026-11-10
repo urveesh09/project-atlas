@@ -1,7 +1,7 @@
 import type { OpenedArtifact } from '@atlas/artifact';
-import { GraphIndex, SearchIndex, compareFrames, hotspotBaseline, hotspotFactors, parseArchitectureReview, parseReviewWorkspace, recomputeArchitectureReview, type GraphIndexData } from '@atlas/graph';
+import { GraphIndex, SearchIndex, applyReviewWorkspaceEdits, compareFrames, hotspotBaseline, hotspotFactors, parseArchitectureReview, parseReviewWorkspace, recomputeArchitectureReview, type GraphIndexData, type WorkspaceDecisionEdit } from '@atlas/graph';
 import { prepareCity, type CityData } from '@atlas/layout';
-import { ARCHITECTURE_LIMITS, WORKSPACE_LIMITS, type ArchitectureReview, type ArtifactManifest, type GraphSnapshot, type ReviewWorkspace } from '@atlas/schema';
+import { ARCHITECTURE_LIMITS, WORKSPACE_LIMITS, canonicalJson, type ArchitectureReview, type ArtifactManifest, type GraphSnapshot, type ReviewWorkspace } from '@atlas/schema';
 import { buildOverlay, prepareOverlayLookup, type OverlayOptions } from '../city/overlay';
 
 /**
@@ -18,12 +18,13 @@ export type QueryRequest =
   | { id: number; type: 'reach'; frame: number; nodeId: string; direction: 'outgoing' | 'incoming'; depth: number }
   | { id: number; type: 'overlay'; frame: number; options: OverlayOptions }
   | { id: number; type: 'compare'; a: number; b: number }
-  | { id: number; type: 'architecture'; file: File; input: ArchitectureInput };
+  | { id: number; type: 'architecture'; file: File; input: ArchitectureInput }
+  | { id: number; type: 'architecture-copy'; workspace: ReviewWorkspace; edits: WorkspaceDecisionEdit[] };
 
 export type ArchitectureInput = 'report' | 'workspace';
 export interface ArchitectureEvidence {
   report: ArchitectureReview;
-  workspace: Pick<ReviewWorkspace, 'revision' | 'decisions'> | null;
+  workspace: ReviewWorkspace | null;
 }
 
 export interface PreparedFrame {
@@ -102,14 +103,24 @@ export class FrameStore {
     }
   }
 
-  /** Only recomputed evidence and checked decision metadata cross back to the UI. */
+  /** Only recomputed evidence and a checked workspace cross back to the UI. */
   async architecture(file: File, input: ArchitectureInput): Promise<ArchitectureEvidence> {
-    const manifest = this.manifest;
-    if (!manifest)
-      throw new Error('Architecture review could not be checked against this artifact.');
+    if (!this.manifest) throw new Error('Architecture review could not be checked against this artifact.');
     const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: input === 'workspace' }).decode(await file.arrayBuffer());
     const workspace = input === 'workspace' ? parseReviewWorkspace(text) : null;
-    const declared = workspace?.report ?? parseArchitectureReview(text);
+    const report = await this.verifyArchitecture(workspace?.report ?? parseArchitectureReview(text));
+    return { report, workspace: workspace ? { ...workspace, report } : null };
+  }
+
+  async architectureCopy(workspace: ReviewWorkspace, edits: WorkspaceDecisionEdit[]): Promise<Blob> {
+    const updated = applyReviewWorkspaceEdits(workspace, workspace.revision, edits);
+    const report = await this.verifyArchitecture(updated.report);
+    return new Blob([canonicalJson({ ...updated, report }) + '\n'], { type: 'application/json' });
+  }
+
+  private async verifyArchitecture(declared: ArchitectureReview): Promise<ArchitectureReview> {
+    const manifest = this.manifest;
+    if (!manifest) throw new Error('Architecture review could not be checked against this artifact.');
     if (declared.analysisId !== manifest.analysisId || declared.repoId !== manifest.repo.repoId)
       throw new Error('Architecture review does not belong to this artifact.');
     const at = (side: typeof declared.current) => manifest.frames.findIndex(f => f.snapshotId === side.snapshotId && f.commit.oid === side.commitOid);
@@ -118,8 +129,7 @@ export class FrameStore {
       throw new Error('Architecture review snapshot order does not match this artifact.');
     const current = await this.get(currentAt);
     const baseline = baselineAt < 0 ? null : await this.get(baselineAt);
-    const report = recomputeArchitectureReview(declared, manifest.analysisId, current.graph, baseline?.graph ?? null);
-    return { report, workspace: workspace ? { revision: workspace.revision, decisions: workspace.decisions } : null };
+    return recomputeArchitectureReview(declared, manifest.analysisId, current.graph, baseline?.graph ?? null);
   }
 }
 
@@ -136,13 +146,17 @@ function standalone(graph: GraphSnapshot, city: CityData, frame: number): FrameS
 
 export async function handleQuery(q: QueryRequest, channel?: Pick<MessageEvent, 'origin' | 'source' | 'isTrusted'>) {
   try {
+    if ((q.type === 'architecture' || q.type === 'architecture-copy')
+      && (!channel || channel.origin !== '' || channel.source !== null || !channel.isTrusted
+        || !Number.isSafeInteger(q.id) || q.id < 1)) throw new Error('Architecture request was rejected.');
     if (q.type === 'architecture') {
-      if (!channel || channel.origin !== '' || channel.source !== null || !channel.isTrusted
-        || !Number.isSafeInteger(q.id) || q.id < 1 || !(q.file instanceof File)
+      if (!(q.file instanceof File)
         || (q.input !== 'report' && q.input !== 'workspace')) throw new Error('Architecture review request was rejected.');
       const limit = q.input === 'workspace' ? WORKSPACE_LIMITS.bytes : ARCHITECTURE_LIMITS.reportBytes;
       if (q.file.size > limit) throw new Error('Architecture input exceeds its byte limit.');
     }
+    if (q.type === 'architecture-copy' && (!Array.isArray(q.edits) || !q.edits.length || q.edits.length > WORKSPACE_LIMITS.decisions))
+      throw new Error('Architecture draft exceeds its edit limit.');
     if (q.type === 'init') {
       initializeQueries(standalone(q.graph, q.city, q.frame));
       scope.postMessage({ id: q.id, result: true });
@@ -153,6 +167,9 @@ export async function handleQuery(q: QueryRequest, channel?: Pick<MessageEvent, 
     switch (q.type) {
       case 'architecture':
         result = await store.architecture(q.file, q.input);
+        break;
+      case 'architecture-copy':
+        result = await store.architectureCopy(q.workspace, q.edits);
         break;
       case 'frame': {
         const entry = await store.get(q.frame);
@@ -182,7 +199,10 @@ export async function handleQuery(q: QueryRequest, channel?: Pick<MessageEvent, 
     }
     scope.postMessage({ id: q.id, result });
   } catch (e) {
-    scope.postMessage({ id: q.id, error: q.type === 'architecture' ? 'Architecture review could not be checked. Existing evidence is unchanged.' : e instanceof Error ? e.message : 'Query failed' });
+    const error = q.type === 'architecture' ? 'Architecture review could not be checked. Existing evidence is unchanged.'
+      : q.type === 'architecture-copy' ? 'Workspace copy could not be prepared.'
+      : e instanceof Error ? e.message : 'Query failed';
+    scope.postMessage({ id: q.id, error });
   }
 }
 scope.onmessage = (event) => void handleQuery(event.data, event);
