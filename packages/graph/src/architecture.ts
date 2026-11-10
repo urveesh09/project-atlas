@@ -198,14 +198,23 @@ export function reviewArchitecture(analysisId: string, current: GraphSnapshot, p
     fail('Architecture review exceeds its 8 MiB limit. Narrow the policy.');
   return report;
 }
-export function validateArchitectureReview(text: string, analysisId: string, current: GraphSnapshot, baseline: GraphSnapshot | null = null): ArchitectureReview {
+export function parseArchitectureReview(text: string): ArchitectureReview {
   const parsed = ArchitectureReviewSchema.safeParse(parseBoundedReviewJson(text, ARCHITECTURE_LIMITS.reportBytes));
   if (!parsed.success)
     fail('Invalid or unsupported architecture review.');
-  const expected = reviewArchitecture(analysisId, current, parsed.data.policy, baseline);
-  if (canonicalJson(parsed.data) !== canonicalJson(expected))
+  return parsed.data;
+}
+
+/** Compare a parsed report with fresh evidence from its artifact frames. */
+export function recomputeArchitectureReview(declared: ArchitectureReview, analysisId: string, current: GraphSnapshot, baseline: GraphSnapshot | null = null): ArchitectureReview {
+  const expected = reviewArchitecture(analysisId, current, declared.policy, baseline);
+  if (canonicalJson(declared) !== canonicalJson(expected))
     fail('Architecture review differs from the selected artifact and policy.');
   return expected;
+}
+
+export function validateArchitectureReview(text: string, analysisId: string, current: GraphSnapshot, baseline: GraphSnapshot | null = null): ArchitectureReview {
+  return recomputeArchitectureReview(parseArchitectureReview(text), analysisId, current, baseline);
 }
 export function architectureExit(report: ArchitectureReview, failOn?: 'new' | 'all'): number {
   if (failOn === 'new' && !report.baseline)

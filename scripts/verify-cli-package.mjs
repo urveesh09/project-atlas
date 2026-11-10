@@ -232,6 +232,17 @@ try {
   assert.deepEqual(outbound, []);
   assert.deepEqual(errors, []);
   stages.push({ stage: 'packaged-browser-city-history-search-and-dependencies', passed: true, outboundRequests: 0, pageErrors: 0, browser: browser.version(), renderer: 'SwiftShader; functional only' });
+  await page.getByRole('button', { name: 'Architecture review', exact: true }).click();
+  const panel = page.getByRole('region', { name: 'Architecture review', exact: true });
+  const chooser = page.waitForEvent('filechooser');
+  await panel.getByRole('button', { name: 'Open workspace export…', exact: true }).click();
+  await (await chooser).setFiles(workspaceExport);
+  await panel.getByRole('heading', { name: 'Local workspace decisions', exact: true }).waitFor();
+  assert((await panel.innerText()).includes('Workspace revision 1. Saved decisions for 1 of 1 retained rows.'));
+  assert((await panel.innerText()).includes('Saved decision · Acknowledged · Maintainers'));
+  assert.deepEqual(outbound, []);
+  assert.deepEqual(errors, []);
+  stages.push({ stage: 'packaged-browser-workspace-evidence', passed: true, outboundRequests: 0, pageErrors: 0, browser: browser.version() });
 } finally {
   await browser?.close();
   if (server?.pid && server.exitCode === null) killProcessTree(server.pid);

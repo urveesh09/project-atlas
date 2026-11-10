@@ -1,8 +1,8 @@
 import type { FrameComparison, ReachResult, SearchHit } from '@atlas/graph';
 import type { CityData } from '@atlas/layout';
-import type { ArchitectureReview, GraphSnapshot } from '@atlas/schema';
+import type { GraphSnapshot } from '@atlas/schema';
 import type { OverlayOptions, OverlayResult } from '../city/overlay';
-import type { PreparedFrame, QueryRequest } from './query.worker';
+import type { ArchitectureEvidence, ArchitectureInput, PreparedFrame, QueryRequest } from './query.worker';
 
 type Body<T extends QueryRequest['type']> = Omit<Extract<QueryRequest, { type: T }>, 'id'>;
 
@@ -69,8 +69,8 @@ export class QueryClient {
   compare(a: number, b: number): Promise<FrameComparison> {
     return this.send('compare', { type: 'compare', a, b }, 60_000) as Promise<FrameComparison>;
   }
-  architecture(file: File): Promise<ArchitectureReview> {
-    return this.send('architecture', { type: 'architecture', file }) as Promise<ArchitectureReview>;
+  architecture(file: File, input: ArchitectureInput = 'report'): Promise<ArchitectureEvidence> {
+    return this.send('architecture', { type: 'architecture', file, input }) as Promise<ArchitectureEvidence>;
   }
 
   private fail(message: string, terminate = this.owned) {

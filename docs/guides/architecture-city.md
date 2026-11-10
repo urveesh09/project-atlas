@@ -19,6 +19,24 @@ the last accepted report when an import fails. The file limit is 8 MiB. Reports
 stay in memory. Clear the panel, open another artifact or reload to discard them.
 The same controls work in the table view.
 
+## Inspect saved workspace decisions
+
+If you already have a [local review workspace](local-review-workspace.md), run
+`atlas workspace export` and keep the matching analysis folder. Open that folder
+in the viewer, then choose **Architecture review** → **Open workspace export…**
+and select the exported JSON. The export limit is 10 MiB.
+
+The panel shows the saved revision and queue for each recorded decision. Use
+**Workspace decision** together with the rule and evidence-state filters to
+find acknowledged, deferred, needs-review or unrecorded rows. An explicit
+Needs review decision and a row without a saved decision are separate choices.
+
+The browser recomputes the underlying report before showing the decisions.
+Queues are local declarations and leave policy counts and CI results intact.
+Use `atlas workspace decide` to make edits, then export and reopen a fresh copy.
+Opening a plain report replaces the workspace view. Clear, reload or open
+another artifact to discard the browser copy. See [ADR-094](../adr/ADR-094-workspace-evidence-in-the-city.md).
+
 Counts describe observed internal file dependencies. Unmatched selectors, incomplete
 coverage and capped evidence are shown separately. A cycle row compares the member
 set of a static component, so a continuing component can gain new internal routes.
