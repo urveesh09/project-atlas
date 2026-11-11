@@ -166,7 +166,8 @@ must be green before a change counts as verified.
   ADR-092 records browser test isolation. ADR-093 pins the corrected Debian image
   packages. ADR-094 adds workspace import in the city and ADR-095 adds local draft
   decisions and explicit download. ADR-096 adds ESLint JSON import for JavaScript
-  and TypeScript. Allocate ADR-097 next.
+  and TypeScript. ADR-097 connects Compare dependency rows to their snapshot
+  evidence and adds selected-file filtering. Allocate ADR-098 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

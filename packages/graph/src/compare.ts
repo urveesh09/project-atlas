@@ -1,4 +1,5 @@
-import { compareAscii, compareUtf8, perimeterName as canonicalPerimeterName, type EdgeKind, type FileNode, type FileRole, type GraphNode, type GraphSnapshot, type NodeMetrics } from '@atlas/schema';
+import { FILE_EDGE_KINDS, compareAscii, compareUtf8, perimeterName, type EdgeKind, type FileNode, type FileRole, type GraphNode, type GraphSnapshot, type ImportObservation, type NodeMetrics } from '@atlas/schema';
+import type { GraphIndex } from './graph-index.js';
 
 /**
  * Two-frame comparison inside one artifact (plan §7.4). Frames are compared A -> B in the
@@ -52,7 +53,7 @@ export interface FrameComparison {
 }
 
 /** Package/project edges describe manifests, not file imports; they are not compared here. */
-const FILE_EDGE_KINDS: ReadonlySet<EdgeKind> = new Set(['imports-value', 'imports-type', 'reexports-value', 'reexports-type', 'imports-dynamic-literal', 'requires-literal', 'imports-resource']);
+const comparedKinds: ReadonlySet<EdgeKind> = new Set(FILE_EDGE_KINDS);
 
 function containerPath(nodes: ReadonlyMap<string, GraphNode>, node: FileNode): string {
   const parent = node.parentId ? nodes.get(node.parentId) : undefined;
@@ -61,8 +62,9 @@ function containerPath(nodes: ReadonlyMap<string, GraphNode>, node: FileNode): s
   return 'path' in parent ? `${parent.kind}:${parent.path}` : parent.kind;
 }
 
-function perimeterName(node: GraphNode): string | null {
-  if (node.kind === 'external-package' || node.kind === 'builtin') return canonicalPerimeterName(node);
+function comparedTarget(node: GraphNode | undefined): string | null {
+  if (node?.kind === 'file') return node.lineageId;
+  if (node?.kind === 'external-package' || node?.kind === 'builtin') return perimeterName(node);
   return null;
 }
 
@@ -70,11 +72,11 @@ function projectEdges(graph: GraphSnapshot): Map<string, ComparedEdge> {
   const nodes = new Map(graph.nodes.map((n) => [n.id, n]));
   const out = new Map<string, ComparedEdge>();
   for (const edge of graph.edges) {
-    if (!FILE_EDGE_KINDS.has(edge.kind)) continue;
+    if (!comparedKinds.has(edge.kind)) continue;
     const source = nodes.get(edge.sourceId);
     const target = nodes.get(edge.targetId);
     if (source?.kind !== 'file' || !source.lineageId || !target) continue;
-    const projected = target.kind === 'file' ? target.lineageId : perimeterName(target);
+    const projected = comparedTarget(target);
     if (!projected) continue;
     const label = target.kind === 'file' ? target.path : projected;
     // Confidence is evidence quality, not identity: an edge whose confidence changes is
@@ -82,6 +84,29 @@ function projectEdges(graph: GraphSnapshot): Map<string, ComparedEdge> {
     out.set(`${source.lineageId}\u0000${projected}\u0000${edge.kind}`, { sourceLineageId: source.lineageId, sourcePath: source.path, target: projected, targetLabel: label, kind: edge.kind });
   }
   return out;
+}
+
+/** Read one projected relationship from the snapshot in which it was observed. */
+export function comparedDependencyEvidence(index: GraphIndex, change: ComparedEdge) {
+  const source = index.filesByPath.get(change.sourcePath);
+  if (!source || source.lineageId !== change.sourceLineageId || !comparedKinds.has(change.kind)) return null;
+  let statements = 0;
+  let omittedByArtifact = 0;
+  const locations: ImportObservation[] = [];
+  // Aggregation separates confidence levels. The comparison treats them as one relationship.
+  for (const edge of index.outgoing(source.id, [change.kind])) {
+    if (comparedTarget(index.nodes.get(edge.targetId)) !== change.target) continue;
+    statements += edge.observationCount;
+    omittedByArtifact += edge.evidenceOmitted;
+    for (const id of edge.evidenceIds) {
+      if (locations.length === 8) break;
+      const observation = index.observations.get(id);
+      if (observation) locations.push(observation);
+    }
+  }
+  if (statements === 0) return null;
+  locations.sort((a, b) => a.range.startOffset - b.range.startOffset || compareAscii(a.id, b.id));
+  return { sourceId: source.id, statements, omittedByArtifact, locations };
 }
 
 function files(graph: GraphSnapshot): Map<string, FileNode> {

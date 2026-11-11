@@ -5,6 +5,14 @@ import type { SourceStatus } from '../data/load';
 import { ViewerModel, formatDate, shortOid, type ViewerDataset } from './model';
 import { formatFragment, parseFragment, viewReducer, type InspectorTab, type ViewAction, type ViewState } from './state';
 
+interface FrameNavigationOptions {
+  lineage?: string | null;
+  tab?: InspectorTab;
+  quiet?: boolean;
+  compare?: { a: number; b: number };
+  focusInspector?: boolean;
+}
+
 interface ViewerContextValue {
   dataset: ViewerDataset;
   /** The active frame. Its graph is authoritative for all evidence shown. */
@@ -15,7 +23,7 @@ interface ViewerContextValue {
   /** Select a node of the active frame, expanding its ancestors and announcing the change. */
   select: (id: string | null, options?: { focusInspector?: boolean }) => void;
   /** Show another analyzed frame; the selected lineage is preserved or tombstoned. */
-  goToFrame: (frame: number, options?: { lineage?: string | null; tab?: InspectorTab; quiet?: boolean; compare?: { a: number; b: number } }) => Promise<void>;
+  goToFrame: (frame: number, options?: FrameNavigationOptions) => Promise<void>;
   /** The frame being decoded, if any (controls stay responsive meanwhile). */
   frameLoading: number | null;
   frameError: string | null;
@@ -149,8 +157,9 @@ export function ViewerProvider({ head, source, children }: { head: ViewerModel; 
   );
 
   const goToFrame = useCallback(
-    async (frame: number, options: { lineage?: string | null; tab?: InspectorTab; quiet?: boolean; compare?: { a: number; b: number } } = {}) => {
+    async (frame: number, options: FrameNavigationOptions = {}) => {
       if (frame < 0 || frame >= dataset.frames.length) return;
+      const focusOrigin = options.focusInspector ? document.activeElement : undefined;
       if (!options.compare) compareTicket.current++;
       const ticket = ++frameTicket.current;
       setFrameError(null);
@@ -201,6 +210,7 @@ export function ViewerProvider({ head, source, children }: { head: ViewerModel; 
       }
       if (selectedId) for (const ancestor of target.index.ancestors(selectedId)) expanded.add(ancestor.id);
       const f = dataset.frames[frame]!;
+      if (selectedId && focusOrigin !== undefined) pendingFocus.current = focusOrigin;
       if (view.compare || options.compare) dispatch({ type: 'compare', compare: pair });
       dispatch({
         type: 'frame',

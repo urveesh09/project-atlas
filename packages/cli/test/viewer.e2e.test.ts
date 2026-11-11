@@ -1233,6 +1233,55 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     await page.waitForFunction(() => window.__atlasCity !== undefined);
   });
 
+  it('scopes dependency changes to a file and opens evidence from the correct snapshot', async () => {
+    await goTo(12);
+    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await choose('pricing.ts');
+    await page.getByRole('button', { name: 'Compare snapshots…' }).press('Enter');
+    const compare = page.locator('section.compare');
+    await compare.locator('.compare-pick select').first().selectOption('4');
+
+    const added = compare.getByRole('button', { name: /^Added tests\/pricing\.test\.ts → src\/server\/pricing\.ts/ });
+    const unrelated = compare.getByRole('button', { name: /^Added packages\/geo\/src\/route\.ts/ });
+    await unrelated.waitFor();
+    await compare.getByRole('checkbox', { name: 'Selected file only' }).press('Space');
+    expect(await unrelated.count()).toBe(0);
+    await added.press('Enter');
+    expect(await added.getAttribute('aria-expanded')).toBe('true');
+    const addedEvidence = page.locator(`[id="${await added.getAttribute('aria-controls')}"]`);
+    expect(await addedEvidence.innerText()).toContain('Evidence in snapshot B');
+    expect(await addedEvidence.innerText()).toContain('../src/server/pricing');
+    expect(await addedEvidence.innerText()).toMatch(/line 2:\d+/);
+
+    const viewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 320, height: 844 });
+    await expectNoSidewaysScroll(page);
+    expect(await audit(page, 'compare-dependency-evidence')).toEqual([]);
+    await page.setViewportSize(viewport);
+
+    await addedEvidence.getByRole('button', { name: 'Inspect dependencies in B', exact: true }).press('Enter');
+    await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.test.ts');
+    expect(await page.getByRole('tab', { name: 'Dependencies' }).getAttribute('aria-selected')).toBe('true');
+    expect(await compare.isVisible()).toBe(true);
+
+    await compare.getByRole('button', { name: 'Swap A and B' }).press('Enter');
+    const removed = compare.getByRole('button', { name: /^Removed tests\/pricing\.test\.ts → src\/server\/pricing\.ts/ });
+    await removed.waitFor();
+    await compare.getByRole('checkbox', { name: 'Selected file only' }).press('Space');
+    await removed.press('Enter');
+    const removedEvidence = page.locator(`[id="${await removed.getAttribute('aria-controls')}"]`);
+    expect(await removedEvidence.innerText()).toContain('Evidence in snapshot A');
+    expect(await removedEvidence.innerText()).toMatch(/line 2:\d+/);
+    await removedEvidence.getByRole('button', { name: 'Open A and inspect dependencies', exact: true }).press('Enter');
+    await expect.poll(active).toMatch(/^Snapshot 12 of 12/);
+    await expect.poll(() => compare.count()).toBe(0);
+    await expect.poll(() => page.locator('#inspector-title').evaluate((title) => title === document.activeElement)).toBe(true);
+    expect(await page.locator('#inspector-title').innerText()).toBe('pricing.test.ts');
+    expect(await page.getByRole('tab', { name: 'Dependencies' }).getAttribute('aria-selected')).toBe('true');
+    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await page.waitForFunction(() => window.__atlasCity !== undefined);
+  });
+
   it('colors churn and hotspot lenses with explained, never invented, values', async () => {
     await goTo(12);
     await page.getByLabel('Lens', { exact: true }).selectOption('churn');
