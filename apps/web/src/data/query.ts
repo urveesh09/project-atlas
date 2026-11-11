@@ -1,6 +1,7 @@
 import type { FrameComparison, ReachResult, SearchHit } from '@atlas/graph';
 import type { CityData } from '@atlas/layout';
-import type { GraphSnapshot } from '@atlas/schema';
+import type { GraphSnapshot, ReviewWorkspace } from '@atlas/schema';
+import type { WorkspaceDecisionEdit } from '@atlas/graph';
 import type { OverlayOptions, OverlayResult } from '../city/overlay';
 import type { ArchitectureEvidence, ArchitectureInput, PreparedFrame, QueryRequest } from './query.worker';
 
@@ -71,6 +72,10 @@ export class QueryClient {
   }
   architecture(file: File, input: ArchitectureInput = 'report'): Promise<ArchitectureEvidence> {
     return this.send('architecture', { type: 'architecture', file, input }) as Promise<ArchitectureEvidence>;
+  }
+
+  architectureCopy(workspace: ReviewWorkspace, edits: WorkspaceDecisionEdit[]): Promise<Blob> {
+    return this.send('architecture-copy', { type: 'architecture-copy', workspace, edits }) as Promise<Blob>;
   }
 
   private fail(message: string, terminate = this.owned) {

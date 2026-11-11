@@ -1,7 +1,7 @@
 import {
   ReviewWorkspaceSchema, WorkspaceDecisionStateSchema, WorkspaceOwnerSchema, WORKSPACE_LIMITS, ARCHITECTURE_LIMITS,
   canonicalJson, canonicalJsonSha256, hashFields, compareUtf8, utf8ByteLength,
-  type ArchitectureReview, type ReviewWorkspace, type WorkspaceDecisionState, type WorkspaceOwner,
+  type ArchitectureReview, type ReviewWorkspace, type WorkspaceDecision, type WorkspaceDecisionState, type WorkspaceOwner,
 } from '@atlas/schema';
 import { parseBoundedReviewJson } from './architecture.js';
 import { QualityImportError } from './quality.js';
@@ -51,16 +51,31 @@ export function decideReviewWorkspace(
   state: WorkspaceDecisionState,
   owner: WorkspaceOwner,
 ): ReviewWorkspace {
+  return applyReviewWorkspaceEdits(workspace, expectedRevision, [{ issueId, state, owner }]);
+}
+
+export type WorkspaceDecisionEdit = Pick<WorkspaceDecision, 'issueId' | 'state' | 'owner'>;
+
+/** Applies one edit per issue in deterministic order, without reparsing the report per edit. */
+export function applyReviewWorkspaceEdits(
+  workspace: ReviewWorkspace,
+  expectedRevision: number,
+  edits: readonly WorkspaceDecisionEdit[],
+): ReviewWorkspace {
   const current = parseReviewWorkspace(canonicalJson(workspace));
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision !== current.revision) fail('Workspace revision changed. Inspect it before making another decision.');
-  if (current.revision >= WORKSPACE_LIMITS.revisions) fail('Workspace revision limit reached. Export and retain the workspace; no edit was applied.');
-  if (!WorkspaceDecisionStateSchema.safeParse(state).success || !WorkspaceOwnerSchema.safeParse(owner).success) fail('Choose a documented decision state and ownership queue.');
-  if (!current.report.rows.some(row => row.id === issueId)) fail('Decision issue is not retained in this exact review.');
-  const revision = current.revision + 1;
-  const decisions = current.decisions.filter(decision => decision.issueId !== issueId);
-  decisions.push({ issueId, reportSha256: current.reportSha256, state, owner, changedRevision: revision });
-  decisions.sort((a, b) => compareUtf8(a.issueId, b.issueId));
-  const updated = parseReviewWorkspace(canonicalJson({ ...current, revision, decisions }));
+  if (!edits.length || edits.length > WORKSPACE_LIMITS.decisions) fail('Choose a bounded set of retained issues to edit.');
+  if (current.revision + edits.length > WORKSPACE_LIMITS.revisions) fail('Workspace revision limit reached. Export and retain the workspace; no edit was applied.');
+  const available = new Set(current.report.rows.map(row => row.id));
+  const decisions = new Map(current.decisions.map(decision => [decision.issueId, decision]));
+  let revision = current.revision;
+  for (const { issueId, state, owner } of edits.toSorted((a, b) => compareUtf8(a.issueId, b.issueId))) {
+    if (!WorkspaceDecisionStateSchema.safeParse(state).success || !WorkspaceOwnerSchema.safeParse(owner).success)
+      fail('Choose a documented decision state and ownership queue.');
+    if (!available.delete(issueId)) fail('Decision issue is repeated or not retained in this exact review.');
+    decisions.set(issueId, { issueId, reportSha256: current.reportSha256, state, owner, changedRevision: ++revision });
+  }
+  const updated = { ...current, revision, decisions: [...decisions.values()].sort((a, b) => compareUtf8(a.issueId, b.issueId)) };
   if (utf8ByteLength(canonicalJson(updated)) + 1 > WORKSPACE_LIMITS.bytes) fail('Workspace exceeds its byte limit.');
   return updated;
 }

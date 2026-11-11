@@ -11,7 +11,8 @@ rename or close the original V0.1 release gates. Existing free features remain f
 | Q3, merged PR #55, ADR-089 | Offline production/test and package boundary policies, new/continuing static-cycle components, source-free JSON/Markdown reports and opt-in CI checks | Authored TS/Python violations and adversarial policies, lineage/baseline/coverage limits, deterministic counts and capped evidence, relocated CLI, exact analyzer baselines and existing security/browser matrix. Component comparison does not enumerate new routes inside unchanged SCCs. Static paths never imply runtime impact or exploitability |
 | Q3.1, merged PR #57, ADR-090 | Recompute and inspect architecture reports in the city | Validate local files against retained artifact frames, then navigate to evidence |
 | Q4 preparation, merged PR #59, ADR-091 | Local architecture workspace with a retained baseline and structured triage | Recompute the matching report, reject stale writes, retain exact decisions across export/import and preserve policy exit status |
-| Q4 local review, ADR-094 | Read a workspace export and filter saved decisions in the city | Match and recompute its report, keep state in memory, and exercise the CLI-to-browser journey |
+| Q4 local review, merged PR #60, ADR-094 | Read a workspace export and filter saved decisions in the city | Match and recompute its report, keep state in memory, and exercise the CLI-to-browser journey |
+| Q4 local drafts, ADR-095 | Edit structured decisions and download a separate workspace copy in the city | Recompute evidence, preserve the original export, and import the downloaded copy in the CLI |
 | Q4 shared service, future ADR | Authenticated private team workspaces | Pilot teams demonstrate repeated use. Measure tenancy, access, deletion, retention and operating cost before billing |
 
 ## Q1's intentional limits

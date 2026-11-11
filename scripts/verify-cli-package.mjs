@@ -243,6 +243,22 @@ try {
   assert.deepEqual(outbound, []);
   assert.deepEqual(errors, []);
   stages.push({ stage: 'packaged-browser-workspace-evidence', passed: true, outboundRequests: 0, pageErrors: 0, browser: browser.version() });
+  await panel.getByRole('button', { name: 'Edit local decision', exact: true }).click();
+  await panel.getByLabel('Decision state', { exact: true }).selectOption('deferred');
+  await panel.getByRole('button', { name: 'Stage decision', exact: true }).click();
+  await panel.getByRole('button', { name: 'Prepare workspace copy', exact: true }).click();
+  const pendingCopy = page.waitForEvent('download');
+  await panel.getByRole('link', { name: 'Download workspace copy', exact: true }).click();
+  const copyPath = path.join(work, 'workspace-browser-draft.json');
+  await (await pendingCopy).saveAs(copyPath);
+  const draftDestination = path.join(work, 'architecture-workspace-draft');
+  const draft = JSON.parse(cli(['workspace', 'import', copyPath, ...workspaceArtifact, '--out', draftDestination]));
+  assert.equal(draft.revision, 2);
+  assert.deepEqual(draft.decisions, [{ issueId, reportSha256: decided.reportSha256, state: 'deferred', owner: 'maintainers', changedRevision: 2 }]);
+  assert.equal(await readFile(workspaceExport, 'utf8'), exported);
+  assert.deepEqual(outbound, []);
+  assert.deepEqual(errors, []);
+  stages.push({ stage: 'packaged-browser-workspace-draft', passed: true, outboundRequests: 0, pageErrors: 0, browser: browser.version() });
 } finally {
   await browser?.close();
   if (server?.pid && server.exitCode === null) killProcessTree(server.pid);
