@@ -34,6 +34,28 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### ESLint findings in the city (2026-11-11)
+
+- [ADR-096](adr/ADR-096-eslint-external-findings.md) adds an explicit ESLint
+  producer option to `atlas findings`. The viewer uses the existing External
+  findings panel to navigate from each retained JS/TS lint position to its file.
+  Comparison requires the same analysis, producer and version.
+- The authored formatter fixture came from ESLint 10.14.0 with
+  typescript-eslint 8.72.2. It exercises an error, two warnings, a scoped
+  rule, fixes, suggestions and embedded source. The importer retains the
+  three exact locations and strips raw scanner text and machine paths.
+- The first full Windows run exposed two browser test failures. The new
+  journey consumed the original Ruff journey's one-use session URL, and the
+  comparison message changed the case of an existing assertion's phrase.
+  The new journey now owns its session and the message keeps that phrase.
+  All four external-findings journeys passed in Firefox and WebKit on the retest.
+  The assertions and timeouts stayed intact.
+- Windows `pnpm verify` on Node 24.22.2 passed **1,104 tests** with
+  **95 gated skips**, including all **60 Chromium journeys**. The 62
+  Chromium accessibility checkpoints recorded zero violations. The four
+  focused journeys in Firefox and WebKit each recorded six checkpoints
+  with zero violations.
+
 ### Draft workspace decisions in the city (2026-11-10)
 
 - A reviewer can stage a decision and ownership queue on a retained row.

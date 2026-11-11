@@ -1,15 +1,20 @@
 import {
   QUALITY_LIMITS,
+  EslintRuleSchema,
+  EslintToolSchema,
   QualityReportSchema,
   QualityRuleSchema,
   RepoPathSchema,
+  RuffToolSchema,
   canonicalJson,
   compareUtf8,
   hashFields,
+  repoExtension,
   utf8ByteLength,
   type GraphSnapshot,
   type QualityFinding,
   type QualityReport,
+  type RuffQualityReport,
 } from '@atlas/schema';
 
 /** Narrow, serializable view of an already validated ATLAS frame. */
@@ -76,7 +81,7 @@ export function parseQualityReport(text: string): QualityReport {
   const locations = new Set<string>();
   for (const finding of report.findings) {
     if (previous && compareUtf8(previous, finding.id) >= 0) fail('Quality findings must be unique and sorted.');
-    if (finding.id !== findingId(report.snapshotId, finding))
+    if (finding.id !== findingId(report.tool.name, report.snapshotId, finding))
       fail('Quality finding identity does not match its evidence.');
     const location = hashFields('atlas.quality.location/1', [
       finding.nodeId,
@@ -91,8 +96,16 @@ export function parseQualityReport(text: string): QualityReport {
   return report;
 }
 
-function findingId(snapshotId: string, f: Omit<QualityFinding, 'id'>): string {
-  return `qf_${hashFields('atlas.quality.finding/1', [snapshotId, f.nodeId, f.blobOid, f.ruleId, f.line, f.column, f.level])}`;
+type QualityTool = QualityReport['tool'];
+type LocatedFinding = Omit<QualityFinding, 'id'>;
+
+function findingId(producer: QualityTool['name'], snapshotId: string, f: LocatedFinding): string {
+  const domain = producer === 'ruff' ? 'atlas.quality.finding/1' : 'atlas.quality.eslint.finding/1';
+  return `qf_${hashFields(domain, [snapshotId, f.nodeId, f.blobOid, f.ruleId, f.line, f.column, f.level])}`;
+}
+
+function supportsFile(producer: QualityTool['name'], path: string): boolean {
+  return producer === 'ruff' ? /\.pyi?$/.test(path) : /^(?:\.d)?\.(?:[cm]?[jt]s|[jt]sx)$/.test(repoExtension(path));
 }
 
 /** Reference checks happen on every opening, not just when the sidecar is written. */
@@ -104,7 +117,7 @@ export function validateQualityReport(report: QualityReport, target: QualityTarg
     const file = files.get(f.nodeId);
     if (
       !file ||
-      !/\.pyi?$/.test(file.path) ||
+      !supportsFile(report.tool.name, file.path) ||
       file.path !== f.path ||
       file.lineageId !== f.lineageId ||
       file.blobOid !== f.blobOid ||
@@ -168,7 +181,7 @@ export function importRuffSarif(
   target: QualityTarget,
   declaredCommit: string,
   sourceRoot?: string,
-): QualityReport {
+): RuffQualityReport {
   if (declaredCommit !== target.commitOid) fail('Declare the full commit ID of the selected analyzed snapshot.');
   if (sourceRoot !== undefined) {
     try {
@@ -186,7 +199,7 @@ export function importRuffSarif(
   const run = object(runs[0]),
     driver = object(object(run?.tool)?.driver);
   const results = run?.results;
-  const tool = QualityReportSchema.shape.tool.safeParse({ name: driver?.name, version: driver?.version });
+  const tool = RuffToolSchema.safeParse({ name: driver?.name, version: driver?.version });
   if (!tool.success || !Array.isArray(results) || results.length > QUALITY_LIMITS.results)
     fail('Ruff version and at most 20,000 result records are required.');
   // Explicit producer failures cannot masquerade as a usable report. Ruff currently omits invocation records.
@@ -202,26 +215,36 @@ export function importRuffSarif(
     if (!Array.isArray(vcs) || vcs.length !== 1 || object(vcs[0])?.revisionId !== declaredCommit)
       fail('Producer revision conflicts with the declared commit.');
   }
-  const files = new Map(target.files.map((f) => [f.path, f]));
-  const dropped = { unmapped: 0, unsupported: 0, suppressed: 0, duplicates: 0 };
-  const kept = new Map<string, Omit<QualityFinding, 'id'>>();
+  return collectReport(target, tool.data, results.length, ruffRecords(results, sourceRoot));
+}
+
+type ImportRecord =
+  | 'unsupported'
+  | 'suppressed'
+  | {
+      path: string | null;
+      ruleId: string;
+      level: QualityFinding['level'];
+      line: unknown;
+      column: unknown;
+    };
+
+function* ruffRecords(results: unknown[], sourceRoot?: string): Generator<ImportRecord> {
   for (const raw of results) {
     const r = object(raw);
     if (r?.suppressions !== undefined && !Array.isArray(r.suppressions)) {
-      dropped.unsupported++;
+      yield 'unsupported';
       continue;
     }
     if (Array.isArray(r?.suppressions) && r.suppressions.length) {
-      dropped.suppressed++;
+      yield 'suppressed';
       continue;
     }
-    if (
-      !r ||
-      !QualityRuleSchema.safeParse(r.ruleId).success ||
-      (r.kind !== undefined && r.kind !== 'fail') ||
-      !['error', 'warning', 'note'].includes(String(r.level ?? 'warning'))
-    ) {
-      dropped.unsupported++;
+    const rule = QualityRuleSchema.safeParse(r?.ruleId);
+    const level = r?.level ?? 'warning';
+    if (!r || !rule.success || (r.kind !== undefined && r.kind !== 'fail') ||
+        (level !== 'error' && level !== 'warning' && level !== 'note')) {
+      yield 'unsupported';
       continue;
     }
     const locations = r.locations;
@@ -229,47 +252,129 @@ export function importRuffSarif(
       Array.isArray(locations) && locations.length === 1 ? object(object(locations[0])?.physicalLocation) : null;
     const location = object(physical?.artifactLocation),
       region = object(physical?.region);
-    const filePath = location?.uriBaseId === undefined ? mappedPath(location?.uri, sourceRoot) : null;
-    const file = filePath ? files.get(filePath) : undefined;
-    if (!file || !/\.pyi?$/.test(file.path)) {
+    yield {
+      path: location?.uriBaseId === undefined ? mappedPath(location?.uri, sourceRoot) : null,
+      ruleId: rule.data,
+      level,
+      line: region?.startLine,
+      column: region?.startColumn ?? null,
+    };
+  }
+}
+
+/** Compare reported paths as text, without resolving or inspecting a machine's filesystem. */
+function absolutePathParts(value: string, root = false): string[] | null {
+  if (value.length > 16_384 || !value.isWellFormed() || /[\x00-\x1f\x7f]/.test(value)) return null;
+  const drive = /^[A-Za-z]:[/\\]/.test(value);
+  if (!drive && (!value.startsWith('/') || value.includes('\\'))) return null;
+  const parts = (drive ? value.replaceAll('\\', '/') : value).split('/');
+  if (root && parts.at(-1) === '') parts.pop();
+  if (parts.slice(1).some((p) => !p || p === '.' || p === '..' || (drive && p.includes(':')))) return null;
+  parts[0] = parts[0]!.toLowerCase();
+  return parts;
+}
+
+export function importEslintJson(
+  text: string,
+  target: QualityTarget,
+  declaredCommit: string,
+  version: string,
+  sourceRoot: string,
+): QualityReport {
+  if (declaredCommit !== target.commitOid) fail('Declare the full commit ID of the selected analyzed snapshot.');
+  const tool = EslintToolSchema.safeParse({ name: 'eslint', version });
+  if (!tool.success) fail('Declare an ESLint release version such as 10.14.0.');
+  const root = absolutePathParts(sourceRoot, true);
+  if (!root) fail('ESLint source root must be an absolute local path.');
+  const data = parse(text);
+  if (!Array.isArray(data) || data.length > QUALITY_LIMITS.results)
+    fail('Expected an ESLint JSON formatter array with at most 20,000 file records.');
+
+  const records: ImportRecord[] = [];
+  for (const raw of data) {
+    const result = object(raw);
+    if (!result || typeof result.filePath !== 'string' || !Array.isArray(result.messages) ||
+        !Array.isArray(result.suppressedMessages))
+      fail('Invalid ESLint JSON file record.');
+    if (records.length + result.messages.length + result.suppressedMessages.length > QUALITY_LIMITS.results)
+      fail('ESLint report exceeds the 20,000 result limit. Narrow the scan.');
+    const parts = absolutePathParts(result.filePath);
+    const relative = parts && root.every((segment, i) => segment === parts[i]) ? parts.slice(root.length).join('/') : null;
+    const path = relative && RepoPathSchema.safeParse(relative).success ? relative : null;
+    let errors = 0;
+    let warnings = 0;
+    let fatal = 0;
+    for (const rawMessage of result.messages) {
+      const message = object(rawMessage);
+      if (message?.severity === 2) errors++;
+      if (message?.severity === 1) warnings++;
+      if (message?.fatal === true) fatal++;
+      const rule = EslintRuleSchema.safeParse(message?.ruleId);
+      if (!message || (message.fatal !== undefined && message.fatal !== false) || !rule.success ||
+          (message.severity !== 1 && message.severity !== 2)) {
+        records.push('unsupported');
+        continue;
+      }
+      records.push({ path, ruleId: rule.data, level: message.severity === 2 ? 'error' : 'warning',
+        line: message.line, column: message.column ?? null });
+    }
+    if (result.errorCount !== errors || result.warningCount !== warnings || result.fatalErrorCount !== fatal)
+      fail('ESLint file counts do not match its reported messages.');
+    for (let i = 0; i < result.suppressedMessages.length; i++) records.push('suppressed');
+  }
+  return collectReport(target, tool.data, records.length, records);
+}
+
+function position(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= QUALITY_LIMITS.position;
+}
+
+function collectReport<Tool extends QualityTool>(
+  target: QualityTarget,
+  tool: Tool,
+  inputResults: number,
+  records: Iterable<ImportRecord>,
+): Omit<QualityReport, 'tool'> & { tool: Tool } {
+  const files = new Map(target.files.map((f) => [f.path, f]));
+  const dropped = { unmapped: 0, unsupported: 0, suppressed: 0, duplicates: 0 };
+  const kept = new Map<string, LocatedFinding>();
+  const rank = { note: 0, warning: 1, error: 2 };
+  for (const record of records) {
+    if (typeof record === 'string') {
+      dropped[record]++;
+      continue;
+    }
+    const file = record.path ? files.get(record.path) : undefined;
+    if (!file || !supportsFile(tool.name, file.path)) {
       dropped.unmapped++;
       continue;
     }
-    const line = region?.startLine,
-      column = region?.startColumn ?? null;
-    if (
-      !Number.isSafeInteger(line) ||
-      Number(line) < 1 ||
-      Number(line) > QUALITY_LIMITS.position ||
-      (file.lines !== null && Number(line) > file.lines) ||
-      (column !== null &&
-        (!Number.isSafeInteger(column) || Number(column) < 1 || Number(column) > QUALITY_LIMITS.position))
-    ) {
+    const { line, column, ruleId, level } = record;
+    if (!position(line) || (file.lines !== null && line > file.lines) || (column !== null && !position(column))) {
       dropped.unsupported++;
       continue;
     }
-    const f: Omit<QualityFinding, 'id'> = {
+    const f: LocatedFinding = {
       nodeId: file.nodeId,
       lineageId: file.lineageId,
       path: file.path,
       blobOid: file.blobOid,
-      ruleId: r.ruleId as string,
-      level: (r.level ?? 'warning') as QualityFinding['level'],
-      line: Number(line),
-      column: column as number | null,
+      ruleId,
+      level,
+      line,
+      column,
     };
     const key = hashFields('atlas.quality.location/1', [f.nodeId, f.ruleId, f.line, f.column]);
     const old = kept.get(key);
     if (old) {
       dropped.duplicates++;
-      const rank = { note: 0, warning: 1, error: 2 };
       if (rank[f.level] > rank[old.level]) kept.set(key, f);
     } else {
       if (kept.size === QUALITY_LIMITS.findings) fail('Report exceeds the 4,096 finding limit. Narrow the scan.');
       kept.set(key, f);
     }
   }
-  const report: QualityReport = {
+  const report: Omit<QualityReport, 'tool'> & { tool: Tool } = {
     format: 'atlas.quality/1',
     analysisId: target.analysisId,
     repoId: target.repoId,
@@ -277,16 +382,15 @@ export function importRuffSarif(
     commitOid: target.commitOid,
     binding: 'user-declared',
     scanScope: 'unverified',
-    tool: tool.data,
-    inputResults: results.length,
+    tool,
+    inputResults,
     dropped,
     findings: [...kept.values()]
-      .map((f) => ({ ...f, id: findingId(target.snapshotId, f) }))
+      .map((f) => ({ ...f, id: findingId(tool.name, target.snapshotId, f) }))
       .sort((a, b) => compareUtf8(a.id, b.id)),
   };
-  const checked = parseQualityReport(canonicalJson(report));
-  validateQualityReport(checked, target);
-  return checked;
+  validateQualityReport(parseQualityReport(canonicalJson(report)), target);
+  return report;
 }
 
 /** Exact locations only. A moved line can be unmatched on BOTH sides; never call absence resolved. */
@@ -294,9 +398,10 @@ export function compareQualityReports(current: QualityReport, baseline: QualityR
   if (
     current.analysisId !== baseline.analysisId ||
     current.repoId !== baseline.repoId ||
+    current.tool.name !== baseline.tool.name ||
     current.tool.version !== baseline.tool.version
   )
-    fail('Comparison needs the same analysis and Ruff version.');
+    fail('Comparison needs the same analysis, producer and version.');
   const key = (f: QualityFinding) => hashFields('atlas.quality.compare/1', [f.lineageId, f.ruleId, f.line, f.column]);
   const now = new Set(current.findings.map(key)),
     before = new Set(baseline.findings.map(key));
@@ -308,8 +413,8 @@ export function compareQualityReports(current: QualityReport, baseline: QualityR
 }
 
 /** Controlled labels: never render a producer's message, rule help, fixes or source snippets. */
-export function qualityRuleLabel(ruleId: string): string {
-  return (
-    ({ F401: 'Unused import', F821: 'Undefined name' } as Record<string, string>)[ruleId] ?? 'Reported lint finding'
-  );
+export function qualityRuleLabel(ruleId: string, producer: QualityTool['name'] = 'ruff'): string {
+  if (producer === 'ruff' && ruleId === 'F401') return 'Unused import';
+  if (producer === 'ruff' && ruleId === 'F821') return 'Undefined name';
+  return 'Reported lint finding';
 }

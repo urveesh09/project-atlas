@@ -13,11 +13,12 @@ rename or close the original V0.1 release gates. Existing free features remain f
 | Q4 preparation, merged PR #59, ADR-091 | Local architecture workspace with a retained baseline and structured triage | Recompute the matching report, reject stale writes, retain exact decisions across export/import and preserve policy exit status |
 | Q4 local review, merged PR #60, ADR-094 | Read a workspace export and filter saved decisions in the city | Match and recompute its report, keep state in memory, and exercise the CLI-to-browser journey |
 | Q4 local drafts, ADR-095 | Edit structured decisions and download a separate workspace copy in the city | Recompute evidence, preserve the original export, and import the downloaded copy in the CLI |
+| ESLint import, ADR-096 | Bring ESLint's built-in JSON output for JavaScript and TypeScript into the local External findings panel | Physical ESLint and TypeScript plugin output, bounded path mapping, producer-specific comparison, existing Ruff provenance contracts |
 | Q4 shared service, future ADR | Authenticated private team workspaces | Pilot teams demonstrate repeated use. Measure tenancy, access, deletion, retention and operating cost before billing |
 
 ## Q1's intentional limits
 
-- One producer: Ruff SARIF 2.1.0. Do not claim arbitrary SARIF, SonarQube parity,
+- Ruff SARIF 2.1.0 and ESLint JSON. Do not claim arbitrary SARIF, SonarQube parity,
   security vulnerability detection, authentic scan provenance or complete scan coverage.
 - Customer CI/trusted local tooling produces the report. ATLAS runs no scanner,
   configuration, plugin, tests or fixes, and installs no repository dependencies.
@@ -25,7 +26,7 @@ rename or close the original V0.1 release gates. Existing free features remain f
 - Keep rule IDs and bounded locations. Drop source/snippets, original messages, fixes,
   arbitrary properties, links and host paths. Reports are local memory only in the viewer.
 - Import/validation errors preserve prior valid reports. Every dropped category is visible.
-- Compare exact locations in one analysis and Ruff version. Missing results do not mean
+- Compare exact locations in one analysis, producer and version. Missing results do not mean
   fixed: moved lines and changed configurations can alter the report independently.
 - No private hosted submission, billing, automatic publication or runtime instrumentation.
 

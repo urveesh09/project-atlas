@@ -165,7 +165,8 @@ must be green before a change counts as verified.
   ADR-090/091 record the architecture viewer and local workspace formats.
   ADR-092 records browser test isolation. ADR-093 pins the corrected Debian image
   packages. ADR-094 adds workspace import in the city and ADR-095 adds local draft
-  decisions and explicit download. Allocate ADR-096 next.
+  decisions and explicit download. ADR-096 adds ESLint JSON import for JavaScript
+  and TypeScript. Allocate ADR-097 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

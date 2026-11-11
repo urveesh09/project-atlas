@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { GitOidSchema, Hex64Schema } from './primitives.js';
-import { QUALITY_LIMITS, QualityReportSchema } from './quality.js';
+import { QUALITY_LIMITS, RuffQualityReportSchema } from './quality.js';
 import { RuffProfileSchema, ScanTrustPolicySchema } from './scan.js';
 import { LIMITS } from './limits.js';
 
@@ -34,7 +34,7 @@ export const ReviewScanTrustSchema = z.strictObject({
   producer: ScanTrustPolicySchema,
 });
 export const ReviewSideSchema = z.strictObject({
-  report: QualityReportSchema,
+  report: RuffQualityReportSchema,
   scanSha256: Hex64Schema,
   declaredTrust: ReviewScanTrustSchema.nullable(),
   profile: RuffProfileSchema,
