@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { compareQualityReports, qualityRuleLabel } from '@atlas/graph';
-import { compareUtf8, type GraphNode, type QualityFinding, type QualityReport } from '@atlas/schema';
+import { compareUtf8, QUALITY_TOOL_LABELS, type GraphNode, type QualityFinding, type QualityReport } from '@atlas/schema';
 import { useExternalQuality, type DeclaredScanSummary } from '../app/quality';
 import { useViewer } from '../app/context';
 import { shortOid } from '../app/model';
@@ -9,9 +9,11 @@ import { FindingReviewPanel } from './FindingReview';
 
 function FindingsList({
   findings,
+  producer,
   empty = 'No retained findings. This does not establish a clean scan.',
 }: {
   findings: QualityFinding[];
+  producer: QualityReport['tool']['name'];
   empty?: string;
 }) {
   const { select, dispatch } = useViewer();
@@ -45,7 +47,7 @@ function FindingsList({
             {f.column === null ? '' : `:${f.column}`}
           </button>
           <span>
-            {f.ruleId} · {qualityRuleLabel(f.ruleId)} · reported {f.level}
+            {f.ruleId} · {qualityRuleLabel(f.ruleId, producer)} · reported {f.level}
           </span>
         </li>
       )}
@@ -57,7 +59,7 @@ function ReportSummary({ report }: { report: QualityReport }) {
   const dropped = Object.values(report.dropped).reduce((a, n) => a + n, 0);
   return (
     <p>
-      Ruff {report.tool.version} · commit {shortOid(report.commitOid)} · {report.findings.length} retained of{' '}
+      {QUALITY_TOOL_LABELS[report.tool.name]} {report.tool.version} · commit {shortOid(report.commitOid)} · {report.findings.length} retained of{' '}
       {report.inputResults} results. {dropped > report.dropped.duplicates ? 'Partial import. ' : ''}
       Dropped: {report.dropped.unmapped} unmapped, {report.dropped.unsupported} unsupported, {report.dropped.suppressed}{' '}
       suppressed, {report.dropped.duplicates} duplicates.
@@ -192,7 +194,7 @@ export function ExternalQualityPanel() {
           <ReportSummary report={quality.current} />
           <DeclaredScope scope={quality.scopes.current} />
           {currentActive ? (
-            <FindingsList findings={quality.current.findings} />
+            <FindingsList findings={quality.current.findings} producer={quality.current.tool.name} />
           ) : (
             <p>
               Report findings are hidden on this snapshot to prevent stale evidence.{' '}
@@ -216,7 +218,7 @@ export function ExternalQualityPanel() {
           <DeclaredScope scope={quality.scopes.baseline} />
         </>
       )}
-      {compared && (
+      {compared && quality.current && (
         <section aria-label="External report comparison">
           <h3>Exact-location comparison</h3>
           <p>
@@ -231,6 +233,7 @@ export function ExternalQualityPanel() {
             <Section title="Newly reported locations" count={compared.newlyReported.length}>
               <FindingsList
                 findings={compared.newlyReported}
+                producer={quality.current.tool.name}
                 empty="No newly reported exact locations in these reports."
               />
             </Section>
@@ -239,7 +242,7 @@ export function ExternalQualityPanel() {
       )}
       {comparisonError && (
         <p role="alert">
-          Comparison is unavailable: use the same analysis and Ruff version; declared profiles must match when both
+          Comparison requires the same analysis, producer and version, and declared profiles must match when both
           reports include them.
         </p>
       )}
@@ -254,20 +257,21 @@ export function ExternalQualityPanel() {
 export function ExternalFileFindings({ node }: { node: GraphNode }) {
   const quality = useExternalQuality();
   if (!quality.active || node.kind !== 'file') return null;
-  const findings = quality.active.findings.filter((f) => f.nodeId === node.id);
+  const { findings, tool } = quality.active;
+  const fileFindings = findings.filter((f) => f.nodeId === node.id);
   return (
     <Section
-      title="External Ruff findings"
-      count={findings.length}
+      title={`External ${QUALITY_TOOL_LABELS[tool.name]} findings`}
+      count={fileFindings.length}
       description="Reported lint findings. Commit and scan scope are user-declared/unverified; original source messages are not retained."
     >
       <Paged
-        items={findings}
+        items={fileFindings}
         pageSize={20}
         empty="No retained findings for this file; scan coverage is unverified."
         render={(f) => (
           <li key={f.id}>
-            {f.ruleId} · {qualityRuleLabel(f.ruleId)} · line {f.line}
+            {f.ruleId} · {qualityRuleLabel(f.ruleId, tool.name)} · line {f.line}
             {f.column === null ? '' : `:${f.column}`} · reported {f.level}
           </li>
         )}

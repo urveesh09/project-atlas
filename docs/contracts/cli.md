@@ -22,8 +22,9 @@ atlas analyze <dir> --out <dir> [--ref <commit-or-simple-ref>] [--history-days 1
 atlas inspect <artifact-dir> [--json] [--no-map]
 atlas verify <artifact-dir>
 atlas serve <artifact-dir> [--repo <dir>] [--no-open]
-atlas findings <ruff.sarif> --artifact <dir> --commit <full-oid> --out <quality.json>
+atlas findings <report> --artifact <dir> --commit <full-oid> --out <quality.json>
                [--source-root <dir>] [--baseline <quality.json>] [--json]
+               [--producer ruff|eslint] [--producer-version <version>]
 atlas review-architecture <artifact-dir> --policy <policy.json> --commit <full-oid>
                --out <review.json> [--baseline <earlier-full-oid>] [--markdown]
                [--fail-on new|all] [--json]
@@ -81,11 +82,13 @@ Structure, maximum complexity and fan-in lenses retain raw metrics and a visible
 Image export is bounded to 2048×2048 and at most 4 million pixels. The PNG is accompanied by JSON identifying commit, analysis, layout/version, selection, lens, filters, edge limits and camera. Export does not upload data or embed source. Browser file import likewise stays local.
 
 
-## External quality reports (ADR-085)
+## External quality reports (ADR-085, ADR-096)
 
-`atlas findings <ruff.sarif> --artifact <dir> --commit <full-oid> --out <file>` imports
-one-run Ruff SARIF 2.1.0. Optional `--source-root <dir>` maps absolute file URIs;
-`--baseline <quality.json>` compares exact locations in the same analysis/Ruff version.
+`atlas findings <report> --artifact <dir> --commit <full-oid> --out <file>` defaults
+to one-run Ruff SARIF 2.1.0. Optional `--source-root <dir>` maps its absolute file URIs.
+For ESLint's built-in JSON formatter, supply `--producer eslint --producer-version <version>`
+and `--source-root <dir>` for its absolute paths. `--baseline <quality.json>` compares
+exact locations within the same analysis, producer and version.
 No scanner executes. The separate `atlas.quality/1` sidecar binds an analyzed snapshot,
 with user-declared commit provenance and unverified scan scope. Nothing is uploaded.
 Output must be new and outside the artifact (including resolved parent aliases).

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { GitOidSchema, Hex64Schema, RepoPathSchema } from './primitives.js';
-import { QualityReportSchema, QualityRuleSchema } from './quality.js';
+import { RuffQualityReportSchema, QualityRuleSchema } from './quality.js';
 
 export const SCAN_LIMITS = {
   bytes: 8 * 1024 * 1024,
@@ -25,7 +25,7 @@ export const ScanScopeSchema = z.strictObject({
 });
 export const ScanEvidenceSchema = z.strictObject({
   format: z.literal('atlas.scan/1'),
-  report: QualityReportSchema,
+  report: RuffQualityReportSchema,
   profile: RuffProfileSchema,
   profileSha256: Hex64Schema,
   scope: ScanScopeSchema,

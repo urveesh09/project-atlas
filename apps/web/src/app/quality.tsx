@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { qualityTarget, validateQualityReport, validateScanEvidence, validateFindingReview } from '@atlas/graph';
-import { QUALITY_LIMITS, type QualityReport, type ScanEvidence, type RuffProfile, type FindingReview } from '@atlas/schema';
+import { QUALITY_LIMITS, QUALITY_TOOL_LABELS, type QualityReport, type ScanEvidence, type RuffProfile, type FindingReview } from '@atlas/schema';
 import { useViewer } from './context';
 
 type Slot = 'current' | 'baseline';
@@ -132,7 +132,7 @@ export function QualityProvider({ children }: { children: ReactNode }) {
       if (request !== ticket.current) return;
       setLoaded((previous) => ({ ...previous, [slot]: { report, scope }, review: null }));
       setMessage(
-        `${slot === 'current' ? 'Current' : 'Baseline'} report opened: ${report.findings.length} Ruff findings. Nothing was uploaded.`,
+        `${slot === 'current' ? 'Current' : 'Baseline'} report opened: ${report.findings.length} ${QUALITY_TOOL_LABELS[report.tool.name]} findings. Nothing was uploaded.`,
       );
     } catch {
       if (request !== ticket.current) return;

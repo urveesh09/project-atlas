@@ -1476,8 +1476,11 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
   const qualityDir = () => path.join(work, 'quality-artifact');
   const io = (): CliIO => ({ cwd: work, env: { NO_COLOR: '1' }, signal: new AbortController().signal, stdout: { write: () => true }, stderr: { write: () => true } });
   beforeAll(async () => {
+    const lint = readFileSync(new URL('../../graph/test/fixtures/eslint-10.14.0.json', import.meta.url), 'utf8');
+    const lintRows: { filePath: string; source: string }[] = JSON.parse(lint);
+    const lintFiles = Object.fromEntries(lintRows.map(({ filePath, source }) => [path.posix.basename(filePath), source]));
     qualityRepo = createGitFixture([
-      { date: '2026-10-01T00:00:00Z', message: 'two lint findings', files: { 'sample.py': 'import os\nprint(missing)\n' } },
+      { date: '2026-10-01T00:00:00Z', message: 'two lint findings', files: { ...lintFiles, 'sample.py': 'import os\nprint(missing)\n' } },
       { date: '2026-10-02T00:00:00Z', message: 'one lint finding', files: { 'sample.py': 'import os\nprint(0)\n' } },
     ], { parent: work });
     expect(await run(['analyze', qualityRepo.dir, '--out', qualityDir()], io())).toBe(0);
@@ -1491,6 +1494,10 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
       ['quality-old.sarif', 'quality-old.json', loaded.bundle.manifest.frames[0]!.commit.oid],
       ['quality-new.sarif', 'quality-new.json', loaded.bundle.manifest.selectedCommit.oid],
     ]) expect(await run(['findings', source!, '--artifact', qualityDir(), '--commit', commit!, '--out', output!], io())).toBe(0);
+    writeFileSync(path.join(work, 'eslint-raw.json'), lint);
+    expect(await run(['findings', 'eslint-raw.json', '--producer', 'eslint', '--producer-version', '10.14.0',
+      '--source-root', '/atlas-eslint-fixture', '--artifact', qualityDir(), '--commit', loaded.bundle.manifest.selectedCommit.oid,
+      '--out', 'eslint-quality.json'], io())).toBe(0);
     writeFileSync(path.join(work, 'quality-invalid.json'), '{"SECRET":"broken');
     const wrong = JSON.parse(readFileSync(path.join(work, 'quality-new.json'), 'utf8'));
     wrong.commitOid = '0'.repeat(40);
@@ -1501,7 +1508,7 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
       [0, 'quality-old.json', 'scan-other-profile.json', { ...scanProfile, targetVersion: 'py313' }],
     ] as const) {
       const graph = loaded.bundle.graphs[index]!;
-      const scan = createScanEvidence(parseQualityReport(readFileSync(path.join(work, source), 'utf8')), profile, { format: 'atlas.scan-scope/1', files: graph.nodes.flatMap((n) => n.kind === 'file' ? [{ path: n.path, blobOid: n.blobOid }] : []) }, 1, qualityTarget(graph, loaded.bundle.manifest.analysisId));
+      const scan = createScanEvidence(parseQualityReport(readFileSync(path.join(work, source), 'utf8')), profile, { format: 'atlas.scan-scope/1', files: graph.nodes.flatMap((n) => n.kind === 'file' && n.path.endsWith('.py') ? [{ path: n.path, blobOid: n.blobOid }] : []) }, 1, qualityTarget(graph, loaded.bundle.manifest.analysisId));
       writeFileSync(path.join(work, output), JSON.stringify(scan));
     }
     const wrongScan = JSON.parse(readFileSync(path.join(work, 'scan-new.json'), 'utf8'));
@@ -1510,6 +1517,41 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
     qualityServer = await startViewerServer({ artifactDir: qualityDir(), bundle: loaded.bundle, viewerDir: viewerDirectory(), source: SourceAttachment.none('NOT_REQUESTED') });
   }, 60_000);
   afterAll(async () => { await qualityServer?.close(); qualityRepo?.dispose(); });
+
+  it('opens a real ESLint report from the CLI and navigates to the TypeScript finding', async () => {
+    const loaded = await readArtifactDirectory(qualityDir());
+    if (!loaded.ok) throw new Error('quality artifact');
+    const isolated = await browser.newContext();
+    const server = await startViewerServer({
+      artifactDir: qualityDir(), bundle: loaded.bundle, viewerDir: viewerDirectory(), source: SourceAttachment.none('NOT_REQUESTED'),
+    });
+    try {
+      const page = await isolated.newPage();
+      const outbound: string[] = [];
+      page.on('request', (request) => {
+        if (request.method() !== 'GET' || new URL(request.url()).origin !== new URL(server.url).origin)
+          outbound.push(request.url());
+      });
+      await page.goto(server.sessionUrl);
+      await page.waitForSelector('#overview-title');
+      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await page.getByRole('button', { name: 'External findings', exact: true }).press('Enter');
+      const panel = page.getByRole('region', { name: 'External findings', exact: true });
+      await page.locator('input[data-quality="current"]').setInputFiles(path.join(work, 'eslint-quality.json'));
+      await expect.poll(() => panel.innerText()).toContain('ESLint 10.14.0');
+      await panel.getByRole('button', { name: 'sample.ts:1:22', exact: true }).press('Enter');
+      await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('sample.ts');
+      const inspector = page.getByRole('tabpanel');
+      expect(await inspector.getByRole('heading', { name: /External ESLint findings/ }).isVisible()).toBe(true);
+      expect(await inspector.innerText()).toContain('@typescript-eslint/no-explicit-any');
+      expect(await panel.innerText()).not.toContain('Unexpected any');
+      await page.locator('input[data-quality="baseline"]').setInputFiles(path.join(work, 'quality-old.json'));
+      await expect.poll(() => panel.getByRole('alert').innerText()).toContain('same analysis, producer and version');
+      expect(await panel.getByRole('heading', { name: 'Exact-location comparison' }).count()).toBe(0);
+      expect(await audit(page, 'eslint-quality-report')).toEqual([]);
+      expect(outbound).toEqual([]);
+    } finally { await isolated.close(); await server.close(); }
+  });
 
   it('opens local reports, selects evidence, compares conservatively and hides stale findings', async () => {
     const isolated = await browser.newContext({ viewport: { width: 1280, height: 860 } });

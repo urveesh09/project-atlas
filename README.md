@@ -66,11 +66,11 @@ Artifacts use a lossless indexed graph transport ([ADR-018](docs/adr/ADR-018-ind
 
 ## V0.1 capabilities
 
-Optional [external Ruff findings](docs/guides/external-findings.md): import a local
-SARIF report with `atlas findings`, open its source-free quality sidecar in the viewer,
-and inspect reported lint locations alongside the city. Exact-location comparison
-discloses unverified scope; missing findings never imply resolution. No scanner or
-repository code executes and nothing is uploaded (ADR-085).
+Optional [external lint findings](docs/guides/external-findings.md): import Ruff SARIF
+for Python or ESLint JSON for JavaScript and TypeScript. Open the source-free sidecar
+in the city to inspect reported locations and compare two reports from the same
+producer and version. ATLAS reads the report locally and labels its scope unverified
+(ADR-085, ADR-096).
 
 Optional [scan evidence and provenance](docs/guides/scan-provenance.md): record declared
 Ruff scope/profile with `atlas scan-evidence`, then use `atlas verify-scan` with local

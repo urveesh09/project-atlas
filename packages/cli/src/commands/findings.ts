@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { openArtifactDirectory } from '@atlas/artifact/node';
 import {
+  importEslintJson,
   importRuffSarif,
   parseQualityReport,
   qualityTarget,
@@ -11,7 +12,7 @@ import {
   compareQualityReports,
   QualityImportError,
 } from '@atlas/graph';
-import { canonicalJson, QUALITY_LIMITS } from '@atlas/schema';
+import { canonicalJson, QUALITY_LIMITS, QUALITY_TOOL_LABELS, type QualityReport } from '@atlas/schema';
 import { EXIT, UsageError, type CommandContext } from '../context.js';
 
 /** Bounded descriptor read: do not stat one path and later read its replacement. */
@@ -41,10 +42,13 @@ export async function readReport(file: string, maxBytes: number = QUALITY_LIMITS
   }
 }
 
-export async function findings(
-  ctx: CommandContext,
-  args: { report: string; artifact: string; commit: string; out: string; sourceRoot?: string; baseline?: string },
-): Promise<number> {
+type ProducerOptions =
+  | { producer: 'ruff'; sourceRoot?: string }
+  | { producer: 'eslint'; sourceRoot: string; producerVersion: string };
+
+export async function findings(ctx: CommandContext, args: ProducerOptions & {
+  report: string; artifact: string; commit: string; out: string; baseline?: string;
+}): Promise<number> {
   try {
     if (ctx.io.signal.aborted) return EXIT.cancelled;
     const artifactDirectory = await realpath(path.resolve(ctx.io.cwd, args.artifact));
@@ -61,17 +65,20 @@ export async function findings(
     if (index < 0) throw new UsageError('--commit must be the full ID of an analyzed snapshot.');
     const frame = await artifact.frame(index, ctx.io.signal);
     if (!frame.ok) throw new QualityImportError('Selected artifact snapshot did not validate.');
-    const sourceRoot =
-      args.sourceRoot === undefined
+    const target = qualityTarget(frame.graph, artifact.manifest.analysisId);
+    const input = await readReport(path.resolve(ctx.io.cwd, args.report));
+    let report: QualityReport;
+    if (args.producer === 'eslint') {
+      // An absolute root from another OS is also valid for this lexical import.
+      const absolute = args.sourceRoot.startsWith('/') || /^[A-Za-z]:[/\\]/.test(args.sourceRoot);
+      const root = absolute ? args.sourceRoot : path.resolve(ctx.io.cwd, args.sourceRoot);
+      report = importEslintJson(input, target, args.commit, args.producerVersion, root);
+    } else {
+      const root = args.sourceRoot === undefined
         ? undefined
         : pathToFileURL(path.resolve(ctx.io.cwd, args.sourceRoot) + path.sep).href;
-    const target = qualityTarget(frame.graph, artifact.manifest.analysisId);
-    const report = importRuffSarif(
-      await readReport(path.resolve(ctx.io.cwd, args.report)),
-      target,
-      args.commit,
-      sourceRoot,
-    );
+      report = importRuffSarif(input, target, args.commit, root);
+    }
     let comparison: { newlyReported: number; noLongerReported: number; sameLocation: number } | null = null;
     if (args.baseline) {
       const baseline = parseQualityReport(await readReport(path.resolve(ctx.io.cwd, args.baseline)));
@@ -113,7 +120,7 @@ export async function findings(
       );
     else {
       ctx.print(
-        `Imported ${report.findings.length} Ruff findings; ${dropped} records dropped (${report.dropped.duplicates} duplicates).`,
+        `Imported ${report.findings.length} ${QUALITY_TOOL_LABELS[report.tool.name]} findings; ${dropped} records dropped (${report.dropped.duplicates} duplicates).`,
       );
       ctx.print(
         'Commit binding is user-declared. Scan scope and configuration are unverified; this is not a clean-scan verdict.',

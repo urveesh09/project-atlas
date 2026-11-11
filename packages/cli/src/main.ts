@@ -21,9 +21,11 @@ const HELP = `
     atlas analyze [dir] [options]      analyze the committed tree into an artifact
     atlas inspect <artifact> [--no-map]  report on an artifact, with a city plan
     atlas verify <artifact>            validate an artifact end to end
-    atlas findings <ruff.sarif> --artifact <dir> --commit <full-oid> --out <quality.json>
+    atlas findings <report> --artifact <dir> --commit <full-oid> --out <quality.json>
                                        import local external findings (no scanner execution)
       [--source-root <dir>] [--baseline <quality.json>]
+      [--producer ruff|eslint] [--producer-version <version>]
+      Ruff SARIF is the default. ESLint JSON requires --producer-version and --source-root.
     atlas scan-evidence <quality.json> --artifact <dir> --profile <profile.json>
       --scope <scope.json> --exit-code <0|1> --out <scan.json>
     atlas verify-scan <scan.json> --artifact <dir> --bundle <sigstore.json>
@@ -204,11 +206,22 @@ export async function run(argv: readonly string[], io: CliIO): Promise<number> {
       }
       case 'findings': {
         const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, strict: true,
-          options: { artifact: { type: 'string' }, commit: { type: 'string' }, out: { type: 'string' }, 'source-root': { type: 'string' }, baseline: { type: 'string' }, json: { type: 'boolean' } } });
+          options: { artifact: { type: 'string' }, commit: { type: 'string' }, out: { type: 'string' },
+            'source-root': { type: 'string' }, baseline: { type: 'string' }, json: { type: 'boolean' },
+            producer: { type: 'string', default: 'ruff' }, 'producer-version': { type: 'string' } } });
         if (positionals.length !== 1 || !values.artifact || !values.commit || !values.out)
-          throw new UsageError('findings requires one Ruff SARIF report, --artifact, --commit and --out.');
-        return await findings(ctx, { report: positionals[0]!, artifact: values.artifact, commit: values.commit, out: values.out,
-          ...(values['source-root'] !== undefined ? { sourceRoot: values['source-root'] } : {}), ...(values.baseline !== undefined ? { baseline: values.baseline } : {}) });
+          throw new UsageError('findings requires one report, --artifact, --commit and --out.');
+        const args = { report: positionals[0]!, artifact: values.artifact, commit: values.commit, out: values.out,
+          ...(values.baseline !== undefined ? { baseline: values.baseline } : {}) };
+        const sourceRoot = values['source-root'];
+        const producerVersion = values['producer-version'];
+        if (values.producer === 'eslint') {
+          if (!sourceRoot || !producerVersion) throw new UsageError('ESLint requires --source-root and --producer-version.');
+          return await findings(ctx, { ...args, producer: 'eslint', sourceRoot, producerVersion });
+        }
+        if (values.producer !== 'ruff') throw new UsageError('--producer must be ruff or eslint.');
+        if (producerVersion !== undefined) throw new UsageError('Ruff SARIF supplies its own producer version.');
+        return await findings(ctx, { ...args, producer: 'ruff', ...(sourceRoot !== undefined ? { sourceRoot } : {}) });
       }
       case 'scan-evidence': {
         const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, strict: true, options: { artifact: { type: 'string' }, profile: { type: 'string' }, scope: { type: 'string' }, 'exit-code': { type: 'string' }, out: { type: 'string' }, json: { type: 'boolean' } } });

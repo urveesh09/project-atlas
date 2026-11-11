@@ -86,9 +86,9 @@ try {
     return output;
   };
   cli(['doctor']);
-  // An authored Python fixture exercises the new command from the relocated archive,
-  // with no scanner executable, repository dependency install or outbound socket.
-  qualityRepo = createGitFixture([{ date: '2026-10-01T00:00:00Z', message: 'authored lint fixture', files: { 'sample.py': 'import os\n' } }], { parent: work });
+  const eslintRows = JSON.parse(await readFile(path.join(root, 'packages/graph/test/fixtures/eslint-10.14.0.json'), 'utf8'));
+  const lintFiles = Object.fromEntries(eslintRows.map(({ filePath, source }) => [path.posix.basename(filePath), source]));
+  qualityRepo = createGitFixture([{ date: '2026-10-01T00:00:00Z', message: 'authored lint fixture', files: { ...lintFiles, 'sample.py': 'import os\n' } }], { parent: work });
   const qualityArtifact = path.join(work, 'quality-artifact');
   cli(['analyze', qualityRepo.dir, '--out', qualityArtifact, '--no-history', '--json']);
   const qualityManifestBytes = await readFile(path.join(qualityArtifact, 'manifest.json'));
@@ -103,6 +103,22 @@ try {
   const qualityBytes = await readFile(qualityOut, 'utf8');
   assert(!qualityBytes.includes('SOURCE_SENTINEL'));
   assert.equal(JSON.parse(qualityBytes).findings[0].ruleId, 'F401');
+  // Keep the formatter payload and rebind only its paths to the relocated fixture.
+  const eslintInput = path.join(work, 'eslint.json'), eslintOutput = path.join(work, 'eslint-quality.json');
+  await writeFile(eslintInput, JSON.stringify(eslintRows.map((row) => ({
+    ...row, filePath: path.join(qualityRepo.dir, path.posix.basename(row.filePath)),
+  }))));
+  const lintResult = JSON.parse(cli(['findings', eslintInput, '--producer', 'eslint', '--producer-version', '10.14.0',
+    '--source-root', qualityRepo.dir, '--artifact', qualityArtifact, '--commit', qualityManifest.selectedCommit.oid,
+    '--out', eslintOutput, '--json']));
+  assert.equal(lintResult.findings, 3);
+  assert.equal(lintResult.scanScope, 'unverified');
+  const lintSidecar = await readFile(eslintOutput, 'utf8');
+  assert(!/Unexpected|counter|"suggestions"|"fix"|"source"/.test(lintSidecar));
+  const lintReport = JSON.parse(lintSidecar);
+  assert.deepEqual(lintReport.tool, { name: 'eslint', version: '10.14.0' });
+  assert.deepEqual(lintReport.findings.map((finding) => finding.ruleId).sort(),
+    ['@typescript-eslint/no-explicit-any', 'no-console', 'no-var']);
   assert.deepEqual(await readFile(path.join(qualityArtifact, 'manifest.json')), qualityManifestBytes);
   const openedQuality = await openArtifactDirectory(qualityArtifact);
   assert(openedQuality.ok);
