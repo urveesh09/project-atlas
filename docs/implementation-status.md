@@ -34,6 +34,27 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Static consumer paths in Compare (2026-11-12)
+
+- [ADR-098](adr/ADR-098-compare-consumer-paths.md) traces observed internal
+  import paths to the selected file in A or B. A bounded worker query returns
+  one shortest path per displayed consumer. Each importer opens its
+  Dependencies inspector in the snapshot that supplied the path.
+- The first browser run exposed a race when opening paths while changing
+  the comparison pair. The open control now survives the transition and
+  each result is scoped to its snapshot, file and depth. Both new journeys
+  passed in Chromium, Firefox and WebKit on Windows. They cover a renamed
+  file, an absent file, historical keyboard focus and a 320 px axe check.
+- Windows `pnpm verify` on Node 24.22.2 passed **1,110 tests** with
+  **95 gated skips**, including all **63 Chromium journeys** under
+  SwiftShader. A separate `atlas analyze` and `atlas serve` check changed
+  A while a trace was open, navigated to an importer in B, and checked
+  desktop and 320 px layouts with zero console errors.
+- All six pinned repositories reproduced their committed artifact bytes
+  and independent source checks across five offline runs each. The Flask
+  artifact also reproduced the direct `.app` re-export and the tutorial
+  blog's two-hop path through that re-export.
+
 ### Dependency change evidence in Compare (2026-11-11)
 
 - [ADR-097](adr/ADR-097-compare-dependency-evidence.md) connects each

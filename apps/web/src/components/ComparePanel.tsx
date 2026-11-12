@@ -2,6 +2,7 @@ import type { ComparedMetric, MetricDelta } from '@atlas/graph';
 import { useViewer } from '../app/context';
 import { ROLE_LABEL, formatDate, formatNumber, shortOid } from '../app/model';
 import { Chip, Paged, Section } from './ui';
+import { CompareConsumerPaths } from './CompareConsumerPaths';
 import { CompareDependencies } from './CompareDependencies';
 
 /**
@@ -94,6 +95,7 @@ export function ComparePanel() {
           Comparing snapshots…
         </p>
       )}
+      <CompareConsumerPaths a={a} b={b} />
       {result && (
         <>
           <ul className="compare-summary" aria-label="Comparison summary">

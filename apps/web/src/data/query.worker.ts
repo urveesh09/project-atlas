@@ -16,6 +16,7 @@ export type QueryRequest =
   | { id: number; type: 'frame'; frame: number }
   | { id: number; type: 'search'; frame: number; query: string }
   | { id: number; type: 'reach'; frame: number; nodeId: string; direction: 'outgoing' | 'incoming'; depth: number }
+  | { id: number; type: 'consumer-paths'; frame: number; nodeId: string; depth: number }
   | { id: number; type: 'overlay'; frame: number; options: OverlayOptions }
   | { id: number; type: 'compare'; a: number; b: number }
   | { id: number; type: 'architecture'; file: File; input: ArchitectureInput }
@@ -184,6 +185,9 @@ export async function handleQuery(q: QueryRequest, channel?: Pick<MessageEvent, 
       }
       case 'reach':
         result = (await store.get(q.frame)).index.reach(q.nodeId, { direction: q.direction, depth: q.depth });
+        break;
+      case 'consumer-paths':
+        result = (await store.get(q.frame)).index.consumerPaths(q.nodeId, q.depth);
         break;
       case 'overlay': {
         const entry = await store.get(q.frame);

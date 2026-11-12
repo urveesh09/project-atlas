@@ -84,6 +84,14 @@ and `--snapshots 6` samples fewer points in history. The [CLI reference](../cont
   file you selected, even if it was renamed. The summary still counts changes
   across the repository. The evidence shows where ATLAS observed the relationship
   and how many positions the artifact retained.
+- **Who imports a changed file?** Select it, then choose *Show paths* under
+  *Consumer paths* in Compare. Choose A or B and how many import hops to follow.
+  Read each path from the importing file toward the selected file, then open an
+  importer to see its Dependencies inspector in that snapshot. For a deleted
+  file, select it in an earlier snapshot before switching to the newer one.
+  Compare uses the recorded internal value imports, re-exports and literal
+  requires. The panel shows how much of that graph it searched and flags partial
+  analysis. Runtime behavior may differ.
 
 Every number in the inspector shows its unit and its policy. Type-only imports, for
 example, are listed separately and excluded from default fan-in, fan-out and static

@@ -203,6 +203,50 @@ describe('bounded reach', () => {
   });
 });
 
+describe('static consumer paths', () => {
+  it('finds one deterministic shortest route per consumer across a diamond and a cycle', () => {
+    const target = 'app/core.ts';
+    const files = [target, 'app/a.ts', 'app/b.ts', 'app/entry.ts', 'app/types.ts', 'app/lazy.ts', 'app/resource.ts'];
+    const deps: Dep[] = [
+      ['app/b.ts', target, 'requires-literal'],
+      ['app/a.ts', target, 'reexports-value'],
+      ['app/a.ts', target, 'reexports-value', 'inferred'],
+      ['app/entry.ts', 'app/b.ts'],
+      ['app/entry.ts', 'app/a.ts'],
+      [target, 'app/entry.ts'],
+      [target, target],
+      ['app/types.ts', target, 'imports-type'],
+      ['app/lazy.ts', target, 'imports-dynamic-literal'],
+      ['app/resource.ts', target, 'imports-resource'],
+    ];
+    const { index, fid } = build(files, deps);
+    const result = index.consumerPaths(fid(target))!;
+    expect(result).toMatchObject({ depth: 2, total: 3, direct: 2, truncated: false, beyondDepth: false });
+    expect(result.paths.map((path) => path.map((id) => index.pathOf(id)))).toEqual([
+      ['app/a.ts', target],
+      ['app/b.ts', target],
+      ['app/entry.ts', 'app/a.ts', target],
+    ]);
+    expect(build([...files].reverse(), [...deps].reverse()).index.consumerPaths(fid(target))).toEqual(result);
+    expect(index.consumerPaths(fid(target), 1)).toMatchObject({ total: 2, direct: 2, truncated: false, beyondDepth: true });
+    expect(index.consumerPaths(fid('app/types.ts'))).toMatchObject({ total: 0, direct: 0, paths: [] });
+    expect(index.consumerPaths(index.root.id)).toBeNull();
+    expect(index.consumerPaths(fid('missing.ts'))).toBeNull();
+  });
+
+  it('bounds the traversal separately from the paths sent for display', () => {
+    const target = 'app/core.ts';
+    const importers = Array.from({ length: 2001 }, (_, i) => `app/${String(i).padStart(4, '0')}.ts`);
+    const deps: Dep[] = importers.map((from) => [from, target]);
+    const { index, fid } = build([target, ...importers], deps);
+    const result = index.consumerPaths(fid(target), 99)!;
+    expect(result).toMatchObject({ depth: 5, total: 2000, direct: 2000, truncated: true, beyondDepth: false });
+    expect(result.paths).toEqual(importers.slice(0, 50).map((from) => [fid(from), fid(target)]));
+    const exact = build([target, ...importers.slice(0, -1)], deps.slice(0, -1));
+    expect(exact.index.consumerPaths(fid(target))).toMatchObject({ total: 2000, truncated: false, beyondDepth: false });
+  });
+});
+
 describe('search ranking (plan §12.2)', () => {
   const { snapshot } = build(['app/main.ts', 'app/mainframe.ts', 'lib/domain.ts', 'lib/util.ts', 'app/util.ts'], []);
   const search = new SearchIndex(snapshot);

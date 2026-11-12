@@ -1565,6 +1565,28 @@ select:focus-visible {
 .compare-dependency-evidence .button {
   margin-block-start: 8px;
 }
+.compare-path-controls label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+}
+.compare-path-controls select,
+.compare-path .link {
+  min-height: 44px;
+}
+.compare-path,
+.compare-path li {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.compare-path {
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .delta-up {
   color: var(--ok);
   font-weight: 600;
