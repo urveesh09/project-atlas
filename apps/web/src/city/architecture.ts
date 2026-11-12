@@ -45,11 +45,10 @@ export function buildingStyle(b: CityBuilding, family: number, theme: CityTheme 
   const next = xorshift32(b.seed);
   const tall = (b.role === 'source' || b.role === 'test') && b.parseStatus === 'parsed';
   const pool = tall ? spec.families[family]! : spec.low;
-  const archetype = pool[next() % pool.length]!;
+  const archetype = pool.models[next() % pool.models.length]!;
   const footprint = FOOTPRINTS[next() % FOOTPRINTS.length]!;
   const rotation = ((next() % 4) * Math.PI) / 2;
-  const patterns = tall ? spec.windows[family]! : spec.lowWindows;
-  const windows = patterns[next() % patterns.length]!;
+  const windows = pool.windows[next() % pool.windows.length]!;
   const variant = (next() % 1000) / 1000;
   const square = spec.archetypes[archetype]!.tiers.every((t) => t.sides === 4);
   const aspect = square ? ASPECTS[next() % ASPECTS.length]! : 1;

@@ -67,15 +67,18 @@ export interface Archetype {
 export type TreeKind = 'round' | 'conifer' | 'pine' | 'blossom' | 'oak' | 'cypress' | 'willow' | 'plane';
 export type LampKind = 'street' | 'lantern' | 'iron';
 
+interface ModelPool {
+  /** Indices compiled once for the renderer's instanced body batches. */
+  models: readonly number[];
+  windows: readonly number[];
+}
+
 export interface ThemeSpec {
   archetypes: readonly Archetype[];
   /** Neighbourhood families of tall archetypes; one is chosen per district. */
-  families: readonly (readonly number[])[];
-  /** Window patterns per family (same order as families). */
-  windows: readonly (readonly number[])[];
+  families: readonly ModelPool[];
   /** Fixed-height kiosk and declaration roles. */
-  low: readonly number[];
-  lowWindows: readonly number[];
+  low: ModelPool;
   /** Wall materials (see `MATERIAL`); a district alternates two neighbouring ones. */
   materials: readonly number[];
   ground: {
@@ -127,10 +130,40 @@ export const WINDOW = {
   shutter: 9,
 } as const;
 
+type NonEmpty<T> = readonly [T, ...T[]];
+type WindowPattern = (typeof WINDOW)[keyof typeof WINDOW];
+interface NamedPool<Name extends string> {
+  models: NonEmpty<Name>;
+  windows: NonEmpty<WindowPattern>;
+}
+
+export function defineTheme<const Models extends NonEmpty<Archetype>>(
+  spec: Omit<ThemeSpec, 'archetypes' | 'families' | 'low'> & {
+    archetypes: Models;
+    families: NonEmpty<NamedPool<NoInfer<Models[number]['name']>>>;
+    low: NamedPool<NoInfer<Models[number]['name']>>;
+  },
+): ThemeSpec {
+  const indices = new Map<string, number>();
+  spec.archetypes.forEach(({ name }, index) => {
+    if (indices.has(name)) throw new Error(`Duplicate city model name: ${name}`);
+    indices.set(name, index);
+  });
+  const compile = (pool: NamedPool<Models[number]['name']>): ModelPool => ({
+    models: pool.models.map((name) => {
+      const index = indices.get(name);
+      if (index === undefined) throw new Error(`Unknown city model name: ${name}`);
+      return index;
+    }),
+    windows: pool.windows,
+  });
+  return { ...spec, families: spec.families.map(compile), low: compile(spec.low) };
+}
+
 const W = WINDOW;
 
 export const THEMES: Record<CityTheme, ThemeSpec> = {
-  modern: {
+  modern: defineTheme({
     archetypes: [
       { name: 'block', tiers: [box(0, 1, 0.44)], base: BASE.lobby, parts: [{ kind: 'rooftop', corners: 2 }] },
       { name: 'slab', tiers: [box(0, 1, 0.45, 0.3)], base: BASE.lobby, parts: [{ kind: 'rooftop', corners: 2 }] },
@@ -154,19 +187,12 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
       { name: 'split-slab', tiers: [box(0, 0.7, 0.45, 0.32), box(0.7, 1, 0.45, 0.23, 1.05)], base: BASE.lobby, parts: [{ kind: 'rooftop', corners: 2 }] },
     ],
     families: [
-      [0, 6, 2, 9],
-      [1, 3, 4, 8, 11],
-      [2, 5, 6, 10],
-      [0, 1, 4, 5, 8, 9, 11],
+      { models: ['block', 'cornice', 'setback', 'deco'], windows: [W.punched, W.grid] },
+      { models: ['slab', 'podium', 'rotunda', 'glass-tower', 'split-slab'], windows: [W.curtain, W.ribbon] },
+      { models: ['setback', 'tapered', 'cornice', 'octagon'], windows: [W.vertical, W.punched] },
+      { models: ['block', 'slab', 'rotunda', 'tapered', 'glass-tower', 'deco', 'split-slab'], windows: [W.grid, W.curtain, W.ribbon] },
     ],
-    windows: [
-      [W.punched, W.grid],
-      [W.curtain, W.ribbon],
-      [W.vertical, W.punched],
-      [W.grid, W.curtain, W.ribbon],
-    ],
-    low: [0, 1, 7],
-    lowWindows: [W.punched, W.ribbon, W.grid],
+    low: { models: ['block', 'slab', 'stepped'], windows: [W.punched, W.ribbon, W.grid] },
     materials: [MATERIAL.panel, MATERIAL.fins, MATERIAL.brick, MATERIAL.render],
     ground: {
       beach: '#e3d4ab',
@@ -196,8 +222,8 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
     sky: { zenith: '#6f9cd0', horizon: '#e4edf1', haze: '#dbe5ea', sun: '#fff3d6', deep: '#2f6d8c', shallow: '#4fb3b2' },
     scenery: 'bay',
     clouds: '#ffffff',
-  },
-  eastern: {
+  }),
+  eastern: defineTheme({
     archetypes: [
       // Multi-storey pagoda: an eave over every storey, on a marble plinth.
       { name: 'pagoda', tiers: [box(0, 1, 0.38, 0.38, 1, 0.7)], parts: [{ kind: 'platform' }, { kind: 'eave', every: 1.05, from: 0.85, top: true }], base: BASE.colonnade },
@@ -224,14 +250,12 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
       { name: 'pavilion-hall', tiers: [ring(0, 1, 8, 0.42, 1, 0.86)], parts: [{ kind: 'terrace' }, { kind: 'eave', every: 2, from: 1.3, top: true }], base: BASE.colonnade },
     ],
     families: [
-      [0, 2, 7],
-      [1, 3, 8],
-      [2, 4, 7],
-      [1, 0, 4, 3, 8],
+      { models: ['pagoda', 'palace-hall', 'tiered-hall'], windows: [W.lattice] },
+      { models: ['octagonal-pagoda', 'tower-pavilion', 'pavilion-hall'], windows: [W.lattice, W.grid] },
+      { models: ['palace-hall', 'gate-tower', 'tiered-hall'], windows: [W.lattice, W.vertical] },
+      { models: ['octagonal-pagoda', 'pagoda', 'gate-tower', 'tower-pavilion', 'pavilion-hall'], windows: [W.lattice] },
     ],
-    windows: [[W.lattice], [W.lattice, W.grid], [W.lattice, W.vertical], [W.lattice]],
-    low: [5, 6],
-    lowWindows: [W.lattice],
+    low: { models: ['hall', 'pavilion'], windows: [W.lattice] },
     materials: [MATERIAL.render, MATERIAL.brick, MATERIAL.ashlar],
     ground: {
       beach: '#d8ceb4',
@@ -262,8 +286,8 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
     sky: { zenith: '#86aebf', horizon: '#f1e7d4', haze: '#e7e2d6', sun: '#ffe6b5', deep: '#2f7a72', shallow: '#68c2a8' },
     scenery: 'karst',
     clouds: '#fff8ee',
-  },
-  western: {
+  }),
+  western: defineTheme({
     archetypes: [
       { name: 'keep', tiers: [box(0, 1, 0.41)], parts: [{ kind: 'band', every: 2.1, from: 1.6, overhang: 1.07 }, { kind: 'crenel', top: true }], roof: 0.82, base: BASE.arcade },
       { name: 'round-tower', tiers: [ring(0, 1, 12, 0.4)], parts: [{ kind: 'band', every: 2.3, from: 1.7, overhang: 1.07 }, { kind: 'crenel', top: true }], roof: 0.82, base: BASE.door },
@@ -294,19 +318,12 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
       },
     ],
     families: [
-      [0, 1, 8, 10],
-      [2, 9, 5],
-      [3, 1, 4, 10],
-      [8, 9, 3, 4],
+      { models: ['keep', 'round-tower', 'fortress', 'bell-tower'], windows: [W.slit, W.arched] },
+      { models: ['timber-house', 'manor', 'guild-hall'], windows: [W.timber, W.shutter, W.arched] },
+      { models: ['wizard-tower', 'round-tower', 'chapel', 'bell-tower'], windows: [W.arched, W.slit] },
+      { models: ['fortress', 'manor', 'wizard-tower', 'chapel'], windows: [W.arched, W.shutter, W.slit] },
     ],
-    windows: [
-      [W.slit, W.arched],
-      [W.timber, W.shutter, W.arched],
-      [W.arched, W.slit],
-      [W.arched, W.shutter, W.slit],
-    ],
-    low: [6, 7],
-    lowWindows: [W.timber, W.shutter],
+    low: { models: ['cottage', 'turret'], windows: [W.timber, W.shutter] },
     materials: [MATERIAL.ashlar, MATERIAL.brick, MATERIAL.render],
     ground: {
       beach: '#d9cba6',
@@ -336,5 +353,5 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
     sky: { zenith: '#5f86c0', horizon: '#f2e3c8', haze: '#e4dccb', sun: '#ffdf9f', deep: '#24587a', shallow: '#4f9db0' },
     scenery: 'alps',
     clouds: '#fff6e8',
-  },
+  }),
 };

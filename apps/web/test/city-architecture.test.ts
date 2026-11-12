@@ -20,7 +20,7 @@ import {
   treeGeometry,
   wallAt,
 } from '../src/city/architecture';
-import { CITY_THEMES, THEMES } from '../src/city/themes';
+import { box, CITY_THEMES, defineTheme, THEMES, WINDOW } from '../src/city/themes';
 import { sceneryGeometry, skyDome } from '../src/city/atmosphere';
 
 const repoId = localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f');
@@ -94,6 +94,32 @@ function expectInside(g: THREE.BufferGeometry, limit: number, height = 1) {
   }
 }
 
+describe('named city model pools', () => {
+  const short = { name: 'short', tiers: [box(0, 1, 0.32)] } as const;
+  const tall = { name: 'tall', tiers: [box(0, 1, 0.44)] } as const;
+  const added = { name: 'added', tiers: [box(0, 1, 0.36)] } as const;
+  const options = {
+    ...THEMES.modern,
+    families: [{ models: ['tall', 'short'], windows: [WINDOW.punched] }],
+    low: { models: ['short'], windows: [WINDOW.grid] },
+  } as const;
+
+  it('preserves named choices and their order when the catalog changes position', () => {
+    const original = defineTheme({ ...options, archetypes: [short, tall] });
+    const edited = defineTheme({ ...options, archetypes: [added, tall, short] });
+    for (const spec of [original, edited]) {
+      expect(spec.families[0]!.models.map((index) => spec.archetypes[index]!.name)).toEqual(['tall', 'short']);
+      expect(spec.families[0]!.windows).toEqual([WINDOW.punched]);
+      expect(spec.low.models.map((index) => spec.archetypes[index]!.name)).toEqual(['short']);
+      expect(spec.low.windows).toEqual([WINDOW.grid]);
+    }
+  });
+
+  it('rejects duplicate model names', () => {
+    expect(() => defineTheme({ ...options, archetypes: [short, tall, short] })).toThrow('Duplicate city model name: short');
+  });
+});
+
 describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
   const spec = THEMES[theme];
   it('derives style only from layout seeds, never from height, metrics or lens data', () => {
@@ -125,7 +151,7 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
   it('keeps fixed-height kiosk and declaration roles on the low archetypes', () => {
     for (const p of geometry.plots)
       for (const role of ['config', 'asset', 'opaque', 'declaration'] as const)
-        expect(spec.low).toContain(
+        expect(spec.low.models).toContain(
           buildingStyle(building({ role, seed: p.seed, districtId: p.districtId }), districtFamily(p.districtId, theme), theme).archetype,
         );
   });
