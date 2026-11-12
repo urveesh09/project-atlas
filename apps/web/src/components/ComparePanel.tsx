@@ -2,6 +2,7 @@ import type { ComparedMetric, MetricDelta } from '@atlas/graph';
 import { useViewer } from '../app/context';
 import { ROLE_LABEL, formatDate, formatNumber, shortOid } from '../app/model';
 import { Chip, Paged, Section } from './ui';
+import { CompareDependencies } from './CompareDependencies';
 
 /**
  * A -> B comparison of two analyzed snapshots (plan §7.4, §3.3 "Compare"). Graph
@@ -199,21 +200,7 @@ export function ComparePanel() {
               <MetricTable rows={result.metricChanges} onSelect={selectInB} />
             )}
           </Section>
-          <Section title="Dependency changes" count={result.edgesAdded.length + result.edgesRemoved.length} description="Static file relationships projected onto lineages and package names.">
-            <Paged
-              items={[...result.edgesAdded.map((e) => ({ e, sign: '+' as const })), ...result.edgesRemoved.map((e) => ({ e, sign: '−' as const }))]}
-              pageSize={20}
-              empty="No dependency differences."
-              render={({ e, sign }) => (
-                <li key={`${sign}${e.sourceLineageId}${e.target}${e.kind}`} className="row">
-                  <span className="row-main">
-                    <span className={sign === '+' ? 'delta-up' : 'delta-down'}>{sign === '+' ? 'added' : 'removed'}</span> {e.sourcePath} → {e.targetLabel}
-                  </span>
-                  <span className="row-meta">{e.kind}</span>
-                </li>
-              )}
-            />
-          </Section>
+          <CompareDependencies key={`${result.fromSnapshotId}>${result.toSnapshotId}`} result={result} a={a} b={b} />
         </>
       )}
       <Section

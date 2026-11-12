@@ -78,6 +78,12 @@ and `--snapshots 6` samples fewer points in history. The [CLI reference](../cont
   recent change, and every factor is listed beside the score. It points at candidates
   for review, not at defects.
 - **What changed?** Use *Compare snapshots* in the history strip under the city.
+  Under *Dependency changes*, open a relationship to see the recorded import
+  positions. Added edges show evidence from B and removed edges show evidence
+  from A. Use *Selected file only* to keep incoming and outgoing changes for the
+  file you selected, even if it was renamed. The summary still counts changes
+  across the repository. The evidence shows where ATLAS observed the relationship
+  and how many positions the artifact retained.
 
 Every number in the inspector shows its unit and its policy. Type-only imports, for
 example, are listed separately and excluded from default fan-in, fan-out and static

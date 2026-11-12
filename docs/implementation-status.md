@@ -34,6 +34,24 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Dependency change evidence in Compare (2026-11-11)
+
+- [ADR-097](adr/ADR-097-compare-dependency-evidence.md) connects each
+  dependency change to import positions in the snapshot where the edge was
+  observed. Evidence combines confidence groups for that relationship and
+  shows the statement count, display limit and artifact omissions.
+- The selected-file filter matches both endpoints by lineage. The Harbor
+  journey checks incoming changes, reverses A and B, and follows an import
+  from the original snapshot to its file inspector with the keyboard.
+- The first Chromium attempt timed out at the test's exact implicit label
+  locator for the A picker. The journey now uses the existing comparison
+  picker selector. Chromium, Firefox and WebKit each passed the corrected
+  journey and its 320 px automated accessibility checkpoint. The test
+  timeout and product assertions stayed intact.
+- Windows `pnpm verify` on Node 24.22.2 passed **1,106 tests** with
+  **95 gated skips**, including all **61 Chromium journeys**. The 63
+  Chromium accessibility checkpoints recorded zero violations.
+
 ### ESLint findings in the city (2026-11-11)
 
 - [ADR-096](adr/ADR-096-eslint-external-findings.md) adds an explicit ESLint

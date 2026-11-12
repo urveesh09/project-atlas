@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { baselinePercentile, compareFrames, hotspotBaseline, hotspotFactors, metricDeltas, percentileBaseline } from '@atlas/graph';
-import { edgeId, emptySnapshotCoverage, localRepositoryId, nodeId, type FileNode, type FileRole, type GraphEdge, type GraphNode, type GraphSnapshot, type NodeMetrics } from '@atlas/schema';
+import { GraphIndex, aggregateEdges, baselinePercentile, compareFrames, comparedDependencyEvidence, hotspotBaseline, hotspotFactors, metricDeltas, percentileBaseline } from '@atlas/graph';
+import { edgeId, emptySnapshotCoverage, localRepositoryId, nodeId, type FileNode, type FileRole, type GraphEdge, type GraphNode, type GraphSnapshot, type ImportObservation, type NodeMetrics } from '@atlas/schema';
 
 /** Hotspot and comparison semantics with hand-computed expectations (plan §7.4, §10.3). */
 const REPO = localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f');
@@ -192,5 +192,43 @@ describe('frame comparison (plan §7.4)', () => {
     expect(reverse.added.map((f) => f.path)).toEqual(['gone.ts']);
     expect(reverse.deleted.map((f) => f.path)).toEqual(['fresh.ts']);
     expect(reverse.renamed[0]).toMatchObject({ fromPath: 'lib/new-name.ts', toPath: 'old-name.ts' });
+  });
+
+  it('uses the original edge buckets for exact evidence, including confidence and capped positions', () => {
+    const from = snapshot('a', [{ path: 'use.ts' }, { path: 'old.ts', lineage: lin('target') }]);
+    const to = snapshot('b', [{ path: 'use.ts' }, { path: 'new.ts', lineage: lin('target') }]);
+    const source = nodeId(to.snapshotId, 'file', 'use.ts');
+    const target = nodeId(to.snapshotId, 'file', 'new.ts');
+    const builtin = nodeId(to.snapshotId, 'builtin', 'path');
+    to.nodes.push({ id: builtin, parentId: null, lineageId: null, label: 'path', kind: 'builtin', moduleName: 'path' });
+    const observe = (line: number, overrides: Partial<ImportObservation> = {}): ImportObservation => ({
+      id: `obs_${line.toString(16).padStart(64, '0')}`,
+      sourceId: source, targetId: target, kind: 'imports-value', specifier: './new',
+      range: { startOffset: line, endOffset: line + 1, startLine: line, startColumn: 1, endLine: line, endColumn: 2 },
+      status: 'resolved-internal', confidence: line % 2 ? 'exact' : 'inferred', reasonCode: null, resolverMode: 'test',
+      ...overrides,
+    });
+    const aggregated = aggregateEdges(to.snapshotId, [
+      ...Array.from({ length: 10 }, (_, i) => observe(i + 1)),
+      observe(11, { targetId: builtin, specifier: 'node:path', status: 'builtin' }),
+      observe(12),
+      observe(13, { kind: 'imports-type' }),
+    ], { edges: 100, evidenceRows: 11 });
+    to.edges = aggregated.edges;
+    to.importObservations = aggregated.observations;
+    const changes = compareFrames(from, to).edgesAdded;
+    const internal = changes.find((change) => change.target === lin('target') && change.kind === 'imports-value')!;
+    const external = changes.find((change) => change.targetLabel === 'builtin:path')!;
+    const index = new GraphIndex(to);
+    const evidence = comparedDependencyEvidence(index, internal);
+    expect(evidence).toMatchObject({ sourceId: source, statements: 11, omittedByArtifact: 1 });
+    expect(evidence?.locations).toHaveLength(8);
+    expect(new Set(evidence?.locations.map((location) => location.confidence))).toEqual(new Set(['exact', 'inferred']));
+    expect(evidence?.locations.every((location) => location.kind === 'imports-value')).toBe(true);
+    expect(comparedDependencyEvidence(index, external)?.locations[0]?.specifier).toBe('node:path');
+    expect(comparedDependencyEvidence(new GraphIndex(from), internal)).toBeNull();
+    expect(comparedDependencyEvidence(index, { ...internal, sourceLineageId: lin('unrelated') })).toBeNull();
+    expect(comparedDependencyEvidence(index, compareFrames(to, from).edgesRemoved.find((change) =>
+      change.target === lin('target') && change.kind === 'imports-value')!)).toEqual(evidence);
   });
 });

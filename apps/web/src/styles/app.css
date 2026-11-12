@@ -1547,6 +1547,24 @@ select:focus-visible {
 .compare-error {
   color: var(--error);
 }
+.compare-dependency-scope {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+}
+.compare-dependency-toggle {
+  min-height: 44px;
+  max-width: 100%;
+  text-align: start;
+}
+.compare-dependency-evidence {
+  padding: 4px 12px 12px;
+  border-inline-start: 2px solid var(--border);
+}
+.compare-dependency-evidence .button {
+  margin-block-start: 8px;
+}
 .delta-up {
   color: var(--ok);
   font-weight: 600;
