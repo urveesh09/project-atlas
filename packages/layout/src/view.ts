@@ -79,6 +79,11 @@ export interface CityData {
   /** Union plots in the layout: the most buildings any frame can show (renderer capacity). */
   plotCount: number;
   buildings: CityBuilding[];
+  /**
+   * Plots that stand directly on the repository block, in every frame. Decoration of the
+   * open land between districts must keep clear of them even while they are empty.
+   */
+  rootPlots: Rect[];
   districts: {
     id: string;
     rect: Rect;
@@ -173,10 +178,12 @@ export function prepareCity(graph: GraphSnapshot, layout: LayoutArtifact, option
       ? [{ name: a.canonicalName, nodeId: externalNodes.get(a.canonicalName)!, x: a.x, z: a.z }]
       : [],
   );
+  const rootDistrict = layout.districts.find((d) => d.parentId === null)?.id;
   return {
     root: layout.root,
     plotCount: layout.plots.length,
     buildings,
+    rootPlots: layout.plots.filter((p) => p.districtId === rootDistrict).map((p) => p.rect),
     districts,
     terminals:
       terminals.length <= 50

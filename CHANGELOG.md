@@ -7,6 +7,13 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- A more realistic city ([ADR-101](docs/adr/ADR-101-city-realism-pass.md)): parks with
+  trees on the open ground between districts, parked cars and asphalt streets in the
+  Modern style, hills and mountains as shaded terrain with forest, rock, shore and snow,
+  a deeper sky with a visible sun, stronger sunlight, and service-floor bands that keep
+  towers readable from across the city. Grass, sand, asphalt, plazas and walls carry
+  surface texture and weathering, and glass catches the sun. Height, lens colour and
+  roof role are unchanged.
 - Offline architecture review (`atlas review-architecture`): explicit file-role/path/
   package boundaries, baseline relation and static-cycle component comparison,
   bounded source-free JSON/Markdown, and opt-in CI policy failure (ADR-089).

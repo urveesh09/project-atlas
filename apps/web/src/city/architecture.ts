@@ -357,13 +357,20 @@ function mergeFlat(parts: THREE.BufferGeometry[], colours?: readonly THREE.Color
  * drawn only where a cell spans several pixels, so far views keep the exact lens colour. A
  * soft base gradient stands in for ambient occlusion. `detail` false compiles patterns out.
  */
-export function facadeMaterial(detail: boolean, sky: { zenith: string; horizon: string } = { zenith: '#9fbfe0', horizon: '#e6ecef' }): THREE.MeshLambertMaterial {
+export function facadeMaterial(
+  detail: boolean,
+  sky: { zenith: string; horizon: string } = { zenith: '#9fbfe0', horizon: '#e6ecef' },
+  weather: THREE.Texture | null = null,
+  sun: THREE.Vector3 = new THREE.Vector3(0, 1, 0),
+): THREE.MeshLambertMaterial {
   const material = new THREE.MeshLambertMaterial();
-  material.defines = { ATLAS_WINDOWS: detail ? 1 : 0 };
+  material.defines = { ATLAS_WINDOWS: detail ? 1 : 0, ATLAS_WEATHER: detail && weather ? 1 : 0 };
   // Glass reflects this sky by viewing angle (Fresnel), and the street below it.
   const reflection = {
     atlasSkyZenith: { value: new THREE.Color(sky.zenith) },
     atlasSkyHorizon: { value: new THREE.Color(sky.horizon) },
+    atlasSun: { value: sun.clone().normalize() },
+    atlasDetail: { value: weather },
   };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, reflection);
@@ -406,6 +413,10 @@ varying float vAtlasY;
 flat varying vec4 vAtlasStyle;
 uniform vec3 atlasSkyZenith;
 uniform vec3 atlasSkyHorizon;
+uniform vec3 atlasSun;
+#if ATLAS_WEATHER
+uniform sampler2D atlasDetail;
+#endif
 float atlasHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float atlasBox(vec2 f, vec2 fw, vec2 lo, vec2 hi) {
   vec2 m = smoothstep(lo - fw, lo + fw, f) * (1.0 - smoothstep(hi - fw, hi + fw, f));
@@ -522,6 +533,15 @@ float atlasGlassMask = 0.0;
   atlasGlassMask = glass * fade * (style == 4.0 ? 0.25 : 1.0) * (1.0 - 0.85 * atlasLit);
   totalEmissiveRadiance += vec3(0.5, 0.4, 0.22) * atlasLit * glass * fade;
   }
+  // Past the range of single windows a tower would be a blank stick. Modern towers keep a
+  // recessed service floor every fourth storey, wide enough to read from across the city;
+  // it darkens the wall and never changes its hue.
+  if (style < 3.5 || style == 7.0) {
+    float atlasBelt = cell.y * 0.25;
+    float atlasBeltFw = fw.y * 0.25;
+    float atlasBeltLine = 1.0 - smoothstep(0.1 - atlasBeltFw, 0.1 + atlasBeltFw, abs(fract(atlasBelt) - 0.5));
+    atlasWall *= 1.0 - 0.17 * atlasBeltLine * facade * step(4.5, count.y) * (1.0 - smoothstep(0.3, 0.5, atlasBeltFw));
+  }
   // Ground storey (world units along the face and above the body base): a glass lobby, an
   // open colonnade, an arcade of round arches, or a front door with a step.
   float baseKind = floor(vAtlasStyle.z + 0.5);
@@ -555,6 +575,16 @@ float atlasGlassMask = 0.0;
     atlasWall = mix(atlasWall, atlasWall * 0.75, clamp(frame, 0.0, 1.0) * baseFade);
     atlasWall = mix(atlasWall, vec3(0.24, 0.17, 0.12), door * baseFade);
   }
+#if ATLAS_WEATHER
+  // Weathering, in brightness only: every wall carries broad uneven tone, and rain draws
+  // fine grain out into vertical streaks. Each building starts at its own place in the map.
+  {
+    vec2 atlasSpot = vec2(vAtlasFace.x * vAtlasFaceSize.x + vAtlasStyle.y * 41.0, vAtlasY + vAtlasStyle.y * 17.0);
+    float atlasTone = texture2D(atlasDetail, atlasSpot * 0.11).g;
+    float atlasStreak = texture2D(atlasDetail, atlasSpot * vec2(0.9, 0.13)).b;
+    atlasWall *= mix(1.0, (0.9 + 0.2 * atlasTone) * (0.93 + 0.14 * atlasStreak), facade);
+  }
+#endif
 #endif
   diffuseColor.rgb = atlasWall * mix(0.76, 1.0, smoothstep(0.08, 0.9, vAtlasY));
 }`,
@@ -573,12 +603,14 @@ if (atlasGlassMask > 0.001) {
     ? mix(atlasSkyHorizon, atlasSkyZenith, smoothstep(0.0, 0.7, atlasRay.y))
     : mix(atlasSkyHorizon * 0.55, vec3(0.22, 0.21, 0.2), smoothstep(0.0, 0.3, -atlasRay.y));
   outgoingLight = mix(outgoingLight, atlasMirror, atlasGlassMask * clamp(atlasFresnel * 0.85 + 0.1, 0.0, 0.72));
+  // The sun itself, mirrored: panes flare when the camera meets its reflection.
+  outgoingLight += vec3(1.0, 0.93, 0.8) * (pow(max(dot(atlasRay, atlasSun), 0.0), 40.0) * 0.7 * atlasGlassMask);
 }
 #endif
 #include <envmap_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => `atlas-facade-6-${detail ? 1 : 0}`;
+  material.customProgramCacheKey = () => `atlas-facade-8-${detail ? 1 : 0}-${weather ? 1 : 0}`;
   return material;
 }
 
@@ -611,9 +643,16 @@ export interface Placed {
 export interface WallSegment extends Placed {
   length: number;
 }
+export interface Vehicle extends Placed {
+  /** Index into the theme's vehicle paints. */
+  tint: number;
+}
 export interface Decor {
   trees: Tree[];
   lawns: Lawn[];
+  /** Parkland on the open ground the packer left between districts. */
+  parks: Lawn[];
+  vehicles: Vehicle[];
   lamps: Placed[];
   walls: WallSegment[];
   corners: Placed[];
@@ -627,6 +666,14 @@ export interface Decor {
 }
 const MAX_TREES = 8_000;
 const MAX_LAMPS = 4_000;
+/** Park trees are thinned to this many, so a sparse repository does not become a forest. */
+const MAX_PARK_TREES = 1_800;
+const MAX_VEHICLES = 2_400;
+/** A street this many cells wide stays paved around every district and repository plot. */
+const STREET = 2;
+/** Parks are parcelled so that footpaths cross a large green. */
+const PARCEL = 11;
+const PARK_INSET = 0.22;
 /**
  * Town walls go to the largest packages only: a repository with hundreds of packages would
  * otherwise become a maze of walls costing more GPU time than its buildings.
@@ -640,7 +687,7 @@ export const MAX_WALLED_PACKAGES = 48;
  */
 export function cityDecor(city: CityData, theme: CityTheme = 'modern'): Decor {
   const spec = THEMES[theme];
-  const decor: Decor = { trees: [], lawns: [], lamps: [], walls: [], corners: [], markings: [], ponds: [], bridges: [], lotus: [], gates: [] };
+  const decor: Decor = { trees: [], lawns: [], parks: [], vehicles: [], lamps: [], walls: [], corners: [], markings: [], ponds: [], bridges: [], lotus: [], gates: [] };
   const total = spec.trees.reduce((sum, t) => sum + t.weight, 0);
   const plant = (next: () => number, x: number, y: number, z: number) => {
     if (decor.trees.length >= MAX_TREES) return;
@@ -726,6 +773,7 @@ export function cityDecor(city: CityData, theme: CityTheme = 'modern'): Decor {
         decor.corners.push({ x: cx, y: base, z: cz, rotation: 0 });
     }
   }
+  openLand(city, spec, decor, plant);
   // Belt between the perimeter road (3 cells) and the beach (5.5 cells): lamps along the
   // road's outer edge, trees in the middle of the green.
   const r = city.root,
@@ -754,6 +802,122 @@ export function cityDecor(city: CityData, theme: CityTheme = 'modern'): Decor {
       decor.markings.push({ x, y: 0.085, z, rotation: rotation % Math.PI === 0 ? 0 : Math.PI / 2, length: 0.45 }),
     );
   return decor;
+}
+
+/**
+ * The repository block is mostly open ground: shelf packing leaves the ends of shelves and
+ * whole margins empty. Streets stay paved around every district and repository plot; the
+ * land beyond them becomes parkland in parcels, planted with the style's trees, and
+ * vehicles park along the kerbs. Everything is seeded from the layout, and nothing here can
+ * reach a plot: the street margin is wider than any tree or vehicle.
+ */
+function openLand(city: CityData, spec: (typeof THEMES)[CityTheme], decor: Decor, plant: (next: () => number, x: number, y: number, z: number) => void) {
+  const r = city.root;
+  const x0 = Math.round(r.x / 100),
+    z0 = Math.round(r.z / 100),
+    w = Math.round(r.width / 100),
+    d = Math.round(r.depth / 100);
+  if (w < 8 || d < 8) return;
+  // 1 = built (a district or a repository plot), 2 = its street margin.
+  const land = new Uint8Array(w * d);
+  const mark = (rect: { x: number; z: number; width: number; depth: number }, margin: number, value: number) => {
+    const ax = Math.max(0, Math.floor(rect.x / 100) - x0 - margin),
+      az = Math.max(0, Math.floor(rect.z / 100) - z0 - margin),
+      bx = Math.min(w, Math.ceil((rect.x + rect.width) / 100) - x0 + margin),
+      bz = Math.min(d, Math.ceil((rect.z + rect.depth) / 100) - z0 + margin);
+    for (let z = az; z < bz; z++) for (let x = ax; x < bx; x++) if (land[z * w + x]! === 0 || value === 1) land[z * w + x] = value;
+  };
+  const blocks = city.districts.filter((district) => district.depth === 1);
+  for (const pass of [2, 1] as const) {
+    for (const block of blocks) mark(block.rect, pass === 2 ? STREET : 0, pass);
+    for (const plot of city.rootPlots) mark(plot, pass === 2 ? STREET : 0, pass);
+  }
+  // The kerb cell along the repository block's edge stays paved too.
+  for (let x = 0; x < w; x++) for (const z of [0, d - 1]) if (!land[z * w + x]) land[z * w + x] = 2;
+  for (let z = 0; z < d; z++) for (const x of [0, w - 1]) if (!land[z * w + x]) land[z * w + x] = 2;
+  const next = xorshift32(seedFromId(`land_${(r.width * 131 + r.depth * 17 + blocks.length).toString(16).padStart(8, '0')}`));
+  const y = groundLevel(0) + 0.03;
+  // Greedy parcels in reading order: the widest free run, grown down while it stays free.
+  const parcels: { x: number; z: number; width: number; depth: number }[] = [];
+  let area = 0;
+  for (let z = 0; z < d; z++)
+    for (let x = 0; x < w; x++) {
+      if (land[z * w + x]) continue;
+      let width = 0;
+      while (x + width < w && width < PARCEL && !land[z * w + x + width]) width++;
+      let depth = 1;
+      grow: while (z + depth < d && depth < PARCEL) {
+        for (let k = 0; k < width; k++) if (land[(z + depth) * w + x + k]) break grow;
+        depth++;
+      }
+      for (let dz = 0; dz < depth; dz++) land.fill(3, (z + dz) * w + x, (z + dz) * w + x + width);
+      // Slivers stay paved: a verge narrower than three cells reads as a stripe, not a park.
+      if (width < 3 || depth < 3) continue;
+      parcels.push({ x: x0 + x, z: z0 + z, width, depth });
+      area += width * depth;
+    }
+  // Thin the planting on very open repositories instead of stopping part-way across.
+  const pitch = Math.max(1.9, Math.sqrt((area * 0.6) / MAX_PARK_TREES));
+  for (const p of parcels) {
+    decor.parks.push({ x: p.x + p.width / 2, y, z: p.z + p.depth / 2, width: p.width - 2 * PARK_INSET, depth: p.depth - 2 * PARK_INSET });
+    // Groves and clearings: each parcel keeps a clearing somewhere inside it.
+    const clearX = p.x + 1 + ((next() % 1000) / 1000) * Math.max(0, p.width - 2),
+      clearZ = p.z + 1 + ((next() % 1000) / 1000) * Math.max(0, p.depth - 2),
+      clearing = Math.min(p.width, p.depth) * (0.18 + (next() % 20) / 100);
+    for (let tz = p.z + 0.8; tz <= p.z + p.depth - 0.8; tz += pitch)
+      for (let tx = p.x + 0.8; tx <= p.x + p.width - 0.8; tx += pitch) {
+        const roll = next() % 100;
+        const jx = ((next() % 21) - 10) * 0.03,
+          jz = ((next() % 21) - 10) * 0.03;
+        if (roll < 38 || Math.hypot(tx - clearX, tz - clearZ) < clearing) continue;
+        plant(next, Math.min(p.x + p.width - 0.7, Math.max(p.x + 0.7, tx + jx)), y, Math.min(p.z + p.depth - 0.7, Math.max(p.z + 0.7, tz + jz)));
+      }
+  }
+  if (!spec.vehicles) return;
+  // Kerbside parking: along each block's edges, on the street cell just outside the kerb.
+  const paved = (x: number, z: number) => {
+    const cx = Math.floor(x) - x0,
+      cz = Math.floor(z) - z0;
+    return cx >= 0 && cz >= 0 && cx < w && cz < d && land[cz * w + cx] === 2;
+  };
+  const park = (x: number, z: number, rotation: number) => {
+    const roll = next() % 100,
+      tint = next() % spec.vehicles!.length,
+      nudge = ((next() % 11) - 5) * 0.012;
+    if (roll >= 27 || decor.vehicles.length >= MAX_VEHICLES) return;
+    const along = rotation === 0;
+    const px = x + (along ? nudge : 0),
+      pz = z + (along ? 0 : nudge);
+    // Both ends of the vehicle must be on paved street.
+    if (paved(px - (along ? 0.3 : 0.14), pz - (along ? 0.14 : 0.3)) && paved(px + (along ? 0.3 : 0.14), pz + (along ? 0.14 : 0.3)))
+      decor.vehicles.push({ x: px, y: groundLevel(0) + 0.015, z: pz, rotation: along ? (roll % 2) * Math.PI : Math.PI / 2 + (roll % 2) * Math.PI, tint });
+  };
+  for (const block of blocks) {
+    const bx = block.rect.x / 100,
+      bz = block.rect.z / 100,
+      bw = block.rect.width / 100,
+      bd = block.rect.depth / 100;
+    for (let t = bx + 0.6; t <= bx + bw - 0.6; t += 0.62) {
+      park(t, bz - 0.3, 0);
+      park(t, bz + bd + 0.3, 0);
+    }
+    for (let t = bz + 0.6; t <= bz + bd - 0.6; t += 0.62) {
+      park(bx - 0.3, t, Math.PI / 2);
+      park(bx + bw + 0.3, t, Math.PI / 2);
+    }
+  }
+}
+
+/**
+ * A parked car about 0.42 cells long: a body and a glazed cabin, 20 triangles. The instance
+ * colour paints the body; the vertex colour keeps the glass dark. The body floats a little
+ * above the road, and its contact shadow stands for the wheels.
+ */
+export function vehicleGeometry(): THREE.BufferGeometry {
+  const parts = [new THREE.BoxGeometry(0.42, 0.075, 0.18).translate(0, 0.0625, 0), new THREE.BoxGeometry(0.22, 0.06, 0.16).translate(-0.02, 0.13, 0)];
+  const merged = mergeFlat(parts, [new THREE.Color('#ffffff'), new THREE.Color('#2a333d')]);
+  for (const p of parts) p.dispose();
+  return merged;
 }
 
 /**

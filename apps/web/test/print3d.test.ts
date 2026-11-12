@@ -8,6 +8,7 @@ const building = (id: string, x: number, z: number, height: number, districtId: 
 const city = {
   root: { x: 0, z: 0, width: 1000, depth: 500 },
   plotCount: 3,
+  rootPlots: [{ x: 700, z: 200, width: 100, depth: 100 }],
   districts: [
     { id: 'root', rect: { x: 0, z: 0, width: 1000, depth: 500 }, depth: 0, path: '', nodeId: null, kind: 'directory', label: '' },
     { id: 'pkg', rect: { x: 100, z: 100, width: 400, depth: 300 }, depth: 1, path: 'pkg', nodeId: null, kind: 'package', label: 'pkg' },
