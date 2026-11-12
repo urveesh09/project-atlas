@@ -1360,6 +1360,59 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     await page.waitForFunction(() => window.__atlasCity !== undefined);
   });
 
+  it('downloads a change brief for the exact pair even when dependency rows are filtered', async () => {
+    await goTo(12);
+    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await choose('pricing.ts');
+    await page.getByRole('button', { name: 'Compare snapshots…' }).press('Enter');
+    const compare = page.locator('section.compare');
+    await compare.locator('.compare-pick select').first().selectOption('2');
+    await expect.poll(() => compare.locator('.compare-direction').innerText()).toContain('from snapshot 3');
+    const button = compare.getByRole('button', { name: 'Download change brief (.md)', exact: true });
+    const downloadBrief = async () => {
+      await expect.poll(() => button.isEnabled()).toBe(true);
+      const event = page.waitForEvent('download');
+      await button.press('Enter');
+      const download = await event;
+      return { name: download.suggestedFilename(), text: readFileSync((await download.path())!, 'utf8') };
+    };
+    const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
+    if (!loaded.ok) throw new Error('Invalid change brief fixture');
+    const a = loaded.bundle.manifest.frames[2]!.commit.oid;
+    const b = loaded.bundle.manifest.frames[11]!.commit.oid;
+    const brief = await downloadBrief();
+    expect(brief.name).toBe(`atlas-change-brief-${a.slice(0, 7)}-${b.slice(0, 7)}.md`);
+    expect(brief.text).toContain(`**A** — snapshot 3, commit \`${a}\``);
+    expect(brief.text).toContain(`**B** — snapshot 12, commit \`${b}\``);
+    const cycles = brief.text.split('## Recorded static cycle components')[1]!.split('## Hotspot movement')[0]!;
+    expect(cycles).toContain('B only (1)');
+    expect(cycles).toContain('“src/server/handlers&#46;ts”, “src/server/router&#46;ts” (2 files)');
+    expect(brief.text).toContain('## Snapshot coverage');
+    await compare.getByRole('checkbox', { name: 'Selected file only' }).press('Space');
+    expect(await downloadBrief()).toEqual(brief);
+
+    const viewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 320, height: 844 });
+    try {
+      await expectNoSidewaysScroll(page);
+      expect(await audit(page, 'compare-change-brief')).toEqual([]);
+    } finally {
+      await page.setViewportSize(viewport);
+    }
+    await compare.getByRole('button', { name: 'Swap A and B' }).press('Enter');
+    await expect.poll(() => compare.locator('.compare-direction').innerText()).toContain('from snapshot 12');
+    const reverse = await downloadBrief();
+    expect(reverse.name).toBe(`atlas-change-brief-${b.slice(0, 7)}-${a.slice(0, 7)}.md`);
+    expect(reverse.text).toContain(`**A** — snapshot 12, commit \`${b}\``);
+    expect(reverse.text).toContain('Direction A → B, from newer to older.');
+    expect(reverse.text.split('## Recorded static cycle components')[1]).toContain('A only (1)');
+
+    await compare.getByRole('button', { name: 'Close comparison' }).press('Enter');
+    await goTo(12);
+    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await page.waitForFunction(() => window.__atlasCity !== undefined);
+  });
+
   it('colors churn and hotspot lenses with explained, never invented, values', async () => {
     await goTo(12);
     await page.getByLabel('Lens', { exact: true }).selectOption('churn');

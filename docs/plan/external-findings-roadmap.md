@@ -16,6 +16,7 @@ rename or close the original V0.1 release gates. Existing free features remain f
 | ESLint import, ADR-096 | Bring ESLint's built-in JSON output for JavaScript and TypeScript into the local External findings panel | Physical ESLint and TypeScript plugin output, bounded path mapping, producer-specific comparison, existing Ruff provenance contracts |
 | Dependency change evidence, ADR-097 | Filter observed dependency changes by selected file and inspect their import positions from the original snapshot | Lineage-based filtering, snapshot direction, confidence and omission counts, and keyboard navigation to the original file |
 | Consumer paths, ADR-098 | Trace direct and indirect static consumers of a selected file in either Compare snapshot | Deterministic bounded paths, explicit snapshot and coverage, and navigation from each importer to its original Dependencies inspector |
+| Change brief, ADR-099 | Download a Markdown summary for the ordered pair in Compare | Exact commits, coverage, bounded dependency examples, lineage-matched cycle components and hotspot score movements |
 | Q4 shared service, future ADR | Authenticated private team workspaces | Pilot teams demonstrate repeated use. Measure tenancy, access, deletion, retention and operating cost before billing |
 
 ## Q1's intentional limits

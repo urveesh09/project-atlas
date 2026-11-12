@@ -21,6 +21,7 @@ import { parseScanJson } from './scan.js';
 import { QualityImportError } from './quality.js';
 import { GraphIndex } from './graph-index.js';
 import { findStaticCycles } from './scc.js';
+import { escapeMarkdownText as escaped } from './markdown.js';
 function fail(message: string): never { throw new QualityImportError(message); }
 function unique(values: readonly string[]): boolean { return new Set(values).size === values.length; }
 /** JSON.parse accepts duplicate keys. Reject ambiguity, including escaped key aliases. */
@@ -223,8 +224,6 @@ export function architectureExit(report: ArchitectureReview, failOn?: 'new' | 'a
     return 3;
   return report.reasons.length ? 2 : 0;
 }
-/** Entity-escape every input character that can become active Markdown/HTML. No links. */
-const escaped = (text: string) => [...text].map(c => /[A-Za-z0-9 /-]/.test(c) ? c : `&#${c.codePointAt(0)};`).join('');
 const reasonLabels: Record<ArchitectureReview['reasons'][number], string> = {
   'current-coverage': 'Current snapshot has exclusions, missing imports, parse failures or other coverage warnings',
   'baseline-coverage': 'Baseline snapshot has exclusions, missing imports, parse failures or other coverage warnings',

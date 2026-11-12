@@ -86,8 +86,9 @@ no disappearing result is automatically resolved. Existing V0.1 acceptance work 
   new dependency or cycle breaks one.
 - **Persistent review workspace.** Baselines, decisions, notes and review history kept
   across weeks, with private access. Hosted private repositories are beyond V0.1.
-- **Change briefing.** New cycles, dependency changes and hotspot movement against an
-  explicit baseline.
+- **Change briefing.** Compare can export a bounded Markdown brief with observed
+  dependency changes, cycle components, hotspot movement and both commit IDs
+  (ADR-099). Include the brief in the change-review pilot.
 - **Task-first start.** "Understand this repository", "Review changes", "Inspect a hotspot"
   as entry points into the existing tools.
 - **Adaptive detail.** Choose low detail from measured frame times, for browsers that hide

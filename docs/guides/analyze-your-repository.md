@@ -92,6 +92,13 @@ and `--snapshots 6` samples fewer points in history. The [CLI reference](../cont
   Compare uses the recorded internal value imports, re-exports and literal
   requires. The panel shows how much of that graph it searched and flags partial
   analysis. Runtime behavior may differ.
+- **How do I share a review?** Set A and B in Compare and choose
+  *Download change brief (.md)*. The Markdown gives both full commit IDs,
+  snapshot coverage, observed dependencies and static cycle components that
+  appear on one side, and the largest hotspot score changes. Counts cover
+  the two snapshots even when the dependency list is filtered. The brief
+  names the HEAD commit used for the scoring cohort and identifies omitted
+  examples.
 
 Every number in the inspector shows its unit and its policy. Type-only imports, for
 example, are listed separately and excluded from default fan-in, fan-out and static
