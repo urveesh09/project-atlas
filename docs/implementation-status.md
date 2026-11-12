@@ -34,6 +34,31 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### City realism pass (2026-11-12)
+
+- [ADR-101](adr/ADR-101-city-realism-pass.md), at the owner's request for a more
+  realistic city with textured land. The encodings are unchanged: code-line height, one
+  lens hue per facade, role roofs and fixed plots.
+- **Open ground.** The repository block's free land becomes park parcels with trees,
+  behind a two-cell paved street around every district and repository plot. The new view
+  field `CityData.rootPlots` keeps parks off plots that are empty in the current
+  snapshot. No layout or artifact byte changes.
+- **Streets.** Modern streets are asphalt with pale kerbs and seeded kerbside cars.
+- **Surroundings.** Hills, mountains and karst towers are smooth-shaded terrain coloured
+  by altitude and slope. The sky has a deeper zenith, a warm band under the sun and a
+  visible disc. Sunlight is stronger relative to sky light.
+- **Surface detail.** One seeded tiling texture gives grass, sand, asphalt, plazas and
+  walls variation at several scales; walls change brightness only. Modern towers carry a
+  service-floor band every fourth storey, and glass mirrors the sun.
+- **Cost on the GT 730** (bundled Vue analysis, 902 × 432 stage): about 0.6 to 1 ms more
+  GPU time per frame. All orbits held 16.7 ms at p50 and p95 before and after. Steady
+  draw calls rose by one or two per style (33–34 Modern, 42 Eastern and Western). The
+  first version cost three times as much; the ADR records what was cut and why.
+- **Checks.** Windows `pnpm verify` on Node 24.22.1 with required browser tests:
+  **1,118 tests passed** with **94 gated skips**. The Python oracle suite did not start
+  in that run because the interpreter named for it could not load on this machine; run
+  on its own with CPython 3.14.5 it passed (1 passed, 1 skipped). CI runs it on 3.15.0.
+
 ### Named city model families and source guide (2026-11-12)
 
 - [ADR-100](adr/ADR-100-named-city-model-families.md) replaces positional

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { detailTexture } from '../src/city/shading';
 import * as THREE from 'three';
 import { computeLayout, type CityBuilding, type CityData, type LayoutTreeNode } from '@atlas/layout';
 import { lineageId, localRepositoryId } from '@atlas/schema';
@@ -8,6 +9,7 @@ import {
   bridgeGeometry,
   buildingStyle,
   cityDecor,
+  vehicleGeometry,
   cornerGeometry,
   districtFamily,
   gateGeometry,
@@ -54,6 +56,7 @@ const city: CityData = {
   root: geometry.root,
   plotCount: geometry.plots.length,
   buildings: [],
+  rootPlots: geometry.plots.filter((p) => depthOf(p.districtId) === 0).map((p) => p.rect),
   districts: geometry.districts.map((d) => ({
     id: d.id,
     rect: d.rect,
@@ -280,6 +283,36 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
     }
   });
 
+  it('turns only open repository ground into parkland and kerbside parking', () => {
+    const decor = cityDecor(city, theme);
+    const blocks = city.districts.filter((d) => d.depth === 1);
+    const r = geometry.root;
+    const overlaps = (x: number, z: number, halfW: number, halfD: number, rect: { x: number; z: number; width: number; depth: number }, margin: number) =>
+      Math.abs(x - (rect.x + rect.width / 2) / 100) < halfW + rect.width / 200 + margin && Math.abs(z - (rect.z + rect.depth / 2) / 100) < halfD + rect.depth / 200 + margin;
+    expect(decor.parks.length).toBeGreaterThan(0);
+    for (const p of decor.parks) {
+      // A street at least 1.5 cells wide stays paved around every district and plot.
+      for (const b of blocks) expect(overlaps(p.x, p.z, p.width / 2, p.depth / 2, b.rect, 1.5)).toBe(false);
+      for (const plot of geometry.plots) expect(overlaps(p.x, p.z, p.width / 2, p.depth / 2, plot.rect, 1.5)).toBe(false);
+      expect(p.x - p.width / 2).toBeGreaterThan(r.x / 100 + 1);
+      expect(p.x + p.width / 2).toBeLessThan((r.x + r.width) / 100 - 1);
+      expect(p.z - p.depth / 2).toBeGreaterThan(r.z / 100 + 1);
+      expect(p.z + p.depth / 2).toBeLessThan((r.z + r.depth) / 100 - 1);
+      expect(Math.min(p.width, p.depth)).toBeGreaterThan(2.5);
+    }
+    expect(decor.vehicles.length > 0).toBe(spec.vehicles !== null);
+    for (const v of decor.vehicles) {
+      expect(v.tint).toBeLessThan(spec.vehicles!.length);
+      // On the street: outside every district, clear of every plot, inside the repository block.
+      for (const b of blocks) expect(overlaps(v.x, v.z, 0.09, 0.09, b.rect, 0)).toBe(false);
+      for (const plot of geometry.plots) expect(overlaps(v.x, v.z, 0.21, 0.21, plot.rect, 0.3)).toBe(false);
+      expect(overlaps(v.x, v.z, 0, 0, r, -0.3)).toBe(true);
+    }
+    const car = vehicleGeometry();
+    expect(car.getAttribute('color').count).toBe(car.getAttribute('position').count);
+    car.dispose();
+  });
+
   it('builds its trees, lamps and wall towers as coloured meshes', () => {
     const meshes = [
       ...spec.trees.map((t) => treeGeometry(t.kind)),
@@ -323,6 +356,38 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
     const sky = skyDome(spec.sky, new THREE.Vector3(-30, 80, 50));
     expect((sky.material as THREE.ShaderMaterial).fog).toBe(false);
     expect((sky.material as THREE.ShaderMaterial).depthTest).toBe(false);
+  });
+});
+
+describe('surface detail map', () => {
+  it('is deterministic, tiles, and keeps useful contrast in every channel', () => {
+    const a = detailTexture(64),
+      b = detailTexture(64);
+    const data = a.image.data as Uint8Array;
+    expect(Array.from(data)).toEqual(Array.from(b.image.data as Uint8Array));
+    expect(a.wrapS).toBe(THREE.RepeatWrapping);
+    expect(a.wrapT).toBe(THREE.RepeatWrapping);
+    expect(a.generateMipmaps).toBe(true);
+    for (let channel = 0; channel < 3; channel++) {
+      let low = 255,
+        high = 0,
+        seam = 0;
+      for (let i = 0; i < 64 * 64; i++) {
+        low = Math.min(low, data[i * 4 + channel]!);
+        high = Math.max(high, data[i * 4 + channel]!);
+      }
+      // Wrapping must not show: the step across each edge is like any step inside.
+      for (let k = 0; k < 64; k++) {
+        seam = Math.max(seam, Math.abs(data[(k * 64 + 63) * 4 + channel]! - data[k * 64 * 4 + channel]!));
+        seam = Math.max(seam, Math.abs(data[(63 * 64 + k) * 4 + channel]! - data[k * 4 + channel]!));
+      }
+      let inside = 0;
+      for (let y = 0; y < 64; y++) for (let x = 0; x < 63; x++) inside = Math.max(inside, Math.abs(data[(y * 64 + x + 1) * 4 + channel]! - data[(y * 64 + x) * 4 + channel]!));
+      expect(high - low).toBeGreaterThan(110);
+      expect(seam).toBeLessThanOrEqual(inside);
+    }
+    a.dispose();
+    b.dispose();
   });
 });
 

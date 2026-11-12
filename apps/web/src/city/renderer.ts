@@ -25,6 +25,7 @@ import {
   pavilionRoofGeometry,
   topExtent,
   treeGeometry,
+  vehicleGeometry,
   wallAt,
 } from './architecture';
 import { THEMES, type Archetype, type CityTheme, type PartKind, type ThemeSpec } from './themes';
@@ -32,7 +33,7 @@ import { mistTexture, sceneryGeometry, skyDome } from './atmosphere';
 import { cloudLayer, foliageMaterial, waterMaterial, type Clock } from './living';
 import { OCCLUDER_STRIDE, occlusionGrid, type OcclusionGrid } from './occlusion';
 import { OcclusionBaker, type BakeWorker } from './baker';
-import { PAVE, fieldUniforms, withOcclusion, withPaving, withTiles, type FieldUniforms, type PavingStyle } from './shading';
+import { COVER, PAVE, detailTexture, fieldUniforms, withCover, withOcclusion, withPaving, withTiles, type FieldUniforms, type PavingStyle } from './shading';
 
 const center = (r: Rect) => new THREE.Vector3((r.x + r.width / 2) / 100, 0, (r.z + r.depth / 2) / 100);
 const color = new THREE.Color();
@@ -44,6 +45,8 @@ const white = new THREE.Color('#e9e4d7');
 const BODY_BASE = 0.06;
 /** Key light direction; the sky's sun glow and the shadow map both follow it. */
 const SUN = new THREE.Vector3(-30, 80, 50);
+/** Rendered pixels per world unit from which parked vehicles are drawn. */
+const VEHICLE_SCALE = 5;
 /** Cinematic lens and camera feel. */
 const FOV = 42;
 const FLIGHT_MS = 650;
@@ -213,6 +216,7 @@ export class CityRenderer {
   private districtMesh: THREE.InstancedMesh | null = null;
   private marks: ReadonlyMap<string, string> = new Map();
   private readonly decorations: THREE.InstancedMesh[] = [];
+  private vehicles: THREE.InstancedMesh | null = null;
   private readonly sun: THREE.DirectionalLight;
   private readonly sky: THREE.Mesh | null = null;
   /** Shared time for waves, clouds and foliage; advances only when ambient motion is allowed. */
@@ -395,8 +399,8 @@ export class CityRenderer {
       this.interacting = false;
       this.invalidate();
     });
-    this.scene.add(new THREE.HemisphereLight('#f6f8ff', '#9d9a8b', this.shadowsOn ? 2.05 : 1.9));
-    this.sun = new THREE.DirectionalLight('#fff3df', 2.5);
+    this.scene.add(new THREE.HemisphereLight('#e6eeff', '#a39b88', this.shadowsOn ? 1.7 : 1.9));
+    this.sun = new THREE.DirectionalLight('#fff1d6', this.shadowsOn ? 3.0 : 2.5);
     this.sun.position.copy(this.origin).add(SUN.clone().normalize().multiplyScalar(this.extent * 2));
     this.sun.target.position.copy(this.origin);
     this.scene.add(this.sun, this.sun.target);
@@ -411,7 +415,7 @@ export class CityRenderer {
       this.sun.shadow.bias = -0.0004;
       this.sun.shadow.normalBias = 0.03;
       // Shaded sides stay readable: shadow darkens, never blacks out, the lens colour.
-      this.sun.shadow.intensity = 0.62;
+      this.sun.shadow.intensity = 0.7;
     }
     const fill = new THREE.DirectionalLight('#d9e6ff', 0.45);
     fill.position.set(40, 30, -20);
@@ -422,8 +426,13 @@ export class CityRenderer {
     // Ground in one mesh (plan §11.1 permits a decorative shoreline): beach, a green belt and
     // the perimeter road. The island sits in an open sea under a sky, with distant scenery.
     const r = city.root;
+    // Surface irregularity for the ground and the facades, at full detail only.
+    const detail = lite ? null : detailTexture();
+    if (detail) this.textures.add(detail);
+    const covered = (g: THREE.BufferGeometry, cover: number) =>
+      g.setAttribute('atlasCover', new THREE.BufferAttribute(new Float32Array(g.getAttribute('position').count).fill(cover), 1));
     const slabs: THREE.BufferGeometry[] = [];
-    const slab = (margin: number, top: number, thickness: number, tint: string) => {
+    const slab = (margin: number, top: number, thickness: number, tint: string, cover: number) => {
       const g = new THREE.BoxGeometry(r.width / 100 + margin * 2, thickness, r.depth / 100 + margin * 2)
         .translate(this.origin.x, top - thickness / 2, this.origin.z)
         .toNonIndexed();
@@ -432,25 +441,30 @@ export class CityRenderer {
         values = new Float32Array(n * 3);
       for (let k = 0; k < n; k++) values.set([c.r, c.g, c.b], k * 3);
       g.deleteAttribute('uv');
-      slabs.push(g.setAttribute('color', new THREE.BufferAttribute(values, 3)));
+      slabs.push(covered(g.setAttribute('color', new THREE.BufferAttribute(values, 3)), cover));
     };
-    slab(6.5, -0.02, 0.6, ground.beach);
-    slab(5.5, 0.03, 0.2, ground.belt);
-    slab(3, 0.07, 0.2, ground.road);
-    // Lawns and road markings are static flat quads, so they join the ground mesh: fewer draws.
+    slab(6.5, -0.02, 0.6, ground.beach, COVER.sand);
+    slab(5.5, 0.03, 0.2, ground.belt, COVER.grass);
+    slab(3, 0.07, 0.2, ground.road, COVER.asphalt);
+    // Lawns, parks and road markings are static flat quads in one mesh. They lie on top of
+    // the districts and the road, so they draw before them: the paving underneath then
+    // fails the depth test instead of being shaded and covered.
+    const greens: THREE.BufferGeometry[] = [];
     const decor = cityDecor(city, theme);
-    const flat = (x: number, y: number, z: number, w: number, d: number, turn: number, tint: string) => {
+    const flat = (x: number, y: number, z: number, w: number, d: number, turn: number, tint: string, cover: number = COVER.grass) => {
       const g = new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2).rotateY(turn).translate(x, y, z).toNonIndexed();
       const c = new THREE.Color(tint),
         n = g.getAttribute('position').count,
         values = new Float32Array(n * 3);
       for (let k = 0; k < n; k++) values.set([c.r, c.g, c.b], k * 3);
       g.deleteAttribute('uv');
-      slabs.push(g.setAttribute('color', new THREE.BufferAttribute(values, 3)));
+      greens.push(covered(g.setAttribute('color', new THREE.BufferAttribute(values, 3)), cover));
     };
     for (const l of decor.lawns) flat(l.x, l.y, l.z, Math.max(0.1, l.width), l.depth, 0, ground.lawn);
-    if (ground.marking) for (const m of decor.markings) flat(m.x, m.y, m.z, m.length, 0.07, m.rotation, ground.marking);
+    for (const p of decor.parks) flat(p.x, p.y, p.z, p.width, p.depth, 0, ground.lawn);
+    if (ground.marking) for (const m of decor.markings) flat(m.x, m.y, m.z, m.length, 0.07, m.rotation, ground.marking, COVER.none);
     const groundMaterial = this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    if (detail) withCover(groundMaterial, detail);
     if (this.field) withOcclusion(groundMaterial, this.field);
     const groundMesh = new THREE.Mesh(this.ownGeometry(mergeGeometries(slabs)), groundMaterial);
     // Opaque ground draws after the districts and buildings that cover most of it, so its
@@ -459,6 +473,13 @@ export class CityRenderer {
     for (const g of slabs) g.dispose();
     groundMesh.receiveShadow = true;
     this.scene.add(groundMesh);
+    if (greens.length) {
+      const greenMesh = new THREE.Mesh(this.ownGeometry(mergeGeometries(greens)), groundMaterial);
+      greenMesh.renderOrder = 0.5;
+      greenMesh.receiveShadow = true;
+      for (const g of greens) g.dispose();
+      this.scene.add(greenMesh);
+    }
     // Ambient motion needs full detail on a GPU, and never runs under reduced motion.
     this.animated = !lite && !this.reducedMotion;
     this.scene.fog = new THREE.Fog(this.spec.sky.haze, this.extent * 3, this.extent * 9);
@@ -512,7 +533,7 @@ export class CityRenderer {
     districtBox.setAttribute('atlasPave', new THREE.InstancedBufferAttribute(paving, 1));
     const districtMaterial = this.ownMaterial(new THREE.MeshLambertMaterial());
     if (this.field) {
-      withPaving(districtMaterial, PAVING[theme]);
+      withPaving(districtMaterial, PAVING[theme], detail!);
       withOcclusion(districtMaterial, this.field);
     }
     const districtMesh = this.batch(districtBox, districtMaterial, city.districts.length * 2, 'receive');
@@ -557,6 +578,16 @@ export class CityRenderer {
         this.decorations.push(mesh);
       });
       this.decorations.push(place(this.batch(this.ownGeometry(lampGeometry(this.spec.lamp)), coloured(), decor.lamps.length, 'cast'), decor.lamps));
+      if (this.spec.vehicles && decor.vehicles.length) {
+        const paints = this.spec.vehicles;
+        const cars = this.batch(this.ownGeometry(vehicleGeometry()), coloured(), decor.vehicles.length, 'cast');
+        decor.vehicles.forEach((v, i) => {
+          cars.setMatrixAt(i, matrix.makeRotationY(v.rotation).setPosition(v.x, v.y, v.z));
+          cars.setColorAt(i, color.set(paints[v.tint]!));
+        });
+        this.finish(cars);
+        this.vehicles = cars;
+      }
     }
     if (decor.ponds.length) {
       // Lotus ponds: still jade water, arched bridges and floating pads.
@@ -634,7 +665,7 @@ export class CityRenderer {
     }
     // Seeded archetype batches share one facade material; each grows on demand. Accent
     // parts share one lens-shaded material per kind and outline.
-    this.facade = this.ownMaterial(facadeMaterial(!lite, this.spec.sky));
+    this.facade = this.ownMaterial(facadeMaterial(!lite, this.spec.sky, detail, SUN));
     if (this.field) withOcclusion(this.facade, this.field, true);
     for (const a of this.archetypes) this.bodies.push(this.growable(this.ownGeometry(archetypeGeometry(a)), this.facade, true, 'both', true));
     // Lens-shaded accents (eaves, bands, battlements; corner parts carry dark caps per vertex),
@@ -1266,6 +1297,8 @@ export class CityRenderer {
     for (const roof of this.roofs.values()) roof.visible = near;
     // Below ~1.5 px per cell trees are speckle; the facade shader fades windows by itself.
     for (const mesh of this.decorations) mesh.visible = rendered >= 1.5;
+    // A car is under two pixels long below this scale: hundreds of sub-pixel triangles for a speck.
+    if (this.vehicles) this.vehicles.visible = rendered >= VEHICLE_SCALE;
     const shadowFrame = this.shadowsOn && this.shadowDirty;
     if (shadowFrame) {
       this.renderer.shadowMap.needsUpdate = true;

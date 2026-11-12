@@ -96,6 +96,118 @@ ${wall ? '  atlasOpen = mix(atlasOpen, 1.0, smoothstep(0.05, 0.5 + 2.5 * (1.0 - 
   });
 }
 
+/**
+ * One small tiling texture gives every surface its irregularity, the way a game's detail
+ * map does: red is fine grain, green is soft blotches, blue is fine grain drawn out into
+ * vertical streaks. It is seeded, so every load is identical, and mipmapped, so grain
+ * averages away with distance instead of shimmering.
+ */
+export function detailTexture(size = 256): THREE.DataTexture {
+  const hash = (x: number, y: number, seed: number) => {
+    let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(seed, 2147483647)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+  };
+  // Value noise on a lattice that wraps after `period` cells, so the texture tiles.
+  const noise = (x: number, y: number, period: number, seed: number) => {
+    const xi = Math.floor(x),
+      yi = Math.floor(y),
+      fx = x - xi,
+      fy = y - yi;
+    const u = fx * fx * (3 - 2 * fx),
+      v = fy * fy * (3 - 2 * fy);
+    const at = (i: number, j: number) => hash(((i % period) + period) % period, ((j % period) + period) % period, seed);
+    const top = at(xi, yi) + (at(xi + 1, yi) - at(xi, yi)) * u,
+      bottom = at(xi, yi + 1) + (at(xi + 1, yi + 1) - at(xi, yi + 1)) * u;
+    return top + (bottom - top) * v;
+  };
+  const fractal = (x: number, y: number, period: number, octaves: number, seed: number) => {
+    let sum = 0,
+      weight = 0;
+    for (let o = 0, amplitude = 1, scale = 1; o < octaves; o++, amplitude *= 0.5, scale *= 2) {
+      sum += amplitude * noise(x * period * scale, y * period * scale, period * scale, seed + o);
+      weight += amplitude;
+    }
+    return sum / weight;
+  };
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const u = x / size,
+        v = y / size,
+        at = (y * size + x) * 4;
+      data[at] = Math.round(255 * fractal(u, v, 48, 2, 11));
+      // Stretch the contrast: averaged octaves cluster around the middle.
+      data[at + 1] = Math.round(255 * Math.min(1, Math.max(0, (fractal(u, v, 5, 4, 23) - 0.5) * 1.9 + 0.5)));
+      data[at + 2] = Math.round(255 * fractal(u * 6, v, 8, 3, 37));
+      data[at + 3] = 255;
+    }
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.UnsignedByteType);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** Ground cover of the island's own surfaces: bare (markings), grass, sand or asphalt. */
+export const COVER = { none: 0, grass: 1, sand: 2, asphalt: 3 } as const;
+
+/**
+ * Texture for the open ground, from the detail map in world space. Grass drifts between
+ * lush and dry in broad patches over a fine blade grain; sand carries ripples; asphalt has
+ * aggregate and the lighter and darker panels of old repairs.
+ */
+export function withCover(material: THREE.Material, detail: THREE.Texture) {
+  chain(material, 'cover', (shader) => {
+    shader.uniforms['atlasDetail'] = { value: detail };
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+attribute float atlasCover;
+varying vec3 vAtlasCover;`,
+      )
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+vAtlasCover = vec3((modelMatrix * vec4(transformed, 1.0)).xz, normal.y > 0.5 ? atlasCover : 0.0);`,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+uniform sampler2D atlasDetail;
+varying vec3 vAtlasCover;`,
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+{
+  float kind = floor(vAtlasCover.z + 0.5);
+  if (kind > 0.5) {
+    vec3 broad = texture2D(atlasDetail, vAtlasCover.xy * 0.037).rgb;
+    vec3 grain = texture2D(atlasDetail, vAtlasCover.xy * 0.71).rgb;
+    float mottle = texture2D(atlasDetail, vAtlasCover.yx * 0.19 + 0.61).g;
+    if (kind < 1.5) {
+      // Dry, yellower patches where the second, slower field runs high.
+      float dry = smoothstep(0.5, 0.82, texture2D(atlasDetail, vAtlasCover.yx * 0.0113 + 0.37).g);
+      // Turf grows in clumps: the fine channel again, at the size of a tuft.
+      float tuft = texture2D(atlasDetail, vAtlasCover.xy * 0.16 + 0.23).r;
+      diffuseColor.rgb *= (0.8 + 0.38 * broad.g) * (0.86 + 0.28 * mottle) * (0.8 + 0.4 * tuft) * (0.88 + 0.24 * grain.r);
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.16, 1.05, 0.7), dry * 0.7);
+    } else if (kind < 2.5) {
+      diffuseColor.rgb *= (0.9 + 0.2 * broad.g) * (0.93 + 0.14 * mottle) * (0.9 + 0.2 * grain.b);
+    } else {
+      diffuseColor.rgb *= (0.88 + 0.24 * broad.g) * (0.85 + 0.3 * mottle) * (0.86 + 0.28 * grain.r);
+    }
+  }
+}`,
+      );
+  });
+}
+
 /** District surfaces by kind: kerb (plain), street (asphalt) or plaza (paving). */
 export const PAVE = { kerb: 0, street: 1, plaza: 2 } as const;
 /** Paving per style: modern concrete squares, eastern staggered flagstones, western cobbles. */
@@ -105,8 +217,9 @@ export type PavingStyle = 0 | 1 | 2;
  * Paving joints and per-slab tone on plazas, fine aggregate on streets. Patterns are in
  * world space, fade out before they would shimmer, and only touch upward faces.
  */
-export function withPaving(material: THREE.Material, style: PavingStyle) {
+export function withPaving(material: THREE.Material, style: PavingStyle, detail: THREE.Texture) {
   chain(material, `pave-${style}`, (shader) => {
+    shader.uniforms['atlasDetail'] = { value: detail };
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -131,6 +244,7 @@ varying vec3 vAtlasPave;`,
         '#include <common>',
         `#include <common>
 varying vec3 vAtlasPave;
+uniform sampler2D atlasDetail;
 float atlasPaveHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }`,
       )
       .replace(
@@ -156,6 +270,12 @@ float atlasPaveHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, 
     }
     float shade = 1.0 + (plaza ? ${style === 2 ? '0.11' : '0.06'} : 0.05) * tone - (plaza ? ${style === 2 ? '0.2' : '0.12'} : 0.0) * joint;
     diffuseColor.rgb *= mix(1.0, shade, fade);
+    // Weather: asphalt matches the island's roads; plazas stain in broad, soft patches.
+    float broad = texture2D(atlasDetail, vAtlasPave.xy * 0.037).g;
+    float mottle = texture2D(atlasDetail, vAtlasPave.yx * 0.19 + 0.61).g;
+    diffuseColor.rgb *= plaza
+      ? (0.9 + 0.2 * broad) * (0.92 + 0.16 * mottle)
+      : (0.88 + 0.24 * broad) * (0.85 + 0.3 * mottle) * (0.86 + 0.28 * texture2D(atlasDetail, vAtlasPave.xy * 0.71).r);
   }
 }`,
       );

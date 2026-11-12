@@ -96,6 +96,8 @@ export interface ThemeSpec {
   };
   trees: readonly { kind: TreeKind; weight: number; tints: readonly string[] }[];
   lamp: LampKind;
+  /** Parked vehicles along the kerbs of the street grid; fantasy styles have none. */
+  vehicles: readonly string[] | null;
   walls: 'none' | 'eastern' | 'western';
   /** Header strips that become lotus ponds with an arched bridge (per cent of districts). */
   ponds: number;
@@ -197,14 +199,14 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
     ground: {
       beach: '#e3d4ab',
       belt: '#a9be8c',
-      road: '#bcb8aa',
-      rootKerb: '#a9a598',
-      rootSurface: '#c2beb0',
+      road: '#8c8c8a',
+      rootKerb: '#c6c2b6',
+      rootSurface: '#949492',
       packageKerb: '#bab29c',
       packageSurface: '#e8e1cd',
       directoryKerb: '#c9c2ac',
       directory: ['#dfd8c4', '#ece6d4'],
-      lawn: '#a9c287',
+      lawn: '#9dbd7a',
       marking: '#f3efe4',
     },
     trees: [
@@ -213,6 +215,7 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
       { kind: 'conifer', weight: 30, tints: ['#4f7f58', '#5c8a5e', '#466f4e'] },
     ],
     lamp: 'street',
+    vehicles: ['#f1f1ee', '#d9dcdf', '#9aa1a8', '#3c4148', '#23262b', '#a23b34', '#35557f', '#c9b98a', '#5f7d6a'],
     walls: 'none',
     ponds: 0,
     roofs: { source: '#5e6971', test: '#456471', other: '#5e6971' },
@@ -277,6 +280,7 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
       { kind: 'round', weight: 15, tints: ['#6f9a5c', '#7fa866'] },
     ],
     lamp: 'lantern',
+    vehicles: null,
     walls: 'eastern',
     ponds: 40,
     roofs: { source: '#4a3c37', test: '#3e5a55', other: '#4a3c37' },
@@ -344,6 +348,7 @@ export const THEMES: Record<CityTheme, ThemeSpec> = {
       { kind: 'conifer', weight: 20, tints: ['#4f7f58', '#5c8a5e'] },
     ],
     lamp: 'iron',
+    vehicles: null,
     walls: 'western',
     ponds: 0,
     roofs: { source: '#4d5967', test: '#3f5a6a', other: '#4d5967' },

@@ -171,7 +171,9 @@ must be green before a change counts as verified.
   consumer paths in either snapshot. ADR-099 adds the downloadable change
   brief. ADR-100 defines city model pools by name. Use the
   [city model guide](docs/guides/city-models.md) when editing the renderer or its
-  catalog. Allocate ADR-101 next.
+  catalog. ADR-101 records the realism pass: parkland and parked cars on the
+  repository block's open ground, terrain scenery, sky, light and tower service
+  floors. Decoration must keep clear of `CityData.rootPlots`. Allocate ADR-102 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls
