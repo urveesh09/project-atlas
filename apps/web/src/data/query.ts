@@ -1,4 +1,4 @@
-import type { FrameComparison, ReachResult, SearchHit } from '@atlas/graph';
+import type { ConsumerPathsResult, FrameComparison, ReachResult, SearchHit } from '@atlas/graph';
 import type { CityData } from '@atlas/layout';
 import type { GraphSnapshot, ReviewWorkspace } from '@atlas/schema';
 import type { WorkspaceDecisionEdit } from '@atlas/graph';
@@ -63,6 +63,9 @@ export class QueryClient {
   }
   reach(frame: number, nodeId: string, direction: 'outgoing' | 'incoming', depth: number): Promise<ReachResult> {
     return this.send('reach', { type: 'reach', frame, nodeId, direction, depth }) as Promise<ReachResult>;
+  }
+  consumerPaths(frame: number, nodeId: string, depth: number): Promise<ConsumerPathsResult | null> {
+    return this.send('consumer-paths', { type: 'consumer-paths', frame, nodeId, depth }) as Promise<ConsumerPathsResult | null>;
   }
   overlay(frame: number, options: OverlayOptions): Promise<OverlayResult> {
     return this.send('overlay', { type: 'overlay', frame, options }) as Promise<OverlayResult>;

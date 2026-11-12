@@ -167,7 +167,8 @@ must be green before a change counts as verified.
   packages. ADR-094 adds workspace import in the city and ADR-095 adds local draft
   decisions and explicit download. ADR-096 adds ESLint JSON import for JavaScript
   and TypeScript. ADR-097 connects Compare dependency rows to their snapshot
-  evidence and adds selected-file filtering. Allocate ADR-098 next.
+  evidence and adds selected-file filtering. ADR-098 traces observed internal
+  consumer paths in either snapshot. Allocate ADR-099 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

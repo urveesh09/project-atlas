@@ -1282,6 +1282,84 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     await page.waitForFunction(() => window.__atlasCity !== undefined);
   });
 
+  it('traces static consumer paths in Compare and opens the importing file in the original snapshot', async () => {
+    await goTo(12);
+    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await choose('pricing.ts');
+    await page.getByRole('button', { name: 'Compare snapshots…' }).press('Enter');
+    const compare = page.locator('section.compare');
+    await compare.locator('.compare-pick select').first().selectOption('4');
+    // Open immediately, including when the new pair is still loading.
+    await compare.getByRole('button', { name: 'Show paths', exact: true }).press('Enter');
+    await expect.poll(() => compare.locator('.compare-direction').innerText()).toContain('from snapshot 5');
+    const paths = compare.locator('section', { has: page.getByRole('heading', { name: 'Consumer paths', exact: true }) });
+    const side = paths.getByLabel('Trace in snapshot');
+    const hops = paths.getByLabel('Maximum hops');
+    const status = paths.getByRole('status');
+    expect(await side.inputValue()).toBe('B');
+    await expect.poll(() => status.innerText()).toContain('Snapshot B · 3 observed consumers within 2 hops (2 direct');
+    // main.tsx's literal dynamic import is outside the policy. It is only reached via router/handlers.
+    expect(await paths.getByRole('button', { name: /^Inspect imports of src\/main\.tsx/ }).count()).toBe(0);
+    await hops.selectOption('3');
+    await expect.poll(() => status.innerText()).toContain('4 observed consumers within 3 hops (2 direct');
+    const route = paths.getByRole('list', { name: 'Import path, 3 hops' });
+    expect((await route.getByRole('listitem').allInnerTexts()).map((text) => text.replace(/^→\s*/, ''))).toEqual([
+      'src/main.tsx', 'src/server/router.ts', 'src/server/handlers.ts', 'src/server/pricing.ts',
+    ]);
+    await side.selectOption('A');
+    await expect.poll(() => status.innerText()).toContain('Snapshot A · 2 observed consumers within 3 hops (1 direct');
+    expect(await route.count()).toBe(0);
+
+    // The target's historical name follows its lineage, independently of the graph's paths.
+    await choose('Manifest.tsx');
+    await compare.getByRole('button', { name: 'Show paths', exact: true }).press('Enter');
+    await expect.poll(() => status.innerText()).toContain('Snapshot B · 2 observed consumers');
+    await side.selectOption('A');
+    await expect.poll(() => status.innerText()).toContain('Snapshot A · 1 observed consumer');
+    expect(await paths.getByRole('list', { name: 'Direct import' }).innerText()).toContain('src/ui/Cargo.tsx');
+    expect(await paths.getByRole('button', { name: 'Inspect imports of src/ui/index.ts in snapshot A' }).count()).toBe(1);
+
+    const viewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 320, height: 844 });
+    try {
+      await expectNoSidewaysScroll(page);
+      expect(await audit(page, 'compare-consumer-paths')).toEqual([]);
+    } finally {
+      await page.setViewportSize(viewport);
+    }
+
+    await paths.getByRole('button', { name: 'Inspect imports of src/ui/index.ts in snapshot A' }).press('Enter');
+    await expect.poll(active).toMatch(/^Snapshot 5 of 12/);
+    await expect.poll(() => compare.count()).toBe(0);
+    await expect.poll(() => page.locator('#inspector-title').evaluate((title) => title === document.activeElement)).toBe(true);
+    expect(await page.getByRole('tab', { name: 'Dependencies' }).getAttribute('aria-selected')).toBe('true');
+    expect(await page.locator('.tabpanel').innerText()).toContain('./Cargo');
+    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await page.waitForFunction(() => window.__atlasCity !== undefined);
+  });
+
+  it('traces a deleted selection in A and reports its absence in B', async () => {
+    await goTo(11);
+    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await choose('legacy.ts');
+    await goTo(12);
+    await page.getByRole('button', { name: 'Compare snapshots…' }).press('Enter');
+    const compare = page.locator('section.compare');
+    await compare.locator('.compare-pick select').first().selectOption('4');
+    await compare.getByRole('button', { name: 'Show paths', exact: true }).press('Enter');
+    await expect.poll(() => compare.locator('.compare-direction').innerText()).toContain('from snapshot 5');
+    const paths = compare.locator('section', { has: page.getByRole('heading', { name: 'Consumer paths', exact: true }) });
+    const side = paths.getByLabel('Trace in snapshot');
+    expect(await side.inputValue()).toBe('A');
+    await expect.poll(() => paths.getByRole('status').innerText()).toContain('Snapshot A · 0 observed consumers');
+    await side.selectOption('B');
+    await expect.poll(() => paths.getByRole('status').innerText()).toBe('The selected file is absent in snapshot B.');
+    expect(await paths.getByLabel('Maximum hops').isDisabled()).toBe(true);
+    await compare.getByRole('button', { name: 'Close comparison' }).press('Enter');
+    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await page.waitForFunction(() => window.__atlasCity !== undefined);
+  });
+
   it('colors churn and hotspot lenses with explained, never invented, values', async () => {
     await goTo(12);
     await page.getByLabel('Lens', { exact: true }).selectOption('churn');

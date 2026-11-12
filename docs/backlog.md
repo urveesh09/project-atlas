@@ -77,9 +77,9 @@ decisions. Cross-artifact issue databases, other producers, city overlays and
 authenticated team workspaces remain future work. Context fingerprints are best-effort evidence continuity;
 no disappearing result is automatically resolved. Existing V0.1 acceptance work is unchanged.
 
-- **Review a change.** Start from the changed files, show changed dependencies and the
-  static consumer paths, and link every statement to its evidence. No claims about
-  predicted runtime impact.
+- **Review a change.** Compare now shows dependency changes with import positions
+  (ADR-097) and follows static consumer paths for a selected file in either snapshot
+  (ADR-098). Test the workflow with reviewers using their own changes.
 - **Onboarding routes.** Extend the guided start into team-written sequences (entry point,
   package, dependencies, relevant tests) with explanations and saved camera positions.
 - **Architecture rules.** Teams declare allowed package boundaries and get evidence when a

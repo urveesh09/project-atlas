@@ -49,6 +49,16 @@ export interface ReachResult {
   beyondDepth: boolean;
 }
 
+export interface ConsumerPathsResult extends Pick<ReachResult, 'depth' | 'truncated' | 'beyondDepth'> {
+  /** Observed consumers visited before the traversal bounds, including direct consumers. */
+  total: number;
+  direct: number;
+  /** One shortest path per displayed consumer, importer first and selected file last. */
+  paths: string[][];
+}
+
+const CONSUMER_PATH_DISPLAY_LIMIT = 50;
+
 export interface PackageRollup {
   sourcePackageId: string;
   targetPackageId: string;
@@ -185,6 +195,23 @@ export class GraphIndex {
 
   /** Bounded breadth-first reach (plan §12.2): default depth 2, max 5, at most 2,000 nodes. */
   reach(startId: string, options: ReachOptions): ReachResult {
+    return this.walk(startId, options);
+  }
+
+  /** Bounded internal paths under the static cycle policy, with no repeated consumers. */
+  consumerPaths(startId: string, depth: number = LIMITS.reachDefaultDepth): ConsumerPathsResult | null {
+    if (this.nodes.get(startId)?.kind !== 'file') return null;
+    const towardStart = new Map<string, string>();
+    const { nodes, ...bounds } = this.walk(startId, { direction: 'incoming', depth, policy: POLICIES.cycle }, towardStart);
+    const paths = nodes.slice(0, CONSUMER_PATH_DISPLAY_LIMIT).map(({ id }) => {
+      const path: string[] = [];
+      for (let hop: string | undefined = id; hop !== undefined; hop = towardStart.get(hop)) path.push(hop);
+      return path;
+    });
+    return { ...bounds, total: nodes.length, direct: nodes.filter((n) => n.depth === 1).length, paths };
+  }
+
+  private walk(startId: string, options: ReachOptions, towardStart?: Map<string, string>): ReachResult {
     const depthLimit = Math.min(LIMITS.reachMaxDepth, Math.max(1, options.depth ?? LIMITS.reachDefaultDepth));
     const maxVisited = Math.min(LIMITS.reachMaxVisited, options.maxVisited ?? LIMITS.reachMaxVisited);
     const policy = options.policy ?? POLICIES.degree;
@@ -201,6 +228,7 @@ export class GraphIndex {
             break;
           }
           seen.set(neighbor, depth);
+          towardStart?.set(neighbor, id);
           next.push(neighbor);
         }
         if (truncated) break;
