@@ -17,6 +17,8 @@ Every visual encoding has a legend, every finding has evidence, and every gap in
 > **Status:** All four pillars and the hosted public-GitHub implementation are available. Phase 6 adds pinned real-repository validation, repeated capacity measurements and a portable CLI candidate tested outside the development checkout. See the [candidate install/demo guide](docs/release/README.md), [release audit](docs/release/release-audit.md) and [implementation status](docs/implementation-status.md). G6 remains open for the exact capacity-fixture matrix, human usability/accessibility, reference-device and public-infrastructure acceptance. Runtime tracing stays deferred.
 
 **New here? Read [Start here](docs/START_HERE.md)** for setup, every way to run ATLAS, and the remaining release steps.
+The [city model guide](docs/guides/city-models.md) maps every Modern, Eastern and
+Western building model to its source and shows how to preview a change.
 Releases, the demo site and security practice are described in the [release process](docs/release/release-process.md);
 to report a vulnerability see [SECURITY.md](SECURITY.md), and to contribute see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -26,6 +28,9 @@ to report a vulnerability see [SECURITY.md](SECURITY.md), and to contribute see 
 an analysis of [vuejs/core](https://github.com/vuejs/core) (702 files, 12 history snapshots).
 Nothing to install; the analysis contains paths, metrics and relationships, never source
 text.
+
+The demo URL stays the same across deployments. It serves the latest successful
+GitHub Pages build. [Demo deployment](docs/release/release-process.md#demo-site)
 
 For a portable archive that needs only Node and Git after extraction, follow the
 [candidate guide](docs/release/README.md). To build from this checkout:

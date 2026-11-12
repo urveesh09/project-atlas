@@ -20,11 +20,14 @@ The live demo is a static site: visitors explore one bundled analysis and cannot
 their own repository there. To analyze your own code, use the CLI
 ([guide](guides/analyze-your-repository.md)). The hosted analysis service is not
 deployed (section 6, R6-06).
+GitHub Pages serves the latest published demo build at the same address.
+[Demo deployment](release/release-process.md#demo-site)
 
 ## 1. One-time setup (about 15 minutes)
 
-Optional: [import external Ruff findings](guides/external-findings.md) into a separate
-local quality report and inspect it alongside the city. No scanner executes or uploads.
+Optional: [import Ruff or ESLint findings](guides/external-findings.md) into a
+local quality report and inspect it alongside the city. ATLAS reads reports
+produced by your own tooling.
 For CI producers, [scan evidence and provenance](guides/scan-provenance.md) adds declared
 file/profile accounting and explicit offline signature verification. The signing recipe
 needs owner activation; browser declarations alone are unauthenticated.
@@ -171,6 +174,9 @@ R6-01 and R6-02, then R6-05, R6-06 and R6-07.
 | Requirement-by-requirement trace and open items | [release audit](release/release-audit.md) |
 | Why things are the way they are | [decision records](adr/) |
 | Install/demo/privacy for end users | [candidate guide](release/README.md), [release notes](release/release-notes.md) |
+| Analyze and explore your own repository, compare snapshots and export a brief | [Repository walkthrough](guides/analyze-your-repository.md) |
+| Find or edit city building models, roofs, scenery and materials | [City model guide](guides/city-models.md) |
+| Public demo URL and publishing workflow | [Live viewer](https://urveesh09.github.io/project-atlas/), [demo deployment](release/release-process.md#demo-site) |
 | Hosted setup, configuration, runbooks | [hosted development](hosted-development.md), [hosted operations](hosted-operations.md) |
 | Private backups and isolated restore drill | [production backups](production-backups.md) |
 | Verify images, SBOMs, vulnerability scans and signed release origin | [image supply chain](image-supply-chain.md) |

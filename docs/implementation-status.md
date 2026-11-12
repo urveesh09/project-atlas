@@ -34,6 +34,25 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Named city model families and source guide (2026-11-12)
+
+- [ADR-100](adr/ADR-100-named-city-model-families.md) replaces positional
+  model references in theme definitions with names. Each family defines
+  its windows beside its models. TypeScript rejected a misspelled reference,
+  and regression tests cover catalog reordering and duplicate names.
+- The [city model guide](guides/city-models.md) lists all 32 building models
+  and maps the code for roof shapes, mesh parts, terrain, materials,
+  surroundings, picking, and print export. Verified the names against the
+  catalog and checked every local guide link.
+- The compiled themes matched the pre-change definitions for all three
+  styles. Before-and-after PNGs of Harbor's 26 buildings were byte-identical
+  in Modern, Eastern and Western. The Chromium run used SwiftShader and
+  reduced motion. Each style had the same draw calls, textures and geometry
+  counts in both builds.
+- Windows `pnpm verify` on Node 24.22.2 passed **1,115 tests** with
+  **95 gated skips**, including **64 Chromium journeys** under SwiftShader.
+  All 65 automated accessibility checkpoints reported zero violations.
+
 ### Markdown change brief in Compare (2026-11-12)
 
 - [ADR-099](adr/ADR-099-snapshot-change-brief.md) adds a deterministic

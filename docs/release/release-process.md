@@ -59,6 +59,10 @@ metadata to tell you its own expected identity.
 
 ## Demo site
 
+The stable public address is [urveesh09.github.io/project-atlas](https://urveesh09.github.io/project-atlas/).
+It serves the latest successful Pages deployment. Merging a pull request runs CI.
+The demo is published by the separate workflow below.
+
 `demo site` workflow (manual, and on every published release):
 1. acquires the pinned corpus commits;
 2. analyzes them offline;
