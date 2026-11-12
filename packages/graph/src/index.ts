@@ -5,6 +5,7 @@ export * from './stats.js';
 export * from './search.js';
 export * from './hotspot.js';
 export * from './compare.js';
+export * from './change-brief.js';
 export * from './quality.js';
 export * from './scan.js';
 export * from './finding-review.js';

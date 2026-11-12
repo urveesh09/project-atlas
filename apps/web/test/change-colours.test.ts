@@ -19,8 +19,11 @@ const comparison = (parts: Partial<FrameComparison>): FrameComparison =>
     metricChanges: [],
     edgesAdded: [],
     edgesRemoved: [],
+    cycles: { aOnly: { count: 0, examples: [] }, bOnly: { count: 0, examples: [] }, unidentifiedA: 0, unidentifiedB: 0 },
+    hotspotComparable: 0,
+    unchangedFiles: 0,
     ...parts,
-  }) as FrameComparison;
+  });
 
 describe('change colouring (ADR-050)', () => {
   it('bands signed changes, keeps unknowns unknown and marks new files', () => {

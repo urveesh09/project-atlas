@@ -34,6 +34,24 @@ Unchanged since 2026-10-11:
 
 Agents: read [AGENTS.md](../AGENTS.md).
 
+### Markdown change brief in Compare (2026-11-12)
+
+- [ADR-099](adr/ADR-099-snapshot-change-brief.md) adds a deterministic
+  download for the selected A → B pair. It includes the full commit IDs,
+  coverage, file counts, observed dependency differences, recorded cycle
+  memberships and scored hotspot movements. Repository labels are escaped
+  and the brief reports omitted examples.
+- The authored Harbor journey passed in Chromium, Firefox and WebKit on
+  Windows. Keyboard download worked in both directions of the comparison.
+  Filtering dependency rows preserved the file bytes. The 320 px
+  accessibility checkpoint passed.
+- Windows `pnpm verify` on Node 24.22.2 passed **1,113 tests** with
+  **95 gated skips**, including **64 Chromium journeys** under SwiftShader.
+  All 65 automated accessibility checkpoints reported zero violations.
+- A standalone `atlas analyze` and `atlas serve --no-open` check downloaded
+  the exact Harbor snapshot 3 → 12 brief at 320 px. It recorded only
+  loopback GET requests and zero console errors.
+
 ### Static consumer paths in Compare (2026-11-12)
 
 - [ADR-098](adr/ADR-098-compare-consumer-paths.md) traces observed internal

@@ -168,7 +168,8 @@ must be green before a change counts as verified.
   decisions and explicit download. ADR-096 adds ESLint JSON import for JavaScript
   and TypeScript. ADR-097 connects Compare dependency rows to their snapshot
   evidence and adds selected-file filtering. ADR-098 traces observed internal
-  consumer paths in either snapshot. Allocate ADR-099 next.
+  consumer paths in either snapshot. ADR-099 adds the downloadable change
+  brief. Allocate ADR-100 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

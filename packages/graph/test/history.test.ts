@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { GraphIndex, aggregateEdges, baselinePercentile, compareFrames, comparedDependencyEvidence, hotspotBaseline, hotspotFactors, metricDeltas, percentileBaseline } from '@atlas/graph';
+import { GraphIndex, aggregateEdges, baselinePercentile, changeBriefMarkdown, compareFrames, comparedDependencyEvidence, hotspotBaseline, hotspotFactors, metricDeltas, percentileBaseline } from '@atlas/graph';
 import { edgeId, emptySnapshotCoverage, localRepositoryId, nodeId, type FileNode, type FileRole, type GraphEdge, type GraphNode, type GraphSnapshot, type ImportObservation, type NodeMetrics } from '@atlas/schema';
+import { buildHandcraftedArtifact } from '@atlas/test-fixtures';
 
 /** Hotspot and comparison semantics with hand-computed expectations (plan §7.4, §10.3). */
 const REPO = localRepositoryId('3f2a9c4e-8b1d-4f6a-9c2e-7d5b1a0e4c3f');
@@ -230,5 +231,85 @@ describe('frame comparison (plan §7.4)', () => {
     expect(comparedDependencyEvidence(index, { ...internal, sourceLineageId: lin('unrelated') })).toBeNull();
     expect(comparedDependencyEvidence(index, compareFrames(to, from).edgesRemoved.find((change) =>
       change.target === lin('target') && change.kind === 'imports-value')!)).toEqual(evidence);
+  });
+});
+
+describe('change brief', () => {
+  const scc = (tag: string) => `scc_${tag.repeat(64)}`;
+  const manifestFor = (a: GraphSnapshot, b: GraphSnapshot) => {
+    const { manifest } = buildHandcraftedArtifact();
+    const frames = [a, b].map((graph, ordinal) => ({
+      ...manifest.frames[0]!,
+      ordinal,
+      snapshotId: graph.snapshotId,
+      commit: { ...manifest.selectedCommit, oid: (ordinal + 1).toString().repeat(40) },
+      coverage: graph.coverage,
+    }));
+    return { ...manifest, frames, selectedCommit: frames[1]!.commit };
+  };
+
+  it('matches cycle membership through renames and reports directional score movement', () => {
+    const a = snapshot('a', [
+      { path: 'a.ts', lineage: lin('a'), metric: { sccId: scc('a'), hotspotScore: 10 } },
+      { path: 'b.ts', metric: { sccId: scc('a'), hotspotScore: null } },
+      { path: 'changed.ts', metric: { sccId: scc('c'), hotspotScore: 80 } },
+      { path: 'other.ts', metric: { hotspotScore: 40 } },
+      { path: 'same.ts', metric: { hotspotScore: 25 } },
+    ], [['a.ts', 'b.ts']]);
+    const b = snapshot('b', [
+      { path: 'renamed.ts', lineage: lin('a'), metric: { sccId: scc('b'), hotspotScore: 40 } },
+      { path: 'b.ts', metric: { sccId: scc('b'), hotspotScore: 98 } },
+      { path: 'changed.ts', metric: { sccId: scc('d'), hotspotScore: 60 } },
+      { path: 'other.ts', metric: { sccId: scc('d'), hotspotScore: 50 } },
+      { path: 'same.ts', metric: { hotspotScore: 25 } },
+    ], [['renamed.ts', 'b.ts'], ['changed.ts', 'other.ts']]);
+    const comparison = compareFrames(a, b);
+    expect(comparison.cycles).toEqual({
+      aOnly: { count: 1, examples: [{ memberCount: 1, paths: ['changed.ts'] }] },
+      bOnly: { count: 1, examples: [{ memberCount: 2, paths: ['changed.ts', 'other.ts'] }] },
+      unidentifiedA: 0, unidentifiedB: 0,
+    });
+    expect(comparison.hotspotComparable).toBe(4);
+    const manifest = manifestFor(a, b);
+    const brief = changeBriefMarkdown(comparison, manifest)!;
+    expect(brief).toContain('“changed&#46;ts” → “other&#46;ts” (imports-value)');
+    expect(brief).toContain('Shared files with scores in both snapshots (4).');
+    expect(brief).toContain('Shared files that gained or lost score availability (1).');
+    expect(brief).toContain('“renamed&#46;ts” · 10 → 40 (+30)');
+    expect(brief.indexOf('10 → 40 (+30)')).toBeLessThan(brief.indexOf('80 → 60 (-20)'));
+    const reverse = compareFrames(b, a);
+    expect(reverse.cycles.aOnly).toEqual(comparison.cycles.bOnly);
+    expect(changeBriefMarkdown(reverse, manifest)).toContain('“a&#46;ts” · 40 → 10 (-30)');
+    expect(changeBriefMarkdown(reverse, manifest)).toContain('Direction A → B, from newer to older.');
+    expect(changeBriefMarkdown(comparison, { ...manifest, frames: manifest.frames.slice(1) })).toBeNull();
+  });
+
+  it('discloses missing identity, preserves coverage, and bounds and escapes evidence', () => {
+    const hostile = '- <img src=www.bad.test> [x](https://bad.test)\n\u202e.ts';
+    const long = '📌'.repeat(1000);
+    const a = snapshot('a', [{ path: hostile, metric: { hotspotScore: 1 } }]);
+    const b = snapshot('b', [
+      { path: hostile, metric: { sccId: scc('b'), hotspotScore: 50 } },
+      { path: 'unknown.ts', metric: { sccId: scc('b') } },
+      ...Array.from({ length: 6 }, (_, i) => ({ path: `${i}/${long}.ts` })),
+    ], Array.from({ length: 6 }, (_, i) => [hostile, `${i}/${long}.ts`]));
+    const unknown = b.nodes.find((node) => node.kind === 'file' && node.path === 'unknown.ts')!;
+    unknown.lineageId = null;
+    b.coverage.unresolved = 2;
+    b.coverage.observedImports = 8;
+    b.coverage.limitsHit = ['EDGE_LIMIT'];
+    const comparison = compareFrames(a, b);
+    expect(comparison.cycles.bOnly.count).toBe(0);
+    const brief = changeBriefMarkdown(comparison, manifestFor(a, b))!;
+    expect(brief).toContain('1 in B).');
+    expect(brief).toContain('8 import observations, 2 unresolved');
+    expect(brief).toContain('Additional entries omitted from the brief (1).');
+    expect(brief).toContain('&#8230;');
+    expect(brief).toContain('&#92;u202e');
+    expect(brief).not.toMatch(/<img|www\.bad\.test|https:\/\/|\[x\]\(|\u202e/u);
+    expect(Buffer.byteLength(brief)).toBeLessThan(128 * 1024);
+    b.nodes.reverse();
+    b.edges.reverse();
+    expect(changeBriefMarkdown(compareFrames(a, b), manifestFor(a, b))).toBe(brief);
   });
 });

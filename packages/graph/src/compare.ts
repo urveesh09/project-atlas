@@ -35,6 +35,18 @@ export interface ComparedEdge {
   kind: EdgeKind;
 }
 
+interface ComparedCycle {
+  memberCount: number;
+  paths: string[];
+}
+
+interface ComparedCycles {
+  aOnly: { count: number; examples: ComparedCycle[] };
+  bOnly: { count: number; examples: ComparedCycle[] };
+  unidentifiedA: number;
+  unidentifiedB: number;
+}
+
 export interface FrameComparison {
   fromSnapshotId: string;
   toSnapshotId: string;
@@ -48,6 +60,9 @@ export interface FrameComparison {
   metricChanges: { lineageId: string; path: string; deltas: MetricDelta[] }[];
   edgesAdded: ComparedEdge[];
   edgesRemoved: ComparedEdge[];
+  cycles: ComparedCycles;
+  /** Shared lineages with a recorded hotspot score in both frames. */
+  hotspotComparable: number;
   /** Files present in both frames with identical blob, path and role. */
   unchangedFiles: number;
 }
@@ -118,6 +133,39 @@ function files(graph: GraphSnapshot): Map<string, FileNode> {
 const byPath = <T extends { path: string; lineageId: string }>(a: T, b: T) => compareUtf8(a.path, b.path) || compareAscii(a.lineageId, b.lineageId);
 const edgeOrder = (a: ComparedEdge, b: ComparedEdge) => compareUtf8(a.sourcePath, b.sourcePath) || compareUtf8(a.targetLabel, b.targetLabel) || compareAscii(a.kind, b.kind);
 
+/** SCC IDs are frame-local. Compare membership by lineage under the recorded static policy. */
+function recordedCycles(graph: GraphSnapshot, metrics: ReadonlyMap<string, NodeMetrics>) {
+  const byScc = new Map<string, FileNode[]>();
+  for (const node of graph.nodes) {
+    if (node.kind !== 'file') continue;
+    const scc = metrics.get(node.id)?.sccId;
+    if (!scc) continue;
+    const members = byScc.get(scc) ?? [];
+    members.push(node);
+    byScc.set(scc, members);
+  }
+  const byLineages = new Map<string, FileNode[]>();
+  let unidentified = 0;
+  for (const members of byScc.values()) {
+    const ids = members.flatMap((member) => member.lineageId ? [member.lineageId] : []);
+    if (ids.length === members.length) byLineages.set(ids.sort(compareAscii).join('\0'), members);
+    else unidentified++;
+  }
+  return { byLineages, unidentified };
+}
+
+function cycleDifference(current: ReadonlyMap<string, FileNode[]>, other: ReadonlyMap<string, FileNode[]>) {
+  const changed = [...current].filter(([identity]) => !other.has(identity)).map(([, members]) => {
+    members.sort((a, b) => compareUtf8(a.path, b.path));
+    return members;
+  });
+  changed.sort((a, b) => compareUtf8(a[0]!.path, b[0]!.path));
+  return {
+    count: changed.length,
+    examples: changed.slice(0, 4).map((members) => ({ memberCount: members.length, paths: members.slice(0, 4).map((f) => f.path) })),
+  };
+}
+
 export function compareFrames(from: GraphSnapshot, to: GraphSnapshot): FrameComparison {
   const a = files(from);
   const b = files(to);
@@ -125,6 +173,8 @@ export function compareFrames(from: GraphSnapshot, to: GraphSnapshot): FrameComp
   const bNodes = new Map(to.nodes.map((n) => [n.id, n]));
   const aMetrics = new Map(from.metrics.map((m) => [m.nodeId, m]));
   const bMetrics = new Map(to.metrics.map((m) => [m.nodeId, m]));
+  const aCycles = recordedCycles(from, aMetrics);
+  const bCycles = recordedCycles(to, bMetrics);
   const result: FrameComparison = {
     fromSnapshotId: from.snapshotId,
     toSnapshotId: to.snapshotId,
@@ -137,6 +187,13 @@ export function compareFrames(from: GraphSnapshot, to: GraphSnapshot): FrameComp
     metricChanges: [],
     edgesAdded: [],
     edgesRemoved: [],
+    cycles: {
+      aOnly: cycleDifference(aCycles.byLineages, bCycles.byLineages),
+      bOnly: cycleDifference(bCycles.byLineages, aCycles.byLineages),
+      unidentifiedA: aCycles.unidentified,
+      unidentifiedB: bCycles.unidentified,
+    },
+    hotspotComparable: 0,
     unchangedFiles: 0,
   };
   for (const [lineage, node] of a) if (!b.has(lineage)) result.deleted.push({ lineageId: lineage, path: node.path, role: node.role });
@@ -163,7 +220,10 @@ export function compareFrames(from: GraphSnapshot, to: GraphSnapshot): FrameComp
       same = false;
     }
     if (same) result.unchangedFiles++;
-    const deltas = metricDeltas(aMetrics.get(before.id), bMetrics.get(node.id));
+    const beforeMetrics = aMetrics.get(before.id);
+    const afterMetrics = bMetrics.get(node.id);
+    if (beforeMetrics?.hotspotScore != null && afterMetrics?.hotspotScore != null) result.hotspotComparable++;
+    const deltas = metricDeltas(beforeMetrics, afterMetrics);
     if (deltas.length > 0) result.metricChanges.push({ lineageId: lineage, path: node.path, deltas });
   }
   const aEdges = projectEdges(from);

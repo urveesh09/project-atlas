@@ -1,6 +1,8 @@
-import type { ComparedMetric, MetricDelta } from '@atlas/graph';
+import { useRef, useState } from 'react';
+import { changeBriefMarkdown, type ComparedMetric, type MetricDelta } from '@atlas/graph';
 import { useViewer } from '../app/context';
 import { ROLE_LABEL, formatDate, formatNumber, shortOid } from '../app/model';
+import { downloadBlob } from '../city/export';
 import { Chip, Paged, Section } from './ui';
 import { CompareConsumerPaths } from './CompareConsumerPaths';
 import { CompareDependencies } from './CompareDependencies';
@@ -29,7 +31,9 @@ function deltaText(d: MetricDelta): string {
 }
 
 export function ComparePanel() {
-  const { dataset, model, state, setCompare, comparison, goToFrame, select } = useViewer();
+  const { dataset, model, state, setCompare, comparison, goToFrame, select, dispatch, frameLoading } = useViewer();
+  const [changingPair, setChangingPair] = useState(false);
+  const pickTicket = useRef(0);
   if (!state.compare) return null;
   const { a, b } = state.compare;
   const frames = dataset.frames;
@@ -40,7 +44,22 @@ export function ComparePanel() {
   const error = comparison && comparison.a === a && comparison.b === b ? comparison.error : null;
   const backwards = b < a;
   const pick = (next: { a: number; b: number }) => {
-    if (next.a !== next.b) void setCompare(next);
+    if (next.a === next.b) return;
+    const ticket = ++pickTicket.current;
+    setChangingPair(true);
+    void setCompare(next).finally(() => {
+      if (ticket === pickTicket.current) setChangingPair(false);
+    });
+  };
+  const downloadBrief = () => {
+    if (!result || changingPair || frameLoading !== null) return;
+    const markdown = changeBriefMarkdown(result, dataset.manifest);
+    if (markdown === null) {
+      dispatch({ type: 'announce', message: 'The change brief could not be prepared for this comparison.' });
+      return;
+    }
+    downloadBlob(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }), `atlas-change-brief-${shortOid(fa.commit.oid)}-${shortOid(fb.commit.oid)}.md`);
+    dispatch({ type: 'announce', message: 'Started the change brief download.' });
   };
   const selectInB = (lineageId: string) => {
     const file = model.fileByLineage.get(lineageId);
@@ -123,6 +142,9 @@ export function ComparePanel() {
               <Chip tone="muted">{result.unchangedFiles} unchanged</Chip>
             </li>
           </ul>
+          <button type="button" className="button ghost" disabled={changingPair || frameLoading !== null} onClick={downloadBrief}>
+            Download change brief (.md)
+          </button>
           <Section title="Added in B" count={result.added.length}>
             <Paged
               items={result.added}
