@@ -647,7 +647,37 @@ export interface Vehicle extends Placed {
   /** Index into the theme's vehicle paints. */
   tint: number;
 }
+/** A flat painted mark on a street: a dashed centre line or a zebra crossing. */
+export interface RoadMark extends Lawn {
+  /** The axis the pattern repeats along. */
+  axis: 'x' | 'z';
+  zebra: boolean;
+}
+/**
+ * Something that travels a rectangular circuit: `hx` and `hz` are the half extents around
+ * (x, z), `phase` is the starting fraction of the circuit and `speed` is in cells per second,
+ * negative for the opposite direction.
+ */
+export interface Circuit {
+  x: number;
+  y: number;
+  z: number;
+  hx: number;
+  hz: number;
+  phase: number;
+  speed: number;
+  tint: number;
+}
 export interface Decor {
+  /** Footpaths across parks and the paved rims of park ponds. */
+  paths: Lawn[];
+  /** Still pools at the clearings of large parks. */
+  pools: Lawn[];
+  roadMarks: RoadMark[];
+  /** Moving cars, each circling one block on its street. */
+  traffic: Circuit[];
+  /** Sailing boats circling the island. */
+  boats: Circuit[];
   trees: Tree[];
   lawns: Lawn[];
   /** Parkland on the open ground the packer left between districts. */
@@ -669,6 +699,8 @@ const MAX_LAMPS = 4_000;
 /** Park trees are thinned to this many, so a sparse repository does not become a forest. */
 const MAX_PARK_TREES = 1_800;
 const MAX_VEHICLES = 2_400;
+const MAX_TRAFFIC = 480;
+export const BOAT_PAINTS = ['#f4efe6', '#ead9bd', '#d9e4ee', '#f0c9b0'] as const;
 /** A street this many cells wide stays paved around every district and repository plot. */
 const STREET = 2;
 /** Parks are parcelled so that footpaths cross a large green. */
@@ -687,7 +719,7 @@ export const MAX_WALLED_PACKAGES = 48;
  */
 export function cityDecor(city: CityData, theme: CityTheme = 'modern'): Decor {
   const spec = THEMES[theme];
-  const decor: Decor = { trees: [], lawns: [], parks: [], vehicles: [], lamps: [], walls: [], corners: [], markings: [], ponds: [], bridges: [], lotus: [], gates: [] };
+  const decor: Decor = { paths: [], pools: [], roadMarks: [], traffic: [], boats: [], trees: [], lawns: [], parks: [], vehicles: [], lamps: [], walls: [], corners: [], markings: [], ponds: [], bridges: [], lotus: [], gates: [] };
   const total = spec.trees.reduce((sum, t) => sum + t.weight, 0);
   const plant = (next: () => number, x: number, y: number, z: number) => {
     if (decor.trees.length >= MAX_TREES) return;
@@ -861,9 +893,22 @@ function openLand(city: CityData, spec: (typeof THEMES)[CityTheme], decor: Decor
   for (const p of parcels) {
     decor.parks.push({ x: p.x + p.width / 2, y, z: p.z + p.depth / 2, width: p.width - 2 * PARK_INSET, depth: p.depth - 2 * PARK_INSET });
     // Groves and clearings: each parcel keeps a clearing somewhere inside it.
-    const clearX = p.x + 1 + ((next() % 1000) / 1000) * Math.max(0, p.width - 2),
-      clearZ = p.z + 1 + ((next() % 1000) / 1000) * Math.max(0, p.depth - 2),
-      clearing = Math.min(p.width, p.depth) * (0.18 + (next() % 20) / 100);
+    const clearing = Math.min(p.width, p.depth) * (0.18 + (next() % 20) / 100);
+    // The clearing keeps far enough inside the parcel for a pond to fit in it.
+    const reach = Math.min(clearing * 0.6 + 0.9, Math.min(p.width, p.depth) / 2);
+    const clearX = p.x + reach + ((next() % 1000) / 1000) * Math.max(0, p.width - 2 * reach),
+      clearZ = p.z + reach + ((next() % 1000) / 1000) * Math.max(0, p.depth - 2 * reach);
+    if (Math.min(p.width, p.depth) >= 5) {
+      // Footpaths cross at the clearing; a large park keeps a pond there with a paved rim.
+      decor.paths.push({ x: p.x + p.width / 2, y: y + 0.004, z: clearZ, width: p.width - 2 * PARK_INSET, depth: 0.32 });
+      decor.paths.push({ x: clearX, y: y + 0.004, z: p.z + p.depth / 2, width: 0.32, depth: p.depth - 2 * PARK_INSET });
+      if (Math.min(p.width, p.depth) >= 7) {
+        const pw = clearing * 1.2,
+          pd = clearing * 0.9;
+        decor.paths.push({ x: clearX, y: y + 0.004, z: clearZ, width: pw + 0.5, depth: pd + 0.5 });
+        decor.pools.push({ x: clearX, y: y + 0.014, z: clearZ, width: pw, depth: pd });
+      }
+    }
     for (let tz = p.z + 0.8; tz <= p.z + p.depth - 0.8; tz += pitch)
       for (let tx = p.x + 0.8; tx <= p.x + p.width - 0.8; tx += pitch) {
         const roll = next() % 100;
@@ -873,7 +918,9 @@ function openLand(city: CityData, spec: (typeof THEMES)[CityTheme], decor: Decor
         plant(next, Math.min(p.x + p.width - 0.7, Math.max(p.x + 0.7, tx + jx)), y, Math.min(p.z + p.depth - 0.7, Math.max(p.z + 0.7, tz + jz)));
       }
   }
+  boats(city, decor);
   if (!spec.vehicles) return;
+  streets(blocks, spec.vehicles.length, decor, (cx, cz) => cx >= x0 && cz >= z0 && cx < x0 + w && cz < z0 + d && land[(cz - z0) * w + cx - x0] === 2);
   // Kerbside parking: along each block's edges, on the street cell just outside the kerb.
   const paved = (x: number, z: number) => {
     const cx = Math.floor(x) - x0,
@@ -909,13 +956,139 @@ function openLand(city: CityData, spec: (typeof THEMES)[CityTheme], decor: Decor
 }
 
 /**
- * A parked car about 0.42 cells long: a body and a glazed cabin, 20 triangles. The instance
- * colour paints the body; the vertex colour keeps the glass dark. The body floats a little
- * above the road, and its contact shadow stands for the wheels.
+ * Streets around a block whose whole two-cell margin is paved get a dashed centre line, a
+ * zebra crossing on each long side, and cars that circle the block: the inner lane one way,
+ * the outer lane the other. A line shared by two blocks is painted once.
  */
-export function vehicleGeometry(): THREE.BufferGeometry {
-  const parts = [new THREE.BoxGeometry(0.42, 0.075, 0.18).translate(0, 0.0625, 0), new THREE.BoxGeometry(0.22, 0.06, 0.16).translate(-0.02, 0.13, 0)];
-  const merged = mergeFlat(parts, [new THREE.Color('#ffffff'), new THREE.Color('#2a333d')]);
+function streets(
+  blocks: readonly CityData['districts'][number][],
+  paints: number,
+  decor: Decor,
+  street: (cx: number, cz: number) => boolean,
+) {
+  // Just above the street surface, below the park lawns.
+  const y = groundLevel(0) + 0.022;
+  const painted = new Set<string>();
+  const line = (axis: 'x' | 'z', at: number, from: number, to: number) => {
+    // Cells along the line that both lanes can use, split into unpainted runs.
+    let start: number | null = null;
+    for (let c = from; c <= to; c++) {
+      const free = c < to && (axis === 'x' ? street(c, at) && street(c, at - 1) : street(at, c) && street(at - 1, c)) && !painted.has(`${axis}:${at}:${c}`);
+      if (free) {
+        painted.add(`${axis}:${at}:${c}`);
+        start ??= c;
+      } else if (start !== null) {
+        const length = c - start;
+        decor.roadMarks.push(
+          axis === 'x'
+            ? { x: start + length / 2, y, z: at, width: length, depth: 0.09, axis, zebra: false }
+            : { x: at, y, z: start + length / 2, width: 0.09, depth: length, axis, zebra: false },
+        );
+        start = null;
+      }
+    }
+  };
+  for (const block of blocks) {
+    const ax = Math.floor(block.rect.x / 100),
+      az = Math.floor(block.rect.z / 100),
+      bx = Math.ceil((block.rect.x + block.rect.width) / 100),
+      bz = Math.ceil((block.rect.z + block.rect.depth) / 100);
+    let ring = true;
+    for (let c = ax - STREET; c < bx + STREET && ring; c++) for (const k of [1, 2]) ring &&= street(c, az - k) && street(c, bz + k - 1);
+    for (let c = az - STREET; c < bz + STREET && ring; c++) for (const k of [1, 2]) ring &&= street(ax - k, c) && street(bx + k - 1, c);
+    line('x', az - 1, ax - 1, bx + 1);
+    line('x', bz + 1, ax - 1, bx + 1);
+    line('z', ax - 1, az - 1, bz + 1);
+    line('z', bx + 1, az - 1, bz + 1);
+    if (!ring) continue;
+    const next = xorshift32(seedFromId(block.id));
+    if (bx - ax >= 5) {
+      decor.roadMarks.push({ x: ax + 1.3, y, z: az - 1, width: 0.5, depth: 1.84, axis: 'z', zebra: true });
+      decor.roadMarks.push({ x: bx - 1.3, y, z: bz + 1, width: 0.5, depth: 1.84, axis: 'z', zebra: true });
+    }
+    if (bz - az >= 5) {
+      decor.roadMarks.push({ x: ax - 1, y, z: bz - 1.3, width: 1.84, depth: 0.5, axis: 'x', zebra: true });
+      decor.roadMarks.push({ x: bx + 1, y, z: az + 1.3, width: 1.84, depth: 0.5, axis: 'x', zebra: true });
+    }
+    const cx = (ax + bx) / 2,
+      cz = (az + bz) / 2;
+    for (const [lane, way] of [
+      [0.7, 1],
+      [1.3, -1],
+    ] as const) {
+      const hx = (bx - ax) / 2 + lane,
+        hz = (bz - az) / 2 + lane;
+      const count = Math.max(1, Math.round((hx + hz) / 4));
+      for (let k = 0; k < count && decor.traffic.length < MAX_TRAFFIC; k++)
+        decor.traffic.push({
+          x: cx,
+          y: groundLevel(0) + 0.015,
+          z: cz,
+          hx,
+          hz,
+          phase: (k + (next() % 700) / 1000) / count,
+          speed: way * (0.55 + (next() % 30) / 100),
+          tint: next() % paints,
+        });
+    }
+  }
+}
+
+/** A few sailing boats circle the island, well clear of the beach. */
+function boats(city: CityData, decor: Decor) {
+  const r = city.root;
+  const next = xorshift32(seedFromId(`boat_${(r.width * 31 + r.depth).toString(16).padStart(8, '0')}`));
+  const count = Math.min(9, 3 + Math.floor((r.width + r.depth) / 4000));
+  for (let k = 0; k < count; k++) {
+    const out = 10 + (k % 3) * 3.5 + (next() % 100) / 50;
+    decor.boats.push({
+      x: (r.x + r.width / 2) / 100,
+      y: 0,
+      z: (r.z + r.depth / 2) / 100,
+      hx: r.width / 200 + out,
+      hz: r.depth / 200 + out,
+      phase: (k + (next() % 600) / 1000) / count,
+      speed: (k % 2 ? -1 : 1) * (0.3 + (next() % 20) / 100),
+      tint: next() % BOAT_PAINTS.length,
+    });
+  }
+}
+
+/** A sailing boat about 1.5 cells long: a tapered hull, a mast and two sails, 18 triangles. */
+export function boatGeometry(): THREE.BufferGeometry {
+  const hull = new THREE.BoxGeometry(1.5, 0.16, 0.42).translate(0, 0.05, 0);
+  const at = hull.getAttribute('position');
+  // Pinch the bow and tuck the keel in.
+  for (let i = 0; i < at.count; i++) {
+    if (at.getX(i) > 0) at.setZ(i, at.getZ(i) * 0.12);
+    if (at.getY(i) < 0) at.setXYZ(i, at.getX(i) * 0.8, at.getY(i), at.getZ(i) * 0.6);
+  }
+  const sail = (x0: number, x1: number, top: number) => {
+    const g = new THREE.BufferGeometry();
+    // Both windings, so the sail shows from either side without a double-sided material.
+    const a = [x0, 0.2, 0],
+      b = [x1, 0.2, 0],
+      c = [x0, top, 0];
+    g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c, ...a, ...c, ...b], 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, -1, 0, 0, -1], 3));
+    return g;
+  };
+  const parts = [hull, sail(0.05, -0.62, 1.5), sail(0.12, 0.66, 1.15)];
+  const merged = mergeFlat(parts, [new THREE.Color('#8a6a48'), new THREE.Color('#ffffff'), new THREE.Color('#f2f2f2')]);
+  for (const p of parts) p.dispose();
+  return merged;
+}
+
+/**
+ * A car about 0.42 cells long: a body and a glazed cabin, 20 triangles. The instance
+ * colour paints the body; the vertex colour keeps the glass dark. The body floats a little
+ * above the road, and its contact shadow stands for the wheels. A moving car casts no
+ * shadow (the shadow map is static), so `grounded` adds a dark patch under it instead.
+ */
+export function vehicleGeometry(grounded = false): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [new THREE.BoxGeometry(0.42, 0.075, 0.18).translate(0, 0.0625, 0), new THREE.BoxGeometry(0.22, 0.06, 0.16).translate(-0.02, 0.13, 0)];
+  if (grounded) parts.push(new THREE.PlaneGeometry(0.46, 0.22).rotateX(-Math.PI / 2).translate(0, 0.012, 0));
+  const merged = mergeFlat(parts, [new THREE.Color('#ffffff'), new THREE.Color('#2a333d'), new THREE.Color('#33363a')]);
   for (const p of parts) p.dispose();
   return merged;
 }

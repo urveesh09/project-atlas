@@ -10,6 +10,8 @@ import {
   buildingStyle,
   cityDecor,
   vehicleGeometry,
+  boatGeometry,
+  BOAT_PAINTS,
   cornerGeometry,
   districtFamily,
   gateGeometry,
@@ -311,6 +313,63 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
     const car = vehicleGeometry();
     expect(car.getAttribute('color').count).toBe(car.getAttribute('position').count);
     car.dispose();
+  });
+
+  it('keeps footpaths in parks, road marks and traffic on streets, and boats at sea', () => {
+    const decor = cityDecor(city, theme);
+    const blocks = city.districts.filter((d) => d.depth === 1);
+    const r = geometry.root;
+    const inside = (x: number, z: number, rect: { x: number; z: number; width: number; depth: number }, margin: number) =>
+      Math.abs(x - (rect.x + rect.width / 2) / 100) < rect.width / 200 + margin && Math.abs(z - (rect.z + rect.depth / 2) / 100) < rect.depth / 200 + margin;
+    // Every footpath and pond rim lies within one park.
+    for (const path of decor.paths)
+      expect(
+        decor.parks.some((park) => Math.abs(path.x - park.x) <= (park.width - path.width) / 2 + 1e-9 && Math.abs(path.z - park.z) <= (park.depth - path.depth) / 2 + 1e-9),
+      ).toBe(true);
+    expect(decor.roadMarks.length > 0).toBe(spec.vehicles !== null);
+    if (!spec.vehicles) expect(decor.traffic.length).toBe(0);
+    for (const mark of decor.roadMarks)
+      for (const corner of [
+        [-1, -1],
+        [1, -1],
+        [-1, 1],
+        [1, 1],
+      ] as const) {
+        const x = mark.x + (corner[0] * mark.width) / 2,
+          z = mark.z + (corner[1] * mark.depth) / 2;
+        // Painted on the street: off every district and plot, inside the repository block.
+        for (const b of blocks) expect(inside(x, z, b.rect, -0.01)).toBe(false);
+        for (const plot of geometry.plots) expect(inside(x, z, plot.rect, 0)).toBe(false);
+        expect(inside(x, z, r, 1e-6)).toBe(true);
+      }
+    for (const car of decor.traffic) {
+      expect(car.tint).toBeLessThan(spec.vehicles!.length);
+      expect(car.phase).toBeGreaterThanOrEqual(0);
+      expect(Math.abs(car.speed)).toBeGreaterThan(0.3);
+      // Sample the whole circuit: a moving car never crosses a district, a plot or a park.
+      for (let k = 0; k < 64; k++) {
+        const t = (k / 64) * 4,
+          side = Math.floor(t),
+          f = (t - side) * 2 - 1;
+        const x = car.x + (side === 0 ? f * car.hx : side === 1 ? car.hx : side === 2 ? -f * car.hx : -car.hx),
+          z = car.z + (side === 0 ? -car.hz : side === 1 ? f * car.hz : side === 2 ? car.hz : -f * car.hz);
+        for (const b of blocks) expect(inside(x, z, b.rect, 0.09)).toBe(false);
+        for (const plot of geometry.plots) expect(inside(x, z, plot.rect, 0.09)).toBe(false);
+        for (const park of decor.parks) expect(Math.abs(x - park.x) < park.width / 2 + 0.09 && Math.abs(z - park.z) < park.depth / 2 + 0.09).toBe(false);
+        expect(inside(x, z, r, -0.09)).toBe(true);
+      }
+    }
+    expect(decor.boats.length).toBeGreaterThan(0);
+    for (const boat of decor.boats) {
+      expect(boat.tint).toBeLessThan(BOAT_PAINTS.length);
+      // Beyond the beach, which ends 6.5 cells from the repository block.
+      expect(boat.hx).toBeGreaterThan(r.width / 200 + 8);
+      expect(boat.hz).toBeGreaterThan(r.depth / 200 + 8);
+    }
+    for (const g of [boatGeometry(), vehicleGeometry(true)]) {
+      expect(g.getAttribute('color').count).toBe(g.getAttribute('position').count);
+      g.dispose();
+    }
   });
 
   it('builds its trees, lamps and wall towers as coloured meshes', () => {

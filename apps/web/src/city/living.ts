@@ -214,6 +214,83 @@ void main() {
 }
 
 /**
+ * Traffic and boats: each instance travels a rectangular circuit entirely in the vertex
+ * shader, from the shared clock, so motion costs no per-frame work on the CPU. `atlasLoop`
+ * is (centre x, centre z, half x, half z); `atlasRun` is (phase, speed, height, bob).
+ * Frozen at time zero the instances simply stand at their starting places.
+ */
+export function circuitMaterial(time: Clock): THREE.MeshLambertMaterial {
+  const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms['time'] = time;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float time;\nattribute vec4 atlasLoop;\nattribute vec4 atlasRun;')
+      .replace(
+        '#include <begin_vertex>',
+        `vec3 transformed;
+{
+  float around = 4.0 * (atlasLoop.z + atlasLoop.w);
+  float s = fract(atlasRun.x + time * atlasRun.y / around) * around;
+  vec2 at;
+  vec2 heading;
+  if (s < 2.0 * atlasLoop.z) {
+    at = vec2(s - atlasLoop.z, -atlasLoop.w);
+    heading = vec2(1.0, 0.0);
+  } else if (s < 2.0 * atlasLoop.z + 2.0 * atlasLoop.w) {
+    at = vec2(atlasLoop.z, s - 2.0 * atlasLoop.z - atlasLoop.w);
+    heading = vec2(0.0, 1.0);
+  } else if (s < 4.0 * atlasLoop.z + 2.0 * atlasLoop.w) {
+    at = vec2(3.0 * atlasLoop.z + 2.0 * atlasLoop.w - s, atlasLoop.w);
+    heading = vec2(-1.0, 0.0);
+  } else {
+    at = vec2(-atlasLoop.z, around - s - atlasLoop.w);
+    heading = vec2(0.0, -1.0);
+  }
+  if (atlasRun.y < 0.0) heading = -heading;
+  transformed = vec3(
+    atlasLoop.x + at.x + heading.x * position.x - heading.y * position.z,
+    position.y + atlasRun.z + atlasRun.w * sin(time * 1.3 + atlasRun.x * 40.0),
+    atlasLoop.y + at.y + heading.y * position.x + heading.x * position.z
+  );
+}`,
+      );
+  };
+  material.customProgramCacheKey = () => 'atlas-circuit-1';
+  return material;
+}
+
+/**
+ * Painted road marks: one quad per line or crossing, with the dashes or bars cut out of it
+ * in the fragment shader along the world axis in `atlasMark` (1 dashes along x, 2 dashes
+ * along z, 3 bars along x, 4 bars along z). Edges are filtered, and a pattern too fine for
+ * the screen fades to its average instead of shimmering.
+ */
+export function roadMarkMaterial(): THREE.MeshLambertMaterial {
+  const material = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, depthWrite: false });
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float atlasMark;\nvarying vec3 vAtlasMark;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAtlasMark = vec3((modelMatrix * vec4(transformed, 1.0)).xz, atlasMark);');
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vAtlasMark;').replace(
+      '#include <color_fragment>',
+      `#include <color_fragment>
+{
+  float bars = step(2.5, vAtlasMark.z);
+  float along = mod(vAtlasMark.z, 2.0) > 0.5 ? vAtlasMark.x : vAtlasMark.y;
+  float cycles = along * mix(1.6, 4.0, bars);
+  float duty = mix(0.55, 0.5, bars);
+  float width = max(fwidth(cycles), 1e-4);
+  float wave = abs(fract(cycles) - 0.5);
+  float cut = 1.0 - smoothstep(duty * 0.5 - width * 0.5, duty * 0.5 + width * 0.5, wave);
+  diffuseColor.a *= mix(cut, duty, smoothstep(0.35, 0.9, width)) * 0.92;
+}`,
+    );
+  };
+  material.customProgramCacheKey = () => 'atlas-roadmark-1';
+  return material;
+}
+
+/**
  * Foliage: Lambert with vertex colours, plus a gentle wind sway that grows with height above
  * the trunk and varies per tree. The static shadow map keeps the rest pose.
  */
