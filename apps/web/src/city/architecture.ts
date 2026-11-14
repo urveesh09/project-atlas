@@ -452,9 +452,17 @@ float atlasGlassMask = 0.0;
   if (fade > 0.001) {
   float course = atlasLine(fract(cell.y * 3.0), 0.06, fw.y * 3.0);
   float glass = 0.0, dark = 0.0, light = 0.0;
-  if (style == 1.0) glass = atlasBox(f, fw, vec2(0.03, 0.3), vec2(0.97, 0.8));
-  else if (style == 2.0) glass = atlasBox(f, fw, vec2(0.3, 0.1), vec2(0.7, 0.96));
-  else if (style == 3.0) glass = atlasBox(f, fw, vec2(0.12, 0.16), vec2(0.88, 0.86));
+  // Plain rectangular windows record their opening, so glazing detail can be drawn inside it.
+  vec2 atlasLo = vec2(0.24, 0.3), atlasHi = vec2(0.76, 0.8);
+  float atlasBoxed = 1.0;
+  if (style == 1.0) { atlasLo = vec2(0.03, 0.3); atlasHi = vec2(0.97, 0.8); }
+  else if (style == 2.0) { atlasLo = vec2(0.3, 0.1); atlasHi = vec2(0.7, 0.96); }
+  else if (style == 3.0) { atlasLo = vec2(0.12, 0.16); atlasHi = vec2(0.88, 0.86); }
+  else if (style == 7.0) { atlasLo = vec2(0.05, 0.16); atlasHi = vec2(0.95, 1.01); }
+  else if (style == 9.0) { atlasLo = vec2(0.36, 0.22); atlasHi = vec2(0.64, 0.82); }
+  else if (style > 3.5) atlasBoxed = 0.0;
+  if (atlasBoxed > 0.5) glass = atlasBox(f, fw, atlasLo, atlasHi);
+  if (style < 3.5 || style == 7.0) {}
   else if (style == 4.0) {
     // Lattice screens between dark timber pillars, with a lintel under each eave.
     float panel = atlasBox(f, fw, vec2(0.12, 0.14), vec2(0.88, 0.8));
@@ -477,17 +485,15 @@ float atlasGlassMask = 0.0;
     dark = max(posts, atlasLine(d, 0.05, max(fw.x, fw.y)) * (1.0 - window));
     glass = window;
     light = 1.0;
-  } else if (style == 7.0) glass = atlasBox(f, fw, vec2(0.05, 0.16), vec2(0.95, 1.01));
-  else if (style == 8.0) {
+  } else if (style == 8.0) {
     // Arrow slits on alternate columns of coursed stone.
     glass = atlasBox(f, fw, vec2(0.44, 0.28), vec2(0.56, 0.8)) * step(0.5, mod(floor(cell.x), 2.0));
     dark = 0.3 * course;
   } else if (style == 9.0) {
     // Tall sash windows between painted shutters, over a sill line.
-    glass = atlasBox(f, fw, vec2(0.36, 0.22), vec2(0.64, 0.82));
     dark = 0.55 * (atlasBox(f, fw, vec2(0.22, 0.22), vec2(0.35, 0.82)) + atlasBox(f, fw, vec2(0.65, 0.22), vec2(0.78, 0.82)));
     dark += 0.35 * atlasBox(f, fw, vec2(0.3, 0.16), vec2(0.7, 0.2));
-  } else glass = atlasBox(f, fw, vec2(0.24, 0.3), vec2(0.76, 0.8));
+  }
   // Interpolated per-instance values wobble in the last bits; quantise before hashing so each
   // window decides once instead of per pixel (which showed as speckle).
   float atlasNoise = atlasHash(vec3(floor(cell), floor(vAtlasStyle.y * 997.0 + 0.5) + floor(vAtlasFaceSize.x * 64.0 + 0.5) * 7.0));
@@ -496,6 +502,35 @@ float atlasGlassMask = 0.0;
   if (style == 4.0) atlasGlass = mix(atlasWall * 0.4, vec3(0.3, 0.16, 0.1), 0.3);
   float atlasLit = step(style == 4.0 ? 0.9 : 0.95, atlasNoise);
   atlasGlass = mix(atlasGlass, vec3(1.0, 0.86, 0.58), atlasLit * 0.75);
+  if (atlasBoxed > 0.5) {
+    // Glazing with depth. Each window sits back in its opening: the lintel and one jamb
+    // shade the pane, blinds hang at a height of the window's own, mullions divide it,
+    // and a frame and a pale sill edge the wall around it.
+    vec2 g = clamp((f - atlasLo) / (atlasHi - atlasLo), 0.0, 1.0);
+    vec2 gfw = fw / (atlasHi - atlasLo);
+    float atlasRoom = atlasHash(vec3(floor(cell) + 17.0, floor(vAtlasStyle.y * 997.0 + 0.5)));
+    float drop = step(0.4, atlasRoom) * (0.15 + 0.7 * fract(atlasRoom * 7.3));
+    float blind = smoothstep(1.0 - drop - gfw.y, 1.0 - drop + gfw.y, g.y) * step(0.001, drop);
+    float slat = mix(1.0, 0.86 + 0.14 * step(0.5, fract(g.y * 16.0)), 1.0 - smoothstep(0.2, 0.45, gfw.y * 16.0));
+    vec3 blindColor = mix(atlasWall, vec3(0.86, 0.84, 0.78), 0.5) * slat * mix(0.8, 1.15, atlasLit);
+    atlasGlass = mix(atlasGlass, blindColor, blind * 0.85);
+    float reveal = max(smoothstep(0.82, 1.0, g.y), 0.7 * (1.0 - smoothstep(0.0, 0.12, g.x)));
+    atlasGlass *= 1.0 - 0.45 * reveal * (1.0 - 0.5 * atlasLit);
+    float parts = style == 1.0 ? 3.0 : style == 7.0 ? 1.0 : 2.0;
+    float mx = fract(g.x * parts);
+    float mull = parts > 1.5 ? atlasLine(min(mx, 1.0 - mx), 0.03 * parts, gfw.x * parts) * atlasBox(g, gfw, vec2(0.1, -1.0), vec2(0.9, 2.0)) : 0.0;
+    float transom = style == 1.0 ? 0.0 : atlasLine(abs(g.y - (style == 7.0 ? 0.22 : 0.64)), 0.022, gfw.y);
+    float bars = max(mull, transom) * (1.0 - smoothstep(0.25, 0.5, max(gfw.x * parts, gfw.y)));
+    atlasGlass = mix(atlasGlass, atlasWall * 0.5, bars * (1.0 - 0.6 * atlasLit));
+    if (style != 7.0) {
+      float frame = atlasBox(f, fw, atlasLo - vec2(0.035, 0.03), atlasHi + vec2(0.035, 0.03));
+      float sill = atlasBox(f, fw, vec2(atlasLo.x - 0.06, atlasLo.y - 0.075), vec2(atlasHi.x + 0.06, atlasLo.y - 0.02));
+      float under = atlasBox(f, fw, vec2(atlasLo.x - 0.05, atlasLo.y - 0.15), vec2(atlasHi.x + 0.05, atlasLo.y - 0.075));
+      atlasWall = mix(atlasWall, atlasWall * 0.68, frame * fade);
+      atlasWall = mix(atlasWall, atlasWall * 0.86, under * fade);
+      atlasWall = mix(atlasWall, mix(atlasWall, vec3(0.95, 0.93, 0.88), 0.38), sill * fade);
+    }
+  }
   // Wall material between the windows. It scales brightness only, so the lens hue holds:
   // brick in running bond with pale mortar, precast panels on the window grid, metal fins
   // that catch the light, or coursed ashlar with dark joints. Plain render stays smooth.
@@ -610,7 +645,7 @@ if (atlasGlassMask > 0.001) {
 #include <envmap_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => `atlas-facade-8-${detail ? 1 : 0}-${weather ? 1 : 0}`;
+  material.customProgramCacheKey = () => `atlas-facade-9-${detail ? 1 : 0}-${weather ? 1 : 0}`;
   return material;
 }
 
