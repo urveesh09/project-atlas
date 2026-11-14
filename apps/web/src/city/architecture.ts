@@ -428,6 +428,7 @@ float atlasLine(float d, float width, float fw) { return 1.0 - smoothstep(width 
         '#include <color_fragment>',
         `#include <color_fragment>
 float atlasGlassMask = 0.0;
+float atlasPane = 0.5;
 {
   vec3 atlasWall = diffuseColor.rgb * vAtlasShade;
 #if ATLAS_WINDOWS
@@ -497,6 +498,7 @@ float atlasGlassMask = 0.0;
   // Interpolated per-instance values wobble in the last bits; quantise before hashing so each
   // window decides once instead of per pixel (which showed as speckle).
   float atlasNoise = atlasHash(vec3(floor(cell), floor(vAtlasStyle.y * 997.0 + 0.5) + floor(vAtlasFaceSize.x * 64.0 + 0.5) * 7.0));
+  atlasPane = atlasNoise;
   vec3 atlasGlass = mix(atlasWall * 0.5, vec3(0.15, 0.2, 0.27), 0.4) * (0.85 + 0.3 * atlasNoise);
   if (style == 7.0) atlasGlass = mix(atlasWall * 0.62, vec3(0.5, 0.64, 0.78), 0.28) * (0.78 + 0.32 * vAtlasFace.z) * (0.92 + 0.16 * atlasNoise);
   if (style == 4.0) atlasGlass = mix(atlasWall * 0.4, vec3(0.3, 0.16, 0.1), 0.3);
@@ -610,6 +612,20 @@ float atlasGlassMask = 0.0;
     atlasWall = mix(atlasWall, atlasWall * 0.75, clamp(frame, 0.0, 1.0) * baseFade);
     atlasWall = mix(atlasWall, vec3(0.24, 0.17, 0.12), door * baseFade);
   }
+  // Volume: wall faces darken toward their vertical corners, and each tier ends in a
+  // shaded parapet under a pale coping line, so a tower reads as a solid with a top edge.
+  {
+    float atlasEdge = min(vAtlasFace.x, 1.0 - vAtlasFace.x) * vAtlasFaceSize.x;
+    float atlasWide = facade * step(0.2, vAtlasFaceSize.x) * (1.0 - smoothstep(0.02, 0.05, bfw.x));
+    atlasWall *= mix(1.0, 0.84 + 0.16 * smoothstep(0.0, 0.07, atlasEdge), atlasWide);
+    float atlasTop = (1.0 - vAtlasFace.z) * vAtlasFaceSize.y;
+    float atlasCrown = facade * step(0.5, vAtlasFaceSize.y) * (1.0 - smoothstep(0.02, 0.05, bfw.y));
+    float atlasParapet = 1.0 - smoothstep(0.07 - bfw.y, 0.07 + bfw.y, atlasTop);
+    float atlasCoping = 1.0 - smoothstep(0.018 - bfw.y, 0.018 + bfw.y, atlasTop);
+    atlasWall *= mix(1.0, 0.8, atlasParapet * atlasCrown);
+    atlasWall = mix(atlasWall, mix(atlasWall, vec3(0.95, 0.93, 0.88), 0.45) * 1.3, atlasCoping * atlasCrown);
+    atlasGlassMask *= 1.0 - atlasParapet * atlasCrown;
+  }
 #if ATLAS_WEATHER
   // Weathering, in brightness only: every wall carries broad uneven tone, and rain draws
   // fine grain out into vertical streaks. Each building starts at its own place in the map.
@@ -634,6 +650,8 @@ if (atlasGlassMask > 0.001) {
   float atlasFacing = clamp(dot(normal, atlasView), 0.0, 1.0);
   float atlasFresnel = 0.08 + 0.92 * pow(1.0 - atlasFacing, 5.0);
   vec3 atlasRay = inverseTransformDirection(reflect(-atlasView, normal), viewMatrix);
+  // No two panes hang exactly true: each mirrors a slightly different patch of sky.
+  atlasRay = normalize(atlasRay + (atlasPane - 0.5) * vec3(0.16, 0.22, 0.16));
   vec3 atlasMirror = atlasRay.y > 0.0
     ? mix(atlasSkyHorizon, atlasSkyZenith, smoothstep(0.0, 0.7, atlasRay.y))
     : mix(atlasSkyHorizon * 0.55, vec3(0.22, 0.21, 0.2), smoothstep(0.0, 0.3, -atlasRay.y));
@@ -645,7 +663,7 @@ if (atlasGlassMask > 0.001) {
 #include <envmap_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => `atlas-facade-9-${detail ? 1 : 0}-${weather ? 1 : 0}`;
+  material.customProgramCacheKey = () => `atlas-facade-10-${detail ? 1 : 0}-${weather ? 1 : 0}`;
   return material;
 }
 

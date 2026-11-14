@@ -173,7 +173,8 @@ must be green before a change counts as verified.
   [city model guide](docs/guides/city-models.md) when editing the renderer or its
   catalog. ADR-101 records the realism pass: parkland and parked cars on the
   repository block's open ground, terrain scenery, sky, light and tower service
-  floors. Decoration must keep clear of `CityData.rootPlots`. Allocate ADR-102 next.
+  floors. Decoration must keep clear of `CityData.rootPlots`. ADR-102 adds road marks, moving traffic, park paths and
+  pools, boats and glazing with depth. Allocate ADR-103 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

@@ -36,6 +36,10 @@ Agents: read [AGENTS.md](../AGENTS.md).
 
 ### City realism pass (2026-11-12)
 
+- [ADR-102](adr/ADR-102-streets-traffic-and-glazing.md), 2026-11-14: road marks, zebra
+  crossings, moving traffic, park paths and pools, boats and window depth. Evidence: 32
+  city architecture tests pass; GT 730 frame time 16.7 ms median at 35–38 draw calls. GPU
+  cost per megapixel is unmeasured (readings overlapped, the longer run was stopped).
 - [ADR-101](adr/ADR-101-city-realism-pass.md), at the owner's request for a more
   realistic city with textured land. The encodings are unchanged: code-line height, one
   lens hue per facade, role roofs and fixed plots.

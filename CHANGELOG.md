@@ -7,6 +7,10 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Livelier streets and more believable buildings
+  ([ADR-102](docs/adr/ADR-102-streets-traffic-and-glazing.md)): lane marks, zebra
+  crossings and moving cars in the Modern style, footpaths and pools in parks, sailing
+  boats offshore, and windows with reveals, blinds, mullions, frames and sills.
 - A more realistic city ([ADR-101](docs/adr/ADR-101-city-realism-pass.md)): parks with
   trees on the open ground between districts, parked cars and asphalt streets in the
   Modern style, hills and mountains as shaded terrain with forest, rock, shore and snow,
