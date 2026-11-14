@@ -428,6 +428,7 @@ float atlasLine(float d, float width, float fw) { return 1.0 - smoothstep(width 
         '#include <color_fragment>',
         `#include <color_fragment>
 float atlasGlassMask = 0.0;
+float atlasPane = 0.5;
 {
   vec3 atlasWall = diffuseColor.rgb * vAtlasShade;
 #if ATLAS_WINDOWS
@@ -452,9 +453,17 @@ float atlasGlassMask = 0.0;
   if (fade > 0.001) {
   float course = atlasLine(fract(cell.y * 3.0), 0.06, fw.y * 3.0);
   float glass = 0.0, dark = 0.0, light = 0.0;
-  if (style == 1.0) glass = atlasBox(f, fw, vec2(0.03, 0.3), vec2(0.97, 0.8));
-  else if (style == 2.0) glass = atlasBox(f, fw, vec2(0.3, 0.1), vec2(0.7, 0.96));
-  else if (style == 3.0) glass = atlasBox(f, fw, vec2(0.12, 0.16), vec2(0.88, 0.86));
+  // Plain rectangular windows record their opening, so glazing detail can be drawn inside it.
+  vec2 atlasLo = vec2(0.24, 0.3), atlasHi = vec2(0.76, 0.8);
+  float atlasBoxed = 1.0;
+  if (style == 1.0) { atlasLo = vec2(0.03, 0.3); atlasHi = vec2(0.97, 0.8); }
+  else if (style == 2.0) { atlasLo = vec2(0.3, 0.1); atlasHi = vec2(0.7, 0.96); }
+  else if (style == 3.0) { atlasLo = vec2(0.12, 0.16); atlasHi = vec2(0.88, 0.86); }
+  else if (style == 7.0) { atlasLo = vec2(0.05, 0.16); atlasHi = vec2(0.95, 1.01); }
+  else if (style == 9.0) { atlasLo = vec2(0.36, 0.22); atlasHi = vec2(0.64, 0.82); }
+  else if (style > 3.5) atlasBoxed = 0.0;
+  if (atlasBoxed > 0.5) glass = atlasBox(f, fw, atlasLo, atlasHi);
+  if (style < 3.5 || style == 7.0) {}
   else if (style == 4.0) {
     // Lattice screens between dark timber pillars, with a lintel under each eave.
     float panel = atlasBox(f, fw, vec2(0.12, 0.14), vec2(0.88, 0.8));
@@ -477,25 +486,53 @@ float atlasGlassMask = 0.0;
     dark = max(posts, atlasLine(d, 0.05, max(fw.x, fw.y)) * (1.0 - window));
     glass = window;
     light = 1.0;
-  } else if (style == 7.0) glass = atlasBox(f, fw, vec2(0.05, 0.16), vec2(0.95, 1.01));
-  else if (style == 8.0) {
+  } else if (style == 8.0) {
     // Arrow slits on alternate columns of coursed stone.
     glass = atlasBox(f, fw, vec2(0.44, 0.28), vec2(0.56, 0.8)) * step(0.5, mod(floor(cell.x), 2.0));
     dark = 0.3 * course;
   } else if (style == 9.0) {
     // Tall sash windows between painted shutters, over a sill line.
-    glass = atlasBox(f, fw, vec2(0.36, 0.22), vec2(0.64, 0.82));
     dark = 0.55 * (atlasBox(f, fw, vec2(0.22, 0.22), vec2(0.35, 0.82)) + atlasBox(f, fw, vec2(0.65, 0.22), vec2(0.78, 0.82)));
     dark += 0.35 * atlasBox(f, fw, vec2(0.3, 0.16), vec2(0.7, 0.2));
-  } else glass = atlasBox(f, fw, vec2(0.24, 0.3), vec2(0.76, 0.8));
+  }
   // Interpolated per-instance values wobble in the last bits; quantise before hashing so each
   // window decides once instead of per pixel (which showed as speckle).
   float atlasNoise = atlasHash(vec3(floor(cell), floor(vAtlasStyle.y * 997.0 + 0.5) + floor(vAtlasFaceSize.x * 64.0 + 0.5) * 7.0));
+  atlasPane = atlasNoise;
   vec3 atlasGlass = mix(atlasWall * 0.5, vec3(0.15, 0.2, 0.27), 0.4) * (0.85 + 0.3 * atlasNoise);
   if (style == 7.0) atlasGlass = mix(atlasWall * 0.62, vec3(0.5, 0.64, 0.78), 0.28) * (0.78 + 0.32 * vAtlasFace.z) * (0.92 + 0.16 * atlasNoise);
   if (style == 4.0) atlasGlass = mix(atlasWall * 0.4, vec3(0.3, 0.16, 0.1), 0.3);
   float atlasLit = step(style == 4.0 ? 0.9 : 0.95, atlasNoise);
   atlasGlass = mix(atlasGlass, vec3(1.0, 0.86, 0.58), atlasLit * 0.75);
+  if (atlasBoxed > 0.5) {
+    // Glazing with depth. Each window sits back in its opening: the lintel and one jamb
+    // shade the pane, blinds hang at a height of the window's own, mullions divide it,
+    // and a frame and a pale sill edge the wall around it.
+    vec2 g = clamp((f - atlasLo) / (atlasHi - atlasLo), 0.0, 1.0);
+    vec2 gfw = fw / (atlasHi - atlasLo);
+    float atlasRoom = atlasHash(vec3(floor(cell) + 17.0, floor(vAtlasStyle.y * 997.0 + 0.5)));
+    float drop = step(0.4, atlasRoom) * (0.15 + 0.7 * fract(atlasRoom * 7.3));
+    float blind = smoothstep(1.0 - drop - gfw.y, 1.0 - drop + gfw.y, g.y) * step(0.001, drop);
+    float slat = mix(1.0, 0.86 + 0.14 * step(0.5, fract(g.y * 16.0)), 1.0 - smoothstep(0.2, 0.45, gfw.y * 16.0));
+    vec3 blindColor = mix(atlasWall, vec3(0.86, 0.84, 0.78), 0.5) * slat * mix(0.8, 1.15, atlasLit);
+    atlasGlass = mix(atlasGlass, blindColor, blind * 0.85);
+    float reveal = max(smoothstep(0.82, 1.0, g.y), 0.7 * (1.0 - smoothstep(0.0, 0.12, g.x)));
+    atlasGlass *= 1.0 - 0.45 * reveal * (1.0 - 0.5 * atlasLit);
+    float parts = style == 1.0 ? 3.0 : style == 7.0 ? 1.0 : 2.0;
+    float mx = fract(g.x * parts);
+    float mull = parts > 1.5 ? atlasLine(min(mx, 1.0 - mx), 0.03 * parts, gfw.x * parts) * atlasBox(g, gfw, vec2(0.1, -1.0), vec2(0.9, 2.0)) : 0.0;
+    float transom = style == 1.0 ? 0.0 : atlasLine(abs(g.y - (style == 7.0 ? 0.22 : 0.64)), 0.022, gfw.y);
+    float bars = max(mull, transom) * (1.0 - smoothstep(0.25, 0.5, max(gfw.x * parts, gfw.y)));
+    atlasGlass = mix(atlasGlass, atlasWall * 0.5, bars * (1.0 - 0.6 * atlasLit));
+    if (style != 7.0) {
+      float frame = atlasBox(f, fw, atlasLo - vec2(0.035, 0.03), atlasHi + vec2(0.035, 0.03));
+      float sill = atlasBox(f, fw, vec2(atlasLo.x - 0.06, atlasLo.y - 0.075), vec2(atlasHi.x + 0.06, atlasLo.y - 0.02));
+      float under = atlasBox(f, fw, vec2(atlasLo.x - 0.05, atlasLo.y - 0.15), vec2(atlasHi.x + 0.05, atlasLo.y - 0.075));
+      atlasWall = mix(atlasWall, atlasWall * 0.68, frame * fade);
+      atlasWall = mix(atlasWall, atlasWall * 0.86, under * fade);
+      atlasWall = mix(atlasWall, mix(atlasWall, vec3(0.95, 0.93, 0.88), 0.38), sill * fade);
+    }
+  }
   // Wall material between the windows. It scales brightness only, so the lens hue holds:
   // brick in running bond with pale mortar, precast panels on the window grid, metal fins
   // that catch the light, or coursed ashlar with dark joints. Plain render stays smooth.
@@ -575,6 +612,20 @@ float atlasGlassMask = 0.0;
     atlasWall = mix(atlasWall, atlasWall * 0.75, clamp(frame, 0.0, 1.0) * baseFade);
     atlasWall = mix(atlasWall, vec3(0.24, 0.17, 0.12), door * baseFade);
   }
+  // Volume: wall faces darken toward their vertical corners, and each tier ends in a
+  // shaded parapet under a pale coping line, so a tower reads as a solid with a top edge.
+  {
+    float atlasEdge = min(vAtlasFace.x, 1.0 - vAtlasFace.x) * vAtlasFaceSize.x;
+    float atlasWide = facade * step(0.2, vAtlasFaceSize.x) * (1.0 - smoothstep(0.02, 0.05, bfw.x));
+    atlasWall *= mix(1.0, 0.84 + 0.16 * smoothstep(0.0, 0.07, atlasEdge), atlasWide);
+    float atlasTop = (1.0 - vAtlasFace.z) * vAtlasFaceSize.y;
+    float atlasCrown = facade * step(0.5, vAtlasFaceSize.y) * (1.0 - smoothstep(0.02, 0.05, bfw.y));
+    float atlasParapet = 1.0 - smoothstep(0.07 - bfw.y, 0.07 + bfw.y, atlasTop);
+    float atlasCoping = 1.0 - smoothstep(0.018 - bfw.y, 0.018 + bfw.y, atlasTop);
+    atlasWall *= mix(1.0, 0.8, atlasParapet * atlasCrown);
+    atlasWall = mix(atlasWall, mix(atlasWall, vec3(0.95, 0.93, 0.88), 0.45) * 1.3, atlasCoping * atlasCrown);
+    atlasGlassMask *= 1.0 - atlasParapet * atlasCrown;
+  }
 #if ATLAS_WEATHER
   // Weathering, in brightness only: every wall carries broad uneven tone, and rain draws
   // fine grain out into vertical streaks. Each building starts at its own place in the map.
@@ -599,6 +650,8 @@ if (atlasGlassMask > 0.001) {
   float atlasFacing = clamp(dot(normal, atlasView), 0.0, 1.0);
   float atlasFresnel = 0.08 + 0.92 * pow(1.0 - atlasFacing, 5.0);
   vec3 atlasRay = inverseTransformDirection(reflect(-atlasView, normal), viewMatrix);
+  // No two panes hang exactly true: each mirrors a slightly different patch of sky.
+  atlasRay = normalize(atlasRay + (atlasPane - 0.5) * vec3(0.16, 0.22, 0.16));
   vec3 atlasMirror = atlasRay.y > 0.0
     ? mix(atlasSkyHorizon, atlasSkyZenith, smoothstep(0.0, 0.7, atlasRay.y))
     : mix(atlasSkyHorizon * 0.55, vec3(0.22, 0.21, 0.2), smoothstep(0.0, 0.3, -atlasRay.y));
@@ -610,7 +663,7 @@ if (atlasGlassMask > 0.001) {
 #include <envmap_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => `atlas-facade-8-${detail ? 1 : 0}-${weather ? 1 : 0}`;
+  material.customProgramCacheKey = () => `atlas-facade-10-${detail ? 1 : 0}-${weather ? 1 : 0}`;
   return material;
 }
 
@@ -647,7 +700,37 @@ export interface Vehicle extends Placed {
   /** Index into the theme's vehicle paints. */
   tint: number;
 }
+/** A flat painted mark on a street: a dashed centre line or a zebra crossing. */
+export interface RoadMark extends Lawn {
+  /** The axis the pattern repeats along. */
+  axis: 'x' | 'z';
+  zebra: boolean;
+}
+/**
+ * Something that travels a rectangular circuit: `hx` and `hz` are the half extents around
+ * (x, z), `phase` is the starting fraction of the circuit and `speed` is in cells per second,
+ * negative for the opposite direction.
+ */
+export interface Circuit {
+  x: number;
+  y: number;
+  z: number;
+  hx: number;
+  hz: number;
+  phase: number;
+  speed: number;
+  tint: number;
+}
 export interface Decor {
+  /** Footpaths across parks and the paved rims of park ponds. */
+  paths: Lawn[];
+  /** Still pools at the clearings of large parks. */
+  pools: Lawn[];
+  roadMarks: RoadMark[];
+  /** Moving cars, each circling one block on its street. */
+  traffic: Circuit[];
+  /** Sailing boats circling the island. */
+  boats: Circuit[];
   trees: Tree[];
   lawns: Lawn[];
   /** Parkland on the open ground the packer left between districts. */
@@ -669,6 +752,8 @@ const MAX_LAMPS = 4_000;
 /** Park trees are thinned to this many, so a sparse repository does not become a forest. */
 const MAX_PARK_TREES = 1_800;
 const MAX_VEHICLES = 2_400;
+const MAX_TRAFFIC = 480;
+export const BOAT_PAINTS = ['#f4efe6', '#ead9bd', '#d9e4ee', '#f0c9b0'] as const;
 /** A street this many cells wide stays paved around every district and repository plot. */
 const STREET = 2;
 /** Parks are parcelled so that footpaths cross a large green. */
@@ -687,7 +772,7 @@ export const MAX_WALLED_PACKAGES = 48;
  */
 export function cityDecor(city: CityData, theme: CityTheme = 'modern'): Decor {
   const spec = THEMES[theme];
-  const decor: Decor = { trees: [], lawns: [], parks: [], vehicles: [], lamps: [], walls: [], corners: [], markings: [], ponds: [], bridges: [], lotus: [], gates: [] };
+  const decor: Decor = { paths: [], pools: [], roadMarks: [], traffic: [], boats: [], trees: [], lawns: [], parks: [], vehicles: [], lamps: [], walls: [], corners: [], markings: [], ponds: [], bridges: [], lotus: [], gates: [] };
   const total = spec.trees.reduce((sum, t) => sum + t.weight, 0);
   const plant = (next: () => number, x: number, y: number, z: number) => {
     if (decor.trees.length >= MAX_TREES) return;
@@ -861,9 +946,22 @@ function openLand(city: CityData, spec: (typeof THEMES)[CityTheme], decor: Decor
   for (const p of parcels) {
     decor.parks.push({ x: p.x + p.width / 2, y, z: p.z + p.depth / 2, width: p.width - 2 * PARK_INSET, depth: p.depth - 2 * PARK_INSET });
     // Groves and clearings: each parcel keeps a clearing somewhere inside it.
-    const clearX = p.x + 1 + ((next() % 1000) / 1000) * Math.max(0, p.width - 2),
-      clearZ = p.z + 1 + ((next() % 1000) / 1000) * Math.max(0, p.depth - 2),
-      clearing = Math.min(p.width, p.depth) * (0.18 + (next() % 20) / 100);
+    const clearing = Math.min(p.width, p.depth) * (0.18 + (next() % 20) / 100);
+    // The clearing keeps far enough inside the parcel for a pond to fit in it.
+    const reach = Math.min(clearing * 0.6 + 0.9, Math.min(p.width, p.depth) / 2);
+    const clearX = p.x + reach + ((next() % 1000) / 1000) * Math.max(0, p.width - 2 * reach),
+      clearZ = p.z + reach + ((next() % 1000) / 1000) * Math.max(0, p.depth - 2 * reach);
+    if (Math.min(p.width, p.depth) >= 5) {
+      // Footpaths cross at the clearing; a large park keeps a pond there with a paved rim.
+      decor.paths.push({ x: p.x + p.width / 2, y: y + 0.004, z: clearZ, width: p.width - 2 * PARK_INSET, depth: 0.32 });
+      decor.paths.push({ x: clearX, y: y + 0.004, z: p.z + p.depth / 2, width: 0.32, depth: p.depth - 2 * PARK_INSET });
+      if (Math.min(p.width, p.depth) >= 7) {
+        const pw = clearing * 1.2,
+          pd = clearing * 0.9;
+        decor.paths.push({ x: clearX, y: y + 0.004, z: clearZ, width: pw + 0.5, depth: pd + 0.5 });
+        decor.pools.push({ x: clearX, y: y + 0.014, z: clearZ, width: pw, depth: pd });
+      }
+    }
     for (let tz = p.z + 0.8; tz <= p.z + p.depth - 0.8; tz += pitch)
       for (let tx = p.x + 0.8; tx <= p.x + p.width - 0.8; tx += pitch) {
         const roll = next() % 100;
@@ -873,7 +971,9 @@ function openLand(city: CityData, spec: (typeof THEMES)[CityTheme], decor: Decor
         plant(next, Math.min(p.x + p.width - 0.7, Math.max(p.x + 0.7, tx + jx)), y, Math.min(p.z + p.depth - 0.7, Math.max(p.z + 0.7, tz + jz)));
       }
   }
+  boats(city, decor);
   if (!spec.vehicles) return;
+  streets(blocks, spec.vehicles.length, decor, (cx, cz) => cx >= x0 && cz >= z0 && cx < x0 + w && cz < z0 + d && land[(cz - z0) * w + cx - x0] === 2);
   // Kerbside parking: along each block's edges, on the street cell just outside the kerb.
   const paved = (x: number, z: number) => {
     const cx = Math.floor(x) - x0,
@@ -909,13 +1009,139 @@ function openLand(city: CityData, spec: (typeof THEMES)[CityTheme], decor: Decor
 }
 
 /**
- * A parked car about 0.42 cells long: a body and a glazed cabin, 20 triangles. The instance
- * colour paints the body; the vertex colour keeps the glass dark. The body floats a little
- * above the road, and its contact shadow stands for the wheels.
+ * Streets around a block whose whole two-cell margin is paved get a dashed centre line, a
+ * zebra crossing on each long side, and cars that circle the block: the inner lane one way,
+ * the outer lane the other. A line shared by two blocks is painted once.
  */
-export function vehicleGeometry(): THREE.BufferGeometry {
-  const parts = [new THREE.BoxGeometry(0.42, 0.075, 0.18).translate(0, 0.0625, 0), new THREE.BoxGeometry(0.22, 0.06, 0.16).translate(-0.02, 0.13, 0)];
-  const merged = mergeFlat(parts, [new THREE.Color('#ffffff'), new THREE.Color('#2a333d')]);
+function streets(
+  blocks: readonly CityData['districts'][number][],
+  paints: number,
+  decor: Decor,
+  street: (cx: number, cz: number) => boolean,
+) {
+  // Just above the street surface, below the park lawns.
+  const y = groundLevel(0) + 0.022;
+  const painted = new Set<string>();
+  const line = (axis: 'x' | 'z', at: number, from: number, to: number) => {
+    // Cells along the line that both lanes can use, split into unpainted runs.
+    let start: number | null = null;
+    for (let c = from; c <= to; c++) {
+      const free = c < to && (axis === 'x' ? street(c, at) && street(c, at - 1) : street(at, c) && street(at - 1, c)) && !painted.has(`${axis}:${at}:${c}`);
+      if (free) {
+        painted.add(`${axis}:${at}:${c}`);
+        start ??= c;
+      } else if (start !== null) {
+        const length = c - start;
+        decor.roadMarks.push(
+          axis === 'x'
+            ? { x: start + length / 2, y, z: at, width: length, depth: 0.09, axis, zebra: false }
+            : { x: at, y, z: start + length / 2, width: 0.09, depth: length, axis, zebra: false },
+        );
+        start = null;
+      }
+    }
+  };
+  for (const block of blocks) {
+    const ax = Math.floor(block.rect.x / 100),
+      az = Math.floor(block.rect.z / 100),
+      bx = Math.ceil((block.rect.x + block.rect.width) / 100),
+      bz = Math.ceil((block.rect.z + block.rect.depth) / 100);
+    let ring = true;
+    for (let c = ax - STREET; c < bx + STREET && ring; c++) for (const k of [1, 2]) ring &&= street(c, az - k) && street(c, bz + k - 1);
+    for (let c = az - STREET; c < bz + STREET && ring; c++) for (const k of [1, 2]) ring &&= street(ax - k, c) && street(bx + k - 1, c);
+    line('x', az - 1, ax - 1, bx + 1);
+    line('x', bz + 1, ax - 1, bx + 1);
+    line('z', ax - 1, az - 1, bz + 1);
+    line('z', bx + 1, az - 1, bz + 1);
+    if (!ring) continue;
+    const next = xorshift32(seedFromId(block.id));
+    if (bx - ax >= 5) {
+      decor.roadMarks.push({ x: ax + 1.3, y, z: az - 1, width: 0.5, depth: 1.84, axis: 'z', zebra: true });
+      decor.roadMarks.push({ x: bx - 1.3, y, z: bz + 1, width: 0.5, depth: 1.84, axis: 'z', zebra: true });
+    }
+    if (bz - az >= 5) {
+      decor.roadMarks.push({ x: ax - 1, y, z: bz - 1.3, width: 1.84, depth: 0.5, axis: 'x', zebra: true });
+      decor.roadMarks.push({ x: bx + 1, y, z: az + 1.3, width: 1.84, depth: 0.5, axis: 'x', zebra: true });
+    }
+    const cx = (ax + bx) / 2,
+      cz = (az + bz) / 2;
+    for (const [lane, way] of [
+      [0.7, 1],
+      [1.3, -1],
+    ] as const) {
+      const hx = (bx - ax) / 2 + lane,
+        hz = (bz - az) / 2 + lane;
+      const count = Math.max(1, Math.round((hx + hz) / 4));
+      for (let k = 0; k < count && decor.traffic.length < MAX_TRAFFIC; k++)
+        decor.traffic.push({
+          x: cx,
+          y: groundLevel(0) + 0.015,
+          z: cz,
+          hx,
+          hz,
+          phase: (k + (next() % 700) / 1000) / count,
+          speed: way * (0.55 + (next() % 30) / 100),
+          tint: next() % paints,
+        });
+    }
+  }
+}
+
+/** A few sailing boats circle the island, well clear of the beach. */
+function boats(city: CityData, decor: Decor) {
+  const r = city.root;
+  const next = xorshift32(seedFromId(`boat_${(r.width * 31 + r.depth).toString(16).padStart(8, '0')}`));
+  const count = Math.min(9, 3 + Math.floor((r.width + r.depth) / 4000));
+  for (let k = 0; k < count; k++) {
+    const out = 10 + (k % 3) * 3.5 + (next() % 100) / 50;
+    decor.boats.push({
+      x: (r.x + r.width / 2) / 100,
+      y: 0,
+      z: (r.z + r.depth / 2) / 100,
+      hx: r.width / 200 + out,
+      hz: r.depth / 200 + out,
+      phase: (k + (next() % 600) / 1000) / count,
+      speed: (k % 2 ? -1 : 1) * (0.3 + (next() % 20) / 100),
+      tint: next() % BOAT_PAINTS.length,
+    });
+  }
+}
+
+/** A sailing boat about 1.5 cells long: a tapered hull, a mast and two sails, 18 triangles. */
+export function boatGeometry(): THREE.BufferGeometry {
+  const hull = new THREE.BoxGeometry(1.5, 0.16, 0.42).translate(0, 0.05, 0);
+  const at = hull.getAttribute('position');
+  // Pinch the bow and tuck the keel in.
+  for (let i = 0; i < at.count; i++) {
+    if (at.getX(i) > 0) at.setZ(i, at.getZ(i) * 0.12);
+    if (at.getY(i) < 0) at.setXYZ(i, at.getX(i) * 0.8, at.getY(i), at.getZ(i) * 0.6);
+  }
+  const sail = (x0: number, x1: number, top: number) => {
+    const g = new THREE.BufferGeometry();
+    // Both windings, so the sail shows from either side without a double-sided material.
+    const a = [x0, 0.2, 0],
+      b = [x1, 0.2, 0],
+      c = [x0, top, 0];
+    g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c, ...a, ...c, ...b], 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, -1, 0, 0, -1], 3));
+    return g;
+  };
+  const parts = [hull, sail(0.05, -0.62, 1.5), sail(0.12, 0.66, 1.15)];
+  const merged = mergeFlat(parts, [new THREE.Color('#8a6a48'), new THREE.Color('#ffffff'), new THREE.Color('#f2f2f2')]);
+  for (const p of parts) p.dispose();
+  return merged;
+}
+
+/**
+ * A car about 0.42 cells long: a body and a glazed cabin, 20 triangles. The instance
+ * colour paints the body; the vertex colour keeps the glass dark. The body floats a little
+ * above the road, and its contact shadow stands for the wheels. A moving car casts no
+ * shadow (the shadow map is static), so `grounded` adds a dark patch under it instead.
+ */
+export function vehicleGeometry(grounded = false): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [new THREE.BoxGeometry(0.42, 0.075, 0.18).translate(0, 0.0625, 0), new THREE.BoxGeometry(0.22, 0.06, 0.16).translate(-0.02, 0.13, 0)];
+  if (grounded) parts.push(new THREE.PlaneGeometry(0.46, 0.22).rotateX(-Math.PI / 2).translate(0, 0.012, 0));
+  const merged = mergeFlat(parts, [new THREE.Color('#ffffff'), new THREE.Color('#2a333d'), new THREE.Color('#33363a')]);
   for (const p of parts) p.dispose();
   return merged;
 }

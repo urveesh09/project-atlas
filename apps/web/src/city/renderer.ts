@@ -26,11 +26,14 @@ import {
   topExtent,
   treeGeometry,
   vehicleGeometry,
+  boatGeometry,
+  BOAT_PAINTS,
+  type Circuit,
   wallAt,
 } from './architecture';
 import { THEMES, type Archetype, type CityTheme, type PartKind, type ThemeSpec } from './themes';
 import { mistTexture, sceneryGeometry, skyDome } from './atmosphere';
-import { cloudLayer, foliageMaterial, waterMaterial, type Clock } from './living';
+import { circuitMaterial, cloudLayer, foliageMaterial, roadMarkMaterial, waterMaterial, type Clock } from './living';
 import { OCCLUDER_STRIDE, occlusionGrid, type OcclusionGrid } from './occlusion';
 import { OcclusionBaker, type BakeWorker } from './baker';
 import { COVER, PAVE, detailTexture, fieldUniforms, withCover, withOcclusion, withPaving, withTiles, type FieldUniforms, type PavingStyle } from './shading';
@@ -217,6 +220,8 @@ export class CityRenderer {
   private marks: ReadonlyMap<string, string> = new Map();
   private readonly decorations: THREE.InstancedMesh[] = [];
   private vehicles: THREE.InstancedMesh | null = null;
+  private traffic: THREE.InstancedMesh | null = null;
+  private roadMarks: THREE.Mesh | null = null;
   private readonly sun: THREE.DirectionalLight;
   private readonly sky: THREE.Mesh | null = null;
   /** Shared time for waves, clouds and foliage; advances only when ambient motion is allowed. */
@@ -462,6 +467,7 @@ export class CityRenderer {
     };
     for (const l of decor.lawns) flat(l.x, l.y, l.z, Math.max(0.1, l.width), l.depth, 0, ground.lawn);
     for (const p of decor.parks) flat(p.x, p.y, p.z, p.width, p.depth, 0, ground.lawn);
+    for (const p of decor.paths) flat(p.x, p.y, p.z, p.width, p.depth, 0, ground.rootKerb, COVER.sand);
     if (ground.marking) for (const m of decor.markings) flat(m.x, m.y, m.z, m.length, 0.07, m.rotation, ground.marking, COVER.none);
     const groundMaterial = this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true }));
     if (detail) withCover(groundMaterial, detail);
@@ -557,6 +563,24 @@ export class CityRenderer {
       this.districtSurfaces.set(d.id, { index: k * 2, base: color.clone() });
     });
     this.finish(districtMesh);
+    if (ground.marking && decor.roadMarks.length && !lite) {
+      const tint = new THREE.Color(ground.marking);
+      const quads = decor.roadMarks.map((m) => {
+        const g = new THREE.PlaneGeometry(m.width, m.depth).rotateX(-Math.PI / 2).translate(m.x, m.y, m.z).toNonIndexed();
+        const n = g.getAttribute('position').count,
+          values = new Float32Array(n * 3);
+        for (let k = 0; k < n; k++) values.set([tint.r, tint.g, tint.b], k * 3);
+        g.deleteAttribute('uv');
+        g.setAttribute('color', new THREE.BufferAttribute(values, 3));
+        return g.setAttribute('atlasMark', new THREE.BufferAttribute(new Float32Array(n).fill((m.zebra ? 3 : 1) + (m.axis === 'z' ? 1 : 0)), 1));
+      });
+      const marks = new THREE.Mesh(this.ownGeometry(mergeGeometries(quads)), this.ownMaterial(roadMarkMaterial()));
+      for (const g of quads) g.dispose();
+      marks.receiveShadow = true;
+      marks.renderOrder = 3;
+      this.scene.add(marks);
+      this.roadMarks = marks;
+    }
     this.districtMesh = districtMesh;
     this.districtDepth = new Map(city.districts.map((d) => [d.id, d.depth]));
     const coloured = () => this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
@@ -588,27 +612,52 @@ export class CityRenderer {
         this.finish(cars);
         this.vehicles = cars;
       }
+      // Traffic and boats move in the vertex shader, so their instance matrices stay identity
+      // and they are never culled by a bounding volume that does not follow them.
+      const circuits = this.ownMaterial(circuitMaterial(this.clock));
+      const circuit = (geometry: THREE.BufferGeometry, list: readonly Circuit[], paints: readonly string[], scale: number, bob: number) => {
+        const mesh = this.batch(this.ownGeometry(geometry.scale(scale, scale, scale)), circuits, list.length);
+        const loop = new Float32Array(list.length * 4),
+          run = new Float32Array(list.length * 4);
+        list.forEach((c, i) => {
+          loop.set([c.x, c.z, c.hx, c.hz], i * 4);
+          run.set([c.phase, c.speed, c.y, bob], i * 4);
+          mesh.setMatrixAt(i, matrix.identity());
+          mesh.setColorAt(i, color.set(paints[c.tint]!));
+        });
+        mesh.geometry.setAttribute('atlasLoop', new THREE.InstancedBufferAttribute(loop, 4));
+        mesh.geometry.setAttribute('atlasRun', new THREE.InstancedBufferAttribute(run, 4));
+        this.finish(mesh);
+        mesh.frustumCulled = false;
+        return mesh;
+      };
+      if (this.spec.vehicles && decor.traffic.length) this.traffic = circuit(vehicleGeometry(true), decor.traffic, this.spec.vehicles, 1, 0);
+      if (decor.boats.length) circuit(boatGeometry(), decor.boats, BOAT_PAINTS, 1.5, 0.03);
     }
-    if (decor.ponds.length) {
+    const waters = [...decor.ponds, ...decor.pools];
+    if (waters.length) {
       // Lotus ponds: still jade water, arched bridges and floating pads.
       const pond = this.ownMaterial(
         waterMaterial(this.spec.sky, this.clock, SUN, {
           island: new THREE.Vector4(1e6, 1e6, -1e6, -1e6),
           foam: 0,
-          deep: '#3f7f6a',
-          shallow: '#5e9d80',
+          // Lotus ponds are jade; a style without them has clear park pools.
+          deep: this.spec.ponds > 0 ? '#3f7f6a' : '#3f7d95',
+          shallow: this.spec.ponds > 0 ? '#5e9d80' : '#74b4c0',
           calm: 0.25,
         }),
       );
-      const ponds = this.batch(plane, pond, decor.ponds.length);
-      decor.ponds.forEach((w, i) => ponds.setMatrixAt(i, matrix.makeScale(w.width, 1, w.depth).setPosition(w.x, w.y, w.z)));
+      const ponds = this.batch(plane, pond, waters.length);
+      waters.forEach((w, i) => ponds.setMatrixAt(i, matrix.makeScale(w.width, 1, w.depth).setPosition(w.x, w.y, w.z)));
       this.finish(ponds);
-      const bridges = this.batch(this.ownGeometry(bridgeGeometry()), coloured(), decor.bridges.length, 'both');
-      decor.bridges.forEach((b, i) =>
-        bridges.setMatrixAt(i, matrix.makeScale(1, 1, b.length).premultiply(rotation.makeRotationY(b.rotation)).setPosition(b.x, b.y, b.z)),
-      );
-      this.finish(bridges);
-      if (!lite) place(this.batch(this.ownGeometry(lotusGeometry()), coloured(), decor.lotus.length), decor.lotus);
+      if (decor.bridges.length) {
+        const bridges = this.batch(this.ownGeometry(bridgeGeometry()), coloured(), decor.bridges.length, 'both');
+        decor.bridges.forEach((b, i) =>
+          bridges.setMatrixAt(i, matrix.makeScale(1, 1, b.length).premultiply(rotation.makeRotationY(b.rotation)).setPosition(b.x, b.y, b.z)),
+        );
+        this.finish(bridges);
+      }
+      if (!lite && decor.lotus.length) place(this.batch(this.ownGeometry(lotusGeometry()), coloured(), decor.lotus.length), decor.lotus);
     }
     // Fantasy styles wall each package like a town: segments, a cap or merlons, corner towers.
     if (this.spec.walls !== 'none') {
@@ -1299,6 +1348,8 @@ export class CityRenderer {
     for (const mesh of this.decorations) mesh.visible = rendered >= 1.5;
     // A car is under two pixels long below this scale: hundreds of sub-pixel triangles for a speck.
     if (this.vehicles) this.vehicles.visible = rendered >= VEHICLE_SCALE;
+    if (this.traffic) this.traffic.visible = rendered >= VEHICLE_SCALE;
+    if (this.roadMarks) this.roadMarks.visible = rendered >= 2.5;
     const shadowFrame = this.shadowsOn && this.shadowDirty;
     if (shadowFrame) {
       this.renderer.shadowMap.needsUpdate = true;
