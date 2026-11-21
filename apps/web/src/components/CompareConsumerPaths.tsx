@@ -4,6 +4,7 @@ import { LIMITS, escapeForDisplay, type FileNode } from '@atlas/schema';
 import { useViewer } from '../app/context';
 import { formatNumber, type ViewerModel } from '../app/model';
 import { Paged, Section } from './ui';
+import { Select } from './Select';
 
 type Side = 'A' | 'B';
 
@@ -52,16 +53,25 @@ function ConsumerPathPicker({ frames, files, initialFile }: {
             <div className="controls compare-path-controls">
               <label>
                 Trace in snapshot
-                <select value={side} onChange={(event) => setSide(event.currentTarget.value === 'A' ? 'A' : 'B')}>
-                  <option value="A">A · From</option>
-                  <option value="B">B · To</option>
-                </select>
+                <Select
+                  aria-label="Trace in snapshot"
+                  value={side}
+                  onValueChange={(v) => setSide(v === 'A' ? 'A' : 'B')}
+                  choices={[
+                    { value: 'A', label: 'A · From' },
+                    { value: 'B', label: 'B · To' },
+                  ]}
+                />
               </label>
               <label>
                 Maximum hops
-                <select value={depth} onChange={(event) => setDepth(Number(event.currentTarget.value))} disabled={!file}>
-                  {Array.from({ length: LIMITS.reachMaxDepth }, (_, i) => <option key={i + 1}>{i + 1}</option>)}
-                </select>
+                <Select
+                  aria-label="Maximum hops"
+                  value={String(depth)}
+                  onValueChange={(v) => setDepth(Number(v))}
+                  disabled={!file}
+                  choices={Array.from({ length: LIMITS.reachMaxDepth }, (_, i) => ({ value: String(i + 1), label: i + 1 }))}
+                />
               </label>
             </div>
             <p className="note">

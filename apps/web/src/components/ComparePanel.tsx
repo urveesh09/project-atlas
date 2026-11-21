@@ -6,6 +6,7 @@ import { downloadBlob } from '../city/export';
 import { Chip, Paged, Section } from './ui';
 import { CompareConsumerPaths } from './CompareConsumerPaths';
 import { CompareDependencies } from './CompareDependencies';
+import { Select } from './Select';
 
 /**
  * A -> B comparison of two analyzed snapshots (plan §7.4, §3.3 "Compare"). Graph
@@ -77,26 +78,32 @@ export function ComparePanel() {
       <div className="compare-pick">
         <label>
           From (A)
-          <select value={a} onChange={(e) => pick({ a: Number(e.target.value), b })}>
-            {frames.map((f, i) => (
-              <option key={f.snapshotId} value={i} disabled={i === b}>
-                {i + 1}. {formatDate(f.commit.committerTime)} · {shortOid(f.commit.oid)}
-              </option>
-            ))}
-          </select>
+          <Select
+            aria-label="From (A)"
+            value={String(a)}
+            onValueChange={(v) => pick({ a: Number(v), b })}
+            choices={frames.map((f, i) => ({
+              value: String(i),
+              label: `${i + 1}. ${formatDate(f.commit.committerTime)} · ${shortOid(f.commit.oid)}`,
+              disabled: i === b,
+            }))}
+          />
         </label>
         <button type="button" className="button" aria-label="Swap A and B" onClick={() => pick({ a: b, b: a })}>
           ⇄ Swap
         </button>
         <label>
           To (B)
-          <select value={b} onChange={(e) => pick({ a, b: Number(e.target.value) })}>
-            {frames.map((f, i) => (
-              <option key={f.snapshotId} value={i} disabled={i === a}>
-                {i + 1}. {formatDate(f.commit.committerTime)} · {shortOid(f.commit.oid)}
-              </option>
-            ))}
-          </select>
+          <Select
+            aria-label="To (B)"
+            value={String(b)}
+            onValueChange={(v) => pick({ a, b: Number(v) })}
+            choices={frames.map((f, i) => ({
+              value: String(i),
+              label: `${i + 1}. ${formatDate(f.commit.committerTime)} · ${shortOid(f.commit.oid)}`,
+              disabled: i === a,
+            }))}
+          />
         </label>
       </div>
       <p className="compare-direction">

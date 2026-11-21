@@ -178,7 +178,8 @@ must be green before a change counts as verified.
   (`scripts/facade-textures`); the viewer only loads the image. ADR-104 adds rooms behind
   the windows (interior mapping) from a room atlas rendered the same way. ADR-105 moves
   every Node image pin to 24.22.3 after seven High Node CVEs blocked the image gate.
-  Allocate ADR-106 next.
+  ADR-106 replaces the viewer's native selects with one Radix UI `Select`; e2e tests pick
+  and read dropdowns with `chooseOption` and `valueOf`. Allocate ADR-107 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

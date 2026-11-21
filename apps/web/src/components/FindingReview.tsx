@@ -3,6 +3,7 @@ import { findingReviewBasisLabel, findingReviewReasonLabel, findingReviewStateLa
 import { compareUtf8, type FindingReview as Review, type ReviewIssue } from '@atlas/schema';
 import { useViewer } from '../app/context';
 import { Paged } from './ui';
+import { Select } from './Select';
 
 export function FindingReviewPanel({ review }: { review: Review }) {
   const { dataset, goToFrame } = useViewer();
@@ -60,14 +61,19 @@ export function FindingReviewPanel({ review }: { review: Review }) {
         policies to check signatures locally; this file is not a reusable trust receipt.
       </p>
       <label htmlFor="finding-review-filter">Review evidence</label>{' '}
-      <select id="finding-review-filter" value={filter} onChange={(event) => setFilter(event.currentTarget.value)}>
-        <option value="all">All evidence ({review.issues.length})</option>
-        {(Object.keys(counts) as ReviewIssue['state'][]).map((state) => (
-          <option key={state} value={state}>
-            {findingReviewStateLabel(state)} ({counts[state]})
-          </option>
-        ))}
-      </select>
+      <Select
+        id="finding-review-filter"
+        aria-label="Review evidence"
+        value={filter}
+        onValueChange={setFilter}
+        choices={[
+          { value: 'all', label: `All evidence (${review.issues.length})` },
+          ...(Object.keys(counts) as ReviewIssue['state'][]).map((state) => ({
+            value: state,
+            label: `${findingReviewStateLabel(state)} (${counts[state]})`,
+          })),
+        ]}
+      />
       <Paged
         key={filter}
         items={visible}

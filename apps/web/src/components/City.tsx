@@ -26,6 +26,7 @@ import { distribution } from '../app/bands';
 import type { CityPaint } from '../city/types';
 import { NO_SCOPE, compileScope, type Scope } from '../app/scope';
 import { Icon } from './Icon';
+import { Select } from './Select';
 import { CHANGE_BANDS, CHANGE_COLORS, CHANGE_LABEL, CHANGE_METRICS, changeBandLabel, changePaint, formatChange, type ChangeMetric } from '../city/change';
 import '../styles/city.css';
 import { MenuSummary } from './MenuSummary';
@@ -103,6 +104,29 @@ const THEME_KEY = 'atlas.cityStyle';
 const NO_VIEWS: ViewHistory = { back: false, forward: false };
 /** Keys typed into a control never drive the city (plan §12.4). */
 const typing = (target: EventTarget | null) => target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable="true"]') !== null;
+
+/**
+ * City menus open below their button, aligned to its left edge. The city card clips its
+ * overflow, so a menu that would run past the card's right edge opens toward the left
+ * instead, unless that would cross the left edge too (ADR-106). A React 19 callback ref
+ * with cleanup; `toggle` does not bubble, so it is caught on the way down.
+ */
+function placeMenus(card: HTMLElement | null) {
+  if (!card) return;
+  const place = (event: Event) => {
+    const menu = event.target;
+    if (!(menu instanceof HTMLDetailsElement) || !menu.open || !menu.classList.contains('city-views')) return;
+    const panel = menu.querySelector<HTMLElement>(':scope > .city-views-panel');
+    if (!panel) return;
+    panel.classList.remove('opens-left');
+    const bounds = card.getBoundingClientRect();
+    if (panel.getBoundingClientRect().right <= bounds.right - 8) return;
+    panel.classList.add('opens-left');
+    if (panel.getBoundingClientRect().left < bounds.left + 8) panel.classList.remove('opens-left');
+  };
+  card.addEventListener('toggle', place, true);
+  return () => card.removeEventListener('toggle', place, true);
+}
 
 export function City() {
   const { dataset, model, state, dispatch, select, queries, comparison } = useViewer();
@@ -525,7 +549,7 @@ export function City() {
   const chosenBuilding = chosen?.kind === 'file' ? model.city.buildings.find((b) => b.nodeId === chosen.id) : undefined;
   const crumb = (n: NonNullable<typeof chosen>) => ('path' in n && n.kind === 'directory' ? (n.path.split('/').at(-1) ?? n.path) : model.title(n));
   return (
-    <section className="city" aria-labelledby="city-title">
+    <section className="city" aria-labelledby="city-title" ref={placeMenus}>
       <div className="city-heading">
         <h1 id="city-title">
           {model.manifest.repo.displayName}
@@ -551,42 +575,35 @@ export function City() {
       <div className="city-toolbar" role="group" aria-label="City controls">
         <label>
           View
-          <select
+          <Select
             aria-label="View"
             value={state.mode}
-            onChange={(e) => dispatch({ type: 'mode', mode: e.target.value as typeof state.mode })}
-          >
-            <option value="3d">3D city</option>
-            <option value="map">2D map</option>
-            <option value="table">File table</option>
-            <option value="packages">Package graph</option>
-          </select>
+            onValueChange={(mode) => dispatch({ type: 'mode', mode: mode as typeof state.mode })}
+            choices={[
+              { value: '3d', label: '3D city' },
+              { value: 'map', label: '2D map' },
+              { value: 'table', label: 'File table' },
+              { value: 'packages', label: 'Package graph' },
+            ]}
+          />
         </label>
         {state.mode !== 'packages' && (
           <>
         <label>
           Lens
-          <select
+          <Select
             aria-label="Lens"
             value={state.lens}
-            onChange={(e) => {
+            onValueChange={(lens) => {
               // Picking a lens asks for its colours, so change colouring steps aside.
               if (paint) setChangeMetric('off');
-              dispatch({ type: 'lens', lens: e.target.value as typeof state.lens });
+              dispatch({ type: 'lens', lens: lens as typeof state.lens });
             }}
-          >
-            {LENS_GROUPS.map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.lenses
-                  .filter((lens) => lenses.includes(lens))
-                  .map((lens) => (
-                    <option key={lens} value={lens}>
-                      {LENS_LABEL[lens]}
-                    </option>
-                  ))}
-              </optgroup>
-            ))}
-          </select>
+            choices={LENS_GROUPS.map((group) => ({
+              group: group.label,
+              choices: group.lenses.filter((lens) => lenses.includes(lens)).map((lens) => ({ value: lens, label: LENS_LABEL[lens] })),
+            }))}
+          />
         </label>
         {metricLens && stops && bands && !paint && (
           <BandsMenu
@@ -609,65 +626,59 @@ export function City() {
         {state.compare && (
           <label>
             Colour
-            <select
+            <Select
               aria-label="Colour by change"
               value={changeMetric}
               disabled={!comparisonResult}
-              onChange={(e) => setChangeMetric(e.target.value as ChangeMetric | 'off')}
-            >
-              <option value="off">Lens values</option>
-              {CHANGE_METRICS.map((m) => (
-                <option key={m} value={m}>
-                  Change in {CHANGE_LABEL[m].toLowerCase()}
-                </option>
-              ))}
-            </select>
+              onValueChange={(metric) => setChangeMetric(metric as ChangeMetric | 'off')}
+              choices={[
+                { value: 'off', label: 'Lens values' },
+                ...CHANGE_METRICS.map((m) => ({ value: m, label: `Change in ${CHANGE_LABEL[m].toLowerCase()}` })),
+              ]}
+            />
           </label>
         )}
         <label>
           Display filter
-          <select
+          <Select
             aria-label="Display filter"
             value={state.filter}
-            onChange={(e) => dispatch({ type: 'filter', filter: e.target.value as typeof state.filter })}
-          >
-            <option value="all">All files</option>
-            <option value="source">Source</option>
-            <option value="test">Tests</option>
-            <option value="findings">With findings</option>
-          </select>
+            onValueChange={(filter) => dispatch({ type: 'filter', filter: filter as typeof state.filter })}
+            choices={[
+              { value: 'all', label: 'All files' },
+              { value: 'source', label: 'Source' },
+              { value: 'test', label: 'Tests' },
+              { value: 'findings', label: 'With findings' },
+            ]}
+          />
         </label>
         <label>
           Dependencies
-          <select
+          <Select
             aria-label="Dependencies"
             value={state.direction}
-            onChange={(e) => dispatch({ type: 'edges', direction: e.target.value as typeof state.direction })}
-          >
-            <option value="outgoing">Imports → targets</option>
-            <option value="incoming">Consumers → selected file</option>
-            <option value="both">Imports and consumers</option>
-          </select>
+            onValueChange={(direction) => dispatch({ type: 'edges', direction: direction as typeof state.direction })}
+            choices={[
+              { value: 'outgoing', label: 'Imports → targets' },
+              { value: 'incoming', label: 'Consumers → selected file' },
+              { value: 'both', label: 'Imports and consumers' },
+            ]}
+          />
         </label>
 
         {state.mode === '3d' && (
           <label>
             City style
-            <select
+            <Select
               aria-label="City style"
               value={theme}
-              onChange={(e) => {
-                const next = e.target.value as CityTheme;
+              onValueChange={(value) => {
+                const next = value as CityTheme;
                 setTheme(next);
                 store(THEME_KEY, next);
               }}
-            >
-              {CITY_THEMES.map((t) => (
-                <option key={t} value={t}>
-                  {CITY_THEME_LABEL[t]}
-                </option>
-              ))}
-            </select>
+              choices={CITY_THEMES.map((t) => ({ value: t, label: CITY_THEME_LABEL[t] }))}
+            />
           </label>
         )}
         {state.mode === '3d' && (
@@ -1045,11 +1056,12 @@ export function City() {
         <div className="city-reach">
           <label>
             Reach depth
-            <select aria-label="Reach depth" value={depth} onChange={(e) => setDepth(Number(e.target.value))}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n}>{n}</option>
-              ))}
-            </select>
+            <Select
+              aria-label="Reach depth"
+              value={String(depth)}
+              onValueChange={(n) => setDepth(Number(n))}
+              choices={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: n }))}
+            />
           </label>
           <button type="button" onClick={() => void showReach()}>
             Show reachable files

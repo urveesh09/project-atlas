@@ -29,7 +29,8 @@ export async function audit(page: Page, state: string) {
           .map((animation) => animation.finished.catch(() => undefined))),
         new Promise((resolve) => setTimeout(resolve, 2000)),
       ]);
-      const mode = document.querySelector<HTMLSelectElement>('select[aria-label="View"]')?.value;
+      // The View dropdown (ADR-106) carries its value on the trigger, as the native select did.
+      const mode = document.querySelector('[role="combobox"][aria-label="View"]')?.getAttribute('data-value');
       const renderer = document.querySelector('[data-city-renderer]')?.getAttribute('data-city-renderer')
         ?? (document.querySelector('.city-table') ? 'table' : null);
       return {
