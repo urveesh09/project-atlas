@@ -36,6 +36,10 @@ Agents: read [AGENTS.md](../AGENTS.md).
 
 ### City realism pass (2026-11-12)
 
+- [ADR-106](adr/ADR-106-radix-dropdowns.md), 2026-11-21: all 19 viewer dropdowns use one
+  Radix UI `Select` (MIT); the city menus open inward when they would be clipped. Evidence:
+  `pnpm verify` with browser tests on Windows (99 files, 1128 tests passed, 95 skipped),
+  including all 64 Chromium viewer journeys and their accessibility audits.
 - [ADR-104](adr/ADR-104-rooms-behind-windows.md), 2026-11-21: interior mapping, with 16
   rooms rendered in Blender into one 89 KiB atlas. Evidence: 6 wall and room tests and 32
   city architecture tests pass; GT 730 captures with and without the atlas compile without

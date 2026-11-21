@@ -7,6 +7,7 @@ import { TABS, type InspectorTab } from '../app/state';
 import { AvailabilityNote, Chip, Paged, Section, SeverityBadge } from './ui';
 import { HistoryTab } from './HistoryPanel';
 import { ExternalFileFindings } from './ExternalQuality';
+import { Select } from './Select';
 
 const LANGUAGE_LABEL = { typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python' } as const;
 
@@ -435,20 +436,24 @@ function Reach({ nodeId }: { nodeId: string }) {
       <div className="controls">
         <label>
           Direction{' '}
-          <select value={direction} onChange={(e) => setDirection(e.target.value as 'outgoing' | 'incoming')}>
-            <option value="outgoing">what this file depends on</option>
-            <option value="incoming">what depends on this file</option>
-          </select>
+          <Select
+            aria-label="Direction"
+            value={direction}
+            onValueChange={(v) => setDirection(v as 'outgoing' | 'incoming')}
+            choices={[
+              { value: 'outgoing', label: 'what this file depends on' },
+              { value: 'incoming', label: 'what depends on this file' },
+            ]}
+          />
         </label>
         <label>
           Depth{' '}
-          <select value={depth} onChange={(e) => setDepth(Number(e.target.value))}>
-            {[1, 2, 3, 4, 5].map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
+          <Select
+            aria-label="Depth"
+            value={String(depth)}
+            onValueChange={(v) => setDepth(Number(v))}
+            choices={[1, 2, 3, 4, 5].map((d) => ({ value: String(d), label: d }))}
+          />
         </label>
         <button type="button" className="button" onClick={() => setShown(true)}>
           Show reachable

@@ -2,7 +2,7 @@ import { createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, rea
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { chromium, firefox, webkit, type Browser, type BrowserContext, type BrowserType, type Page } from 'playwright';
+import { chromium, firefox, webkit, type Browser, type BrowserContext, type BrowserType, type Locator, type Page } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readArtifactDirectory } from '@atlas/artifact/node';
 import { ARTIFACT_VERSION, GRAPH_SCHEMA_VERSION, type ArtifactBundle, type ArchitectureReview } from '@atlas/schema';
@@ -182,6 +182,30 @@ const focusedText = (page: Page) =>
   page.evaluate(() => (document.activeElement as HTMLElement | null)?.innerText ?? '');
 
 /** Tab to the inspector's tab list (roving focus: only the selected tab is reachable). */
+/**
+ * Pick a choice in one of the viewer's dropdowns by value, as `selectOption` did for the
+ * native selects they replaced (ADR-106): open the trigger, click the option whose
+ * `data-value` matches (the list lives in a portal, so it is looked up on the page), and wait
+ * for the list to close.
+ */
+async function chooseOption(select: Locator, value: string): Promise<void> {
+  await select.click();
+  const page = select.page();
+  const option = page.locator(`[role="option"][data-value="${value}"]`);
+  // A long list scrolls inside its panel: bring the choice into view before clicking it.
+  await option.evaluate((element) => element.scrollIntoView({ block: 'nearest' }));
+  await option.click();
+  await page.locator('.select-content').waitFor({ state: 'detached' });
+  // Let the close finish (React's effects and the focus hand-back run a frame and a task
+  // later), as a person's next action would, so the next step starts from a settled page.
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0))));
+}
+
+/** The current value of one of the viewer's dropdowns, as `inputValue` read it from a `<select>`. */
+async function valueOf(select: Locator): Promise<string | null> {
+  return select.getAttribute('data-value');
+}
+
 async function tabToTabList(page: Page, max = 60): Promise<void> {
   for (let i = 0; i < max; i++) {
     await page.keyboard.press('Tab');
@@ -513,10 +537,10 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
   it('keeps the camera still on selection and across lenses', async () => {
     const before = await page.evaluate(() => window.__atlasCity!.cameraState());
     await choose('pricing.ts');
-    await page.getByLabel('Lens', { exact: true }).selectOption('complexity');
+    await chooseOption(page.getByLabel('Lens', { exact: true }), 'complexity');
     expect(await page.evaluate(() => window.__atlasCity!.cameraState())).toEqual(before);
     expect(page.url()).toContain('lens=complexity');
-    await page.getByLabel('Lens', { exact: true }).selectOption('fan-in');
+    await chooseOption(page.getByLabel('Lens', { exact: true }), 'fan-in');
     expect(await page.evaluate(() => window.__atlasCity!.cameraState())).toEqual(before);
     expect(await page.locator('.city-legend').innerText()).toContain('25+');
   });
@@ -554,7 +578,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     }
   });
   it('exports a bounded PNG and provenance without WebGL dependency', async () => {
-    await page.getByLabel('View', { exact: true }).selectOption('map');
+    await chooseOption(page.getByLabel('View', { exact: true }), 'map');
     await page.waitForSelector('[data-city-renderer="map"]');
     const downloads: import('playwright').Download[] = [];
     page.on('download', (d) => downloads.push(d));
@@ -592,7 +616,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     expect(metadata.optionsDigest).toBe(artifact.bundle.manifest.optionsDigest);
   });
   it('retains selection through graphics context loss', async () => {
-    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await chooseOption(page.getByLabel('View', { exact: true }), '3d');
     await page.waitForFunction(() => !!window.__atlasCity);
     await page.evaluate(() => window.__atlasCity!.loseContext());
     await page.waitForSelector('[data-city-renderer="map"]');
@@ -601,7 +625,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     expect(await audit(page, 'context-loss-map')).toEqual([]);
   });
   it('offers a semantic file table and passes automated AA checks', async () => {
-    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await chooseOption(page.getByLabel('View', { exact: true }), 'table');
     expect(await page.locator('.city-table caption').innerText()).toContain('Included files');
     expect(await page.locator('.city-table').innerText()).toContain('src/server/pricing.ts');
     expect(await audit(page, 'file-table')).toEqual([]);
@@ -637,7 +661,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await trace.click();
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe(named);
     expect(await page.locator('[role="tab"][aria-selected="true"]').innerText()).toBe('Dependencies');
-    expect(await page.getByRole('combobox', { name: 'Dependencies', exact: true }).inputValue()).toBe('both');
+    expect(await valueOf(page.getByRole('combobox', { name: 'Dependencies', exact: true }))).toBe('both');
     const note = await page.locator('.count-note').innerText();
     expect(note).toMatch(/internal import statements? reach \d+ files?/);
     expect(note).toContain('type-only included');
@@ -677,7 +701,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
   });
 
   it('highlights files by path pattern, with an exact count the table agrees with', async () => {
-    await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('table');
+    await chooseOption(page.getByRole('combobox', { name: 'View', exact: true }), 'table');
     const highlight = page.getByRole('searchbox', { name: 'Highlight paths' });
     await highlight.fill('src/server, !*.test.ts');
     const note = await page.locator('#city-pattern-help').innerText();
@@ -694,7 +718,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
   });
 
   it('counts the buildings in every legend band', async () => {
-    await page.getByRole('combobox', { name: 'Lens', exact: true }).selectOption('fan-in');
+    await chooseOption(page.getByRole('combobox', { name: 'Lens', exact: true }), 'fan-in');
     const counts = (await page.locator('.city-legend .legend-count').allInnerTexts()).map((t) => Number(t.replaceAll(',', '')));
     const total = Number(/of ([\d,]+) files match/.exec(await page.locator('#city-pattern-help').innerText())![1]!.replaceAll(',', ''));
     expect(counts).toHaveLength(6);
@@ -709,12 +733,12 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await views.getByRole('button', { name: 'Save current view' }).click();
     await expect.poll(() => views.locator('[role="status"]').innerText()).toContain('Saved the view');
     // Change everything the view holds, then apply it again.
-    await page.getByRole('combobox', { name: 'Lens', exact: true }).selectOption('structure');
+    await chooseOption(page.getByRole('combobox', { name: 'Lens', exact: true }), 'structure');
     await page.getByRole('searchbox', { name: 'Highlight paths' }).fill('');
-    await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('map');
+    await chooseOption(page.getByRole('combobox', { name: 'View', exact: true }), 'map');
     await views.getByRole('button', { name: 'Server consumers', exact: true }).click();
-    await expect.poll(() => page.getByRole('combobox', { name: 'Lens', exact: true }).inputValue()).toBe('fan-in');
-    expect(await page.getByRole('combobox', { name: 'View', exact: true }).inputValue()).toBe('table');
+    await expect.poll(() => valueOf(page.getByRole('combobox', { name: 'Lens', exact: true }))).toBe('fan-in');
+    expect(await valueOf(page.getByRole('combobox', { name: 'View', exact: true }))).toBe('table');
     expect(await page.getByRole('searchbox', { name: 'Highlight paths' }).inputValue()).toBe('src/server');
     const download = page.waitForEvent('download');
     await views.getByRole('button', { name: 'Export views' }).click();
@@ -731,7 +755,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await views.getByRole('button', { name: 'Server consumers', exact: true }).count()).toBe(1);
     await views.locator('summary').click();
     await page.getByRole('searchbox', { name: 'Highlight paths' }).fill('');
-    await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('3d');
+    await chooseOption(page.getByRole('combobox', { name: 'View', exact: true }), '3d');
     expect(await audit(page, 'saved-views-restored')).toEqual([]);
   });
 
@@ -739,9 +763,9 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     const view = page.getByRole('combobox', { name: 'View', exact: true });
     const caption = async () => /(\d+) displayed of (\d+)/.exec(await page.locator('.city-table caption').innerText())!.slice(1).map(Number) as [number, number];
     await page.getByRole('searchbox', { name: 'Highlight paths' }).fill('');
-    await view.selectOption('table');
+    await chooseOption(view, 'table');
     const [, total] = await caption();
-    await view.selectOption('map');
+    await chooseOption(view, 'map');
     await page.waitForSelector('[data-city-renderer="map"]');
     await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).fill('pricing.ts');
     await page.keyboard.press('Enter');
@@ -751,7 +775,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     const focus = page.getByRole('button', { name: /^Focus on / });
     const folder = (await focus.getAttribute('aria-label'))!.replace('Focus on ', '');
     await focus.click();
-    await view.selectOption('table');
+    await chooseOption(view, 'table');
     const [shown] = await caption();
     expect(shown).toBeGreaterThan(0);
     expect(shown).toBeLessThan(total);
@@ -769,14 +793,14 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await scope.getByRole('button', { name: 'Show everything' }).click();
     expect((await caption())[0]).toBe(total);
     await scope.locator('summary').click();
-    await view.selectOption('3d');
+    await chooseOption(view, '3d');
   });
 
   it('colours by any metric, with editable bands, a distribution and built-in views (ADR-052)', async () => {
     const lens = page.getByRole('combobox', { name: 'Lens', exact: true });
     const legendCounts = async () => (await page.locator('.city-legend .legend-count').allInnerTexts()).map((t) => Number(t.replaceAll(',', '')));
     const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
-    await lens.selectOption('code-lines');
+    await chooseOption(lens, 'code-lines');
     await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0-49');
     const total = sum(await legendCounts());
     expect(total).toBeGreaterThan(0);
@@ -801,18 +825,18 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     const saved = page.locator('.city-saved');
     await saved.locator('summary').click();
     await saved.getByRole('button', { name: 'Most depended on', exact: true }).click();
-    expect(await lens.inputValue()).toBe('fan-in');
+    expect(await valueOf(lens)).toBe('fan-in');
     await saved.getByRole('button', { name: 'Largest files', exact: true }).click();
-    expect(await lens.inputValue()).toBe('code-lines');
-    expect(await page.getByRole('combobox', { name: 'Display filter' }).inputValue()).toBe('source');
+    expect(await valueOf(lens)).toBe('code-lines');
+    expect(await valueOf(page.getByRole('combobox', { name: 'Display filter' }))).toBe('source');
     await saved.locator('summary').click();
-    await page.getByRole('combobox', { name: 'Display filter' }).selectOption('all');
-    await lens.selectOption('structure');
+    await chooseOption(page.getByRole('combobox', { name: 'Display filter' }), 'all');
+    await chooseOption(lens, 'structure');
   });
 
   it('marks a folder with a colour and a note, lists it, and shares it as a file (ADR-053)', async () => {
     const view = page.getByRole('combobox', { name: 'View', exact: true });
-    await view.selectOption('map');
+    await chooseOption(view, 'map');
     await page.waitForSelector('[data-city-renderer="map"]');
     await page.getByRole('combobox', { name: 'Search files, packages and declarations' }).fill('pricing.ts');
     await page.keyboard.press('Enter');
@@ -844,12 +868,12 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await audit(page, 'notes-imported')).toEqual([]);
     await notes.getByRole('button', { name: 'Remove mark' }).click();
     await notes.locator('summary').click();
-    await view.selectOption('3d');
+    await chooseOption(view, '3d');
   });
 
   it('draws the package dependency graph with layers, cycles and a matching table (ADR-054)', async () => {
     const view = page.getByRole('combobox', { name: 'View', exact: true });
-    await view.selectOption('packages');
+    await chooseOption(view, 'packages');
     await page.waitForSelector('.pkg-view');
     const counts = async () => {
       const [, pkgs, deps] = /([\d,]+) packages, ([\d,]+) dependencies/.exec(await page.locator('.pkg-summary').innerText())!;
@@ -875,7 +899,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await audit(page, 'package-graph')).toEqual([]);
     await types.uncheck();
     expect((await counts())[1]).toBe(dependencies);
-    await view.selectOption('3d');
+    await chooseOption(view, '3d');
   });
 
   it('exports the city for 3D printing as a coloured 3MF and an STL (ADR-055)', async () => {
@@ -940,7 +964,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     const node = loaded.bundle.graphs.at(-1)!.nodes.find((n) => n.kind === 'file' && n.path === 'src/ui/Dock.tsx')!;
     await page.goto(`${server.url}#v=1&file=${node.lineageId}&lens=fan-in&mode=map&tab=findings`);
     await page.waitForSelector('[data-city-renderer="map"]');
-    expect(await page.getByLabel('Lens', { exact: true }).inputValue()).toBe('fan-in');
+    expect(await valueOf(page.getByLabel('Lens', { exact: true }))).toBe('fan-in');
     expect(await page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
     const search = page.getByRole('combobox', { name: 'Search files, packages and declarations' });
     await search.fill('pricing');
@@ -951,7 +975,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
     await page.reload();
     await page.waitForSelector('[data-city-renderer="map"]');
     expect(await page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
-    expect(await page.getByLabel('Lens', { exact: true }).inputValue()).toBe('fan-in');
+    expect(await valueOf(page.getByLabel('Lens', { exact: true }))).toBe('fan-in');
   });
   it.each(['unavailable', 'blocked'] as const)('works with touch and %s WebGL without losing the file inspector', async (availability) => {
     const touch = await browser.newContext({
@@ -1003,7 +1027,7 @@ describe.runIf(browserAvailable && viewerBuilt)('deep links', () => {
         expect(await page.locator('#overview-title').count()).toBe(1);
         await cdp.detach();
       }
-      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await chooseOption(page.getByLabel('View', { exact: true }), 'table');
       await page.locator('.city-table').getByRole('button', { name: 'src/ui/Dock.tsx', exact: true }).tap();
       await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('Dock.tsx');
       await expectNoSidewaysScroll(page);
@@ -1150,7 +1174,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     await page.getByRole('button', { name: 'Compare snapshots…' }).click();
     await page.waitForSelector('.compare');
     // Select values are zero-based: retain the original visible 6 -> 12 regression.
-    await page.locator('.compare-pick select').first().selectOption('5');
+    await chooseOption(page.locator('.compare-pick .select-trigger').first(), '5');
     const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
     if (!loaded.ok) throw new Error('Invalid comparison reference artifact');
     const frames = loaded.bundle.manifest.frames;
@@ -1168,19 +1192,19 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     expect(stats.added).toBe(4);
     // Change colouring (ADR-050): on by default in code lines, legend bands sum to B's files.
     const colour = page.getByRole('combobox', { name: 'Colour by change' });
-    expect(await colour.inputValue()).toBe('codeLines');
+    expect(await valueOf(colour)).toBe('codeLines');
     expect(await page.locator('.city-legend strong').first().innerText()).toMatch(/^Change \d+ → \d+: code lines$/);
     const bandCounts = (await page.locator('.city-legend .legend-count').allInnerTexts()).map((t) => Number(t.replaceAll(',', '')));
     expect(bandCounts).toHaveLength(7);
     expect(bandCounts.reduce((a, b) => a + b, 0)).toBe(stats.buildings);
     expect(bandCounts[5]).toBe(4);
-    await colour.selectOption('fanIn');
+    await chooseOption(colour, 'fanIn');
     await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint ?? '').toMatch(/:fanIn$/);
-    await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('table');
+    await chooseOption(page.getByRole('combobox', { name: 'View', exact: true }), 'table');
     expect(await page.locator('.city-table thead').innerText()).toMatch(/Fan-in, snapshot \d+ → \d+/);
     expect(await page.locator('.city-table .change-cell').count()).toBeGreaterThan(0);
     expect(await audit(page, 'comparison-table')).toEqual([]);
-    await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('3d');
+    await chooseOption(page.getByRole('combobox', { name: 'View', exact: true }), '3d');
     // A published handle is not a drawn city: first finish the preceding mode switch,
     // with this comparison's paint, before timing the next lens-state assertion.
     await page.waitForFunction((paint) => {
@@ -1188,10 +1212,10 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
       return stats !== undefined && stats.drawCalls > 0 && stats.paint === paint;
     }, `${frames[5]!.snapshotId}>${frames[11]!.snapshotId}:fanIn`);
     // Picking a lens asks for lens colours.
-    await page.getByLabel('Lens', { exact: true }).selectOption('complexity');
-    expect(await colour.inputValue()).toBe('off');
+    await chooseOption(page.getByLabel('Lens', { exact: true }), 'complexity');
+    expect(await valueOf(colour)).toBe('off');
     await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).paint).toBeNull().catch(explain(page, errors));
-    await page.getByLabel('Lens', { exact: true }).selectOption('structure');
+    await chooseOption(page.getByLabel('Lens', { exact: true }), 'structure');
     const text = await page.locator('.compare').innerText();
     expect(text).toContain('src/ui/Cargo.tsx → src/ui/Manifest.tsx');
     expect(text).toMatch(/mainline activity in this interval/i);
@@ -1205,7 +1229,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     expect(await audit(page, 'comparison-3d')).toEqual([]);
     // Explicit timeline navigation changes B and the comparison legend together.
     await goTo(11);
-    await expect.poll(() => page.locator('.compare-pick select').last().inputValue()).toBe('10');
+    await expect.poll(() => valueOf(page.locator('.compare-pick .select-trigger').last())).toBe('10');
     await expect.poll(() => page.locator('.compare-direction').innerText()).toContain('to snapshot 11');
     await page.getByRole('button', { name: 'Close comparison' }).first().click();
     await expect.poll(async () => (await page.evaluate(() => window.__atlasCity!.stats())).ghosts).toBe(0);
@@ -1213,9 +1237,9 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
 
   it('matches the manual 5 -> 12 review card through the semantic table', async () => {
     await goTo(12);
-    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await chooseOption(page.getByLabel('View', { exact: true }), 'table');
     await page.getByRole('button', { name: 'Compare snapshots…' }).click();
-    await page.locator('.compare-pick select').first().selectOption('4');
+    await chooseOption(page.locator('.compare-pick .select-trigger').first(), '4');
     await expect.poll(() => page.locator('.compare-direction').innerText()).toContain('from snapshot 5');
     await expect.poll(() => page.locator('.compare-summary').innerText()).toContain('+ 7 added');
     // Independently checked from Harbor's Git trees/diff, not copied from analyzer output:
@@ -1229,17 +1253,17 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     expect(await audit(page, 'manual-task-comparison-table')).toEqual([]);
     await page.getByRole('button', { name: 'Close comparison' }).first().click();
     await expect.poll(() => page.locator('.compare').count()).toBe(0);
-    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await chooseOption(page.getByLabel('View', { exact: true }), '3d');
     await page.waitForFunction(() => window.__atlasCity !== undefined);
   });
 
   it('scopes dependency changes to a file and opens evidence from the correct snapshot', async () => {
     await goTo(12);
-    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await chooseOption(page.getByLabel('View', { exact: true }), 'table');
     await choose('pricing.ts');
     await page.getByRole('button', { name: 'Compare snapshots…' }).press('Enter');
     const compare = page.locator('section.compare');
-    await compare.locator('.compare-pick select').first().selectOption('4');
+    await chooseOption(compare.locator('.compare-pick .select-trigger').first(), '4');
 
     const added = compare.getByRole('button', { name: /^Added tests\/pricing\.test\.ts → src\/server\/pricing\.ts/ });
     const unrelated = compare.getByRole('button', { name: /^Added packages\/geo\/src\/route\.ts/ });
@@ -1278,17 +1302,17 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     await expect.poll(() => page.locator('#inspector-title').evaluate((title) => title === document.activeElement)).toBe(true);
     expect(await page.locator('#inspector-title').innerText()).toBe('pricing.test.ts');
     expect(await page.getByRole('tab', { name: 'Dependencies' }).getAttribute('aria-selected')).toBe('true');
-    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await chooseOption(page.getByLabel('View', { exact: true }), '3d');
     await page.waitForFunction(() => window.__atlasCity !== undefined);
   });
 
   it('traces static consumer paths in Compare and opens the importing file in the original snapshot', async () => {
     await goTo(12);
-    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await chooseOption(page.getByLabel('View', { exact: true }), 'table');
     await choose('pricing.ts');
     await page.getByRole('button', { name: 'Compare snapshots…' }).press('Enter');
     const compare = page.locator('section.compare');
-    await compare.locator('.compare-pick select').first().selectOption('4');
+    await chooseOption(compare.locator('.compare-pick .select-trigger').first(), '4');
     // Open immediately, including when the new pair is still loading.
     await compare.getByRole('button', { name: 'Show paths', exact: true }).press('Enter');
     await expect.poll(() => compare.locator('.compare-direction').innerText()).toContain('from snapshot 5');
@@ -1296,17 +1320,17 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     const side = paths.getByLabel('Trace in snapshot');
     const hops = paths.getByLabel('Maximum hops');
     const status = paths.getByRole('status');
-    expect(await side.inputValue()).toBe('B');
+    expect(await valueOf(side)).toBe('B');
     await expect.poll(() => status.innerText()).toContain('Snapshot B · 3 observed consumers within 2 hops (2 direct');
     // main.tsx's literal dynamic import is outside the policy. It is only reached via router/handlers.
     expect(await paths.getByRole('button', { name: /^Inspect imports of src\/main\.tsx/ }).count()).toBe(0);
-    await hops.selectOption('3');
+    await chooseOption(hops, '3');
     await expect.poll(() => status.innerText()).toContain('4 observed consumers within 3 hops (2 direct');
     const route = paths.getByRole('list', { name: 'Import path, 3 hops' });
     expect((await route.getByRole('listitem').allInnerTexts()).map((text) => text.replace(/^→\s*/, ''))).toEqual([
       'src/main.tsx', 'src/server/router.ts', 'src/server/handlers.ts', 'src/server/pricing.ts',
     ]);
-    await side.selectOption('A');
+    await chooseOption(side, 'A');
     await expect.poll(() => status.innerText()).toContain('Snapshot A · 2 observed consumers within 3 hops (1 direct');
     expect(await route.count()).toBe(0);
 
@@ -1314,7 +1338,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     await choose('Manifest.tsx');
     await compare.getByRole('button', { name: 'Show paths', exact: true }).press('Enter');
     await expect.poll(() => status.innerText()).toContain('Snapshot B · 2 observed consumers');
-    await side.selectOption('A');
+    await chooseOption(side, 'A');
     await expect.poll(() => status.innerText()).toContain('Snapshot A · 1 observed consumer');
     expect(await paths.getByRole('list', { name: 'Direct import' }).innerText()).toContain('src/ui/Cargo.tsx');
     expect(await paths.getByRole('button', { name: 'Inspect imports of src/ui/index.ts in snapshot A' }).count()).toBe(1);
@@ -1334,39 +1358,39 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     await expect.poll(() => page.locator('#inspector-title').evaluate((title) => title === document.activeElement)).toBe(true);
     expect(await page.getByRole('tab', { name: 'Dependencies' }).getAttribute('aria-selected')).toBe('true');
     expect(await page.locator('.tabpanel').innerText()).toContain('./Cargo');
-    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await chooseOption(page.getByLabel('View', { exact: true }), '3d');
     await page.waitForFunction(() => window.__atlasCity !== undefined);
   });
 
   it('traces a deleted selection in A and reports its absence in B', async () => {
     await goTo(11);
-    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await chooseOption(page.getByLabel('View', { exact: true }), 'table');
     await choose('legacy.ts');
     await goTo(12);
     await page.getByRole('button', { name: 'Compare snapshots…' }).press('Enter');
     const compare = page.locator('section.compare');
-    await compare.locator('.compare-pick select').first().selectOption('4');
+    await chooseOption(compare.locator('.compare-pick .select-trigger').first(), '4');
     await compare.getByRole('button', { name: 'Show paths', exact: true }).press('Enter');
     await expect.poll(() => compare.locator('.compare-direction').innerText()).toContain('from snapshot 5');
     const paths = compare.locator('section', { has: page.getByRole('heading', { name: 'Consumer paths', exact: true }) });
     const side = paths.getByLabel('Trace in snapshot');
-    expect(await side.inputValue()).toBe('A');
+    expect(await valueOf(side)).toBe('A');
     await expect.poll(() => paths.getByRole('status').innerText()).toContain('Snapshot A · 0 observed consumers');
-    await side.selectOption('B');
+    await chooseOption(side, 'B');
     await expect.poll(() => paths.getByRole('status').innerText()).toBe('The selected file is absent in snapshot B.');
     expect(await paths.getByLabel('Maximum hops').isDisabled()).toBe(true);
     await compare.getByRole('button', { name: 'Close comparison' }).press('Enter');
-    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await chooseOption(page.getByLabel('View', { exact: true }), '3d');
     await page.waitForFunction(() => window.__atlasCity !== undefined);
   });
 
   it('downloads a change brief for the exact pair even when dependency rows are filtered', async () => {
     await goTo(12);
-    await page.getByLabel('View', { exact: true }).selectOption('table');
+    await chooseOption(page.getByLabel('View', { exact: true }), 'table');
     await choose('pricing.ts');
     await page.getByRole('button', { name: 'Compare snapshots…' }).press('Enter');
     const compare = page.locator('section.compare');
-    await compare.locator('.compare-pick select').first().selectOption('2');
+    await chooseOption(compare.locator('.compare-pick .select-trigger').first(), '2');
     await expect.poll(() => compare.locator('.compare-direction').innerText()).toContain('from snapshot 3');
     const button = compare.getByRole('button', { name: 'Download change brief (.md)', exact: true });
     const downloadBrief = async () => {
@@ -1409,15 +1433,15 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
 
     await compare.getByRole('button', { name: 'Close comparison' }).press('Enter');
     await goTo(12);
-    await page.getByLabel('View', { exact: true }).selectOption('3d');
+    await chooseOption(page.getByLabel('View', { exact: true }), '3d');
     await page.waitForFunction(() => window.__atlasCity !== undefined);
   });
 
   it('colors churn and hotspot lenses with explained, never invented, values', async () => {
     await goTo(12);
-    await page.getByLabel('Lens', { exact: true }).selectOption('churn');
+    await chooseOption(page.getByLabel('Lens', { exact: true }), 'churn');
     expect(await page.locator('.city-legend').innerText()).toContain('counted only up to the snapshot shown');
-    await page.getByLabel('Lens', { exact: true }).selectOption('hotspot');
+    await chooseOption(page.getByLabel('Lens', { exact: true }), 'hotspot');
     expect(await page.locator('.city-legend').innerText()).toContain('not a defect');
     await choose('pricing.ts');
     await page.getByRole('tab', { name: 'Overview' }).click();
@@ -1425,7 +1449,7 @@ describe.runIf(browserAvailable && viewerBuilt)('history and comparison (Gate G4
     expect(overview).toMatch(/hotspot score/i);
     expect(overview).toContain('Changed commits');
     expect(overview).toMatch(/0\.35/);
-    await page.getByLabel('Lens', { exact: true }).selectOption('structure');
+    await chooseOption(page.getByLabel('Lens', { exact: true }), 'structure');
   });
 
   it('opens a historical frame and lineage from a deep link', async () => {
@@ -1718,7 +1742,7 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
       });
       await page.goto(server.sessionUrl);
       await page.waitForSelector('#overview-title');
-      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await chooseOption(page.getByLabel('View', { exact: true }), 'table');
       await page.getByRole('button', { name: 'External findings', exact: true }).press('Enter');
       const panel = page.getByRole('region', { name: 'External findings', exact: true });
       await page.locator('input[data-quality="current"]').setInputFiles(path.join(work, 'eslint-quality.json'));
@@ -1746,7 +1770,7 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
       page.on('pageerror', (e) => errors.push(String(e)));
       await page.goto(qualityServer.sessionUrl);
       await page.waitForSelector('#overview-title');
-      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await chooseOption(page.getByLabel('View', { exact: true }), 'table');
       await page.getByRole('button', { name: 'External findings', exact: true }).focus();
       await page.keyboard.press('Enter');
       const panel = page.getByRole('region', { name: 'External findings', exact: true });
@@ -1807,7 +1831,7 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
       page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
       await page.goto(freshServer.sessionUrl);
       await page.waitForSelector('#overview-title');
-      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await chooseOption(page.getByLabel('View', { exact: true }), 'table');
       await page.getByRole('button', { name: 'External findings', exact: true }).click();
       const panel = page.getByRole('region', { name: 'External findings', exact: true });
       await page.locator('input[data-quality="current"]').setInputFiles(path.join(work, 'scan-new.json'));
@@ -1842,7 +1866,7 @@ describe.runIf(browserAvailable && viewerBuilt)('external quality reports', () =
       const page = await isolated.newPage();
       await page.goto(freshServer.sessionUrl);
       await page.waitForSelector('#overview-title');
-      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await chooseOption(page.getByLabel('View', { exact: true }), 'table');
       await page.getByRole('button', { name: 'External findings', exact: true }).click();
       const panel = page.getByRole('region', { name: 'External findings', exact: true });
       await page.route('**/assets/quality.worker-*.js', async (route) => { await held; await route.abort(); });
@@ -1922,7 +1946,7 @@ describe.runIf(browserAvailable && viewerBuilt)('contextual finding reviews', ()
       page.on('pageerror', (e) => errors.push(String(e)));
       page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
       await page.goto(capacityServer.sessionUrl); await page.waitForSelector('#overview-title');
-      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await chooseOption(page.getByLabel('View', { exact: true }), 'table');
       await page.getByRole('button', { name: 'External findings', exact: true }).click();
       await page.locator('input[data-quality="review"]').setInputFiles(path.join(work, 'capacity-review.json'));
       const panel = page.getByRole('region', { name: 'External findings', exact: true }), evidence = panel.getByRole('region', { name: 'Contextual finding review', exact: true });
@@ -1933,9 +1957,9 @@ describe.runIf(browserAvailable && viewerBuilt)('contextual finding reviews', ()
       expect(await evidence.locator('.rows > li').count()).toBe(20);
       await evidence.getByRole('button', { name: /^Show 20 more of/ }).click();
       expect(await evidence.locator('.rows > li').count()).toBe(40);
-      await evidence.getByLabel('Review evidence', { exact: true }).selectOption('unmatched-current');
+      await chooseOption(evidence.getByLabel('Review evidence', { exact: true }), 'unmatched-current');
       expect(await evidence.locator('.rows > li').count()).toBe(0);
-      await evidence.getByLabel('Review evidence', { exact: true }).selectOption('continuing');
+      await chooseOption(evidence.getByLabel('Review evidence', { exact: true }), 'continuing');
       expect(await evidence.locator('.rows > li').count()).toBe(20);
       await page.reload(); await page.getByRole('button', { name: 'External findings', exact: true }).click();
       expect(await evidence.count()).toBe(0); expect(errors).toEqual([]);
@@ -1953,7 +1977,7 @@ describe.runIf(browserAvailable && viewerBuilt)('contextual finding reviews', ()
       mark('open viewer');
       await page.goto(reviewServer.sessionUrl);
       await page.waitForSelector('#overview-title');
-      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await chooseOption(page.getByLabel('View', { exact: true }), 'table');
       await page.getByRole('button', { name: 'External findings', exact: true }).click();
       const panel = page.getByRole('region', { name: 'External findings', exact: true });
       mark('choose review by keyboard');
@@ -1971,7 +1995,7 @@ describe.runIf(browserAvailable && viewerBuilt)('contextual finding reviews', ()
       expect(await panel.getByRole('region', { name: 'External report comparison', exact: true }).count()).toBe(0);
       mark('choose continuing filter');
       expect(await evidence.getByLabel('Review evidence', { exact: true }).count()).toBe(1);
-      await evidence.getByLabel('Review evidence', { exact: true }).selectOption('continuing');
+      await chooseOption(evidence.getByLabel('Review evidence', { exact: true }), 'continuing');
       mark('navigate baseline');
       await evidence.getByRole('button', { name: 'Baseline: sample.py:7:7 · F821', exact: true }).focus();
       await page.keyboard.press('Enter');
@@ -2007,7 +2031,7 @@ describe.runIf(browserAvailable && viewerBuilt)('contextual finding reviews', ()
         await expectNoSidewaysScroll(page);
         expect(await audit(page, `contextual-review-narrow-${width}`)).toEqual([]);
       }
-      await evidence.getByLabel('Review evidence', { exact: true }).selectOption('unmatched-current');
+      await chooseOption(evidence.getByLabel('Review evidence', { exact: true }), 'unmatched-current');
       mark('filter and clear');
       expect(await evidence.innerText()).toContain('No review evidence in this category');
       expect(await evidence.innerText()).toContain('does not establish a clean scan');
@@ -2087,7 +2111,7 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
     page.on('request', request => requests.push({ url: request.url(), method: request.method() }));
     try {
       await page.goto(serving.sessionUrl); await page.waitForSelector('#overview-title');
-      await page.getByLabel('View', { exact: true }).selectOption('table');
+      await chooseOption(page.getByLabel('View', { exact: true }), 'table');
       await page.getByRole('button', { name: 'Architecture review', exact: true }).click();
       const panel = page.getByRole('region', { name: 'Architecture review', exact: true });
       return { isolated, serving, page, panel, errors, requests, close: async () => { await isolated.close(); await serving.close(); } };
@@ -2112,12 +2136,12 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
       const decisionFilter = panel.getByLabel('Workspace decision', { exact: true });
       await decisionFilter.waitFor();
       expect(await panel.innerText()).toContain('Workspace revision 2. Saved decisions for 2 of 3 retained rows.');
-      await decisionFilter.selectOption('unrecorded');
+      await chooseOption(decisionFilter, 'unrecorded');
       await expect.poll(() => panel.locator('[data-architecture-rule]').count()).toBe(1);
       expect(await panel.locator('[data-architecture-rule="all"]').innerText()).toContain('No saved decision');
-      await decisionFilter.selectOption('needs-review');
+      await chooseOption(decisionFilter, 'needs-review');
       expect(await panel.locator('[data-architecture-rule="retained-helper"]').innerText()).toContain('Saved decision · Needs review · Maintainers');
-      await decisionFilter.selectOption('acknowledged');
+      await chooseOption(decisionFilter, 'acknowledged');
       const acknowledged = panel.locator('[data-architecture-rule="prod-tests"]');
       expect(await acknowledged.innerText()).toContain('Saved decision · Acknowledged · Maintainers');
       await acknowledged.getByRole('button', { name: 'Baseline file: src/main.ts', exact: true }).click();
@@ -2127,7 +2151,7 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
       await pickWorkspace(page, 'architecture-workspace-invalid.json');
       await panel.getByRole('alert').waitFor();
       expect(await acknowledged.innerText()).toContain('Saved decision · Acknowledged · Maintainers');
-      expect(await decisionFilter.inputValue()).toBe('acknowledged');
+      expect(await valueOf(decisionFilter)).toBe('acknowledged');
       await openReport(page);
       await decisionFilter.waitFor({ state: 'detached' });
       await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(3);
@@ -2145,15 +2169,15 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
       const original = readFileSync(originalPath, 'utf8');
       const saved = parseReviewWorkspace(original);
       await pickWorkspace(page, 'architecture-workspace.json');
-      await panel.getByLabel('Workspace decision', { exact: true }).selectOption('acknowledged');
+      await chooseOption(panel.getByLabel('Workspace decision', { exact: true }), 'acknowledged');
       const row = panel.locator('[data-architecture-rule="prod-tests"]');
       const edit = row.getByRole('button', { name: 'Edit local decision' });
       await edit.focus();
       await page.keyboard.press('Enter');
       const state = row.getByLabel('Decision state', { exact: true });
       await expect.poll(() => state.evaluate(element => element === document.activeElement)).toBe(true);
-      await state.selectOption('deferred');
-      await row.getByLabel('Ownership queue', { exact: true }).selectOption('architecture-review');
+      await chooseOption(state, 'deferred');
+      await chooseOption(row.getByLabel('Ownership queue', { exact: true }), 'architecture-review');
       await expectNoSidewaysScroll(page);
       expect(await audit(page, 'architecture-workspace-draft-320')).toEqual([]);
       await row.getByRole('button', { name: 'Stage decision', exact: true }).click();
@@ -2205,15 +2229,15 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
       await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('entry.ts');
       await expect.poll(() => page.getByRole('tab', { name: 'Dependencies', exact: true }).getAttribute('aria-selected')).toBe('true');
       expect(await page.getByRole('tabpanel').innerText()).toContain('tests/helper.ts');
-      await panel.getByLabel('Architecture evidence state', { exact: true }).selectOption('continuing');
+      await chooseOption(panel.getByLabel('Architecture evidence state', { exact: true }), 'continuing');
       await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(1);
-      await panel.getByLabel('Architecture evidence state', { exact: true }).selectOption('all');
-      await panel.getByLabel('Architecture rule', { exact: true }).selectOption('all');
+      await chooseOption(panel.getByLabel('Architecture evidence state', { exact: true }), 'all');
+      await chooseOption(panel.getByLabel('Architecture rule', { exact: true }), 'all');
       await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(1);
       expect(await panel.locator('[data-architecture-kind="cycle"]').count()).toBe(1);
       await panel.getByText('Closed witness relationships (2)', { exact: true }).click();
       expect(await panel.innerText()).toContain('value import');
-      await panel.getByLabel('Architecture rule', { exact: true }).selectOption('');
+      await chooseOption(panel.getByLabel('Architecture rule', { exact: true }), '');
       expect(await audit(page, 'architecture-review-evidence')).toEqual([]);
       if (process.env['ATLAS_CAPTURE_ARCHITECTURE'] === '1') await page.screenshot({ path: path.resolve(`.atlas-tmp/architecture-city-${engineName}.png`), fullPage: true });
       expect(test.requests.every(r => r.method === 'GET' && new URL(r.url).origin === new URL(test.serving.url).origin)).toBe(true);
@@ -2253,9 +2277,9 @@ describe.runIf(browserAvailable && viewerBuilt)('architecture review in the city
       expect(await panel.locator('[data-architecture-kind]').count()).toBe(20);
       await panel.getByRole('button', { name: /^Show 20 more/ }).click();
       await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(40);
-      await panel.getByLabel('Architecture evidence state', { exact: true }).selectOption('continuing');
+      await chooseOption(panel.getByLabel('Architecture evidence state', { exact: true }), 'continuing');
       await expect.poll(() => panel.innerText()).toContain('No retained evidence matches');
-      await panel.getByLabel('Architecture evidence state', { exact: true }).selectOption('all');
+      await chooseOption(panel.getByLabel('Architecture evidence state', { exact: true }), 'all');
       await expect.poll(() => panel.locator('[data-architecture-kind]').count()).toBe(20);
       await panel.getByRole('button', { name: /^Show 20 more/ }).click();
       await page.locator('input[data-architecture-input]').setInputFiles(path.join(work, 'architecture-city-capacity.json'));

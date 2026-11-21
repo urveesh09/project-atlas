@@ -6,6 +6,7 @@ import { useViewer } from '../app/context';
 import { shortOid } from '../app/model';
 import type { ArchitectureInput } from '../data/query.worker';
 import { Paged } from './ui';
+import { Select } from './Select';
 
 const STATE_LABEL: Record<ArchitectureRow['state'], string> = {
   uncompared: 'Uncompared', 'newly-observed': 'Newly observed', continuing: 'Continuing',
@@ -143,14 +144,11 @@ export function ArchitectureReviewPanel() {
         })}
         <ul className="architecture-rule-counts">{report.rules.map(r => <li key={r.ruleId}><strong>{r.ruleId}</strong>: {r.current} current; {r.baseline ?? 'uncompared'} baseline; {r.newlyObserved ?? 'uncompared'} newly observed; {r.continuing ?? 'uncompared'} continuing; {r.noLongerObserved ?? 'uncompared'} no longer observed. Selected current files: {r.currentFrom} source / {r.currentTo} target; baseline: {r.baselineFrom ?? 'uncompared'} source / {r.baselineTo ?? 'uncompared'} target.</li>)}</ul>
         <div className="architecture-filters">
-          <div><label htmlFor="architecture-rule-filter">Architecture rule</label><select id="architecture-rule-filter" value={rule} onChange={event => setRule(event.currentTarget.value)}><option value="">All rules</option>{report.rules.map(r => <option key={r.ruleId} value={r.ruleId}>{r.ruleId}</option>)}</select></div>
-          <div><label htmlFor="architecture-state-filter">Architecture evidence state</label><select id="architecture-state-filter" value={state} onChange={event => setState(event.currentTarget.value)}><option value="all">All states</option>{(Object.keys(STATE_LABEL) as ArchitectureRow['state'][]).map(s => <option key={s} value={s}>{STATE_LABEL[s]}</option>)}</select></div>
+          <div><label htmlFor="architecture-rule-filter">Architecture rule</label><Select id="architecture-rule-filter" aria-label="Architecture rule" value={rule} onValueChange={setRule} choices={[{ value: '', label: 'All rules' }, ...report.rules.map(r => ({ value: r.ruleId, label: r.ruleId }))]} /></div>
+          <div><label htmlFor="architecture-state-filter">Architecture evidence state</label><Select id="architecture-state-filter" aria-label="Architecture evidence state" value={state} onValueChange={setState} choices={[{ value: 'all', label: 'All states' }, ...(Object.keys(STATE_LABEL) as ArchitectureRow['state'][]).map(s => ({ value: s, label: STATE_LABEL[s] }))]} /></div>
           {workspace && <div>
             <label htmlFor="architecture-decision-filter">Workspace decision</label>
-            <select id="architecture-decision-filter" value={decisionFilter} onChange={event => setDecisionFilter(event.currentTarget.value)}>
-              <option value="all">All decisions</option>
-              {Object.entries(DECISION_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
+            <Select id="architecture-decision-filter" aria-label="Workspace decision" value={decisionFilter} onValueChange={setDecisionFilter} choices={[{ value: 'all', label: 'All decisions' }, ...Object.entries(DECISION_LABEL).map(([value, label]) => ({ value, label }))]} />
           </div>}
         </div>
         <p>{rows.length} retained rows match these filters. No longer observed does not mean resolved.</p>
@@ -212,21 +210,17 @@ function DecisionEditor({ issueId, decision, hasDraft, disabled, onStage, onDisc
 }) {
   const [state, setState] = useState<WorkspaceDecisionState>(decision?.state ?? 'needs-review');
   const [owner, setOwner] = useState<WorkspaceOwner>(decision?.owner ?? 'unassigned');
-  const select = useRef<HTMLSelectElement>(null);
+  const select = useRef<HTMLButtonElement>(null);
   useEffect(() => { select.current?.focus(); }, []);
   return <form data-workspace-editor onSubmit={event => { event.preventDefault(); onStage({ issueId, state, owner }); }}>
     <div className="architecture-filters">
       <div>
         <label htmlFor="workspace-draft-state">Decision state</label>
-        <select id="workspace-draft-state" ref={select} value={state} disabled={disabled} onChange={event => setState(WorkspaceDecisionStateSchema.parse(event.currentTarget.value))}>
-          {WorkspaceDecisionStateSchema.options.map(value => <option key={value} value={value}>{DECISION_LABEL[value]}</option>)}
-        </select>
+        <Select id="workspace-draft-state" aria-label="Decision state" ref={select} value={state} disabled={disabled} onValueChange={value => setState(WorkspaceDecisionStateSchema.parse(value))} choices={WorkspaceDecisionStateSchema.options.map(value => ({ value, label: DECISION_LABEL[value] }))} />
       </div>
       <div>
         <label htmlFor="workspace-draft-owner">Ownership queue</label>
-        <select id="workspace-draft-owner" value={owner} disabled={disabled} onChange={event => setOwner(WorkspaceOwnerSchema.parse(event.currentTarget.value))}>
-          {WorkspaceOwnerSchema.options.map(value => <option key={value} value={value}>{QUEUE_LABEL[value]}</option>)}
-        </select>
+        <Select id="workspace-draft-owner" aria-label="Ownership queue" value={owner} disabled={disabled} onValueChange={value => setOwner(WorkspaceOwnerSchema.parse(value))} choices={WorkspaceOwnerSchema.options.map(value => ({ value, label: QUEUE_LABEL[value] }))} />
       </div>
     </div>
     <div className="external-quality-actions">

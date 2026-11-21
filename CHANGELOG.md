@@ -7,6 +7,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Refined dropdowns ([ADR-106](docs/adr/ADR-106-radix-dropdowns.md)): every dropdown in the
+  viewer now opens a themed floating menu with grouped choices, a check on the current
+  one, keyboard navigation and type-ahead, in light and dark, instead of the system menu.
 - Rooms behind the windows ([ADR-104](docs/adr/ADR-104-rooms-behind-windows.md)): every
   rectangular window opens on a furnished room (homes, or offices in glass towers) seen in
   true perspective as the camera moves, from 16 rooms rendered once in Blender (an 89 KiB

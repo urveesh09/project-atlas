@@ -27,7 +27,7 @@
 .architecture-review details { min-width: 0; }
 .architecture-review .architecture-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 14px; }
 .architecture-filters > div { display: grid; gap: 4px; max-width: 100%; }
-.architecture-filters select { min-height: 44px; max-width: 100%; }
+.architecture-filters .select-trigger { min-height: 44px; max-width: 100%; }
 .architecture-rule-counts { padding-inline-start: 20px; }
 .topbar-actions .architecture-toggle { min-height: 44px; }
 :root {
@@ -859,38 +859,141 @@ h2:focus-visible {
   align-items: center;
   margin-bottom: 10px;
 }
-select {
+/* Dropdowns (ADR-106): Radix UI's accessible select, drawn with the control tokens. The
+   trigger looks like every other control; the list floats on a menu surface. */
+.select-trigger {
   appearance: none;
   -webkit-appearance: none;
   font: inherit;
   color: var(--text);
   background-color: var(--control);
-  /* A chevron drawn from the theme's muted color, so it follows light and dark. */
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position:
-    calc(100% - 15px) 52%,
-    calc(100% - 10.5px) 52%;
-  background-size: 4.5px 4.5px;
-  background-repeat: no-repeat;
   border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-xs), var(--sheen);
   min-height: var(--control-h);
-  padding: 4px 30px 4px 10px;
+  padding: 4px 8px 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: start;
   cursor: pointer;
   transition:
     border-color 0.12s var(--ease),
-    background-color 0.12s var(--ease);
+    background-color 0.12s var(--ease),
+    box-shadow 0.12s var(--ease);
 }
-select:hover {
+.select-trigger:hover:not(:disabled) {
   border-color: var(--control-border-hover);
   background-color: var(--control-hover);
 }
-select option {
-  background: var(--panel);
+.select-trigger[data-state='open'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.select-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.16s var(--ease);
+}
+.select-trigger[data-state='open'] .select-chevron {
+  transform: rotate(180deg);
+}
+.select-content {
+  z-index: 1000;
+  min-width: var(--radix-select-trigger-width);
+  /* Tall enough for the grouped Lens list (about 460 px) without scrolling. */
+  max-height: min(520px, var(--radix-select-content-available-height));
+  overflow: hidden;
   color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md), var(--sheen);
+  font-family: var(--sans);
+  font-size: 13px;
+  transform-origin: var(--radix-select-content-transform-origin);
+}
+.select-content[data-state='open'] {
+  animation: select-in 0.14s var(--ease);
+}
+@keyframes select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.select-viewport {
+  padding: 5px;
+}
+.select-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 30px 5px 10px;
+  border-radius: var(--radius-xs);
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.select-item[data-highlighted] {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.select-item[data-state='checked'] {
+  font-weight: 600;
+}
+.select-item[data-disabled] {
+  color: var(--muted);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.select-check {
+  position: absolute;
+  right: 9px;
+  display: inline-flex;
+  color: var(--accent);
+}
+.select-group {
+  padding: 8px 10px 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.select-viewport [role='group'] + [role='group'] {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.select-scroll {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  color: var(--muted);
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .select-content[data-state='open'] {
+    animation: none;
+  }
+  .select-chevron {
+    transition: none;
+  }
 }
 /* Text fields: inset surface, accent ring on focus. */
 .text-input,
@@ -911,7 +1014,7 @@ select option {
 .search input:focus-visible,
 .city-pattern input:focus-visible,
 .city-views-panel input[type='text']:focus-visible,
-select:focus-visible {
+.select-trigger:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 0;
   border-color: var(--accent);
@@ -1524,7 +1627,7 @@ select:focus-visible {
   color: var(--muted);
   font-size: 0.9rem;
 }
-.compare-pick select {
+.compare-pick .select-trigger {
   min-height: 44px;
   min-width: 220px;
   max-width: 100%;
@@ -1570,7 +1673,7 @@ select:focus-visible {
   gap: 4px;
   color: var(--muted);
 }
-.compare-path-controls select,
+.compare-path-controls .select-trigger,
 .compare-path .link {
   min-height: 44px;
 }
@@ -1648,7 +1751,7 @@ select:focus-visible {
     flex-basis: 100%;
     order: -1;
   }
-  .compare-pick select {
+  .compare-pick .select-trigger {
     min-width: 0;
     width: 100%;
   }

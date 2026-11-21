@@ -260,7 +260,10 @@ try {
   assert.deepEqual(errors, []);
   stages.push({ stage: 'packaged-browser-workspace-evidence', passed: true, outboundRequests: 0, pageErrors: 0, browser: browser.version() });
   await panel.getByRole('button', { name: 'Edit local decision', exact: true }).click();
-  await panel.getByLabel('Decision state', { exact: true }).selectOption('deferred');
+  // The viewer's dropdowns are Radix selects (ADR-106): open the trigger, pick by value.
+  await panel.getByLabel('Decision state', { exact: true }).click();
+  await page.locator('[role="option"][data-value="deferred"]').click();
+  await page.locator('.select-content').waitFor({ state: 'detached' });
   await panel.getByRole('button', { name: 'Stage decision', exact: true }).click();
   await panel.getByRole('button', { name: 'Prepare workspace copy', exact: true }).click();
   const pendingCopy = page.waitForEvent('download');
