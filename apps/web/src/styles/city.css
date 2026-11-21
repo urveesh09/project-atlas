@@ -206,8 +206,6 @@
 .city-views-files { display: flex; gap: 8px; flex-wrap: wrap; }
 .city-views-empty, .city-views-note { margin: 0; color: var(--muted); }
 .city-share .city-views-panel { left: auto; right: 0; width: min(260px, 86vw); }
-/* A menu that would run past the card's clipped right edge opens toward the left (placeMenus). */
-.city-views-panel.opens-left { left: auto; right: 0; }
 .city-share { margin-inline-start: auto; }
 
 /* History scrubber controls (ADR-049): dots without button chrome, quiet step buttons. */

@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Component, Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { LENS_STOPS, METRIC_PALETTE, UNKNOWN_COLOR, bandIndex, facadeColor, lensValue, type CityBuilding, type CityLens, type MetricLens } from '@atlas/layout';
 import type { ReachResult } from '@atlas/graph';
 import { POLICIES } from '@atlas/graph';
@@ -106,30 +106,56 @@ const NO_VIEWS: ViewHistory = { back: false, forward: false };
 const typing = (target: EventTarget | null) => target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable="true"]') !== null;
 
 /**
- * City menus open below their button, aligned to its left edge. The city card clips its
- * overflow, so a menu that would run past the card's right edge opens toward the left
- * instead, unless that would cross the left edge too (ADR-106). A React 19 callback ref
- * with cleanup; `toggle` does not bubble, so it is caught on the way down.
+ * City menus open below their button. The city card clips its overflow, so a menu that
+ * would cross one of the card's edges slides sideways just far enough to fit (8 px inside),
+ * without crossing the other edge (ADR-106). It is placed again whenever the layout can
+ * move its button: when a menu opens, after every render of the city (a view change
+ * rewraps the toolbar) and when the card resizes. Placing once, at open, left a menu
+ * stranded off the card after the toolbar rewrapped. `translate` composes with the open
+ * animation's `transform`.
  */
-function placeMenus(card: HTMLElement | null) {
-  if (!card) return;
-  const place = (event: Event) => {
-    const menu = event.target;
-    if (!(menu instanceof HTMLDetailsElement) || !menu.open || !menu.classList.contains('city-views')) return;
-    const panel = menu.querySelector<HTMLElement>(':scope > .city-views-panel');
-    if (!panel) return;
-    panel.classList.remove('opens-left');
-    const bounds = card.getBoundingClientRect();
-    if (panel.getBoundingClientRect().right <= bounds.right - 8) return;
-    panel.classList.add('opens-left');
-    if (panel.getBoundingClientRect().left < bounds.left + 8) panel.classList.remove('opens-left');
-  };
-  card.addEventListener('toggle', place, true);
-  return () => card.removeEventListener('toggle', place, true);
+function placeOpenMenus(card: HTMLElement) {
+  const bounds = card.getBoundingClientRect();
+  for (const panel of card.querySelectorAll<HTMLElement>('details.city-views[open] > .city-views-panel')) {
+    panel.style.translate = '';
+    const box = panel.getBoundingClientRect();
+    const pastRight = box.right - (bounds.right - 8),
+      pastLeft = bounds.left + 8 - box.left;
+    const dx = pastRight > 0 ? -Math.min(pastRight, Math.max(0, -pastLeft)) : pastLeft > 0 ? Math.min(pastLeft, Math.max(0, -pastRight)) : 0;
+    if (dx) panel.style.translate = `${Math.round(dx)}px 0`;
+  }
+}
+
+/**
+ * Keep the city's open menus inside the card (see `placeOpenMenus`). A menu is placed when
+ * its `open` attribute changes: a mutation record arrives as a microtask, before the next
+ * paint, whereas the `toggle` event comes a task later and would show the menu in the wrong
+ * place for a frame.
+ */
+function useMenuPlacement() {
+  const card = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (card.current) placeOpenMenus(card.current);
+  });
+  useEffect(() => {
+    const element = card.current;
+    if (!element) return;
+    const place = () => placeOpenMenus(element);
+    const opened = typeof MutationObserver === 'function' ? new MutationObserver(place) : null;
+    opened?.observe(element, { subtree: true, attributes: true, attributeFilter: ['open'] });
+    const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(place) : null;
+    resize?.observe(element);
+    return () => {
+      opened?.disconnect();
+      resize?.disconnect();
+    };
+  }, []);
+  return card;
 }
 
 export function City() {
   const { dataset, model, state, dispatch, select, queries, comparison } = useViewer();
+  const menus = useMenuPlacement();
   const lenses: CityLens[] = ['structure', 'code-lines', 'functions', 'complexity', 'total-complexity', 'fan-in', 'fan-out', 'churn', 'lines-changed', dataset.hotspotAvailable ? 'hotspot' : 'attention'];
   const handle = useRef<CityHandle | null>(null);
   const [readyMode, setReadyMode] = useState<'3d' | 'map' | null>(null),
@@ -549,7 +575,7 @@ export function City() {
   const chosenBuilding = chosen?.kind === 'file' ? model.city.buildings.find((b) => b.nodeId === chosen.id) : undefined;
   const crumb = (n: NonNullable<typeof chosen>) => ('path' in n && n.kind === 'directory' ? (n.path.split('/').at(-1) ?? n.path) : model.title(n));
   return (
-    <section className="city" aria-labelledby="city-title" ref={placeMenus}>
+    <section className="city" aria-labelledby="city-title" ref={menus}>
       <div className="city-heading">
         <h1 id="city-title">
           {model.manifest.repo.displayName}

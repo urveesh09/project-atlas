@@ -34,9 +34,15 @@ every platform.
   `all`) maps to an internal sentinel, because Radix reserves the empty string.
 - Native checkboxes, buttons, text fields and the existing `<details>` menus are unchanged,
   with one fix found while reviewing them: the city card clips its overflow, so at a
-  1440 px window the Notes menu was cut off at the card's right edge. When a city menu
-  opens, `placeMenus` now measures it and, if it would cross that edge, opens it toward the
-  left instead (unless that would cross the left edge).
+  1440 px window the Notes menu was cut off at the card's right edge. A menu that would
+  cross either edge of the card now slides sideways just far enough to fit
+  (`placeOpenMenus`). It is placed when it opens (on the `open` attribute's mutation,
+  before the first paint), after every render of the city and when the card resizes.
+  The first version decided once, at open, between left and right alignment; in CI
+  (run 44882490190) a saved view then switched the view mode, the toolbar rewrapped, and
+  the Saved views menu was left off the card under the repository tree, so its Export
+  button could not be clicked. Checked afterwards at 1100–1440 px for the scope, saved
+  and notes menus across the 3D, table and map views: every menu stays inside the card.
 
 ## Verification
 
