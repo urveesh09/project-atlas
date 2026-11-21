@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { seedFromId, xorshift32, type CityBuilding, type CityData } from '@atlas/layout';
 import { THEMES, type Archetype, type CityTheme, type LampKind, type PartKind, type Tier, type TreeKind } from './themes';
+import { ROOM_CN, ROOM_GRID } from './walls';
 
 /** Parts with their own fixed stone or metal colour; the rest take a shade of the lens colour. */
 export const FIXED_PARTS: ReadonlySet<PartKind> = new Set(['platform', 'terrace', 'rooftop']);
@@ -352,6 +353,27 @@ function mergeFlat(parts: THREE.BufferGeometry[], colours?: readonly THREE.Color
   return shared(merged, false);
 }
 
+type Slot = { value: THREE.Texture | null };
+const facadeTextures = new WeakMap<
+  THREE.Material,
+  { atlasWalls: Slot; atlasWallsReady: { value: number }; atlasRooms: Slot; atlasRoomsReady: { value: number } }
+>();
+
+/**
+ * Give a facade material its baked walls (ADR-103) or rooms (ADR-104) once they have loaded,
+ * and return the texture it replaces, for the caller to dispose. Null when the material
+ * compiled without that texture (lite, or no placeholder given), which leaves it unchanged.
+ */
+export function setFacadeTexture(material: THREE.Material, kind: 'walls' | 'rooms', texture: THREE.Texture): THREE.Texture | null {
+  const uniforms = facadeTextures.get(material);
+  const slot = kind === 'walls' ? uniforms?.atlasWalls : uniforms?.atlasRooms;
+  if (!uniforms || !slot?.value) return null;
+  const previous = slot.value;
+  slot.value = texture;
+  (kind === 'walls' ? uniforms.atlasWallsReady : uniforms.atlasRoomsReady).value = 1;
+  return previous;
+}
+
 /**
  * Lens-coloured facade. Windows, lattices, timber and masonry are tints of the facade colour,
  * drawn only where a cell spans several pixels, so far views keep the exact lens colour. A
@@ -362,16 +384,30 @@ export function facadeMaterial(
   sky: { zenith: string; horizon: string } = { zenith: '#9fbfe0', horizon: '#e6ecef' },
   weather: THREE.Texture | null = null,
   sun: THREE.Vector3 = new THREE.Vector3(0, 1, 0),
+  walls: THREE.Texture | null = null,
+  rooms: THREE.Texture | null = null,
 ): THREE.MeshLambertMaterial {
   const material = new THREE.MeshLambertMaterial();
-  material.defines = { ATLAS_WINDOWS: detail ? 1 : 0, ATLAS_WEATHER: detail && weather ? 1 : 0 };
+  material.defines = {
+    ATLAS_WINDOWS: detail ? 1 : 0,
+    ATLAS_WEATHER: detail && weather ? 1 : 0,
+    ATLAS_WALLS: detail && walls ? 1 : 0,
+    ATLAS_ROOMS: detail && rooms ? 1 : 0,
+  };
   // Glass reflects this sky by viewing angle (Fresnel), and the street below it.
   const reflection = {
     atlasSkyZenith: { value: new THREE.Color(sky.zenith) },
     atlasSkyHorizon: { value: new THREE.Color(sky.horizon) },
     atlasSun: { value: sun.clone().normalize() },
     atlasDetail: { value: weather },
+    // Baked wall materials (ADR-103, walls.ts); `ready` blends from the drawn patterns.
+    atlasWalls: { value: walls },
+    atlasWallsReady: { value: 0 },
+    // Rooms behind the windows (ADR-104, walls.ts); `ready` blends from plain glass.
+    atlasRooms: { value: rooms },
+    atlasRoomsReady: { value: 0 },
   };
+  facadeTextures.set(material, reflection);
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, reflection);
     shader.vertexShader = shader.vertexShader
@@ -417,6 +453,14 @@ uniform vec3 atlasSun;
 #if ATLAS_WEATHER
 uniform sampler2D atlasDetail;
 #endif
+#if ATLAS_WALLS
+uniform highp sampler2DArray atlasWalls;
+uniform float atlasWallsReady;
+#endif
+#if ATLAS_ROOMS
+uniform sampler2D atlasRooms;
+uniform float atlasRoomsReady;
+#endif
 float atlasHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float atlasBox(vec2 f, vec2 fw, vec2 lo, vec2 hi) {
   vec2 m = smoothstep(lo - fw, lo + fw, f) * (1.0 - smoothstep(hi - fw, hi + fw, f));
@@ -429,6 +473,24 @@ float atlasLine(float d, float width, float fw) { return 1.0 - smoothstep(width 
         `#include <color_fragment>
 float atlasGlassMask = 0.0;
 float atlasPane = 0.5;
+// Baked relief: how much of it this pixel shows, and its normal across and up the wall.
+float atlasRelief = 0.0;
+vec2 atlasBump = vec2(0.0);
+#if ATLAS_WALLS
+// Each layer tiles at its real size (WALL_TILE in walls.ts), offset per building so
+// neighbours never line up. Derivatives are taken here, in uniform control flow.
+float atlasLayer = floor(vAtlasStyle.w + 0.5);
+vec2 atlasWuv = vec2(vAtlasFace.x * vAtlasFaceSize.x, vAtlasY) / (atlasLayer == 1.0 ? 0.25 : atlasLayer == 3.0 ? 0.2 : 0.3)
+  + fract(vAtlasStyle.y * vec2(7.31, 3.17));
+vec2 atlasWdx = dFdx(atlasWuv), atlasWdy = dFdy(atlasWuv);
+#endif
+#if ATLAS_WALLS || ATLAS_ROOMS
+vec3 atlasQ0 = dFdx(-vViewPosition), atlasQ1 = dFdy(-vViewPosition);
+#endif
+#if ATLAS_ROOMS
+// How the face's across coordinate runs on screen, to orient each room with its window.
+float atlasFx0 = dFdx(vAtlasFace.x), atlasFx1 = dFdy(vAtlasFace.x);
+#endif
 {
   vec3 atlasWall = diffuseColor.rgb * vAtlasShade;
 #if ATLAS_WINDOWS
@@ -504,6 +566,14 @@ float atlasPane = 0.5;
   if (style == 4.0) atlasGlass = mix(atlasWall * 0.4, vec3(0.3, 0.16, 0.1), 0.3);
   float atlasLit = step(style == 4.0 ? 0.9 : 0.95, atlasNoise);
   atlasGlass = mix(atlasGlass, vec3(1.0, 0.86, 0.58), atlasLit * 0.75);
+  float atlasRail = 0.0, atlasSlab = 0.0, atlasUnder = 0.0;
+  if ((style == 0.0 || style == 3.0) && fract(vAtlasStyle.y * 53.0) > 0.45 && mod(floor(cell.x), 2.0) < 0.5) {
+    // Balconies on alternate bays of about half the punched-window buildings: a pale
+    // slab with its shadow on the wall below, and a frosted balustrade across the window.
+    atlasSlab = atlasBox(f, fw, vec2(-0.1, atlasLo.y - 0.09), vec2(1.1, atlasLo.y - 0.03));
+    atlasUnder = atlasBox(f, fw, vec2(-0.1, atlasLo.y - 0.22), vec2(1.1, atlasLo.y - 0.09));
+    atlasRail = atlasBox(f, fw, vec2(0.03, atlasLo.y - 0.03), vec2(0.97, atlasLo.y + 0.22));
+  }
   if (atlasBoxed > 0.5) {
     // Glazing with depth. Each window sits back in its opening: the lintel and one jamb
     // shade the pane, blinds hang at a height of the window's own, mullions divide it,
@@ -511,6 +581,48 @@ float atlasPane = 0.5;
     vec2 g = clamp((f - atlasLo) / (atlasHi - atlasLo), 0.0, 1.0);
     vec2 gfw = fw / (atlasHi - atlasLo);
     float atlasRoom = atlasHash(vec3(floor(cell) + 17.0, floor(vAtlasStyle.y * 997.0 + 0.5)));
+#if ATLAS_ROOMS
+    {
+      // Interior mapping: the window cell opens on a room box (one cell wide, one storey
+      // tall, 1.5 cells deep). Trace the view ray from the glass to the first wall, floor or
+      // ceiling it meets and look that point up in the room's pre-projected render.
+      vec3 rN = normalize(vNormal);
+      vec3 rUp = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+      vec3 rB = normalize(rUp - rN * dot(rUp, rN) + vec3(1e-6));
+      vec3 rT = cross(rB, rN);
+      // Point the room's x the way the face's across coordinate runs, so parallax is true.
+      vec3 rAcross = cross(atlasQ1, rN) * atlasFx0 + cross(rN, atlasQ0) * atlasFx1;
+      rT *= dot(rT, rAcross) < 0.0 ? -1.0 : 1.0;
+      vec2 rCell = vAtlasFaceSize / count;
+      vec3 rHalf = 0.5 * vec3(rCell, 1.5 * max(rCell.x, rCell.y));
+      vec3 rDir = normalize(-vViewPosition);
+      vec3 rd = vec3(dot(rDir, rT), dot(rDir, rB), min(dot(rDir, rN), -1e-3)) / rHalf;
+      rd += vec3(1e-5);
+      vec3 rp = vec3(f * 2.0 - 1.0, 1.0);
+      vec3 rt = (sign(rd) - rp) / rd;
+      vec3 rh = rp + rd * min(min(rt.x, rt.y), rt.z);
+      vec2 ruv = clamp(0.5 + 0.5 * rh.xy * ${ROOM_CN.toFixed(1)} / (1.0 + ${ROOM_CN.toFixed(1)} - rh.z), 0.004, 0.996);
+      // Curtain walls and ribbon windows open on offices; other buildings on homes.
+      float rPick = fract(atlasRoom * 13.7);
+      float rId;
+      if (style == 7.0 || style == 1.0) rId = 1.0 + 4.0 * floor(rPick * 4.0);
+      else {
+        float k = floor(rPick * 12.0);
+        float col = mod(k, 3.0);
+        rId = floor(k / 3.0) * 4.0 + col + (col >= 1.0 ? 1.0 : 0.0);
+      }
+      vec2 rTile = vec2(mod(rId, ${ROOM_GRID.toFixed(1)}), floor(rId / ${ROOM_GRID.toFixed(1)}));
+      vec2 rAtlas = (rTile + vec2(ruv.x, 1.0 - ruv.y)) / ${ROOM_GRID.toFixed(1)};
+      // The mip follows the window's size on screen: the hit point jumps at room corners,
+      // where its own derivatives would pick a needlessly blurry level.
+      float rLod = log2(max(max(fw.x, fw.y) * 256.0, 1.0));
+      vec3 rRoom = textureLod(atlasRooms, rAtlas, rLod).rgb;
+      // By day a room is darker than the street outside; a lit room glows warm.
+      rRoom *= mix(vec3(0.42, 0.44, 0.47), vec3(1.25, 1.08, 0.85), atlasLit);
+      float rShow = atlasRoomsReady * (1.0 - smoothstep(0.08, 0.2, max(fw.x, fw.y)));
+      atlasGlass = mix(atlasGlass, rRoom, rShow);
+    }
+#endif
     float drop = step(0.4, atlasRoom) * (0.15 + 0.7 * fract(atlasRoom * 7.3));
     float blind = smoothstep(1.0 - drop - gfw.y, 1.0 - drop + gfw.y, g.y) * step(0.001, drop);
     float slat = mix(1.0, 0.86 + 0.14 * step(0.5, fract(g.y * 16.0)), 1.0 - smoothstep(0.2, 0.45, gfw.y * 16.0));
@@ -562,12 +674,31 @@ float atlasPane = 0.5;
     float shadow = smoothstep(0.04, 0.06, x) * (1.0 - smoothstep(0.1, 0.14, x));
     surface = (1.0 + 0.2 * fin) * (1.0 - 0.12 * shadow * fineFade) * (f.y < 0.22 ? 0.9 : 1.0);
   }
+#if ATLAS_WALLS
+  {
+    // Baked in Blender from displaced geometry: real-size brick and ashlar replace the drawn
+    // courses; render, precast and metal keep their panel lines and gain the grain. The
+    // brightness ratio averages to 1, so the lens colour holds at every distance.
+    vec3 atlasBaked = textureGrad(atlasWalls, vec3(atlasWuv, material), atlasWdx, atlasWdy).rgb;
+    float baked = (material == 1.0 || material == 4.0 ? 1.0 : surface) * atlasBaked.r * 2.0;
+    surface = mix(surface, baked, atlasWallsReady);
+    atlasBump = (atlasBaked.gb * 2.0 - 1.0) * atlasWallsReady;
+  }
+#endif
   atlasWall *= mix(1.0, surface, fade);
   atlasWall = mix(atlasWall, mix(atlasWall, vec3(0.95, 0.92, 0.85), 0.28), light * fade);
   atlasWall = mix(atlasWall, atlasWall * 0.42, clamp(dark, 0.0, 1.0) * fade);
   atlasWall = mix(atlasWall, atlasGlass, glass * fade);
+  {
+    vec3 atlasBase = diffuseColor.rgb * vAtlasShade;
+    atlasWall = mix(atlasWall, atlasWall * 0.62, atlasUnder * fade);
+    atlasWall = mix(atlasWall, mix(atlasBase, vec3(0.9, 0.91, 0.92), 0.4), atlasRail * 0.72 * fade);
+    atlasWall = mix(atlasWall, mix(atlasBase, vec3(0.95, 0.93, 0.88), 0.42), atlasSlab * fade);
+  }
   // Paper screens barely reflect; lit windows glow instead of mirroring the sky.
-  atlasGlassMask = glass * fade * (style == 4.0 ? 0.25 : 1.0) * (1.0 - 0.85 * atlasLit);
+  atlasGlassMask = (1.0 - 0.6 * atlasRail) * (1.0 - atlasSlab) * glass * fade * (style == 4.0 ? 0.25 : 1.0) * (1.0 - 0.85 * atlasLit);
+  // Relief only on the wall itself: glass, balustrades and slabs stay smooth.
+  atlasRelief = fade * (1.0 - clamp(glass, 0.0, 1.0)) * (1.0 - atlasRail) * (1.0 - atlasSlab);
   totalEmissiveRadiance += vec3(0.5, 0.4, 0.22) * atlasLit * glass * fade;
   }
   // Past the range of single windows a tower would be a blank stick. Modern towers keep a
@@ -592,6 +723,7 @@ float atlasPane = 0.5;
     pane *= 1.0 - smoothstep(0.47 - bfw.y, 0.47 + bfw.y, bp.y);
     vec3 lobby = mix(atlasWall * 0.42, vec3(0.86, 0.8, 0.66), 0.42);
     atlasWall = mix(atlasWall, mix(atlasWall * 0.6, lobby, pane), baseFade);
+    atlasRelief *= 1.0 - pane * baseFade;
   } else if (baseKind == 2.0) {
     float m = fract(bp.x / 0.19);
     float pillar = 1.0 - smoothstep(0.26, 0.26 + bfw.x / 0.19 * 2.0, abs(m - 0.5) * 2.0);
@@ -611,6 +743,7 @@ float atlasPane = 0.5;
     float frame = (1.0 - smoothstep(0.085, 0.085 + bfw.x, x)) * (1.0 - smoothstep(0.43, 0.43 + bfw.y, bp.y)) - door;
     atlasWall = mix(atlasWall, atlasWall * 0.75, clamp(frame, 0.0, 1.0) * baseFade);
     atlasWall = mix(atlasWall, vec3(0.24, 0.17, 0.12), door * baseFade);
+    atlasRelief *= 1.0 - door * baseFade;
   }
   // Volume: wall faces darken toward their vertical corners, and each tier ends in a
   // shaded parapet under a pale coping line, so a tower reads as a solid with a top edge.
@@ -641,6 +774,23 @@ float atlasPane = 0.5;
 }`,
       )
       .replace(
+        '#include <normal_fragment_maps>',
+        `#include <normal_fragment_maps>
+#if ATLAS_WALLS
+if (atlasRelief > 0.001) {
+  // Tilt the shading normal by the baked one, in the tangent frame the wall coordinates
+  // trace on screen (as three's own normal maps do), so sunlight rakes every joint.
+  vec3 atlasQ1p = cross(atlasQ1, normal), atlasQ0p = cross(normal, atlasQ0);
+  vec3 atlasT = atlasQ1p * atlasWdx.x + atlasQ0p * atlasWdy.x;
+  vec3 atlasB = atlasQ1p * atlasWdx.y + atlasQ0p * atlasWdy.y;
+  float atlasDet = max(dot(atlasT, atlasT), dot(atlasB, atlasB));
+  float atlasS = atlasDet == 0.0 ? 0.0 : inversesqrt(atlasDet);
+  vec2 atlasD = clamp(atlasBump * atlasRelief, -0.9, 0.9);
+  normal = normalize(atlasT * (atlasD.x * atlasS) + atlasB * (atlasD.y * atlasS) + normal * sqrt(max(0.05, 1.0 - dot(atlasD, atlasD))));
+}
+#endif`,
+      )
+      .replace(
         '#include <envmap_fragment>',
         `#if ATLAS_WINDOWS
 if (atlasGlassMask > 0.001) {
@@ -663,7 +813,7 @@ if (atlasGlassMask > 0.001) {
 #include <envmap_fragment>`,
       );
   };
-  material.customProgramCacheKey = () => `atlas-facade-10-${detail ? 1 : 0}-${weather ? 1 : 0}`;
+  material.customProgramCacheKey = () => `atlas-facade-13-${detail ? 1 : 0}-${weather ? 1 : 0}-${walls ? 1 : 0}-${rooms ? 1 : 0}`;
   return material;
 }
 

@@ -1,5 +1,5 @@
 # Functional backup/drill tooling, never installed in API or analysis containers.
-FROM node@sha256:0820eaa85e07d0490446dd01d14707e17e6108a36988cf374899cd057eb3812d AS patched
+FROM node@sha256:af02d57b57719b9657a45199a79264a9437940cd55b3c7b3fc99615654f124a0 AS patched
 # DSA-6613-1. Apply the fixed package to build and runtime (ADR-093).
 RUN apt-get update \
  && apt-get install --yes --no-install-recommends --only-upgrade zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \

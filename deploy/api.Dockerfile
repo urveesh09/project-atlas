@@ -3,7 +3,8 @@
 #
 #   docker build -f deploy/api.Dockerfile -t atlas-api:dev .
 
-ARG NODE_IMAGE=node@sha256:0820eaa85e07d0490446dd01d14707e17e6108a36988cf374899cd057eb3812d
+# node:24.22.3-trixie-slim (Debian 13), pinned by digest (ADR-105).
+ARG NODE_IMAGE=node@sha256:af02d57b57719b9657a45199a79264a9437940cd55b3c7b3fc99615654f124a0
 
 FROM ${NODE_IMAGE} AS patched
 # DSA-6613-1. Apply the fixed package to build and runtime (ADR-093).

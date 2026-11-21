@@ -16,6 +16,7 @@ import {
   depotEaveGeometry,
   districtFamily,
   facadeMaterial,
+  setFacadeTexture,
   gableGeometry,
   gateGeometry,
   groundLevel,
@@ -36,6 +37,7 @@ import { mistTexture, sceneryGeometry, skyDome } from './atmosphere';
 import { circuitMaterial, cloudLayer, foliageMaterial, roadMarkMaterial, waterMaterial, type Clock } from './living';
 import { OCCLUDER_STRIDE, occlusionGrid, type OcclusionGrid } from './occlusion';
 import { OcclusionBaker, type BakeWorker } from './baker';
+import { loadRooms, loadWalls, neutralRooms, neutralWalls } from './walls';
 import { COVER, PAVE, detailTexture, fieldUniforms, withCover, withOcclusion, withPaving, withTiles, type FieldUniforms, type PavingStyle } from './shading';
 
 const center = (r: Rect) => new THREE.Vector3((r.x + r.width / 2) / 100, 0, (r.z + r.depth / 2) / 100);
@@ -714,7 +716,24 @@ export class CityRenderer {
     }
     // Seeded archetype batches share one facade material; each grows on demand. Accent
     // parts share one lens-shaded material per kind and outline.
-    this.facade = this.ownMaterial(facadeMaterial(!lite, this.spec.sky, detail, SUN));
+    // Baked wall materials (ADR-103) and the rooms behind the windows (ADR-104) arrive after
+    // the first frame; until then (and if they never load) the facade draws as before.
+    const walls = lite ? null : neutralWalls();
+    const rooms = lite ? null : neutralRooms();
+    for (const t of [walls, rooms]) if (t) this.textures.add(t);
+    this.facade = this.ownMaterial(facadeMaterial(!lite, this.spec.sky, detail, SUN, walls, rooms));
+    const arrive = (kind: 'walls' | 'rooms') => (texture: THREE.Texture) => {
+      if (this.disposed) return texture.dispose();
+      this.textures.add(texture);
+      const previous = setFacadeTexture(this.facade, kind, texture);
+      if (previous) {
+        this.textures.delete(previous);
+        previous.dispose();
+      }
+      this.invalidate();
+    };
+    if (walls) loadWalls(undefined, this.abort.signal).then(arrive('walls'), () => {});
+    if (rooms) loadRooms(undefined, this.abort.signal).then(arrive('rooms'), () => {});
     if (this.field) withOcclusion(this.facade, this.field, true);
     for (const a of this.archetypes) this.bodies.push(this.growable(this.ownGeometry(archetypeGeometry(a)), this.facade, true, 'both', true));
     // Lens-shaded accents (eaves, bands, battlements; corner parts carry dark caps per vertex),

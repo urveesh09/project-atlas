@@ -36,6 +36,16 @@ Agents: read [AGENTS.md](../AGENTS.md).
 
 ### City realism pass (2026-11-12)
 
+- [ADR-104](adr/ADR-104-rooms-behind-windows.md), 2026-11-21: interior mapping, with 16
+  rooms rendered in Blender into one 89 KiB atlas. Evidence: 6 wall and room tests and 32
+  city architecture tests pass; GT 730 captures with and without the atlas compile without
+  errors at unchanged draw calls and the 16.7 ms frame cap. GPU cost per megapixel is
+  unmeasured.
+- [ADR-103](adr/ADR-103-baked-wall-materials.md), 2026-11-21: wall materials baked in
+  Blender (build time only) into one 374 KiB image; balconies. Evidence: `pnpm verify`
+  with browser tests (1126 passed, 95 skipped), including 4 new wall tests; GT 730 captures with and without the texture compile
+  without errors at unchanged draw calls and the 16.7 ms frame cap. GPU cost per megapixel
+  is unmeasured (the comparison waits for the owner).
 - [ADR-102](adr/ADR-102-streets-traffic-and-glazing.md), 2026-11-14: road marks, zebra
   crossings, moving traffic, park paths and pools, boats and window depth. Evidence: 32
   city architecture tests pass; GT 730 frame time 16.7 ms median at 35–38 draw calls. GPU
@@ -343,6 +353,15 @@ The unchanged Windows rerun passed, with that six-test file taking 5.74 s, and a
 15 portable-package stages passing. Cause remains unproven. Preserve the original
 [failed job](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123519713078)
 and [successful rerun](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123526710451).
+
+### Node 24.22.3 image maintenance (2026-11-21)
+
+- The [PR #69 image run](https://github.com/urveesh09/project-atlas/actions/runs/44876845949)
+  flagged seven fixable High CVEs in the base image's Node 24.22.2.
+  [ADR-105](adr/ADR-105-node-24-22-3-images.md) moves every Node image pin to the official
+  digest-pinned `node:24.22.3-trixie-slim` (configuration `NODE_VERSION=24.22.3`). The zlib
+  pin, scanner policy and host Node minimum are unchanged. The images were not built
+  locally; CI's SBOM, provenance, scan and registry checks verify the exact head.
 
 ### Debian image maintenance for the architecture follow-ups (2026-11-09)
 
