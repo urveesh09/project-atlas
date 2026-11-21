@@ -36,6 +36,11 @@ Agents: read [AGENTS.md](../AGENTS.md).
 
 ### City realism pass (2026-11-12)
 
+- [ADR-104](adr/ADR-104-rooms-behind-windows.md), 2026-11-21: interior mapping, with 16
+  rooms rendered in Blender into one 89 KiB atlas. Evidence: 6 wall and room tests and 32
+  city architecture tests pass; GT 730 captures with and without the atlas compile without
+  errors at unchanged draw calls and the 16.7 ms frame cap. GPU cost per megapixel is
+  unmeasured.
 - [ADR-103](adr/ADR-103-baked-wall-materials.md), 2026-11-21: wall materials baked in
   Blender (build time only) into one 374 KiB image; balconies. Evidence: `pnpm verify`
   with browser tests (1126 passed, 95 skipped), including 4 new wall tests; GT 730 captures with and without the texture compile

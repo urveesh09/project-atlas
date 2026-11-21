@@ -56,7 +56,26 @@ def layer(src, pid, contrast):
     return np.clip(np.round(out * 255), 0, 255).astype(np.uint8)
 
 
+def rooms(src, dest):
+    """The 16 rooms from rooms.py as a 4 x 4 atlas, room 0 at the top left (ADR-104).
+
+    Each room's outermost pixel ring is replaced by its neighbours so a bilinear sample at
+    a tile's edge never reaches into the next room. Colour, so ordinary 4:2:0 JPEG.
+    """
+    tiles = []
+    for n in range(16):
+        t = np.asarray(Image.open(f"{src}/room_{n:02d}.png").convert("RGB")).copy()
+        t[0], t[-1], t[:, 0], t[:, -1] = t[1], t[-2], t[:, 1], t[:, -2]
+        tiles.append(t)
+    rows = [np.concatenate(tiles[r * 4 : r * 4 + 4], 1) for r in range(4)]
+    img = Image.fromarray(np.concatenate(rows, 0), "RGB")
+    img.save(dest, format="JPEG", quality=85, optimize=True)
+    print(f"wrote {dest} {img.size}")
+
+
 def main():
+    if sys.argv[1] == "--rooms":
+        return rooms(sys.argv[2], sys.argv[3])
     src, dest = sys.argv[1], sys.argv[2]
     tiles = [layer(src, pid, c) for pid, c in LAYERS]
     atlas = np.concatenate(tiles, 0)

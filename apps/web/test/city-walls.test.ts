@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { facadeMaterial, setFacadeWalls } from '../src/city/architecture';
-import { WALL_LAYERS, WALL_TILE, neutralWalls, wallTexture } from '../src/city/walls';
+import { facadeMaterial, setFacadeTexture } from '../src/city/architecture';
+import { OFFICE_ROOMS, ROOM_GRID, WALL_LAYERS, WALL_TILE, neutralRooms, neutralWalls, wallTexture } from '../src/city/walls';
 
 /** Width, height and per-component sampling factors from a JPEG's frame header. */
 function jpegFrame(bytes: Uint8Array) {
@@ -65,12 +65,37 @@ describe('baked wall materials (ADR-103)', () => {
       loaded = neutralWalls();
     const detailed = facadeMaterial(true, undefined, null, undefined, placeholder);
     expect(detailed.defines).toMatchObject({ ATLAS_WALLS: 1 });
-    expect(setFacadeWalls(detailed, loaded)).toBe(placeholder);
+    expect(setFacadeTexture(detailed, 'walls', loaded)).toBe(placeholder);
     const lite = facadeMaterial(false, undefined, null, undefined, null);
     expect(lite.defines).toMatchObject({ ATLAS_WALLS: 0 });
-    expect(setFacadeWalls(lite, loaded)).toBeNull();
+    expect(setFacadeTexture(lite, 'walls', loaded)).toBeNull();
     // The shader program differs with and without walls, so the two never share a cache entry.
     expect(detailed.customProgramCacheKey()).not.toBe(facadeMaterial(true).customProgramCacheKey());
     for (const t of [placeholder, loaded]) t.dispose();
+  });
+
+  it('ships the rooms behind the windows as a square atlas with offices on one column (ADR-104)', () => {
+    const bytes = new Uint8Array(readFileSync(fileURLToPath(new URL('../src/assets/facade-rooms.jpg', import.meta.url))));
+    const frame = jpegFrame(bytes);
+    expect(frame.width).toBe(frame.height);
+    expect(frame.width % ROOM_GRID).toBe(0);
+    expect(frame.width / ROOM_GRID).toBeGreaterThanOrEqual(128);
+    expect(bytes.length).toBeLessThan(200 * 1024);
+    // The shader picks offices as 1 + 4k: the second column of the atlas, as rooms.py renders them.
+    expect([...OFFICE_ROOMS]).toEqual(Array.from({ length: ROOM_GRID }, (_, k) => 1 + ROOM_GRID * k));
+  });
+
+  it('swaps loaded rooms in without touching the walls', () => {
+    const walls = neutralWalls(),
+      rooms = neutralRooms(),
+      loaded = neutralRooms();
+    expect(rooms.colorSpace).toBe(THREE.SRGBColorSpace);
+    const detailed = facadeMaterial(true, undefined, null, undefined, walls, rooms);
+    expect(detailed.defines).toMatchObject({ ATLAS_WALLS: 1, ATLAS_ROOMS: 1 });
+    expect(setFacadeTexture(detailed, 'rooms', loaded)).toBe(rooms);
+    expect(setFacadeTexture(detailed, 'walls', walls)).toBe(walls);
+    expect(facadeMaterial(true, undefined, null, undefined, walls).defines).toMatchObject({ ATLAS_ROOMS: 0 });
+    expect(setFacadeTexture(facadeMaterial(true, undefined, null, undefined, walls), 'rooms', loaded)).toBeNull();
+    for (const t of [walls, rooms, loaded]) t.dispose();
   });
 });

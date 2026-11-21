@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import wallsUrl from '../assets/facade-walls.jpg';
+import roomsUrl from '../assets/facade-rooms.jpg';
 
 /**
  * Baked wall materials (ADR-103): render, brick, precast concrete, metal cladding and ashlar,
@@ -46,10 +47,8 @@ export function wallTexture(rgba: Uint8Array | Uint8ClampedArray, size: number, 
 
 /** Fetch and decode the baked walls. Rejects where the browser cannot decode an image off-screen. */
 export async function loadWalls(url: string = wallsUrl, signal?: AbortSignal): Promise<THREE.DataArrayTexture> {
-  const response = await fetch(url, { signal: signal ?? null });
-  if (!response.ok) throw new Error(`walls: HTTP ${response.status}`);
   // Raw bytes: no colour management, since the channels are data, not colour.
-  const bitmap = await createImageBitmap(await response.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+  const bitmap = await fetchBitmap(url, signal, 'none');
   try {
     const size = bitmap.width;
     if (bitmap.height !== size * WALL_LAYERS) throw new Error(`walls: unexpected size ${bitmap.width}×${bitmap.height}`);
@@ -61,4 +60,46 @@ export async function loadWalls(url: string = wallsUrl, signal?: AbortSignal): P
   } finally {
     bitmap.close();
   }
+}
+
+async function fetchBitmap(url: string, signal: AbortSignal | undefined, colorSpaceConversion: ColorSpaceConversion): Promise<ImageBitmap> {
+  const response = await fetch(url, { signal: signal ?? null });
+  if (!response.ok) throw new Error(`facade texture: HTTP ${response.status}`);
+  return createImageBitmap(await response.blob(), { colorSpaceConversion, premultiplyAlpha: 'none' });
+}
+
+/**
+ * Rooms behind the windows (ADR-104): 16 furnished rooms rendered in Blender, 4 × 4, room 0
+ * at the top left. Each is pre-projected from a camera `ROOM_CN` half-depths in front of its
+ * window, so the facade shader maps a point it finds on the room box straight to the image.
+ * Rooms 1, 5, 9 and 13 (`OFFICE_ROOMS`) are offices.
+ */
+export const ROOM_GRID = 4;
+export const ROOM_CN = 2;
+export const OFFICE_ROOMS = [1, 5, 9, 13] as const;
+
+/** A dim, neutral interior until the rooms arrive. */
+export function neutralRooms(): THREE.DataTexture {
+  const texture = new THREE.DataTexture(new Uint8Array([40, 42, 46, 255]), 1, 1);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** Fetch and decode the room atlas. Rejects where the browser cannot decode an image off-screen. */
+export async function loadRooms(url: string = roomsUrl, signal?: AbortSignal): Promise<THREE.Texture> {
+  const bitmap = await fetchBitmap(url, signal, 'default');
+  if (bitmap.width !== bitmap.height) {
+    bitmap.close();
+    throw new Error(`rooms: unexpected size ${bitmap.width}×${bitmap.height}`);
+  }
+  const texture = new THREE.Texture(bitmap);
+  // An ImageBitmap is never flipped on upload: texture v 0 is the image's top row.
+  texture.flipY = false;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
+  texture.needsUpdate = true;
+  return texture;
 }

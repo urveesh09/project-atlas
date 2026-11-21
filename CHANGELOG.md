@@ -7,6 +7,10 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Rooms behind the windows ([ADR-104](docs/adr/ADR-104-rooms-behind-windows.md)): every
+  rectangular window opens on a furnished room (homes, or offices in glass towers) seen in
+  true perspective as the camera moves, from 16 rooms rendered once in Blender (an 89 KiB
+  image). Lit windows glow with their room. Windows show plain glass until it loads.
 - Real wall materials ([ADR-103](docs/adr/ADR-103-baked-wall-materials.md)): brick,
   stone, concrete, metal and render baked in Blender from displaced geometry at real size,
   so joints and grain catch the sunlight up close. The lens colour is unchanged (only
