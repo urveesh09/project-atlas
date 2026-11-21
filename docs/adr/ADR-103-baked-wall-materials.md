@@ -72,3 +72,9 @@ tool.
   cost of this change is unmeasured beyond frames staying at the cap.
 - CI's software renderer runs the lite scene, so CI never compiles the textured path; the
   GT 730 captures above are its only compile evidence.
+- The browser-only privacy journey (`viewer.e2e.test.ts`, "sends nothing anywhere") allows
+  only the viewer's own static files after an artifact opens. CI's WebKit job draws the
+  full-detail city and so fetched `facade-walls-*.jpg`, which failed that check on the
+  first push (run 44876845887). The image is a same-origin viewer asset carrying no
+  artifact bytes, so the allow-list names it explicitly (only that file, not every image),
+  as ADR-058 did for the font subsets; every other request, and every non-GET, still fails.
