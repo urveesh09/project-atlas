@@ -1,125 +1,37 @@
 {
   "task": "P6 distribution candidate fresh-install smoke",
-  "recordedAt": "2026-11-21T09:02:48.872Z",
+  "recordedAt": "2026-10-18T15:36:00.333Z",
   "os": "Windows_NT 10.0.26200 x64",
-  "node": "v24.22.1",
-  "archiveSha256": "c3d6e5d2ae3620a775285de8f64d5bc3fa08033292024c74b25889ac12873aa6",
-  "archiveBytes": 11684688,
-  "sourceCommit": "eeae327cc3903252c4da3e0234be8699e3bac3f0",
-  "workingTreeDirty": true,
+  "node": "v24.22.0",
+  "archiveSha256": "359ae6f9e01d57ecfc5ac067997c16a38d32c02a5e4d0f4df43ff1911eeedeb7",
+  "archiveBytes": 10501952,
+  "sourceCommit": "88f2b7456115d1bda1f81b33523d2f9db8d43163",
+  "workingTreeDirty": false,
   "stages": [
     {
       "stage": "relocated-extraction-and-integrity",
-      "files": 1709,
-      "documentationLinks": 19,
+      "files": 1586,
+      "documentationLinks": 14,
       "passed": true
     },
     {
       "stage": "doctor",
-      "elapsedMs": 715.6714000000011,
+      "elapsedMs": 810.7303999999999,
       "passed": true
     },
     {
       "stage": "analyze",
-      "elapsedMs": 1736.0216,
-      "passed": true
-    },
-    {
-      "stage": "findings",
-      "elapsedMs": 610.7908000000007,
-      "passed": true
-    },
-    {
-      "stage": "findings",
-      "elapsedMs": 634.4893999999986,
-      "passed": true
-    },
-    {
-      "stage": "scan-evidence",
-      "elapsedMs": 631.9391000000014,
-      "passed": true
-    },
-    {
-      "stage": "analyze",
-      "elapsedMs": 2090.4655999999995,
-      "passed": true
-    },
-    {
-      "stage": "findings",
-      "elapsedMs": 686.0578999999998,
-      "passed": true
-    },
-    {
-      "stage": "scan-evidence",
-      "elapsedMs": 723.0269999999982,
-      "passed": true
-    },
-    {
-      "stage": "findings",
-      "elapsedMs": 637.2049000000006,
-      "passed": true
-    },
-    {
-      "stage": "scan-evidence",
-      "elapsedMs": 620.2308999999987,
-      "passed": true
-    },
-    {
-      "stage": "review-findings",
-      "elapsedMs": 1019.6640000000007,
-      "expectedExit": 2,
-      "passed": true
-    },
-    {
-      "stage": "analyze",
-      "elapsedMs": 4020.255500000003,
+      "elapsedMs": 6350.8014,
       "passed": true
     },
     {
       "stage": "verify",
-      "elapsedMs": 729.4592999999986,
+      "elapsedMs": 721.8642,
       "passed": true
     },
     {
       "stage": "inspect",
-      "elapsedMs": 640.1701999999968,
-      "passed": true
-    },
-    {
-      "stage": "review-architecture",
-      "elapsedMs": 792.5403000000006,
-      "expectedExit": 3,
-      "passed": true
-    },
-    {
-      "stage": "review-architecture",
-      "elapsedMs": 654.2875999999997,
-      "expectedExit": 3,
-      "passed": true
-    },
-    {
-      "stage": "workspace-init",
-      "elapsedMs": 634.7364000000016,
-      "passed": true
-    },
-    {
-      "stage": "workspace-decide",
-      "elapsedMs": 650.4944000000032,
-      "passed": true
-    },
-    {
-      "stage": "workspace-export",
-      "elapsedMs": 673.7729000000036,
-      "passed": true
-    },
-    {
-      "stage": "workspace-import",
-      "elapsedMs": 652.4975999999951,
-      "passed": true
-    },
-    {
-      "stage": "workspace-inspect",
-      "elapsedMs": 743.999800000005,
+      "elapsedMs": 625.0550000000003,
       "passed": true
     },
     {
@@ -129,25 +41,6 @@
       "pageErrors": 0,
       "browser": "156.0.8078.4",
       "renderer": "SwiftShader; functional only"
-    },
-    {
-      "stage": "packaged-browser-workspace-evidence",
-      "passed": true,
-      "outboundRequests": 0,
-      "pageErrors": 0,
-      "browser": "156.0.8078.4"
-    },
-    {
-      "stage": "workspace-import",
-      "elapsedMs": 920.2116999999998,
-      "passed": true
-    },
-    {
-      "stage": "packaged-browser-workspace-draft",
-      "passed": true,
-      "outboundRequests": 0,
-      "pageErrors": 0,
-      "browser": "156.0.8078.4"
     }
   ],
   "pass": true,
