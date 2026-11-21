@@ -1637,11 +1637,13 @@ gate state: ${JSON.stringify({ shown, picks, requests: requests.slice(-12), page
       expect(await stage('audit the opened artifact', () => audit(page, 'browser-only-artifact'))).toEqual([]);
       const after = requests.slice(before);
       // Only the viewer's own static files may be fetched: the loader worker script and, since
-      // ADR-058, the bundled font subsets the explorer first uses, and since ADR-103 the
-      // facade's baked wall texture, which a full-detail city loads. No artifact bytes are sent.
+      // ADR-058, the bundled font subsets the explorer first uses, and since ADR-103 and
+      // ADR-104 the facade's baked wall texture and room atlas, which a full-detail city loads.
+      // No artifact bytes are sent.
       // WebKit also reports in-memory `blob:` URLs of this origin; they never reach a network.
       const ownAsset = (url: string) =>
-        (url.startsWith(origin) && /\/assets\/(?:[^/]+\.(?:js|woff2)|facade-walls-[\w-]+\.jpg)$/.test(url)) || url.startsWith(`blob:${origin}/`);
+        (url.startsWith(origin) && /\/assets\/(?:[^/]+\.(?:js|woff2)|facade-(?:walls|rooms)-[\w-]+\.jpg)$/.test(url)) ||
+        url.startsWith(`blob:${origin}/`);
       expect(after.filter((r) => r.method !== 'GET' || !ownAsset(r.url))).toEqual([]);
       expect(requests.filter((r) => r.method !== 'GET')).toEqual([]);
       const loaded = await readArtifactDirectory(path.join(work, 'harbor-out'));
