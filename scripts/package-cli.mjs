@@ -49,7 +49,8 @@ async function collectNotices(dir, seen = new Set()) {
   seen.add(id);
   if (!pkg.name.startsWith('@atlas/')) {
     const names = noticeNames(await readdir(dir, { withFileTypes: true }));
-    const supplied = id === '@react-three/fiber@9.8.2' ? 'react-three-fiber-9.8.2-LICENSE' : null;
+    // Exact package versions whose npm payload lacks its license file (docs/release/licenses).
+    const supplied = { '@react-three/fiber@9.8.2': 'react-three-fiber-9.8.2-LICENSE', 'react-remove-scroll-bar@2.3.8': 'react-remove-scroll-bar-2.3.8-LICENSE' }[id] ?? null;
     assert(names.length > 0 || supplied, `Missing third-party license text: ${id}`);
     const relative = `third-party/${pkg.name.replaceAll('/', '_')}@${pkg.version}`;
     await mkdir(path.join(bundle, relative), { recursive: true });

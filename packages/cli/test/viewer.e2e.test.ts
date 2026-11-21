@@ -191,8 +191,14 @@ const focusedText = (page: Page) =>
 async function chooseOption(select: Locator, value: string): Promise<void> {
   await select.click();
   const page = select.page();
-  await page.locator(`[role="option"][data-value="${value}"]`).click();
+  const option = page.locator(`[role="option"][data-value="${value}"]`);
+  // A long list scrolls inside its panel: bring the choice into view before clicking it.
+  await option.evaluate((element) => element.scrollIntoView({ block: 'nearest' }));
+  await option.click();
   await page.locator('.select-content').waitFor({ state: 'detached' });
+  // Let the close finish (React's effects and the focus hand-back run a frame and a task
+  // later), as a person's next action would, so the next step starts from a settled page.
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0))));
 }
 
 /** The current value of one of the viewer's dropdowns, as `inputValue` read it from a `<select>`. */

@@ -913,7 +913,8 @@ h2:focus-visible {
 .select-content {
   z-index: 1000;
   min-width: var(--radix-select-trigger-width);
-  max-height: min(360px, var(--radix-select-content-available-height));
+  /* Tall enough for the grouped Lens list (about 460 px) without scrolling. */
+  max-height: min(520px, var(--radix-select-content-available-height));
   overflow: hidden;
   color: var(--text);
   background: var(--panel);

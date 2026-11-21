@@ -55,7 +55,19 @@ export function Select({ value, onValueChange, choices, id, disabled, title, cla
         </Primitive.Icon>
       </Primitive.Trigger>
       <Primitive.Portal>
-        <Primitive.Content className="select-content" position="popper" sideOffset={6} collisionPadding={8}>
+        <Primitive.Content
+          className="select-content"
+          position="popper"
+          sideOffset={6}
+          collisionPadding={8}
+          // Closing hands focus back to the trigger, but Radix does it a task later. If
+          // something else has taken focus by then (a choice that opened an editor, a fast
+          // keyboard user), leave it there instead of pulling it back.
+          onCloseAutoFocus={(event) => {
+            const active = document.activeElement;
+            if (active && active !== document.body && !active.closest('.select-content')) event.preventDefault();
+          }}
+        >
           <Primitive.ScrollUpButton className="select-scroll">
             <Icon name="chevronUp" size={14} />
           </Primitive.ScrollUpButton>

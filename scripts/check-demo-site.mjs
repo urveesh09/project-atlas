@@ -59,7 +59,10 @@ try {
   await page.waitForSelector('#overview-title', { timeout: 90_000 });
   summary.cityMs = Date.now() - started;
   summary.renderer = await page.locator('[data-city-renderer]').first().getAttribute('data-city-renderer');
-  await page.getByLabel('View', { exact: true }).selectOption('table');
+  // The viewer's dropdowns are Radix selects (ADR-106): open the trigger, pick by value.
+  await page.getByLabel('View', { exact: true }).click();
+  await page.locator('[role="option"][data-value="table"]').click();
+  await page.locator('.select-content').waitFor({ state: 'detached' });
   const file = page.locator('.city-table tbody th button').first();
   summary.file = await file.innerText();
   await file.click();

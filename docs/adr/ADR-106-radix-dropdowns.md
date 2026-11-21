@@ -32,6 +32,24 @@ every platform.
   unchanged.
 - An empty value (the architecture rule filter's "All rules", where a real rule may be named
   `all`) maps to an internal sentinel, because Radix reserves the empty string.
+- Closing a list hands focus back to its trigger, but Radix does that a task later. In CI
+  (run on commit eeae327) a decision chosen in one dropdown opened the draft editor, the
+  editor focused its own first field, and the late hand-back pulled focus away again,
+  failing the keyboard journey that expects focus in the editor. The trigger now takes
+  focus back only if nothing else has taken it meanwhile; after a mouse choice, a keyboard
+  choice and Escape, focus still lands on the trigger.
+- The list panel may grow to 520 px (or the space available), so the grouped Lens list
+  (about 460 px) opens without scrolling. In CI Firefox (same run) a journey choosing a
+  lens near the end of the then-scrolling list timed out once; longer lists still scroll,
+  with arrows, and the test helper brings a choice into view before clicking it.
+- The CLI distribution ships every runtime dependency's license text. One new transitive
+  package, `react-remove-scroll-bar@2.3.8` (MIT), was published without a license file, so
+  `pnpm verify:distribution` stopped on it in CI (macOS). As for `@react-three/fiber@9.8.2`,
+  the packager supplies the author's MIT text for that exact version from
+  `docs/release/licenses`, pinned to the upstream Git blob.
+- The distribution smoke test (`scripts/verify-cli-package.mjs`) and the demo-site deploy
+  check (`scripts/check-demo-site.mjs`) picked choices with `selectOption`; they now open
+  the dropdown and pick by value, like the journeys.
 - Native checkboxes, buttons, text fields and the existing `<details>` menus are unchanged,
   with one fix found while reviewing them: the city card clips its overflow, so at a
   1440 px window the Notes menu was cut off at the card's right edge. A menu that would
