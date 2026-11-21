@@ -735,7 +735,16 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await valueOf(page.getByRole('combobox', { name: 'View', exact: true }))).toBe('table');
     expect(await page.getByRole('searchbox', { name: 'Highlight paths' }).inputValue()).toBe('src/server');
     const download = page.waitForEvent('download');
-    await views.getByRole('button', { name: 'Export views' }).click();
+    await views.getByRole('button', { name: 'Export views' }).click({ timeout: 8000 }).catch(async (e) => {
+      const info = await page.evaluate(() => {
+        const b = [...document.querySelectorAll('button')].find((x) => x.textContent?.includes('Export views'))!;
+        const r = b.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        return { box: [r.x, r.y, r.width, r.height], vh: innerHeight, hit: hit?.outerHTML.slice(0, 300), open: [...document.querySelectorAll('details[open]')].map((d) => d.className), panel: b.closest('.city-views-panel')?.className, body: document.body.getAttribute('style') };
+      });
+      console.log('DIAG export click failed', e.message.slice(0, 1200), JSON.stringify(info));
+      throw e;
+    });
     const file = await (await download).path();
     const { readFileSync } = await import('node:fs');
     const exported = JSON.parse(readFileSync(file!, 'utf8'));
@@ -818,7 +827,10 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await bands.locator('summary').click();
     const saved = page.locator('.city-saved');
     await saved.locator('summary').click();
-    await saved.getByRole('button', { name: 'Most depended on', exact: true }).click();
+    await saved.getByRole('button', { name: 'Most depended on', exact: true }).click({ timeout: 8000 }).catch(async (e) => {
+      console.log('DIAG preset click failed', e.message.slice(0, 1200), JSON.stringify(await page.evaluate(() => ({ open: [...document.querySelectorAll('details[open]')].map((d) => d.className), body: document.body.getAttribute('style'), portals: document.querySelectorAll('.select-content').length }))));
+      throw e;
+    });
     expect(await valueOf(lens)).toBe('fan-in');
     await saved.getByRole('button', { name: 'Largest files', exact: true }).click();
     expect(await valueOf(lens)).toBe('code-lines');
