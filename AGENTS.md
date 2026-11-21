@@ -176,7 +176,9 @@ must be green before a change counts as verified.
   floors. Decoration must keep clear of `CityData.rootPlots`. ADR-102 adds road marks, moving traffic, park paths and
   pools, boats and glazing with depth. ADR-103 bakes the wall materials in Blender
   (`scripts/facade-textures`); the viewer only loads the image. ADR-104 adds rooms behind
-  the windows (interior mapping) from a room atlas rendered the same way. Allocate ADR-105 next.
+  the windows (interior mapping) from a room atlas rendered the same way. ADR-105 moves
+  every Node image pin to 24.22.3 after seven High Node CVEs blocked the image gate.
+  Allocate ADR-106 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

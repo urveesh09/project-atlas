@@ -354,6 +354,15 @@ The unchanged Windows rerun passed, with that six-test file taking 5.74 s, and a
 [failed job](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123519713078)
 and [successful rerun](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123526710451).
 
+### Node 24.22.3 image maintenance (2026-11-21)
+
+- The [PR #69 image run](https://github.com/urveesh09/project-atlas/actions/runs/44876845949)
+  flagged seven fixable High CVEs in the base image's Node 24.22.2.
+  [ADR-105](adr/ADR-105-node-24-22-3-images.md) moves every Node image pin to the official
+  digest-pinned `node:24.22.3-trixie-slim` (configuration `NODE_VERSION=24.22.3`). The zlib
+  pin, scanner policy and host Node minimum are unchanged. The images were not built
+  locally; CI's SBOM, provenance, scan and registry checks verify the exact head.
+
 ### Debian image maintenance for the architecture follow-ups (2026-11-09)
 
 - The first [PR #57 image run](https://github.com/urveesh09/project-atlas/actions/runs/42590323399)
