@@ -174,7 +174,8 @@ must be green before a change counts as verified.
   catalog. ADR-101 records the realism pass: parkland and parked cars on the
   repository block's open ground, terrain scenery, sky, light and tower service
   floors. Decoration must keep clear of `CityData.rootPlots`. ADR-102 adds road marks, moving traffic, park paths and
-  pools, boats and glazing with depth. Allocate ADR-103 next.
+  pools, boats and glazing with depth. ADR-103 bakes the wall materials in Blender
+  (`scripts/facade-textures`); the viewer only loads the image. Allocate ADR-104 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

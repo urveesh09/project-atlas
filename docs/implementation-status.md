@@ -36,6 +36,11 @@ Agents: read [AGENTS.md](../AGENTS.md).
 
 ### City realism pass (2026-11-12)
 
+- [ADR-103](adr/ADR-103-baked-wall-materials.md), 2026-11-21: wall materials baked in
+  Blender (build time only) into one 374 KiB image; balconies. Evidence: `pnpm verify`
+  with browser tests (1126 passed, 95 skipped), including 4 new wall tests; GT 730 captures with and without the texture compile
+  without errors at unchanged draw calls and the 16.7 ms frame cap. GPU cost per megapixel
+  is unmeasured (the comparison waits for the owner).
 - [ADR-102](adr/ADR-102-streets-traffic-and-glazing.md), 2026-11-14: road marks, zebra
   crossings, moving traffic, park paths and pools, boats and window depth. Evidence: 32
   city architecture tests pass; GT 730 frame time 16.7 ms median at 35–38 draw calls. GPU

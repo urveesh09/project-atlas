@@ -7,6 +7,11 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Real wall materials ([ADR-103](docs/adr/ADR-103-baked-wall-materials.md)): brick,
+  stone, concrete, metal and render baked in Blender from displaced geometry at real size,
+  so joints and grain catch the sunlight up close. The lens colour is unchanged (only
+  brightness and relief are stored), the image is 374 KiB, and walls draw as before until
+  it loads. Some punched-window buildings gain balconies.
 - Livelier streets and more believable buildings
   ([ADR-102](docs/adr/ADR-102-streets-traffic-and-glazing.md)): lane marks, zebra
   crossings and moving cars in the Modern style, footpaths and pools in parks, sailing
