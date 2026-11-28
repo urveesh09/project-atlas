@@ -81,6 +81,9 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   workspace, and type-ahead letters reach the list instead of the city shortcuts (ADR-107).
 - The production rehearsal's nft step now really validates the firewall rules (it read an
   empty input before) and proves it rejects a broken batch (ADR-107).
+- The container images install Debian 13.7's fixed glibc (CVE-2026-5435 and
+  CVE-2026-19499, caught by the unchanged image vulnerability gate). The backup tool image
+  pins PostgreSQL client 17.12, after Debian withdrew 17.11 (ADR-108).
 - Node 24.22.1 and its immutable container base replace 24.22.0 to address the
   October security advisories caught by the unchanged image vulnerability gate
   (ADR-088). Doctor now checks the patch-level security floor.

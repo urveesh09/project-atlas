@@ -9,9 +9,11 @@
 ARG NODE_IMAGE=node@sha256:af02d57b57719b9657a45199a79264a9437940cd55b3c7b3fc99615654f124a0
 
 FROM ${NODE_IMAGE} AS patched
-# DSA-6613-1. Apply the fixed package to build and runtime (ADR-093).
+# DSA-6613-1 (zlib, ADR-093) and Debian 13.7's glibc fixes for CVE-2026-5435 and
+# CVE-2026-19499 (ADR-108). Apply the fixed packages to build and runtime.
 RUN apt-get update \
  && apt-get install --yes --no-install-recommends --only-upgrade zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \
+    libc6=2.41-12+deb13u5 libc-bin=2.41-12+deb13u5 \
  && rm -rf /var/lib/apt/lists/*
 
 FROM patched AS build

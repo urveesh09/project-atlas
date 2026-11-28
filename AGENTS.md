@@ -184,7 +184,10 @@ must be green before a change counts as verified.
   Kenney cars (`scripts/vehicle-models`), half as many finer trees (`TREE_KEEP`) whose tint
   spares the bark, and
   baked ground and roof surfaces, and makes the
-  rehearsal's nft check real. Allocate ADR-108 next.
+  rehearsal's nft check real. ADR-108 pins Debian 13.7's fixed glibc in every image's
+  `patched` stage and PostgreSQL client 17.12 in the backup tools. When Debian withdraws a
+  pinned version, read the current one with `apt-cache policy` inside the pinned base.
+  Allocate ADR-109 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls
