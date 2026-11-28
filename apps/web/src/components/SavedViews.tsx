@@ -3,7 +3,7 @@ import { useViewer } from '../app/context';
 import { downloadBlob } from '../city/export';
 import { loadSavedViews, mergeSavedViews, parseSavedViewsFile, serializeSavedViews, storeSavedViews, SAVED_VIEW_LIMITS, type SavedView } from '../app/saved-views';
 import { Icon } from './Icon';
-import { MenuSummary } from './MenuSummary';
+import { CityMenu } from './CityMenu';
 
 /**
  * Named views of the city (ADR-048), kept in this browser for this repository and
@@ -58,9 +58,7 @@ export function SavedViews({
     }
   };
   return (
-    <details className="city-views city-saved">
-      <MenuSummary icon="bookmark" label={`Saved views${views.length ? ` (${views.length})` : ''}`} badge={views.length ? String(views.length) : null} />
-      <div className="city-views-panel">
+    <CityMenu name="saved" icon="bookmark" label={`Saved views${views.length ? ` (${views.length})` : ''}`} badge={views.length ? String(views.length) : null}>
         {presets.length > 0 && (
           <div className="city-views-presets">
             <strong>Built-in views</strong>
@@ -140,7 +138,6 @@ export function SavedViews({
             {note}
           </p>
         )}
-      </div>
-    </details>
+    </CityMenu>
   );
 }

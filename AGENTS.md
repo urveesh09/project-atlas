@@ -179,7 +179,15 @@ must be green before a change counts as verified.
   the windows (interior mapping) from a room atlas rendered the same way. ADR-105 moves
   every Node image pin to 24.22.3 after seven High Node CVEs blocked the image gate.
   ADR-106 replaces the viewer's native selects with one Radix UI `Select`; e2e tests pick
-  and read dropdowns with `chooseOption` and `valueOf`. Allocate ADR-107 next.
+  and read dropdowns with `chooseOption` and `valueOf`. ADR-107 moves the city menus to a
+  Radix popover (`CityMenu`; tests open them with `.city-menu-trigger`), adds `Tip` tooltips,
+  Kenney cars (`scripts/vehicle-models`), half as many finer trees (`TREE_KEEP`) whose tint
+  spares the bark, and
+  baked ground and roof surfaces, and makes the
+  rehearsal's nft check real. ADR-108 pins Debian 13.7's fixed glibc in every image's
+  `patched` stage and PostgreSQL client 17.12 in the backup tools. When Debian withdraws a
+  pinned version, read the current one with `apt-cache policy` inside the pinned base.
+  Allocate ADR-109 next.
 - Commit messages explain why. Never skip hooks.
 
 ## 6. Known pitfalls

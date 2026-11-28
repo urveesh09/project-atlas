@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { LENS_STOPS, METRIC_PALETTE, UNKNOWN_COLOR, bandIndex, facadeColor, lensValue, type CityBuilding, type CityLens, type MetricLens } from '@atlas/layout';
 import type { ReachResult } from '@atlas/graph';
 import { POLICIES } from '@atlas/graph';
@@ -29,7 +29,9 @@ import { Icon } from './Icon';
 import { Select } from './Select';
 import { CHANGE_BANDS, CHANGE_COLORS, CHANGE_LABEL, CHANGE_METRICS, changeBandLabel, changePaint, formatChange, type ChangeMetric } from '../city/change';
 import '../styles/city.css';
-import { MenuSummary } from './MenuSummary';
+import { CityMenu, CityMenus } from './CityMenu';
+import { Tip } from './Tip';
+import { inLayer, layerOpen } from '../app/layers';
 
 const ThreeCity = lazy(() => import('../city/ThreeCity'));
 const EMPTY: OverlayResult = {
@@ -105,57 +107,12 @@ const NO_VIEWS: ViewHistory = { back: false, forward: false };
 /** Keys typed into a control never drive the city (plan §12.4). */
 const typing = (target: EventTarget | null) => target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable="true"]') !== null;
 
-/**
- * City menus open below their button. The city card clips its overflow, so a menu that
- * would cross one of the card's edges slides sideways just far enough to fit (8 px inside),
- * without crossing the other edge (ADR-106). It is placed again whenever the layout can
- * move its button: when a menu opens, after every render of the city (a view change
- * rewraps the toolbar) and when the card resizes. Placing once, at open, left a menu
- * stranded off the card after the toolbar rewrapped. `translate` composes with the open
- * animation's `transform`.
- */
-function placeOpenMenus(card: HTMLElement) {
-  const bounds = card.getBoundingClientRect();
-  for (const panel of card.querySelectorAll<HTMLElement>('details.city-views[open] > .city-views-panel')) {
-    panel.style.translate = '';
-    const box = panel.getBoundingClientRect();
-    const pastRight = box.right - (bounds.right - 8),
-      pastLeft = bounds.left + 8 - box.left;
-    const dx = pastRight > 0 ? -Math.min(pastRight, Math.max(0, -pastLeft)) : pastLeft > 0 ? Math.min(pastLeft, Math.max(0, -pastRight)) : 0;
-    if (dx) panel.style.translate = `${Math.round(dx)}px 0`;
-  }
-}
-
-/**
- * Keep the city's open menus inside the card (see `placeOpenMenus`). A menu is placed when
- * its `open` attribute changes: a mutation record arrives as a microtask, before the next
- * paint, whereas the `toggle` event comes a task later and would show the menu in the wrong
- * place for a frame.
- */
-function useMenuPlacement() {
-  const card = useRef<HTMLElement>(null);
-  useLayoutEffect(() => {
-    if (card.current) placeOpenMenus(card.current);
-  });
-  useEffect(() => {
-    const element = card.current;
-    if (!element) return;
-    const place = () => placeOpenMenus(element);
-    const opened = typeof MutationObserver === 'function' ? new MutationObserver(place) : null;
-    opened?.observe(element, { subtree: true, attributes: true, attributeFilter: ['open'] });
-    const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(place) : null;
-    resize?.observe(element);
-    return () => {
-      opened?.disconnect();
-      resize?.disconnect();
-    };
-  }, []);
-  return card;
-}
-
 export function City() {
   const { dataset, model, state, dispatch, select, queries, comparison } = useViewer();
-  const menus = useMenuPlacement();
+  // City menus share one slot and keep inside the card (ADR-107).
+  const [menu, setMenu] = useState<string | null>(null);
+  const [card, setCard] = useState<HTMLElement | null>(null);
+  const menus = useMemo(() => ({ open: menu, setOpen: setMenu, card }), [menu, card]);
   const lenses: CityLens[] = ['structure', 'code-lines', 'functions', 'complexity', 'total-complexity', 'fan-in', 'fan-out', 'churn', 'lines-changed', dataset.hotspotAvailable ? 'hotspot' : 'attention'];
   const handle = useRef<CityHandle | null>(null);
   const [readyMode, setReadyMode] = useState<'3d' | 'map' | null>(null),
@@ -195,14 +152,15 @@ export function City() {
   useEffect(() => {
     if (state.mode === 'table' || state.mode === 'packages') return;
     const onKey = (event: KeyboardEvent) => {
-      if (typing(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
+      // An open dropdown list or menu takes keys first: type-ahead letters and Escape (ADR-107).
+      if (typing(event.target) || inLayer(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.key === 'f' || event.key === 'F') {
         event.preventDefault();
         toggleExpanded();
       } else if (event.key === '[' || event.key === ']') {
         event.preventDefault();
         handle.current?.travel?.(event.key === '[' ? -1 : 1);
-      } else if (event.key === 'Escape' && expanded !== 'no') {
+      } else if (event.key === 'Escape' && expanded !== 'no' && !layerOpen()) {
         // Leaving the expanded workspace comes first; the selection stays.
         event.stopImmediatePropagation();
         workspace.leave();
@@ -575,7 +533,8 @@ export function City() {
   const chosenBuilding = chosen?.kind === 'file' ? model.city.buildings.find((b) => b.nodeId === chosen.id) : undefined;
   const crumb = (n: NonNullable<typeof chosen>) => ('path' in n && n.kind === 'directory' ? (n.path.split('/').at(-1) ?? n.path) : model.title(n));
   return (
-    <section className="city" aria-labelledby="city-title" ref={menus}>
+    <CityMenus.Provider value={menus}>
+    <section className="city" aria-labelledby="city-title" ref={setCard}>
       <div className="city-heading">
         <h1 id="city-title">
           {model.manifest.repo.displayName}
@@ -740,9 +699,7 @@ export function City() {
         />
         )}
         {(state.mode === '3d' || state.mode === 'map') && (
-          <details className="city-views city-share">
-            <MenuSummary icon="share" label="Share" />
-            <div className="city-views-panel">
+          <CityMenu name="share" icon="share" label="Share" align="end">
               {canCopy && (
                 <button type="button" className="menu-item" disabled={!ready} onClick={() => void copyImage()}>
                   <Icon name="copy" />
@@ -766,8 +723,7 @@ export function City() {
                 3D print (STL)
               </button>
               <p className="city-views-empty">The PNG carries its provenance inside the file: repository, commit, lens and analyzer.</p>
-            </div>
-          </details>
+          </CityMenu>
         )}
       </div>
       {state.mode !== 'packages' && (
@@ -908,51 +864,62 @@ export function City() {
           <div className="city-nav" role="toolbar" aria-label="City view">
             {state.mode === '3d' && (
               <>
-                <button type="button" aria-label="Previous view" title="Previous view ( [ )" disabled={!views.back || !ready} onClick={() => handle.current?.travel?.(-1)}>
-                  <Icon name="back" />
-                </button>
-                <button type="button" aria-label="Next view" title="Next view ( ] )" disabled={!views.forward || !ready} onClick={() => handle.current?.travel?.(1)}>
-                  <Icon name="forward" />
-                </button>
+                <Tip label="Previous view" shortcut="[">
+                  <button type="button" aria-label="Previous view" disabled={!views.back || !ready} onClick={() => handle.current?.travel?.(-1)}>
+                    <Icon name="back" />
+                  </button>
+                </Tip>
+                <Tip label="Next view" shortcut="]">
+                  <button type="button" aria-label="Next view" disabled={!views.forward || !ready} onClick={() => handle.current?.travel?.(1)}>
+                    <Icon name="forward" />
+                  </button>
+                </Tip>
               </>
             )}
-            <button type="button" aria-label="Reset city" title="Show the whole city" disabled={!ready} onClick={() => handle.current?.reset()}>
-              <Icon name="home" />
-            </button>
-            {expanded !== 'no' && (
-              <button
-                type="button"
-                aria-label={workspace.drawer ? 'Hide the evidence panel' : 'Show the evidence panel'}
-                aria-pressed={workspace.drawer}
-                title={workspace.drawer ? 'Hide the evidence panel' : 'Show the evidence panel'}
-                onClick={() => workspace.setDrawer(!workspace.drawer)}
-              >
-                <Icon name="panel" />
+            <Tip label="Show the whole city">
+              <button type="button" aria-label="Reset city" disabled={!ready} onClick={() => handle.current?.reset()}>
+                <Icon name="home" />
               </button>
+            </Tip>
+            {expanded !== 'no' && (
+              <Tip label={workspace.drawer ? 'Hide the evidence panel' : 'Show the evidence panel'}>
+                <button
+                  type="button"
+                  aria-label={workspace.drawer ? 'Hide the evidence panel' : 'Show the evidence panel'}
+                  aria-pressed={workspace.drawer}
+                  onClick={() => workspace.setDrawer(!workspace.drawer)}
+                >
+                  <Icon name="panel" />
+                </button>
+              </Tip>
             )}
-            <button
-              type="button"
-              aria-label={expanded === 'no' ? 'Expand city' : 'Leave expanded city'}
-              aria-pressed={expanded !== 'no'}
-              title={expanded === 'no' ? 'Expand into a full-screen workspace (F)' : 'Leave the workspace (F or Esc)'}
-              onClick={toggleExpanded}
-            >
-              <Icon name={expanded === 'no' ? 'expand' : 'collapse'} />
-            </button>
+            <Tip label={expanded === 'no' ? 'Expand into a full-screen workspace' : 'Leave the workspace'} shortcut={expanded === 'no' ? 'F' : 'F or Esc'}>
+              <button type="button" aria-label={expanded === 'no' ? 'Expand city' : 'Leave expanded city'} aria-pressed={expanded !== 'no'} onClick={toggleExpanded}>
+                <Icon name={expanded === 'no' ? 'expand' : 'collapse'} />
+              </button>
+            </Tip>
           </div>
           <div className="city-nav city-nav-camera" role="toolbar" aria-label="Camera">
-            <button type="button" aria-label="Zoom in" title="Zoom in (+)" disabled={!ready} onClick={() => handle.current?.zoom(1.3)}>
-              <Icon name="plus" />
-            </button>
-            <button type="button" aria-label="Zoom out" title="Zoom out (−)" disabled={!ready} onClick={() => handle.current?.zoom(1 / 1.3)}>
-              <Icon name="minus" />
-            </button>
-            <button type="button" aria-label="North" title="Turn to face north" disabled={!ready} onClick={() => handle.current?.north()}>
-              <Icon name="north" />
-            </button>
-            <button type="button" aria-label="Focus selection" title="Fly to the selection" disabled={!selectedIds.size || !ready} onClick={() => handle.current?.focus(selectedIds)}>
-              <Icon name="focus" />
-            </button>
+            <Tip label="Zoom in" shortcut="+" side="left">
+              <button type="button" aria-label="Zoom in" disabled={!ready} onClick={() => handle.current?.zoom(1.3)}>
+                <Icon name="plus" />
+              </button>
+            </Tip>
+            <Tip label="Zoom out" shortcut="−" side="left">
+              <button type="button" aria-label="Zoom out" disabled={!ready} onClick={() => handle.current?.zoom(1 / 1.3)}>
+                <Icon name="minus" />
+              </button>
+            </Tip>
+            <Tip label="Turn to face north" side="left">
+              <button type="button" aria-label="North" disabled={!ready} onClick={() => handle.current?.north()}>
+                <Icon name="north" />
+              </button>
+            </Tip>
+            <Tip label="Fly to the selection" side="left">
+              <button type="button" aria-label="Focus selection" disabled={!selectedIds.size || !ready} onClick={() => handle.current?.focus(selectedIds)}>
+                <Icon name="focus" />
+              </button>
+            </Tip>
           </div>
           {chosen && chosen.kind !== 'repository' && (
             <div className="city-card">
@@ -1175,6 +1142,7 @@ export function City() {
       )}
       {!!(model.city.terminals.length + model.city.terminalOmitted) && <ExternalList />}
     </section>
+    </CityMenus.Provider>
   );
 }
 

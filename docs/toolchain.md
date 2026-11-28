@@ -23,6 +23,8 @@ Recorded 10 October 2026. Rationale lives in [ADR-013](adr/ADR-013-pin-typescrip
 | three | 0.186.1 | viewer 3D layer |
 | @react-three/fiber | 9.8.2 | viewer 3D layer |
 | @radix-ui/react-select | 2.4.1 | viewer dropdowns; MIT, unstyled and accessible ([ADR-106](adr/ADR-106-radix-dropdowns.md)) |
+| @radix-ui/react-popover | 1.3.1 | city menus; MIT ([ADR-107](adr/ADR-107-menus-tooltips-cars-surfaces.md)) |
+| @radix-ui/react-tooltip | 1.4.1 | control tooltips; MIT ([ADR-107](adr/ADR-107-menus-tooltips-cars-surfaces.md)) |
 | vite | 8.3.4 | viewer build; Vitest peer |
 | @vitejs/plugin-react | 6.1.2 | viewer build |
 | vitest | 5.0.5 | unit/integration tests |

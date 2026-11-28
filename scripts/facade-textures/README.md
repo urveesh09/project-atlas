@@ -1,8 +1,10 @@
 # Baked facade textures
 
-Two images in `apps/web/src/assets` are made here: `facade-walls.jpg`, the wall materials
-([ADR-103](../../docs/adr/ADR-103-baked-wall-materials.md)), and `facade-rooms.jpg`, the rooms
-behind the windows ([ADR-104](../../docs/adr/ADR-104-rooms-behind-windows.md)). The viewer
+Three images in `apps/web/src/assets` are made here: `facade-walls.jpg`, the wall materials
+([ADR-103](../../docs/adr/ADR-103-baked-wall-materials.md)), `facade-rooms.jpg`, the rooms
+behind the windows ([ADR-104](../../docs/adr/ADR-104-rooms-behind-windows.md)), and
+`surface-detail.jpg`, the ground and roof surfaces
+([ADR-107](../../docs/adr/ADR-107-menus-tooltips-cars-surfaces.md)). The viewer
 only loads the images. Blender is needed only to make them again, for example to change a
 material, its scale or its relief, or to furnish the rooms differently.
 
@@ -27,6 +29,21 @@ The rooms also use these, `diff.jpg` only:
 | Upholstery and bedding | [rough_linen](https://polyhaven.com/a/rough_linen) | colormass, Rico Cilliers |
 | Office carpet | [dirty_carpet](https://polyhaven.com/a/dirty_carpet) | Rohit Seervi |
 
+The ground and roof surfaces come from [ambientCG](https://docs.ambientcg.com/license/)
+(CC0 1.0), 1K-JPG downloads unzipped into `<maps>/<id>/` as they are (`<id>_1K-JPG_Color.jpg`,
+`_NormalGL.jpg`, `_Displacement.jpg`):
+
+| Layer | Surface | ambientCG asset | Baked tile |
+|---|---|---|---|
+| 0 | Modern plaza slabs | [PavingStones136](https://ambientcg.com/view?id=PavingStones136) | 2 m |
+| 1 | Eastern flagstones | [PavingStones128](https://ambientcg.com/view?id=PavingStones128) | 3.5 m |
+| 2 | Western cobbles | [PavingStones070](https://ambientcg.com/view?id=PavingStones070) | 1.15 m |
+| 3 | Street asphalt | [Asphalt023S](https://ambientcg.com/view?id=Asphalt023S) | 1.25 m |
+| 4 | Clay roof tiles | [RoofingTiles013A](https://ambientcg.com/view?id=RoofingTiles013A) | 2.9 m |
+
+The viewer tiles the ground at the city's stylised scale (`SURFACE_TILE` in `walls.ts`), not
+at these sizes; see ADR-107.
+
 Download them from the asset pages, or the files API, which lists each map's URL:
 `https://api.polyhaven.com/files/<id>`. Rename them to `<maps>/<id>/diff.jpg`,
 `nor_gl.jpg` and `disp.jpg`.
@@ -41,6 +58,9 @@ python scripts/facade-textures/pack.py <bake> apps/web/src/assets/facade-walls.j
 # 3. Rooms (about 2 minutes) and their atlas
 blender -b --factory-startup -P scripts/facade-textures/rooms.py -- --src <maps> --out <rooms> --threads 3
 python scripts/facade-textures/pack.py --rooms <rooms> apps/web/src/assets/facade-rooms.jpg
+# 4. Ground and roof surfaces (about 3 minutes)
+blender -b --factory-startup -P scripts/facade-textures/bake.py -- --src <maps> --out <surfaces> --set surfaces --threads 3
+python scripts/facade-textures/pack.py <surfaces> apps/web/src/assets/surface-detail.jpg --set surfaces
 ```
 
 `bake.py` sets each layer's tile size, relief depth, normal-map strength and occlusion

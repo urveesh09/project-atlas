@@ -7,6 +7,14 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
 ## [Unreleased]
 
 ### Added
+- Refined menus, tooltips and a livelier street ([ADR-107](docs/adr/ADR-107-menus-tooltips-cars-surfaces.md)):
+  the city's Scope, Saved views, Notes, Bands and Share menus are proper floating panels
+  that stay inside the city card and close with Escape; icon buttons show styled tooltips
+  with their shortcut; cars are real low-poly models (sedan, SUV, hatchback) painted per
+  car; half as many trees, each finer: forked trunks and limbs under lobed crowns, cloud
+  pads on pines, jagged conifers and a strand curtain on willows, every tree turned its own
+  way, for no more triangles than before; plazas, streets and roofs carry baked paving,
+  cobbles, asphalt and clay tiles.
 - Refined dropdowns ([ADR-106](docs/adr/ADR-106-radix-dropdowns.md)): every dropdown in the
   viewer now opens a themed floating menu with grouped choices, a check on the current
   one, keyboard navigation and type-ahead, in light and dark, instead of the system menu.
@@ -69,6 +77,13 @@ change is in [docs/implementation-status.md](docs/implementation-status.md) and 
   where a `TYPE_CHECKING` guard uses it (policy `atlas.capacity.python/2`).
 
 ### Fixed
+- With a dropdown open, Escape no longer also clears the selection or leaves the expanded
+  workspace, and type-ahead letters reach the list instead of the city shortcuts (ADR-107).
+- The production rehearsal's nft step now really validates the firewall rules (it read an
+  empty input before) and proves it rejects a broken batch (ADR-107).
+- The container images install Debian 13.7's fixed glibc (CVE-2026-5435 and
+  CVE-2026-19499, caught by the unchanged image vulnerability gate). The backup tool image
+  pins PostgreSQL client 17.12, after Debian withdrew 17.11 (ADR-108).
 - Node 24.22.1 and its immutable container base replace 24.22.0 to address the
   October security advisories caught by the unchanged image vulnerability gate
   (ADR-088). Doctor now checks the patch-level security floor.

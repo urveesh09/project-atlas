@@ -582,7 +582,7 @@ describe.runIf(browserAvailable && viewerBuilt)('production miniature city', () 
     await page.waitForSelector('[data-city-renderer="map"]');
     const downloads: import('playwright').Download[] = [];
     page.on('download', (d) => downloads.push(d));
-    await page.locator('.city-share summary').click();
+    await page.locator('.city-share .city-menu-trigger').click();
     await page.getByRole('button', { name: 'Export PNG', exact: true }).click();
     await expect.poll(() => page.locator('.city-message').innerText(), { timeout: 5000 }).toContain('Exported PNG');
     // One download carries its own provenance (ADR-047); metadata is a separate, explicit action.
@@ -727,7 +727,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
 
   it('saves, applies, exports and imports named views', async () => {
     const views = page.locator('.city-saved');
-    await views.locator('summary').click();
+    await views.locator('.city-menu-trigger').click();
     expect(await audit(page, 'saved-views-menu')).toEqual([]);
     await views.getByRole('textbox', { name: 'Name' }).fill('Server consumers');
     await views.getByRole('button', { name: 'Save current view' }).click();
@@ -753,7 +753,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await expect.poll(() => views.locator('[role="status"]').innerText()).toContain('Imported 1 view');
     expect(await audit(page, 'saved-views-imported')).toEqual([]);
     expect(await views.getByRole('button', { name: 'Server consumers', exact: true }).count()).toBe(1);
-    await views.locator('summary').click();
+    await views.locator('.city-menu-trigger').click();
     await page.getByRole('searchbox', { name: 'Highlight paths' }).fill('');
     await chooseOption(page.getByRole('combobox', { name: 'View', exact: true }), '3d');
     expect(await audit(page, 'saved-views-restored')).toEqual([]);
@@ -783,8 +783,8 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(rows.every((p) => p.startsWith(`${folder}/`))).toBe(true);
     expect(await page.locator('.city-table caption').innerText()).toContain(`${total - shown} hidden by the scope`);
     const scope = page.locator('.city-scope');
-    await scope.locator('summary').click();
-    expect(await scope.locator('summary').innerText()).toContain(`${total - shown} hidden`);
+    await scope.locator('.city-menu-trigger').click();
+    expect(await scope.locator('.city-menu-trigger').innerText()).toContain(`${total - shown} hidden`);
     await scope.getByRole('textbox', { name: 'Hide paths' }).fill('*.test.ts, *.spec.ts');
     const [afterHide] = await caption();
     expect(afterHide).toBeLessThanOrEqual(shown);
@@ -792,7 +792,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await audit(page, 'scope-menu')).toEqual([]);
     await scope.getByRole('button', { name: 'Show everything' }).click();
     expect((await caption())[0]).toBe(total);
-    await scope.locator('summary').click();
+    await scope.locator('.city-menu-trigger').click();
     await chooseOption(view, '3d');
   });
 
@@ -805,12 +805,12 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     const total = sum(await legendCounts());
     expect(total).toBeGreaterThan(0);
     const bands = page.locator('.city-bands');
-    await bands.locator('summary').click();
+    await bands.locator('.city-menu-trigger').click();
     expect(await bands.getByRole('img').getAttribute('aria-label')).toMatch(/^Distribution over the files shown: 0-49: \d+/);
     await bands.getByRole('spinbutton', { name: 'Band 2 starts at' }).fill('10');
     await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0-9');
     expect(sum(await legendCounts())).toBe(total);
-    expect(await bands.locator('summary').innerText()).toContain('custom');
+    expect(await bands.locator('.city-menu-trigger').innerText()).toContain('custom');
     // An invalid edit is reported and the last valid bands stay in use.
     await bands.getByRole('spinbutton', { name: 'Band 3 starts at' }).fill('5');
     expect(await page.locator('#bands-problem').innerText()).toContain('must start above');
@@ -821,15 +821,15 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await audit(page, 'bands-distribution')).toEqual([]);
     await bands.getByRole('button', { name: 'Reset' }).click();
     await expect.poll(() => page.locator('.city-legend').innerText()).toContain('0-49');
-    await bands.locator('summary').click();
+    await bands.locator('.city-menu-trigger').click();
     const saved = page.locator('.city-saved');
-    await saved.locator('summary').click();
+    await saved.locator('.city-menu-trigger').click();
     await saved.getByRole('button', { name: 'Most depended on', exact: true }).click();
     expect(await valueOf(lens)).toBe('fan-in');
     await saved.getByRole('button', { name: 'Largest files', exact: true }).click();
     expect(await valueOf(lens)).toBe('code-lines');
     expect(await valueOf(page.getByRole('combobox', { name: 'Display filter' }))).toBe('source');
-    await saved.locator('summary').click();
+    await saved.locator('.city-menu-trigger').click();
     await chooseOption(page.getByRole('combobox', { name: 'Display filter' }), 'all');
     await chooseOption(lens, 'structure');
   });
@@ -843,13 +843,13 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     await expect.poll(() => page.locator('#inspector-title').innerText()).toBe('pricing.ts');
     await page.locator('.city-trail button').last().click();
     const notes = page.locator('.city-notes');
-    await notes.locator('summary').click();
+    await notes.locator('.city-menu-trigger').click();
     expect(await audit(page, 'notes-menu')).toEqual([]);
     const target = await notes.locator('form code').innerText();
     await notes.getByRole('radio', { name: 'Green' }).check();
     await notes.getByRole('textbox', { name: 'Note' }).fill('Pricing rules live here.');
     await notes.getByRole('button', { name: 'Mark', exact: true }).click();
-    expect(await notes.locator('summary').innerText()).toContain('Notes (1)');
+    expect(await notes.locator('.city-menu-trigger').innerText()).toContain('Notes (1)');
     expect(await page.locator('.legend-marks').innerText()).toContain(target);
     expect(await page.locator('.city-card-mark').innerText()).toContain('Pricing rules live here.');
     expect(await page.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith('atlas.notes.')))).toBe(true);
@@ -867,7 +867,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(await page.locator('.legend-marks').innerText()).toContain(target);
     expect(await audit(page, 'notes-imported')).toEqual([]);
     await notes.getByRole('button', { name: 'Remove mark' }).click();
-    await notes.locator('summary').click();
+    await notes.locator('.city-menu-trigger').click();
     await chooseOption(view, '3d');
   });
 
@@ -905,7 +905,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
   it('exports the city for 3D printing as a coloured 3MF and an STL (ADR-055)', async () => {
     const share = page.locator('.city-share');
     const { readFileSync } = await import('node:fs');
-    await share.locator('summary').click();
+    await share.locator('.city-menu-trigger').click();
     const [helpBox, menuBox] = await Promise.all([
       page.locator('.city-about > summary').boundingBox(),
       share.locator('.city-views-panel').boundingBox(),
@@ -930,7 +930,7 @@ describe.runIf(browserAvailable && viewerBuilt)('guided start and workspace', ()
     expect(triangles % 12).toBe(0);
     expect(triangles / 12).toBeGreaterThan(buildings);
     expect(await page.locator('.city-message').innerText()).toContain('STL has no colours');
-    await share.locator('summary').click();
+    await share.locator('.city-menu-trigger').click();
   });
 
   it('audits keyboard, city and history help while each disclosure is open', async () => {
@@ -1662,11 +1662,13 @@ gate state: ${JSON.stringify({ shown, picks, requests: requests.slice(-12), page
       const after = requests.slice(before);
       // Only the viewer's own static files may be fetched: the loader worker script and, since
       // ADR-058, the bundled font subsets the explorer first uses, and since ADR-103 and
-      // ADR-104 the facade's baked wall texture and room atlas, which a full-detail city loads.
+      // ADR-104 the facade's baked wall texture and room atlas, and since ADR-107 the baked
+      // ground and roof surface texture, which a full-detail city loads.
       // No artifact bytes are sent.
       // WebKit also reports in-memory `blob:` URLs of this origin; they never reach a network.
       const ownAsset = (url: string) =>
-        (url.startsWith(origin) && /\/assets\/(?:[^/]+\.(?:js|woff2)|facade-(?:walls|rooms)-[\w-]+\.jpg)$/.test(url)) ||
+        (url.startsWith(origin) &&
+          /\/assets\/(?:[^/]+\.(?:js|woff2)|(?:facade-(?:walls|rooms)|surface-detail)-[\w-]+\.jpg)$/.test(url)) ||
         url.startsWith(`blob:${origin}/`);
       expect(after.filter((r) => r.method !== 'GET' || !ownAsset(r.url))).toEqual([]);
       expect(requests.filter((r) => r.method !== 'GET')).toEqual([]);

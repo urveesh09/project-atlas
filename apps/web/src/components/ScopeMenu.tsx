@@ -1,14 +1,12 @@
 import { SCOPE_LIMITS, type CompiledScope, type Scope } from '../app/scope';
-import { MenuSummary } from './MenuSummary';
+import { CityMenu } from './CityMenu';
 
 /** The Scope menu (ADR-051): focus on one folder and hide paths; both keep plots fixed. */
 export function ScopeMenu(props: { scope: Scope; compiled: CompiledScope; shown: number; total: number; setScope(next: Scope): void }) {
   const { scope, compiled, shown, total, setScope } = props;
   const hidden = total - shown;
   return (
-    <details className="city-views city-scope">
-      <MenuSummary icon="scope" label={`Scope${compiled.active ? ` (${hidden.toLocaleString('en-US')} hidden)` : ''}`} badge={compiled.active ? '•' : null} />
-      <div className="city-views-panel">
+    <CityMenu name="scope" icon="scope" label={`Scope${compiled.active ? ` (${hidden.toLocaleString('en-US')} hidden)` : ''}`} badge={compiled.active ? '•' : null}>
         <div className="scope-focus">
           <strong>Focus</strong>
           {compiled.focus ? (
@@ -46,7 +44,6 @@ export function ScopeMenu(props: { scope: Scope; compiled: CompiledScope; shown:
             Show everything
           </button>
         )}
-      </div>
-    </details>
+    </CityMenu>
   );
 }

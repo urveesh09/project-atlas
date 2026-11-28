@@ -36,6 +36,18 @@ Agents: read [AGENTS.md](../AGENTS.md).
 
 ### City realism pass (2026-11-12)
 
+- [ADR-107](adr/ADR-107-menus-tooltips-cars-surfaces.md), 2026-11-24: Radix city menus and
+  tooltips, Escape and type-ahead fixed around open layers, Kenney car models (640
+  triangles each), half as many trees rebuilt with limbs and lobed crowns (each style's
+  tree triangles at or below main's), baked paving, asphalt and roof tiles, and a
+  non-vacuous nft check in the
+  production rehearsal. Evidence (2026-11-28, Windows, Node 24.22.1): `pnpm verify` with
+  browser tests (100 files, 1,136 tests passed, 95 skipped); viewer journeys 64/64 in
+  Chromium, Firefox and WebKit; demo-site check clean; `verify:distribution` 26/26 stages.
+  GT 730 captures in every city style compile without errors at the 16.7 ms frame cap.
+  Two failures were fixed and retested:
+  - the Firefox asset allow-list lacked the new texture;
+  - the tree cap counted kept trees instead of planting places.
 - [ADR-106](adr/ADR-106-radix-dropdowns.md), 2026-11-21: all 19 viewer dropdowns use one
   Radix UI `Select` (MIT); the city menus open inward when they would be clipped. Evidence:
   `pnpm verify` with browser tests on Windows (99 files, 1128 tests passed, 95 skipped),
@@ -357,6 +369,20 @@ The unchanged Windows rerun passed, with that six-test file taking 5.74 s, and a
 15 portable-package stages passing. Cause remains unproven. Preserve the original
 [failed job](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123519713078)
 and [successful rerun](https://github.com/urveesh09/project-atlas/actions/runs/40894472269/job/123526710451).
+
+### Debian 13.7 image maintenance (2026-11-28)
+
+- [PR #73's first CI run](https://github.com/urveesh09/project-atlas/actions/runs/46113389463)
+  failed on two Debian changes made after 2026-11-21:
+  - the image gate blocked both images on High glibc CVE-2026-5435 and CVE-2026-19499
+    (`libc6`/`libc-bin` 2.41-12+deb13u4);
+  - the hosted gates could not build the backup image, because `postgresql-client-17`
+    17.11-0+deb13u1 was withdrawn.
+- [ADR-108](adr/ADR-108-debian-13-7-glibc-and-postgresql-client.md) pins glibc
+  2.41-12+deb13u5 in every image and PostgreSQL client 17.12-0+deb13u1 in the backup tools.
+  The Node base digest, scan policy and other pins are unchanged.
+- All four images built locally. Network-disabled inspection confirmed the fixed glibc,
+  zlib and Node 24.22.3 in each, and `pg_dump` 17.12 in the backup image.
 
 ### Node 24.22.3 image maintenance (2026-11-21)
 

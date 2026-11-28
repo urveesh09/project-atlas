@@ -160,10 +160,10 @@
   .city-toolbar label:not(.city-check) { flex-direction: row; align-items: center; gap: 6px; font-size: 12px; }
   .city-toolbar .select-trigger { width: auto; min-height: 32px; padding: 4px 8px 4px 9px; }
   .city-toolbar .city-check { min-height: 32px; }
-  .city-views > summary { min-height: 32px; }
+  .city .city-menu-trigger { min-height: 32px; }
 }
 @media (min-width: 641px) and (pointer: coarse) {
-  .city-toolbar .select-trigger, .city-views > summary, .city-toolbar .city-check, .city-pattern input { min-height: 44px; }
+  .city-toolbar .select-trigger, .city .city-menu-trigger, .city-toolbar .city-check, .city-pattern input { min-height: 44px; }
 }
 /* Phones: the city right under its title; its controls follow (ADR-047). */
 @media (max-width: 640px) {
@@ -180,14 +180,15 @@
 .legend-count { margin-inline-start: 3px; padding: 0 6px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); font-variant-numeric: tabular-nums; }
 .city-legend i { border-radius: var(--radius-xs); border-color: color-mix(in srgb, var(--muted) 50%, transparent); }
 .city-views { position: relative; font-size: 12px; }
-/* Menus open from a button-like summary; the chevron turns while open. */
-.city-views > summary { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--control); box-shadow: var(--shadow-xs), var(--sheen); cursor: pointer; list-style: none; font-weight: 500; transition: background-color .12s var(--ease), border-color .12s var(--ease); user-select: none; }
-.city-views > summary:hover { background: var(--control-hover); border-color: var(--control-border-hover); }
-.city-views[open] > summary { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 70%, var(--control-border)); }
-.city-views > summary::-webkit-details-marker { display: none; }
-.city-views > summary::after { content: ''; width: 5px; height: 5px; margin: -3px 1px 0 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); transition: transform .15s var(--ease); }
-.city-views[open] > summary::after { transform: translateY(3px) rotate(-135deg); }
-.city-views-panel { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: min(320px, 86vw); padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); display: grid; gap: 10px; animation: city-menu-in .14s var(--ease); }
+/* Menus (ADR-107) open from a trigger button; the chevron turns while open. Radix places the
+   panel (below, flipping or sliding to stay inside the card) and caps its height. */
+.city .city-menu-trigger { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--control); box-shadow: var(--shadow-xs), var(--sheen); cursor: pointer; font: inherit; font-weight: 500; color: var(--text); transition: background-color .12s var(--ease), border-color .12s var(--ease); user-select: none; }
+.city .city-menu-trigger:hover { background: var(--control-hover); border-color: var(--control-border-hover); }
+.city .city-views[data-state='open'] > .city-menu-trigger { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 70%, var(--control-border)); }
+.city .city-menu-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); box-shadow: 0 0 0 5px var(--accent-soft); }
+.city .city-menu-trigger::after { content: ''; width: 5px; height: 5px; margin: -3px 1px 0 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); transition: transform .15s var(--ease); }
+.city .city-views[data-state='open'] > .city-menu-trigger::after { transform: translateY(3px) rotate(-135deg); }
+.city-views-panel { z-index: 20; max-height: var(--radix-popover-content-available-height); overflow-y: auto; overscroll-behavior: contain; width: min(320px, 86vw); padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); display: grid; gap: 10px; animation: city-menu-in .14s var(--ease); }
 @keyframes city-menu-in { from { opacity: 0; transform: translateY(-4px); } }
 .city-views-panel ul { list-style: none; margin: 0 -6px; padding: 0; max-height: 220px; overflow-y: auto; }
 .city-views-panel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 2px 8px; border-radius: var(--radius-sm); }
@@ -205,7 +206,7 @@
 .city-views-panel input[type=text] { min-height: 32px; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--field); color: var(--text); padding: 4px 9px; font: inherit; width: 100%; }
 .city-views-files { display: flex; gap: 8px; flex-wrap: wrap; }
 .city-views-empty, .city-views-note { margin: 0; color: var(--muted); }
-.city-share .city-views-panel { left: auto; right: 0; width: min(260px, 86vw); }
+.city-share .city-views-panel { width: min(260px, 86vw); }
 .city-share { margin-inline-start: auto; }
 
 /* History scrubber controls (ADR-049): dots without button chrome, quiet step buttons. */
@@ -273,9 +274,9 @@
 .city { container-type: inline-size; container-name: city; }
 .menu-badge { display: none; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
 @container city (max-width: 900px) {
-  .city-toolbar .city-views > summary { padding: 4px 8px; gap: 4px; }
-  .city-toolbar .city-views > summary .menu-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .city-toolbar .city-views > summary .menu-badge { display: inline-block; }
+  .city-toolbar .city-menu-trigger { padding: 4px 8px; gap: 4px; }
+  .city-toolbar .city-menu-trigger .menu-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .city-toolbar .city-menu-trigger .menu-badge { display: inline-block; }
   .city-toolbar .city-pattern input { width: min(220px, 48cqi); }
 }
 

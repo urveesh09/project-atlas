@@ -1,4 +1,9 @@
 import * as THREE from 'three';
+import { SURFACE, SURFACE_TILE } from './walls';
+
+/** Clay roof tiles per baked texture tile: columns around the roof, rows up it (ADR-107). */
+const ROOF_COLUMNS = 14;
+const ROOF_ROWS = 10;
 
 /**
  * Shader patches that add surface realism without geometry or extra passes (ADR-042):
@@ -6,6 +11,28 @@ import * as THREE from 'three';
  * district surfaces, and tile courses on the pitched source roofs. Each patch is a few
  * arithmetic operations or one texture read per pixel.
  */
+
+/**
+ * Baked ground and roof surfaces (ADR-107, `SURFACE` in walls.ts), shared by every material
+ * that uses them; `ready` blends from the procedural patterns once the texture has loaded.
+ */
+export interface SurfaceUniforms {
+  atlasSurfaces: { value: THREE.Texture };
+  atlasSurfacesReady: { value: number };
+}
+
+const SURFACE_DECL = `uniform highp sampler2DArray atlasSurfaces;
+uniform float atlasSurfacesReady;`;
+
+/**
+ * Tilt a flat, upward surface's shading normal by a baked normal (x across world x, y along
+ * world -z), in view space, so sunlight rakes the joints of pavers, cobbles and asphalt.
+ */
+const FLAT_RELIEF = (bump: string) => `#include <normal_fragment_maps>
+{
+  vec2 atlasB = clamp(${bump}, -0.9, 0.9);
+  if (dot(atlasB, atlasB) > 1e-6) normal = normalize((viewMatrix * vec4(atlasB.x, sqrt(max(0.05, 1.0 - dot(atlasB, atlasB))), -atlasB.y, 0.0)).xyz);
+}`;
 
 /** Shared uniforms of the sky-occlusion field; the texture is replaced when a bake lands. */
 export interface FieldUniforms {
@@ -159,9 +186,10 @@ export const COVER = { none: 0, grass: 1, sand: 2, asphalt: 3 } as const;
  * lush and dry in broad patches over a fine blade grain; sand carries ripples; asphalt has
  * aggregate and the lighter and darker panels of old repairs.
  */
-export function withCover(material: THREE.Material, detail: THREE.Texture) {
-  chain(material, 'cover', (shader) => {
+export function withCover(material: THREE.Material, detail: THREE.Texture, surfaces: SurfaceUniforms | null = null) {
+  chain(material, surfaces ? 'cover-baked' : 'cover', (shader) => {
     shader.uniforms['atlasDetail'] = { value: detail };
+    if (surfaces) Object.assign(shader.uniforms, surfaces);
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -179,11 +207,20 @@ vAtlasCover = vec3((modelMatrix * vec4(transformed, 1.0)).xz, normal.y > 0.5 ? a
         '#include <common>',
         `#include <common>
 uniform sampler2D atlasDetail;
-varying vec3 vAtlasCover;`,
+varying vec3 vAtlasCover;
+${surfaces ? SURFACE_DECL : ''}`,
       )
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
+${
+  surfaces
+    ? `// Baked asphalt (ADR-107), at its real size; derivatives in uniform control flow.
+vec2 atlasSuv = vec2(vAtlasCover.x, -vAtlasCover.y) / ${SURFACE_TILE[SURFACE.asphalt].toFixed(3)};
+vec2 atlasSdx = dFdx(atlasSuv), atlasSdy = dFdy(atlasSuv);
+vec2 atlasSN = vec2(0.0);`
+    : ''
+}
 {
   float kind = floor(vAtlasCover.z + 0.5);
   if (kind > 0.5) {
@@ -200,11 +237,20 @@ varying vec3 vAtlasCover;`,
     } else if (kind < 2.5) {
       diffuseColor.rgb *= (0.9 + 0.2 * broad.g) * (0.93 + 0.14 * mottle) * (0.9 + 0.2 * grain.b);
     } else {
-      diffuseColor.rgb *= (0.88 + 0.24 * broad.g) * (0.85 + 0.3 * mottle) * (0.86 + 0.28 * grain.r);
+      float aggregate = 0.86 + 0.28 * grain.r;
+${
+  surfaces
+    ? `      vec3 atlasS = textureGrad(atlasSurfaces, vec3(atlasSuv, ${SURFACE.asphalt}.0), atlasSdx, atlasSdy).rgb;
+      aggregate = mix(aggregate, atlasS.r * 2.0, atlasSurfacesReady);
+      atlasSN = (atlasS.gb * 2.0 - 1.0) * atlasSurfacesReady;`
+    : ''
+}
+      diffuseColor.rgb *= (0.88 + 0.24 * broad.g) * (0.85 + 0.3 * mottle) * aggregate;
     }
   }
 }`,
       );
+    if (surfaces) shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', FLAT_RELIEF('atlasSN'));
   });
 }
 
@@ -217,9 +263,10 @@ export type PavingStyle = 0 | 1 | 2;
  * Paving joints and per-slab tone on plazas, fine aggregate on streets. Patterns are in
  * world space, fade out before they would shimmer, and only touch upward faces.
  */
-export function withPaving(material: THREE.Material, style: PavingStyle, detail: THREE.Texture) {
-  chain(material, `pave-${style}`, (shader) => {
+export function withPaving(material: THREE.Material, style: PavingStyle, detail: THREE.Texture, surfaces: SurfaceUniforms | null = null) {
+  chain(material, `pave-${style}${surfaces ? '-baked' : ''}`, (shader) => {
     shader.uniforms['atlasDetail'] = { value: detail };
+    if (surfaces) Object.assign(shader.uniforms, surfaces);
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -245,11 +292,20 @@ varying vec3 vAtlasPave;`,
         `#include <common>
 varying vec3 vAtlasPave;
 uniform sampler2D atlasDetail;
+${surfaces ? SURFACE_DECL : ''}
 float atlasPaveHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }`,
       )
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
+${
+  surfaces
+    ? `// Baked pavers and asphalt (ADR-107); derivatives in uniform control flow.
+vec2 atlasSuv = vec2(vAtlasPave.x, -vAtlasPave.y);
+vec2 atlasSdx = dFdx(atlasSuv), atlasSdy = dFdy(atlasSuv);
+vec2 atlasSN = vec2(0.0);`
+    : ''
+}
 {
   float kind = floor(vAtlasPave.z + 0.5);
   if (kind > 0.5) {
@@ -269,38 +325,83 @@ float atlasPaveHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, 
       joint = max(j.x, j.y);
     }
     float shade = 1.0 + (plaza ? ${style === 2 ? '0.11' : '0.06'} : 0.05) * tone - (plaza ? ${style === 2 ? '0.2' : '0.12'} : 0.0) * joint;
-    diffuseColor.rgb *= mix(1.0, shade, fade);
+    float surface = mix(1.0, shade, fade);
+${
+  surfaces
+    ? `    // Real pavers for the style on plazas, asphalt on streets, each at its real size.
+    float atlasTile = plaza ? ${SURFACE_TILE[style].toFixed(3)} : ${SURFACE_TILE[SURFACE.asphalt].toFixed(3)};
+    vec3 atlasS = textureGrad(atlasSurfaces, vec3(atlasSuv / atlasTile, plaza ? ${style}.0 : ${SURFACE.asphalt}.0), atlasSdx / atlasTile, atlasSdy / atlasTile).rgb;
+    surface = mix(surface, atlasS.r * 2.0, atlasSurfacesReady);
+    atlasSN = (atlasS.gb * 2.0 - 1.0) * atlasSurfacesReady;`
+    : ''
+}
+    diffuseColor.rgb *= surface;
     // Weather: asphalt matches the island's roads; plazas stain in broad, soft patches.
     float broad = texture2D(atlasDetail, vAtlasPave.xy * 0.037).g;
     float mottle = texture2D(atlasDetail, vAtlasPave.yx * 0.19 + 0.61).g;
     diffuseColor.rgb *= plaza
       ? (0.9 + 0.2 * broad) * (0.92 + 0.16 * mottle)
-      : (0.88 + 0.24 * broad) * (0.85 + 0.3 * mottle) * (0.86 + 0.28 * texture2D(atlasDetail, vAtlasPave.xy * 0.71).r);
+      : (0.88 + 0.24 * broad) * (0.85 + 0.3 * mottle) * mix(0.86 + 0.28 * texture2D(atlasDetail, vAtlasPave.xy * 0.71).r, 1.0, ${surfaces ? 'atlasSurfacesReady' : '0.0'});
   }
 }`,
       );
+    if (surfaces) shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', FLAT_RELIEF('atlasSN'));
   });
 }
 
 /** Tile courses and ridge seams on pitched roofs, from their object-space shape. */
-export function withTiles(material: THREE.Material, courses: number, ridges: number) {
-  chain(material, `tiles-${courses}-${ridges}`, (shader) => {
+export function withTiles(material: THREE.Material, courses: number, ridges: number, surfaces: SurfaceUniforms | null = null) {
+  chain(material, `tiles-${courses}-${ridges}${surfaces ? '-baked' : ''}`, (shader) => {
+    if (surfaces) Object.assign(shader.uniforms, surfaces);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>\nvarying vec3 vAtlasRoof;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>\nvAtlasRoof = position;`);
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\nvarying vec3 vAtlasRoof;`)
+      .replace('#include <common>', `#include <common>\nvarying vec3 vAtlasRoof;\n${surfaces ? SURFACE_DECL : ''}`)
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
+// Courses up the roof and ridges around it; derivatives in uniform control flow.
+vec2 atlasT = vec2(atan(vAtlasRoof.z, vAtlasRoof.x) * ${(ridges / (2 * Math.PI)).toFixed(4)}, vAtlasRoof.y * ${courses.toFixed(1)});
+vec2 atlasTdx = dFdx(atlasT), atlasTdy = dFdy(atlasT);
+float atlasRelief = 0.0;
+vec2 atlasSN = vec2(0.0);
 {
-  vec2 t = vec2(atan(vAtlasRoof.z, vAtlasRoof.x) * ${(ridges / (2 * Math.PI)).toFixed(4)}, vAtlasRoof.y * ${courses.toFixed(1)});
+  vec2 t = atlasT;
   vec2 f = fract(t);
   vec2 fw = max(fwidth(t), vec2(1e-4));
   float fade = 1.0 - smoothstep(0.2, 0.45, max(fw.x, fw.y));
   float course = smoothstep(0.0, 0.7, f.y);
   float seam = 1.0 - smoothstep(0.0, 0.12 + fw.x, min(f.x, 1.0 - f.x));
-  diffuseColor.rgb *= mix(1.0, (0.8 + 0.2 * course) * (1.0 - 0.18 * seam), fade);
+  float surface = mix(1.0, (0.8 + 0.2 * course) * (1.0 - 0.18 * seam), fade);
+${
+  surfaces
+    ? `  // Baked clay tiles (ADR-107): one texture tile spans ${ROOF_COLUMNS} ridges and ${ROOF_ROWS} courses, so a
+  // course is a row of tiles. The ridge coordinate jumps where the angle wraps: no relief there.
+  vec2 atlasR = vec2(1.0 / ${ROOF_COLUMNS}.0, 1.0 / ${ROOF_ROWS}.0);
+  vec3 atlasS = textureGrad(atlasSurfaces, vec3(atlasT * atlasR, ${SURFACE.roof}.0), atlasTdx * atlasR, atlasTdy * atlasR).rgb;
+  surface = mix(surface, atlasS.r * 2.0, atlasSurfacesReady);
+  atlasSN = (atlasS.gb * 2.0 - 1.0) * atlasSurfacesReady;
+  atlasRelief = 1.0 - step(0.5, max(abs(atlasTdx.x), abs(atlasTdy.x)));`
+    : ''
+}
+  diffuseColor.rgb *= surface;
+}`,
+      );
+    if (surfaces)
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <normal_fragment_maps>',
+        `#include <normal_fragment_maps>
+if (atlasRelief > 0.5) {
+  // The roof's own frame on screen, as three.js normal maps build it.
+  vec3 q0 = dFdx(-vViewPosition), q1 = dFdy(-vViewPosition);
+  vec3 q1p = cross(q1, normal), q0p = cross(normal, q0);
+  vec3 tT = q1p * atlasTdx.x + q0p * atlasTdy.x;
+  vec3 tB = q1p * atlasTdx.y + q0p * atlasTdy.y;
+  float det = max(dot(tT, tT), dot(tB, tB));
+  float sc = det == 0.0 ? 0.0 : inversesqrt(det);
+  vec2 b = clamp(atlasSN, -0.9, 0.9);
+  normal = normalize(tT * (b.x * sc) + tB * (b.y * sc) + normal * sqrt(max(0.05, 1.0 - dot(b, b))));
 }`,
       );
   });

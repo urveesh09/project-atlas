@@ -17,6 +17,8 @@ import { QualityProvider, useExternalQuality } from '../app/quality';
 import { ExternalQualityPanel } from './ExternalQuality';
 import { ArchitectureProvider, useArchitectureReview } from '../app/architecture';
 import { ArchitectureReviewPanel } from './ArchitectureReview';
+import { inLayer, layerOpen } from '../app/layers';
+import { Tip } from './Tip';
 
 /**
  * The functional explorer: tree, search, inspector and overview, all plain HTML. A hosted
@@ -80,8 +82,10 @@ function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { r
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      const typing = target?.closest('input, textarea, select, [contenteditable="true"]') !== null && target !== null;
-      // Shortcuts never intercept typing in controls (plan §12.4).
+      // Shortcuts never intercept typing in controls (plan §12.4), nor keys meant for an open
+      // dropdown list or menu, which also closes on Escape itself (ADR-107).
+      const typing = (target?.closest('input, textarea, select, [contenteditable="true"]') !== null && target !== null) || inLayer(target);
+      if (event.key === 'Escape' && (event.defaultPrevented || layerOpen())) return;
       if (event.key === '/' && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
         event.preventDefault();
         searchRef.current?.focus();
@@ -125,22 +129,30 @@ function ExplorerShell({ onOpenOther, hosted = null, root }: ExplorerProps & { r
         </div>
         <Search ref={searchRef} />
         <div className="topbar-actions">
-          <button id="external-quality-toggle" type="button" className="button ghost" aria-label="External findings" title="External findings" aria-controls={quality.open ? 'external-quality-panel' : undefined} aria-expanded={quality.open} onClick={() => quality.setOpen(!quality.open)}>
-            <Icon name="file" /><span className="action-label">External findings</span>
-          </button>
-          <button id="architecture-review-toggle" type="button" className="button ghost architecture-toggle" aria-label="Architecture review" title="Architecture review" aria-controls={architecture.open ? 'architecture-review-panel' : undefined} aria-expanded={architecture.open} onClick={() => architecture.setOpen(!architecture.open)}>
-            <Icon name="file" /><span className="action-label">Architecture review</span>
-          </button>
+          <Tip label="External findings" onlyIfLabelHidden>
+            <button id="external-quality-toggle" type="button" className="button ghost" aria-label="External findings" aria-controls={quality.open ? 'external-quality-panel' : undefined} aria-expanded={quality.open} onClick={() => quality.setOpen(!quality.open)}>
+              <Icon name="file" /><span className="action-label">External findings</span>
+            </button>
+          </Tip>
+          <Tip label="Architecture review" onlyIfLabelHidden>
+            <button id="architecture-review-toggle" type="button" className="button ghost architecture-toggle" aria-label="Architecture review" aria-controls={architecture.open ? 'architecture-review-panel' : undefined} aria-expanded={architecture.open} onClick={() => architecture.setOpen(!architecture.open)}>
+              <Icon name="file" /><span className="action-label">Architecture review</span>
+            </button>
+          </Tip>
           {/* On narrow desktops these two show only their icon; the name stays for assistive
               technology and the tooltip, so the header keeps one row (ADR-058). */}
-          <button type="button" className="button ghost" aria-expanded={!treeHidden} aria-controls="repository-tree" onClick={toggleTree} title={treeHidden ? 'Show tree' : 'Hide tree'}>
-            <Icon name="tree" />
-            <span className="action-label">{treeHidden ? 'Show tree' : 'Hide tree'}</span>
-          </button>
-          <button type="button" className="button ghost" aria-expanded={helpOpen} aria-controls="shortcuts" onClick={() => setHelpOpen((o) => !o)} title="Keys">
-            <Icon name="keyboard" />
-            <span className="action-label">Keys</span>
-          </button>
+          <Tip label={treeHidden ? 'Show tree' : 'Hide tree'} onlyIfLabelHidden>
+            <button type="button" className="button ghost" aria-expanded={!treeHidden} aria-controls="repository-tree" onClick={toggleTree}>
+              <Icon name="tree" />
+              <span className="action-label">{treeHidden ? 'Show tree' : 'Hide tree'}</span>
+            </button>
+          </Tip>
+          <Tip label="Keys" shortcut="?" onlyIfLabelHidden>
+            <button type="button" className="button ghost" aria-expanded={helpOpen} aria-controls="shortcuts" onClick={() => setHelpOpen((o) => !o)}>
+              <Icon name="keyboard" />
+              <span className="action-label">Keys</span>
+            </button>
+          </Tip>
           {DEMO && (
             // Static demo builds (ADR-044, ADR-047) point visitors at running ATLAS on their own code.
             <a className="button accent" href={OWN_REPOSITORY_GUIDE} target="_blank" rel="noopener noreferrer">
