@@ -138,8 +138,13 @@ try {
     const meta = await downloadMetadata();
     const ranges = githubRanges(meta);
     const rules = readFileSync(path.join(production, 'worker-egress.nft'), 'utf8') + '\n' + refreshBatch(meta);
-    docker(['run', '--rm', '--network=none', '--cap-add=NET_ADMIN', validationImage, 'nft', '--check', '--file', '-'], { input: rules });
-    return { githubIpv4Ranges: ranges.ipv4.length, githubIpv6Ranges: ranges.ipv6.length };
+    // `-i` attaches stdin: without it the container reads an empty file and `nft --check`
+    // passes whatever the rules say. A broken batch must fail, so the check is not vacuous.
+    const check = ['run', '--rm', '-i', '--network=none', '--cap-add=NET_ADMIN', validationImage, 'nft', '--check', '--file', '-'];
+    docker(check, { input: rules });
+    assert.throws(() => docker(check, { input: `${rules}\nadd element inet atlas_egress github4 { not-an-address }\n`, stdio: ['pipe', 'pipe', 'pipe'] }),
+      'nft --check must reject an invalid batch');
+    return { githubIpv4Ranges: ranges.ipv4.length, githubIpv6Ranges: ranges.ipv6.length, rejectsInvalidBatch: true };
   });
   await step('systemd validates the shipped worker and firewall units', () => {
     docker(['run', '--rm', '--network=none', '--mount', `type=bind,source=${prodMount},target=/production,readonly`, validationImage, 'sh', '-ec',

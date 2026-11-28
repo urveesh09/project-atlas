@@ -27,6 +27,8 @@ import {
   topExtent,
   treeGeometry,
   vehicleGeometry,
+  withPaintMask,
+  VEHICLE_KINDS,
   boatGeometry,
   BOAT_PAINTS,
   type Circuit,
@@ -37,8 +39,8 @@ import { mistTexture, sceneryGeometry, skyDome } from './atmosphere';
 import { circuitMaterial, cloudLayer, foliageMaterial, roadMarkMaterial, waterMaterial, type Clock } from './living';
 import { OCCLUDER_STRIDE, occlusionGrid, type OcclusionGrid } from './occlusion';
 import { OcclusionBaker, type BakeWorker } from './baker';
-import { loadRooms, loadWalls, neutralRooms, neutralWalls } from './walls';
-import { COVER, PAVE, detailTexture, fieldUniforms, withCover, withOcclusion, withPaving, withTiles, type FieldUniforms, type PavingStyle } from './shading';
+import { loadRooms, loadSurfaces, loadWalls, neutralRooms, neutralSurfaces, neutralWalls } from './walls';
+import { COVER, PAVE, detailTexture, fieldUniforms, withCover, withOcclusion, withPaving, withTiles, type FieldUniforms, type PavingStyle, type SurfaceUniforms } from './shading';
 
 const center = (r: Rect) => new THREE.Vector3((r.x + r.width / 2) / 100, 0, (r.z + r.depth / 2) / 100);
 const color = new THREE.Color();
@@ -52,6 +54,22 @@ const BODY_BASE = 0.06;
 const SUN = new THREE.Vector3(-30, 80, 50);
 /** Rendered pixels per world unit from which parked vehicles are drawn. */
 const VEHICLE_SCALE = 5;
+
+/**
+ * Split cars across the car models, about half sedans, 30% SUVs and 20% hatchbacks (ADR-107).
+ * The choice depends only on a car's place in the seeded list, so a city always draws the same.
+ */
+function byVehicleKind<T>(cars: readonly T[]): [number, T[]][] {
+  const groups = new Map<number, T[]>();
+  cars.forEach((car, i) => {
+    const roll = Math.imul(i + 1, 2654435761) >>> 0;
+    const kind = Math.min(VEHICLE_KINDS - 1, [0, 0, 0, 0, 0, 1, 1, 1, 2, 2][roll % 10]!);
+    const group = groups.get(kind);
+    if (group) group.push(car);
+    else groups.set(kind, [car]);
+  });
+  return [...groups].sort((a, b) => a[0] - b[0]);
+}
 /** Cinematic lens and camera feel. */
 const FOV = 42;
 const FLIGHT_MS = 650;
@@ -221,8 +239,9 @@ export class CityRenderer {
   private districtMesh: THREE.InstancedMesh | null = null;
   private marks: ReadonlyMap<string, string> = new Map();
   private readonly decorations: THREE.InstancedMesh[] = [];
-  private vehicles: THREE.InstancedMesh | null = null;
-  private traffic: THREE.InstancedMesh | null = null;
+  /** Parked and moving cars, one batch per car model (ADR-107). */
+  private readonly vehicles: THREE.InstancedMesh[] = [];
+  private readonly traffic: THREE.InstancedMesh[] = [];
   private roadMarks: THREE.Mesh | null = null;
   private readonly sun: THREE.DirectionalLight;
   private readonly sky: THREE.Mesh | null = null;
@@ -436,6 +455,25 @@ export class CityRenderer {
     // Surface irregularity for the ground and the facades, at full detail only.
     const detail = lite ? null : detailTexture();
     if (detail) this.textures.add(detail);
+    // Baked ground and roof surfaces (ADR-107): flat until loaded, shared by every material
+    // that uses them, so one upload swaps them all.
+    const surfaces: SurfaceUniforms | null = lite ? null : { atlasSurfaces: { value: neutralSurfaces() }, atlasSurfacesReady: { value: 0 } };
+    if (surfaces) {
+      this.textures.add(surfaces.atlasSurfaces.value);
+      loadSurfaces(undefined, this.abort.signal).then(
+        (texture) => {
+          if (this.disposed) return texture.dispose();
+          const previous = surfaces.atlasSurfaces.value;
+          this.textures.add(texture);
+          surfaces.atlasSurfaces.value = texture;
+          surfaces.atlasSurfacesReady.value = 1;
+          this.textures.delete(previous);
+          previous.dispose();
+          this.invalidate();
+        },
+        () => {},
+      );
+    }
     const covered = (g: THREE.BufferGeometry, cover: number) =>
       g.setAttribute('atlasCover', new THREE.BufferAttribute(new Float32Array(g.getAttribute('position').count).fill(cover), 1));
     const slabs: THREE.BufferGeometry[] = [];
@@ -472,7 +510,7 @@ export class CityRenderer {
     for (const p of decor.paths) flat(p.x, p.y, p.z, p.width, p.depth, 0, ground.rootKerb, COVER.sand);
     if (ground.marking) for (const m of decor.markings) flat(m.x, m.y, m.z, m.length, 0.07, m.rotation, ground.marking, COVER.none);
     const groundMaterial = this.ownMaterial(new THREE.MeshLambertMaterial({ vertexColors: true }));
-    if (detail) withCover(groundMaterial, detail);
+    if (detail) withCover(groundMaterial, detail, surfaces);
     if (this.field) withOcclusion(groundMaterial, this.field);
     const groundMesh = new THREE.Mesh(this.ownGeometry(mergeGeometries(slabs)), groundMaterial);
     // Opaque ground draws after the districts and buildings that cover most of it, so its
@@ -541,7 +579,7 @@ export class CityRenderer {
     districtBox.setAttribute('atlasPave', new THREE.InstancedBufferAttribute(paving, 1));
     const districtMaterial = this.ownMaterial(new THREE.MeshLambertMaterial());
     if (this.field) {
-      withPaving(districtMaterial, PAVING[theme], detail!);
+      withPaving(districtMaterial, PAVING[theme], detail!, surfaces);
       withOcclusion(districtMaterial, this.field);
     }
     const districtMesh = this.batch(districtBox, districtMaterial, city.districts.length * 2, 'receive');
@@ -592,12 +630,14 @@ export class CityRenderer {
       return mesh;
     };
     if (!lite) {
-      const foliage = this.ownMaterial(foliageMaterial(this.clock));
+      // Species tint on leaves only: bark keeps its colour (ADR-107).
+      const foliage = this.ownMaterial(withPaintMask(foliageMaterial(this.clock)));
+      const size = new THREE.Vector3();
       this.spec.trees.forEach((kind, k) => {
         const list = decor.trees.filter((t) => t.kind === k);
         const mesh = this.batch(this.ownGeometry(treeGeometry(kind.kind)), foliage, list.length, 'cast');
         list.forEach((t, i) => {
-          mesh.setMatrixAt(i, matrix.makeScale(t.scale, t.scale, t.scale).setPosition(t.x, t.y, t.z));
+          mesh.setMatrixAt(i, matrix.makeRotationY(t.rotation).scale(size.set(t.scale, t.scale * t.stretch, t.scale)).setPosition(t.x, t.y, t.z));
           mesh.setColorAt(i, color.set(kind.tints[t.tint]!));
         });
         this.finish(mesh);
@@ -606,19 +646,23 @@ export class CityRenderer {
       this.decorations.push(place(this.batch(this.ownGeometry(lampGeometry(this.spec.lamp)), coloured(), decor.lamps.length, 'cast'), decor.lamps));
       if (this.spec.vehicles && decor.vehicles.length) {
         const paints = this.spec.vehicles;
-        const cars = this.batch(this.ownGeometry(vehicleGeometry()), coloured(), decor.vehicles.length, 'cast');
-        decor.vehicles.forEach((v, i) => {
-          cars.setMatrixAt(i, matrix.makeRotationY(v.rotation).setPosition(v.x, v.y, v.z));
-          cars.setColorAt(i, color.set(paints[v.tint]!));
-        });
-        this.finish(cars);
-        this.vehicles = cars;
+        // Kenney car models (ADR-107): instance paint tints only each body.
+        const paintable = this.ownMaterial(withPaintMask(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
+        for (const [kind, list] of byVehicleKind(decor.vehicles)) {
+          const cars = this.batch(this.ownGeometry(vehicleGeometry(false, kind)), paintable, list.length, 'cast');
+          list.forEach((v, i) => {
+            cars.setMatrixAt(i, matrix.makeRotationY(v.rotation).setPosition(v.x, v.y, v.z));
+            cars.setColorAt(i, color.set(paints[v.tint]!));
+          });
+          this.finish(cars);
+          this.vehicles.push(cars);
+        }
       }
       // Traffic and boats move in the vertex shader, so their instance matrices stay identity
       // and they are never culled by a bounding volume that does not follow them.
       const circuits = this.ownMaterial(circuitMaterial(this.clock));
-      const circuit = (geometry: THREE.BufferGeometry, list: readonly Circuit[], paints: readonly string[], scale: number, bob: number) => {
-        const mesh = this.batch(this.ownGeometry(geometry.scale(scale, scale, scale)), circuits, list.length);
+      const circuit = (geometry: THREE.BufferGeometry, list: readonly Circuit[], paints: readonly string[], scale: number, bob: number, material = circuits) => {
+        const mesh = this.batch(this.ownGeometry(geometry.scale(scale, scale, scale)), material, list.length);
         const loop = new Float32Array(list.length * 4),
           run = new Float32Array(list.length * 4);
         list.forEach((c, i) => {
@@ -633,7 +677,10 @@ export class CityRenderer {
         mesh.frustumCulled = false;
         return mesh;
       };
-      if (this.spec.vehicles && decor.traffic.length) this.traffic = circuit(vehicleGeometry(true), decor.traffic, this.spec.vehicles, 1, 0);
+      if (this.spec.vehicles && decor.traffic.length) {
+        const driving = this.ownMaterial(withPaintMask(circuitMaterial(this.clock)));
+        for (const [kind, list] of byVehicleKind(decor.traffic)) this.traffic.push(circuit(vehicleGeometry(true, kind), list, this.spec.vehicles, 1, 0, driving));
+      }
       if (decor.boats.length) circuit(boatGeometry(), decor.boats, BOAT_PAINTS, 1.5, 0.03);
     }
     const waters = [...decor.ponds, ...decor.pools];
@@ -706,7 +753,7 @@ export class CityRenderer {
     if (this.field) {
       // Trees and town walls shade the ground around them too; they never move.
       const list: number[] = [];
-      for (const t of decor.trees) list.push(t.x, t.z, 0.2 * t.scale, 0.2 * t.scale, 0.75 * t.scale, 0.35);
+      for (const t of decor.trees) list.push(t.x, t.z, 0.2 * t.scale, 0.2 * t.scale, 0.75 * t.scale * t.stretch, 0.35);
       for (const s of decor.walls) {
         const along = Math.abs(Math.cos(s.rotation)),
           across = Math.abs(Math.sin(s.rotation));
@@ -774,7 +821,7 @@ export class CityRenderer {
           color: role === 'test' ? this.spec.roofs.test : role === 'source' ? this.spec.roofs.source : this.spec.roofs.other,
         }),
       );
-      if (role === 'source' && !lite) withTiles(roofMaterial, this.spec.sourceRoof === 'pavilion' ? 40 : 30, this.spec.sourceRoof === 'pavilion' ? 56 : 44);
+      if (role === 'source' && !lite) withTiles(roofMaterial, this.spec.sourceRoof === 'pavilion' ? 40 : 30, this.spec.sourceRoof === 'pavilion' ? 56 : 44, surfaces);
       const roof = this.batch(this.ownGeometry(shape), roofMaterial, capacity, 'both');
       roof.count = 0;
       this.roofs.set(role, roof);
@@ -1366,8 +1413,7 @@ export class CityRenderer {
     // Below ~1.5 px per cell trees are speckle; the facade shader fades windows by itself.
     for (const mesh of this.decorations) mesh.visible = rendered >= 1.5;
     // A car is under two pixels long below this scale: hundreds of sub-pixel triangles for a speck.
-    if (this.vehicles) this.vehicles.visible = rendered >= VEHICLE_SCALE;
-    if (this.traffic) this.traffic.visible = rendered >= VEHICLE_SCALE;
+    for (const cars of [...this.vehicles, ...this.traffic]) cars.visible = rendered >= VEHICLE_SCALE;
     if (this.roadMarks) this.roadMarks.visible = rendered >= 2.5;
     const shadowFrame = this.shadowsOn && this.shadowDirty;
     if (shadowFrame) {

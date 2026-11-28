@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { downloadBlob } from '../city/export';
 import { MARK_COLOURS, MARK_COLOUR_KEYS, NOTE_LIMITS, mergeAnnotations, parseNotesFile, serializeNotes, type Annotation, type MarkColour } from '../app/annotations';
 import { Icon } from './Icon';
-import { MenuSummary } from './MenuSummary';
+import { CityMenu } from './CityMenu';
 
 /**
  * The Notes menu (ADR-053): mark the selected folder or package with a colour and a note,
@@ -31,9 +31,7 @@ export function NotesMenu(props: {
     setStatus(message);
   };
   return (
-    <details className="city-views city-notes">
-      <MenuSummary icon="note" label={`Notes${notes.length ? ` (${notes.length})` : ''}`} badge={notes.length ? String(notes.length) : null} />
-      <div className="city-views-panel">
+    <CityMenu name="notes" icon="note" label={`Notes${notes.length ? ` (${notes.length})` : ''}`} badge={notes.length ? String(notes.length) : null}>
         {target ? (
           <form
             onSubmit={(e) => {
@@ -131,7 +129,6 @@ export function NotesMenu(props: {
           </p>
         )}
         <p className="city-views-empty">Notes stay in this browser until you export them. They never leave it otherwise.</p>
-      </div>
-    </details>
+    </CityMenu>
   );
 }

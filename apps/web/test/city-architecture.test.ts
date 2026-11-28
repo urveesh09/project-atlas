@@ -237,7 +237,15 @@ describe.each(CITY_THEMES)('decorative city architecture: %s', (theme) => {
     expect(decor.bridges.length).toBe(decor.ponds.length);
     if (spec.ponds === 0) expect(decor.ponds.length + decor.lotus.length).toBe(0);
     expect(decor.markings.length > 0).toBe(spec.ground.marking !== null);
-    for (const t of decor.trees) expect(t.kind).toBeLessThan(spec.trees.length);
+    for (const t of decor.trees) {
+      expect(t.kind).toBeLessThan(spec.trees.length);
+      // Each tree turns and stretches by its place (ADR-107), so no two neighbours look copied.
+      expect(t.rotation).toBeGreaterThanOrEqual(0);
+      expect(t.rotation).toBeLessThan(Math.PI * 2);
+      expect(t.stretch).toBeGreaterThanOrEqual(0.88);
+      expect(t.stretch).toBeLessThanOrEqual(1.12);
+    }
+    expect(new Set(decor.trees.map((t) => t.rotation.toFixed(2))).size).toBeGreaterThan(decor.trees.length / 2);
     const clear = (x: number, z: number, margin: number) => {
       for (const p of geometry.plots) {
         const inside =
@@ -474,6 +482,37 @@ describe('town walls', () => {
     const xs = new Set(decor.corners.map((c) => Math.round((c.x - 0.3) * 100)));
     expect(xs.has(59 % 10 * 2000)).toBe(true);
     expect(decor).toEqual(cityDecor(many, 'western'));
+  });
+});
+
+describe('tree cap', () => {
+  it('counts planting places, so thinning keeps half the trees even past the cap', () => {
+    // 1,000 packages offer about 16,000 planting places, twice the 8,000-place cap. Before
+    // thinning the cap was reached at 8,000 trees; counting kept trees instead of places
+    // would let 8,000 finer trees through and shift every later decoration (ADR-107).
+    const root = { x: 0, z: 0, width: 40_000, depth: 100_000 };
+    const large: CityData = {
+      ...city,
+      root,
+      rootPlots: [],
+      districts: [
+        { id: `dst_${'f'.repeat(64)}`, rect: root, depth: 0, path: '', nodeId: null, kind: 'repository', label: '' },
+        ...Array.from({ length: 1_000 }, (_, i) => ({
+          id: `dst_${i.toString(16).padStart(64, '0')}`,
+          rect: { x: (i % 20) * 2000, z: Math.floor(i / 20) * 2000, width: 1500, depth: 1500 },
+          depth: 1,
+          path: `packages/p${i}`,
+          nodeId: null,
+          kind: 'package' as const,
+          label: `p${i}`,
+        })),
+      ],
+    };
+    for (const theme of CITY_THEMES) {
+      const trees = cityDecor(large, theme).trees.length;
+      expect(trees).toBeGreaterThan(8_000 * 0.45);
+      expect(trees).toBeLessThan(8_000 * 0.55);
+    }
   });
 });
 

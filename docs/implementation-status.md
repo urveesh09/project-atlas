@@ -36,6 +36,18 @@ Agents: read [AGENTS.md](../AGENTS.md).
 
 ### City realism pass (2026-11-12)
 
+- [ADR-107](adr/ADR-107-menus-tooltips-cars-surfaces.md), 2026-11-24: Radix city menus and
+  tooltips, Escape and type-ahead fixed around open layers, Kenney car models (640
+  triangles each), half as many trees rebuilt with limbs and lobed crowns (each style's
+  tree triangles at or below main's), baked paving, asphalt and roof tiles, and a
+  non-vacuous nft check in the
+  production rehearsal. Evidence (2026-11-28, Windows, Node 24.22.1): `pnpm verify` with
+  browser tests (100 files, 1,136 tests passed, 95 skipped); viewer journeys 64/64 in
+  Chromium, Firefox and WebKit; demo-site check clean; `verify:distribution` 26/26 stages.
+  GT 730 captures in every city style compile without errors at the 16.7 ms frame cap.
+  Two failures were fixed and retested:
+  - the Firefox asset allow-list lacked the new texture;
+  - the tree cap counted kept trees instead of planting places.
 - [ADR-106](adr/ADR-106-radix-dropdowns.md), 2026-11-21: all 19 viewer dropdowns use one
   Radix UI `Select` (MIT); the city menus open inward when they would be clipped. Evidence:
   `pnpm verify` with browser tests on Windows (99 files, 1128 tests passed, 95 skipped),

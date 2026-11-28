@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import wallsUrl from '../assets/facade-walls.jpg';
 import roomsUrl from '../assets/facade-rooms.jpg';
+import surfacesUrl from '../assets/surface-detail.jpg';
 
 /**
  * Baked wall materials (ADR-103): render, brick, precast concrete, metal cladding and ashlar,
@@ -17,9 +18,40 @@ export const WALL_TILE = [0.3, 0.25, 0.3, 0.2, 0.3] as const;
 
 /** Flat, unchanged walls: what the facade shows until the baked texture arrives. */
 export function neutralWalls(): THREE.DataArrayTexture {
-  const texture = new THREE.DataArrayTexture(new Uint8Array(4 * WALL_LAYERS).fill(128), 1, 1, WALL_LAYERS);
+  return neutralLayers(WALL_LAYERS);
+}
+
+/** Flat, unchanged layers (brightness 1, normal straight out) of any baked set. */
+function neutralLayers(layers: number): THREE.DataArrayTexture {
+  const texture = new THREE.DataArrayTexture(new Uint8Array(4 * layers).fill(128), 1, 1, layers);
   texture.needsUpdate = true;
   return texture;
+}
+
+/**
+ * Baked ground and roof surfaces (ADR-107), the same format as the walls, from CC0 ambientCG
+ * materials: plaza pavers for each city style (modern concrete blocks, eastern flagstones,
+ * western cobbles), street asphalt and clay roof tiles.
+ */
+export const SURFACE_LAYERS = 5;
+export const SURFACE = { plazaModern: 0, plazaEastern: 1, plazaWestern: 2, asphalt: 3, roof: 4 } as const;
+/**
+ * Size of each surface layer's tile in world units (a storey is 0.3). Ground is drawn at the
+ * city's own stylised scale, as its procedural paving was (5 m plaza slabs, cobbles of about
+ * 1.5 m), not at true scale: true-size pavers average away at the distances the city is
+ * seen from, while at this scale they read as paving (ADR-107). The roof layer is tiled by
+ * courses instead (shading.ts).
+ */
+export const SURFACE_TILE = [2.0, 1.8, 1.4, 0.5, 0.29] as const;
+
+/** Flat surfaces: what the ground and roofs show until the baked texture arrives. */
+export function neutralSurfaces(): THREE.DataArrayTexture {
+  return neutralLayers(SURFACE_LAYERS);
+}
+
+/** Fetch and decode the baked surfaces. Rejects where the browser cannot decode an image off-screen. */
+export function loadSurfaces(url: string = surfacesUrl, signal?: AbortSignal): Promise<THREE.DataArrayTexture> {
+  return loadLayers(url, SURFACE_LAYERS, signal);
 }
 
 /**
@@ -46,17 +78,22 @@ export function wallTexture(rgba: Uint8Array | Uint8ClampedArray, size: number, 
 }
 
 /** Fetch and decode the baked walls. Rejects where the browser cannot decode an image off-screen. */
-export async function loadWalls(url: string = wallsUrl, signal?: AbortSignal): Promise<THREE.DataArrayTexture> {
+export function loadWalls(url: string = wallsUrl, signal?: AbortSignal): Promise<THREE.DataArrayTexture> {
+  return loadLayers(url, WALL_LAYERS, signal);
+}
+
+/** Fetch one baked set (layers stacked top to bottom) into an array texture. */
+async function loadLayers(url: string, layers: number, signal?: AbortSignal): Promise<THREE.DataArrayTexture> {
   // Raw bytes: no colour management, since the channels are data, not colour.
   const bitmap = await fetchBitmap(url, signal, 'none');
   try {
     const size = bitmap.width;
-    if (bitmap.height !== size * WALL_LAYERS) throw new Error(`walls: unexpected size ${bitmap.width}×${bitmap.height}`);
+    if (bitmap.height !== size * layers) throw new Error(`baked layers: unexpected size ${bitmap.width}×${bitmap.height}`);
     const canvas = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(size, bitmap.height) : Object.assign(document.createElement('canvas'), { width: size, height: bitmap.height });
     const context = canvas.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
-    if (!context) throw new Error('walls: no 2D context');
+    if (!context) throw new Error('baked layers: no 2D context');
     context.drawImage(bitmap, 0, 0);
-    return wallTexture(context.getImageData(0, 0, size, bitmap.height).data, size);
+    return wallTexture(context.getImageData(0, 0, size, bitmap.height).data, size, layers);
   } finally {
     bitmap.close();
   }

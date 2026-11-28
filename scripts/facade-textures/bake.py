@@ -2,7 +2,7 @@
 
 Run with Blender 5.3 (any 4.2+ should work):
 
-    blender -b --factory-startup -P scripts/facade-textures/bake.py -- --src <maps> --out <dir> [--res 512] [--threads 3]
+    blender -b --factory-startup -P scripts/facade-textures/bake.py -- --src <maps> --out <dir> [--set walls|surfaces] [--res 512] [--threads 3]
 
 `<maps>/<id>/` holds Poly Haven's 1k `diff.jpg`, `nor_gl.jpg` and `disp.jpg` for every id in
 LAYERS (README.md lists where each comes from). For each material this builds one tile of
@@ -21,16 +21,28 @@ import sys
 import bpy
 import numpy as np
 
-# Order is the facade shader's wall material index (architecture.ts):
-# 0 render/plaster, 1 brick, 2 precast concrete, 3 metal cladding, 4 ashlar stone.
-# (Poly Haven id, tile size in metres, relief depth in metres, normal-map strength, AO distance in metres)
-LAYERS = [
-    ("beige_wall_001", 3.0, 0.003, 0.6, 0.02),
-    ("red_bricks_04", 2.5, 0.015, 0.35, 0.04),
-    ("concrete_wall_003", 3.0, 0.004, 0.5, 0.02),
-    ("metal_plate_02", 2.0, 0.005, 0.4, 0.03),
-    ("sandstone_blocks_05", 3.0, 0.025, 0.35, 0.06),
-]
+# Two sets, each in its viewer layer order.
+# (source id, tile size in metres, relief depth in metres, normal-map strength, AO distance in metres)
+SETS = {
+    # The facade shader's wall material index (architecture.ts): 0 render/plaster, 1 brick,
+    # 2 precast concrete, 3 metal cladding, 4 ashlar stone. Poly Haven (CC0).
+    "walls": [
+        ("beige_wall_001", 3.0, 0.003, 0.6, 0.02),
+        ("red_bricks_04", 2.5, 0.015, 0.35, 0.04),
+        ("concrete_wall_003", 3.0, 0.004, 0.5, 0.02),
+        ("metal_plate_02", 2.0, 0.005, 0.4, 0.03),
+        ("sandstone_blocks_05", 3.0, 0.025, 0.35, 0.06),
+    ],
+    # Ground and roofs (ADR-107, surfaces.ts): 0 modern plaza pavers, 1 eastern flagstones,
+    # 2 western cobbles, 3 street asphalt, 4 clay roof tiles. ambientCG (CC0).
+    "surfaces": [
+        ("PavingStones136", 2.0, 0.006, 0.5, 0.03),
+        ("PavingStones128", 3.5, 0.01, 0.4, 0.04),
+        ("PavingStones070", 1.15, 0.02, 0.35, 0.04),
+        ("Asphalt023S", 1.25, 0.003, 0.6, 0.01),
+        ("RoofingTiles013A", 2.9, 0.03, 0.35, 0.06),
+    ],
+}
 MARGIN = 0.15  # of a tile, on every side
 STEPS = 384  # grid quads per tile edge
 
@@ -43,7 +55,17 @@ def args():
     p.add_argument("--res", type=int, default=512)
     p.add_argument("--threads", type=int, default=3)
     p.add_argument("--only", default="")
+    p.add_argument("--set", default="walls", choices=sorted(SETS))
     return p.parse_args(argv)
+
+
+def source(folder, kind):
+    """A map in Poly Haven naming (diff/nor_gl/disp.jpg) or ambientCG's (<id>_1K-JPG_Color...)."""
+    names = {"diff": ("diff.jpg", "_Color.jpg"), "nor": ("nor_gl.jpg", "_NormalGL.jpg"), "disp": ("disp.jpg", "_Displacement.jpg")}[kind]
+    for f in sorted(os.listdir(folder)):
+        if f == names[0] or f.endswith(names[1]):
+            return os.path.join(folder, f)
+    raise FileNotFoundError(f"{folder}: no {kind} map")
 
 
 def load(path, colour):
@@ -188,14 +210,14 @@ def main():
     cam.data.type = "ORTHO"
     cam.data.clip_start, cam.data.clip_end = 0.01, 100
     cam.location = (0, 0, 10)
-    for pid, size, depth, strength, distance in LAYERS:
+    for pid, size, depth, strength, distance in SETS[o.set]:
         if o.only and pid not in o.only.split(","):
             continue
         folder = os.path.join(o.src, pid)
-        diff = load(os.path.join(folder, "diff.jpg"), True)
-        nor = load(os.path.join(folder, "nor_gl.jpg"), False)
-        disp = pixels(load(os.path.join(folder, "disp.jpg"), False))[:, :, 0]
-        # Poly Haven heights use a narrow, varying slice of 0..1; stretch it so `depth` is the
+        diff = load(source(folder, "diff"), True)
+        nor = load(source(folder, "nor"), False)
+        disp = pixels(load(source(folder, "disp"), False))[:, :, 0]
+        # Height maps use a narrow, varying slice of 0..1; stretch it so `depth` is the
         # real relief from joint to face.
         lo, hi = np.percentile(disp, [1, 99])
         disp = np.clip((disp - lo) / max(hi - lo, 1e-4), 0, 1)

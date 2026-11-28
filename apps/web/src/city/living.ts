@@ -305,15 +305,29 @@ export function foliageMaterial(time: Clock): THREE.MeshLambertMaterial {
         `#include <begin_vertex>
 #ifdef USE_INSTANCING
   vec3 atlasRoot = instanceMatrix[3].xyz;
+  // The wind blows one way across the city: carry it into each turned tree's own frame
+  // (transpose of the turn, divided by the squared width scale), so turning never changes it.
+  vec3 atlasWind = (vec4(1.0, 0.0, 0.55, 0.0) * instanceMatrix).xyz / dot(instanceMatrix[0].xyz, instanceMatrix[0].xyz);
 #else
   vec3 atlasRoot = vec3(0.0);
+  vec3 atlasWind = vec3(1.0, 0.0, 0.55);
 #endif
   float atlasBend = max(position.y - 0.18, 0.0);
   float atlasSway = sin(time * 1.25 + atlasRoot.x * 0.71 + atlasRoot.z * 0.93) * 0.05 + sin(time * 2.9 + atlasRoot.x * 1.7) * 0.012;
-  transformed.x += atlasSway * atlasBend;
-  transformed.z += atlasSway * 0.55 * atlasBend;`,
+  transformed += atlasWind * atlasSway * atlasBend;`,
       );
+    // Leaves scatter light, so sunlight wraps past a crown's terminator instead of stopping
+    // at a hard edge (ADR-107).
+    shader.fragmentShader = shader.fragmentShader.replace('#include <lights_lambert_pars_fragment>', WRAPPED_LAMBERT);
   };
-  material.customProgramCacheKey = () => 'atlas-foliage-1';
+  material.customProgramCacheKey = () => 'atlas-foliage-3';
   return material;
 }
+
+const LAMBERT_TERM = 'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );';
+if (!THREE.ShaderChunk.lights_lambert_pars_fragment.includes(LAMBERT_TERM)) throw new Error('three.js lights_lambert_pars_fragment changed: review foliageMaterial');
+/** Lambert lighting wrapped by 0.35: soft, leafy light on foliage. */
+const WRAPPED_LAMBERT = THREE.ShaderChunk.lights_lambert_pars_fragment.replace(
+  LAMBERT_TERM,
+  'float dotNL = saturate( ( dot( geometryNormal, directLight.direction ) + 0.35 ) / 1.35 );',
+);

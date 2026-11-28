@@ -1,6 +1,6 @@
 """Pack the baked facade passes into the viewer's wall texture (ADR-103).
 
-    python scripts/facade-textures/pack.py <bake dir> apps/web/src/assets/facade-walls.jpg [--compare]
+    python scripts/facade-textures/pack.py <bake dir> apps/web/src/assets/facade-walls.jpg [--set walls|surfaces] [--compare]
 
 Needs numpy and Pillow (WebP and AVIF only for --compare). Reads `<id>_{albedo,normal,ao}.npy` written by bake.py and
 writes one RGB image of the five layers stacked top to bottom (layer 0 at the top), each a
@@ -23,14 +23,23 @@ import sys
 import numpy as np
 from PIL import Image
 
-# Same order as bake.py LAYERS; per-layer brightness contrast.
-LAYERS = [
-    ("beige_wall_001", 3.0),
-    ("red_bricks_04", 0.7),
-    ("concrete_wall_003", 0.6),
-    ("metal_plate_02", 0.8),
-    ("sandstone_blocks_05", 0.75),
-]
+# Same sets and order as bake.py SETS; per-layer brightness contrast.
+SETS = {
+    "walls": [
+        ("beige_wall_001", 3.0),
+        ("red_bricks_04", 0.7),
+        ("concrete_wall_003", 0.6),
+        ("metal_plate_02", 0.8),
+        ("sandstone_blocks_05", 0.75),
+    ],
+    "surfaces": [
+        ("PavingStones136", 0.8),
+        ("PavingStones128", 0.55),
+        ("PavingStones070", 0.8),
+        ("Asphalt023S", 1.0),
+        ("RoofingTiles013A", 1.0),
+    ],
+}
 
 
 def blur(a, sigma):
@@ -77,6 +86,7 @@ def main():
     if sys.argv[1] == "--rooms":
         return rooms(sys.argv[2], sys.argv[3])
     src, dest = sys.argv[1], sys.argv[2]
+    LAYERS = SETS[sys.argv[sys.argv.index("--set") + 1] if "--set" in sys.argv else "walls"]
     tiles = [layer(src, pid, c) for pid, c in LAYERS]
     atlas = np.concatenate(tiles, 0)
     for (pid, _), t in zip(LAYERS, tiles):
